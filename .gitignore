@@ -214,5 +214,14 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Thesis case workspace.
+# Real student theses, code submissions, notes, extracted text, and generated feedback live
+# under cases/ for convenience, but must not enter git history.
+/cases/*
+!/cases/README.md
+
+# Codex hook bytecode
+/.codex/hooks/__pycache__/
+
 # Streamlit
 .streamlit/secrets.toml

@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/new-case CASE_ID [WORK_TYPE] [ROUND_LABEL]
+
+Creates a local gitignored thesis case under cases/ and starts its first round.
+
+Examples:
+  scripts/new-case novak-bp-2026 BP first-review
+  scripts/new-case dp-semantic-search DP
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+  usage >&2
+  exit 2
+fi
+
+case_id="$1"
+work_type="${2:-unknown}"
+round_label="${3:-round-01}"
+
+if [[ ! "$case_id" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+  echo "Invalid CASE_ID. Use only letters, numbers, dot, underscore, and dash." >&2
+  exit 2
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_dir="$repo_root/cases/$case_id"
+
+replace_field() {
+  local file="$1"
+  local field="$2"
+  local value="$3"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v field="$field" -v value="$value" '
+    index($0, field ":") == 1 { print field ": " value; next }
+    { print }
+  ' "$file" > "$tmp"
+  mv "$tmp" "$file"
+}
+
+if [[ -e "$case_dir" ]]; then
+  echo "Case already exists: cases/$case_id" >&2
+  exit 1
+fi
+
+mkdir -p "$case_dir/rounds"
+cp "$repo_root/templates/case-notes.md" "$case_dir/case.md"
+replace_field "$case_dir/case.md" "Case ID" "$case_id"
+replace_field "$case_dir/case.md" "Work type" "$work_type"
+replace_field "$case_dir/case.md" "Deadline mode" "standard"
+
+"$repo_root/scripts/import-round" "$case_id" "$round_label"
+
+echo "Created case: cases/$case_id"
+echo "Current round: $(cat "$case_dir/current-round.txt")"

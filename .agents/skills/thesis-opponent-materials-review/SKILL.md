@@ -1,0 +1,62 @@
+---
+name: thesis-opponent-materials-review
+description: Review and harden generated internal opponent materials before the opponent writes the final BP/DP report.
+---
+
+# Thesis Opponent Materials Review
+
+Use this skill after `oponent_podklady.md` has been generated. The output is still internal preparation material, not the final opponent report.
+
+## Inputs
+
+Use the active round:
+
+```text
+cases/<case-id>/rounds/<round-id>/
+  notes/assignment.md
+  work/oponent_podklady_draft.md
+  outputs/oponent_podklady.md
+  inputs/
+  extracted/
+  notes/
+```
+
+If both draft and output files exist, review the draft unless the user explicitly says otherwise.
+
+## Review Checks
+
+1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment context instead of reviewing/generating the final output.
+2. Re-check all P0/P1 risks and grade-impacting statements against available thesis, code, README, results, assignment, and notes.
+3. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
+4. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
+5. Verify that assignment fulfillment is assessed point by point.
+6. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
+7. Keep strengths concrete and evidence-backed.
+8. Check that proposed defense questions are fair, answerable, and tied to important issues.
+9. Keep grading calibration as intervals and rationale, not false precision.
+
+## Output
+
+Write the hardened internal material to `outputs/oponent_podklady_revidovane.md`.
+
+Use this structure:
+
+```markdown
+# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+## 2. Strucna mapa prace
+## 3. Splneni zadani
+## 4. Technicke jadro prace vysvetlene oponentovi
+## 5. Mapa textu, kodu a artefaktu
+## 6. Evidence ledger: hlavni tvrzeni a opora
+## 7. Silne stranky
+## 8. Hlavni rizika a nedostatky
+## 9. Pokryti polozek IS a navrhy formulaci
+## 10. Technicka spravnost a realizacni vystup
+## 11. Experimenty, vysledky a reprodukovatelnost
+## 12. Text, struktura, formalni stranka a literatura
+## 13. Orientacni kalibrace hodnoceni
+## 14. Navrhy otazek k obhajobe
+## 15. Rucni kontroly pred napsanim posudku
+```
