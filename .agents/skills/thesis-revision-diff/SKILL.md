@@ -33,6 +33,10 @@ If the user does not name rounds, compare the newest round with the previous one
 
 Use structured tools when available: `diff`, `git diff --no-index`, file lists, README/config inspection, and targeted text search. Do not rely on vague impressions when files are available.
 
+## Review Loop
+
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback, `thesis-supervisor-feedback-review` must re-check the previous-feedback status before using it; that certifies only the findings used in student-facing feedback, not the whole standalone artifact.
+
 ## Output
 
 Write `outputs/revision_diff.md` in the newer round:
@@ -54,6 +58,8 @@ Write `outputs/revision_diff.md` in the newer round:
 ## Code / Artifact Changes
 
 ## New Risks
+
+## Review Status
 
 ## Items Requiring Manual Check
 ```

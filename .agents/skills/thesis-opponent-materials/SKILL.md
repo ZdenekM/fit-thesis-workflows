@@ -51,7 +51,7 @@ cases/<case-id>/rounds/<round-id>/
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-13. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
+13. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different reviewer agent or reviewer role run that review pass.
 
 ## When Using Agents
 
@@ -62,7 +62,7 @@ For a large opponent review, split reviewer agents by role:
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - literature/citation relevance, source availability, and claim support,
 - evidence labels, severity, and grading calibration,
-- synthesis into `outputs/oponent_podklady.md` or `outputs/oponent_podklady_revidovane.md`.
+- synthesis into draft `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, followed by review into `outputs/oponent_podklady_revidovane.md`.
 
 The synthesis step must integrate findings into one coherent operator artifact.
 
@@ -75,7 +75,7 @@ The synthesis step must integrate findings into one coherent operator artifact.
 
 ## Output
 
-Write `outputs/oponent_podklady.md`. If you intentionally split generation and review, put the first draft in `work/oponent_podklady_draft.md` and let the review pass write `outputs/oponent_podklady_revidovane.md`.
+Write `outputs/oponent_podklady.md` for the first generated materials. Agent-generated drafts should preferably go to `work/oponent_podklady_draft.md`; the review pass writes `outputs/oponent_podklady_revidovane.md`.
 
 ```markdown
 # Podklady pro oponentsky posudek

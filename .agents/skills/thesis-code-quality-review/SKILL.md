@@ -59,6 +59,10 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 - `P2`: useful maintainability, documentation, or testability improvement.
 - `P3`: minor style/readability issue; include only if repeated or representative.
 
+## Review Loop
+
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback or opponent materials, the downstream synthesis review must re-check the important findings before using them; that certifies only the findings used in the synthesis, not the whole standalone artifact.
+
 ## Output
 
 Write `outputs/code_quality_review.md` when used as a standalone artifact:
@@ -86,6 +90,8 @@ Write `outputs/code_quality_review.md` when used as a standalone artifact:
 ## README, build a vyvojarska dokumentace
 
 ## Komentare, citelnost a udrzovatelnost
+
+## Review Status
 
 ## Rucni kontroly
 ```

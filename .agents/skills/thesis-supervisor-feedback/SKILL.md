@@ -54,7 +54,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 12. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
 13. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
 14. Prioritize issues by impact on current phase. Do not list every possible improvement.
-15. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+15. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different reviewer agent or reviewer role run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
 
 ## Supervisor Notes Handling
 
@@ -92,7 +92,7 @@ For a large round, split reviewer agents by role:
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - evidence and priority calibration,
-- synthesis into the final `outputs/feedback_student.md`.
+- synthesis into draft `work/feedback_student_draft.md`, followed by review into `outputs/feedback_student.md`.
 
 The synthesis step must integrate findings into the student-facing artifact. Do not leave the user with separate reviewer notes only.
 
@@ -118,7 +118,7 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 
 ## Output
 
-Write `outputs/feedback_student.md` in the configured student feedback language. If you intentionally split generation and review, put the first draft in `work/feedback_student_draft.md` and let the review pass write `outputs/feedback_student.md`.
+Write `outputs/feedback_student.md` in the configured student feedback language. Agent-generated drafts go first to `work/feedback_student_draft.md`; the review pass writes `outputs/feedback_student.md`.
 
 For `cs`, use Czech headings with diacritics and write Czech text with diacritics. Do not use ASCII-only Czech headings:
 

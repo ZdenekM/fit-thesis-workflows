@@ -41,6 +41,10 @@ Review the report as a report, not as the student's thesis. Check:
 
 Do not soften the report automatically. The goal is accuracy, fairness, evidence, and consistency.
 
+## Review Loop
+
+This skill is the independent review pass for a human-drafted opponent report. If an agent later rewrites the report text itself, run this review again on the rewritten draft before treating the report as sendable.
+
 ## Output
 
 Write `outputs/feedback_k_posudku.md`:

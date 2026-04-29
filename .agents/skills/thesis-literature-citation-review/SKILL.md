@@ -59,6 +59,10 @@ for example `work/literature/`.
 - When recommending new literature in supervisor mode, explain the thesis gap it would address.
 - When summarizing into student-facing feedback, include only phase-appropriate action items and avoid exposing internal download/cache paths.
 
+## Review Loop
+
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback or opponent materials, the downstream synthesis review must re-check source availability, claim support, and priority calibration before using it; that certifies only the findings used in the synthesis, not the whole standalone artifact.
+
 ## Output
 
 Write `outputs/literature_citation_review.md`:
@@ -90,6 +94,8 @@ Write `outputs/literature_citation_review.md`:
 Use this section only for supervisor mode or when an opponent needs to record a
 missing-area risk. Separate new-source suggestions from already-cited-source
 relevance checks.
+
+## Review Status
 
 ## Manual Checks
 ```

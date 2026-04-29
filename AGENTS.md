@@ -77,19 +77,31 @@ When the user asks to use agents, give them enough time. For large thesis/code r
 
 The final output must integrate findings into the requested artifact, not just list reviewer comments.
 
+## Generated Artifact Review Loop
+
+Any agent-generated Markdown artifact under `outputs/` must pass an independent review loop before it is treated as sendable output or final operator evidence. The loop terminates when a different reviewer agent or reviewer role checks the draft or evidence and either writes the reviewed target artifact or explicitly approves it. Material edits after that review reopen the draft state.
+
+Dedicated review loops:
+
+- supervisor feedback: first draft in `work/feedback_student_draft.md`, then `thesis-supervisor-feedback-review` writes reviewed `outputs/feedback_student.md`;
+- opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
+- opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
+
+Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, and `outputs/literature_citation_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
+
 ## Output Conventions
 
 Default outputs go into the active round:
 
 - supervisor feedback: `outputs/feedback_student.md`
-- supervisor feedback draft, when a separate review pass is useful: `work/feedback_student_draft.md`
+- supervisor feedback draft for agent-generated first passes: `work/feedback_student_draft.md`
 - revision comparison: `outputs/revision_diff.md`
 - code consistency check: `outputs/code_consistency.md`
 - code quality/design review: `outputs/code_quality_review.md`
 - literature/citation review: `outputs/literature_citation_review.md`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
-- opponent materials draft, when a separate review pass is useful: `work/oponent_podklady_draft.md`
+- opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`
 
 Standalone code consistency, code quality, and literature/citation outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.

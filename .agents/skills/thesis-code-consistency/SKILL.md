@@ -48,6 +48,10 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 - If dependencies or data are missing, state that limitation and perform static review.
 - For opponent work, do not turn missing run evidence into a claim that the implementation is non-functional.
 
+## Review Loop
+
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback or opponent materials, the downstream synthesis review must re-check the important findings before using them; that certifies only the findings used in the synthesis, not the whole standalone artifact.
+
 ## Output
 
 Write `outputs/code_consistency.md` when used as a standalone artifact:
@@ -69,6 +73,8 @@ Write `outputs/code_consistency.md` when used as a standalone artifact:
 ## Reprodukovatelnost
 
 ## README / Artefakty / Odevzdani
+
+## Review Status
 
 ## Rucni kontroly
 ```

@@ -66,7 +66,7 @@ date into `case.md` as `Deadline override: YYYY-MM-DD`.
 Then work in chat/Codex by pointing the agent at the case and asking for the relevant artifact, for example:
 
 ```text
-Pouzij skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, udelej i kriticky druhy pruchod podle thesis-supervisor-feedback-review a final uloz do aktualniho roundu.
+Pouzij skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-supervisor-feedback-review a teprve reviewed final uloz do outputs/feedback_student.md.
 ```
 
 ## Case Workspace
@@ -142,6 +142,19 @@ Durable workflow lessons and rationale live in `WORKFLOW_MEMORY.md`; promote
 anything operational from there into the relevant skill, template, README,
 AGENTS, or TODO entry before relying on it as an active rule.
 
+Agent-generated Markdown under `outputs/` is treated as ready only after an
+independent review loop. The loop terminates when a different reviewer agent or
+reviewer role checks the draft/evidence and writes or approves the reviewed
+target artifact; later material edits reopen the draft state. Supervisor
+feedback uses the `thesis-supervisor-feedback` ->
+`thesis-supervisor-feedback-review` loop. Opponent materials use the
+`thesis-opponent-materials` -> `thesis-opponent-materials-review` loop.
+Internal evidence artifacts such as `outputs/revision_diff.md`,
+`outputs/code_consistency.md`, `outputs/code_quality_review.md`, and
+`outputs/literature_citation_review.md` are final standalone evidence only
+after a separate evidence-calibration review or an explicit recorded verdict.
+Downstream synthesis review certifies only the findings used in that synthesis.
+
 When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; make them inspectable under `work/code/` before delegating to read-only reviewers, or record the limitation. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
 
 For thesis text review, use the submitted PDF as the rendered artifact. Use
@@ -186,7 +199,7 @@ scripts/check-supervisor-ready <case-id>
 Use this prompt in Codex:
 
 ```text
-Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, udelej kriticky druhy pruchod a uloz final do outputs/feedback_student.md.
+Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-supervisor-feedback-review a uloz reviewed final do outputs/feedback_student.md.
 ```
 
 Before sending supervisor feedback, validate the configured output-language heading structure:
@@ -200,7 +213,7 @@ This is a deterministic heading/structure guard. Still review the body text lang
 For the first opponent test, use:
 
 ```text
-Pouzij thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, potom thesis-opponent-materials-review. Vystup uloz jako outputs/oponent_podklady_revidovane.md.
+Pouzij thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/oponent_podklady_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-opponent-materials-review a uloz reviewed vystup jako outputs/oponent_podklady_revidovane.md.
 ```
 
 Before committing workflow changes, run the lightweight hygiene checks relevant to the files touched:
