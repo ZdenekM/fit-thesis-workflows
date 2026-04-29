@@ -11,6 +11,18 @@ if [[ -n "$bad_tracked" ]]; then
   exit 1
 fi
 
+bad_profile_tracked="$(
+  git ls-files profiles \
+    | grep -v '^profiles/README.md$' \
+    | grep -v '^profiles/default.md$' \
+    || true
+)"
+if [[ -n "$bad_profile_tracked" ]]; then
+  echo "Private reviewer profiles are tracked by git:" >&2
+  echo "$bad_profile_tracked" >&2
+  exit 1
+fi
+
 sensitive_pattern='\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$'
 sensitive_tracked="$(
   git ls-files \
@@ -46,4 +58,23 @@ if ! git check-ignore -q cases/__privacy_sentinel__/inputs/thesis.pdf; then
   exit 1
 fi
 
-echo "Private case workspace check passed."
+for ignored_profile in \
+  profiles/local/default.md \
+  profiles/local/test.md \
+  profiles/private.md; do
+  if ! git check-ignore -q "$ignored_profile"; then
+    echo "$ignored_profile is not ignored as expected" >&2
+    exit 1
+  fi
+done
+
+for public_profile in \
+  profiles/default.md \
+  profiles/README.md; do
+  if git check-ignore --no-index -q "$public_profile"; then
+    echo "$public_profile should be trackable but is ignored" >&2
+    exit 1
+  fi
+done
+
+echo "Private workspace and reviewer profile check passed."

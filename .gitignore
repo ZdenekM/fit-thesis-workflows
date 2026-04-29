@@ -220,6 +220,13 @@ __marimo__/
 /cases/*
 !/cases/README.md
 
+# Reviewer profile privacy.
+# Only the generic public default is tracked. Personal profiles and local
+# overrides belong under profiles/local/ or another ignored profiles/* path.
+/profiles/*
+!/profiles/README.md
+!/profiles/default.md
+
 # Codex hook bytecode
 /.codex/hooks/__pycache__/
 

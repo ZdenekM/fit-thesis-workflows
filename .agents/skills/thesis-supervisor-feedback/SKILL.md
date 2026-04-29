@@ -29,17 +29,19 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 ## Process
 
 1. Resolve the active case and round.
-2. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, or deadline override. Keep the script output as deadline context for the feedback.
+2. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, deadline override, or valid reviewer profile. Keep the script output as deadline context for the feedback.
 3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
-4. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
-5. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
-6. State review limits before analysis: what was available, what was static-only, and what was not checked.
-7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-8. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
-9. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
-10. Build a short private map:
+4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
+5. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
+6. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
+7. State review limits before analysis: what was available, what was static-only, and what was not checked.
+8. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
+9. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
+10. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
+11. Build a short private map:
    - current thesis phase,
    - supervisor deadline context and time remaining,
+   - reviewer profile preferences that are relevant to this round,
    - assignment coverage,
    - claimed contribution,
    - thesis structure,
@@ -49,9 +51,9 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-11. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-12. Prioritize issues by impact on current phase. Do not list every possible improvement.
-13. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+12. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+13. Prioritize issues by impact on current phase. Do not list every possible improvement.
+14. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
 
 ## Supervisor Notes Handling
 
@@ -212,6 +214,7 @@ Before finishing, verify:
 - tone and strictness match the phase,
 - no unverified claim sounds like a fact,
 - previous feedback was considered without mechanical repetition,
+- reviewer profile preferences were considered without overriding hard workflow rules,
 - supervisor notes were verified and synthesized rather than copied directly,
 - no placeholder date such as `YYYY-MM-DD` remains in the final output,
 - priorities are limited and actionable,

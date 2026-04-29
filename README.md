@@ -69,7 +69,7 @@ Each case can contain multiple rounds:
 cases/<case-id>/
   case.md
   # includes Work type, Academic year, Deadline mode, optional Deadline override,
-  # and Student feedback language: cs / en
+  # Student feedback language: cs / en, and Reviewer profile
   current-round.txt
   rounds/
     20260428-1530-first-review/
@@ -85,6 +85,23 @@ cases/<case-id>/
 For supervisor feedback, the current round must take previous feedback into account. Earlier `outputs/feedback_student.md` files are part of the input and should be used to avoid repeating resolved feedback.
 
 Student-facing supervisor feedback uses `Student feedback language` from `case.md`. Missing or empty means `cs`, which requires Czech output with diacritics. Use `en` only when English feedback is preferable. `Jazyk prace` in intake notes describes the thesis language and does not control feedback language.
+
+Reviewer preferences are selected by `Reviewer profile` in `case.md`. Missing
+or empty means `default`. The public repository contains only the generic
+`profiles/default.md`; personal profiles and local overrides belong exclusively
+under ignored paths such as `profiles/local/default.md` or
+`profiles/local/<profile-id>.md`. Use `Reviewer profile: local/<profile-id>` in
+`case.md` only when that private file exists locally.
+
+Profiles are preference layers, not hard workflow rules. They can shape tone,
+priority count, strictness calibration, and domain emphasis, but they cannot
+override privacy, evidence requirements, assignment/deadline gates, output
+language checks, or the obligation to state what was not checked. Validate the
+effective profile files with:
+
+```bash
+scripts/check-reviewer-profile <case-id>
+```
 
 Put supervisor observations for the current round into `notes/round-notes.md`
 under `Supervisor Notes to Verify`. Treat them as hypotheses for Codex to

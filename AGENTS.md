@@ -12,8 +12,8 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Do not pretend to have checked anything that was not available in the inputs. Mark indirect conclusions as estimates, risks, or items for manual verification.
 - Important negative claims must cite evidence: a chapter/section/page, a file/path/function, a README/config/test, a missing artifact, or a concrete mismatch.
 - Treat the submitted thesis PDF as the authoritative rendered thesis artifact. Do not run LaTeX/Overleaf builds by default; use source zips for diff/search/evidence. Compile only when the user explicitly asks, or when no rendered PDF is available and the limitation is stated.
-- Before generating supervisor feedback, require both assignment and deadline context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, or deadline override.
-- Before generating opponent materials, require assignment context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
+- Before generating supervisor feedback, require assignment, deadline, and reviewer-profile context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, deadline override, or valid reviewer profile.
+- Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 
 ## Skill Routing
 

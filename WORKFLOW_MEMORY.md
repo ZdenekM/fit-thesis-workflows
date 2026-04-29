@@ -70,6 +70,16 @@ and workflow mechanics unless the student needs them to act.
 
 Promoted to: supervisor feedback skills.
 
+### 2026-04-29: Reviewer Profiles Are Active Configuration
+
+Status: promoted
+
+Reviewer profiles capture stable personal preferences, but they are active
+workflow configuration rather than workflow memory. Public defaults belong in
+`profiles/default.md`; personal overrides stay ignored under `profiles/local/`.
+
+Promoted to: `profiles/README.md`, `README.md`, profile checker, privacy guard.
+
 ## Candidate Improvements
 
 - Add a literature/citation relevance layer that can collect cited sources,

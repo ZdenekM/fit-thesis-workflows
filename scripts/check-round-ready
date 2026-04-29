@@ -24,10 +24,23 @@ case_id="$1"
 repo_root="$(git rev-parse --show-toplevel)"
 case_dir="$repo_root/cases/$case_id"
 
+validate_id() {
+  local label="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo "Invalid $label. Use only letters, numbers, dot, underscore, and dash." >&2
+    exit 2
+  fi
+}
+
+validate_id "CASE_ID" "$case_id"
+
 if [[ ! -d "$case_dir" ]]; then
   echo "Case does not exist: cases/$case_id" >&2
   exit 1
 fi
+
+"$repo_root/scripts/check-reviewer-profile" "$case_id"
 
 round_id="${2:-}"
 if [[ -z "$round_id" ]]; then
@@ -37,6 +50,8 @@ if [[ -z "$round_id" ]]; then
   fi
   round_id="$(<"$case_dir/current-round.txt")"
 fi
+
+validate_id "ROUND_ID" "$round_id"
 
 round_dir="$case_dir/rounds/$round_id"
 if [[ ! -d "$round_dir" ]]; then

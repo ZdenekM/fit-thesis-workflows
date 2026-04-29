@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/check-reviewer-profile CASE_ID
+
+Validates the Reviewer profile setting in cases/<case-id>/case.md and prints
+the effective profile files.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="$1"
+case_dir="$repo_root/cases/$case_id"
+case_md="$case_dir/case.md"
+public_default="$repo_root/profiles/default.md"
+local_default="$repo_root/profiles/local/default.md"
+
+if [[ ! "$case_id" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+  echo "Invalid CASE_ID. Use only letters, numbers, dot, underscore, and dash." >&2
+  exit 2
+fi
+
+if [[ ! -d "$case_dir" ]]; then
+  echo "Case does not exist: cases/$case_id" >&2
+  exit 1
+fi
+
+if [[ ! -f "$case_md" ]]; then
+  echo "Missing case metadata: cases/$case_id/case.md" >&2
+  exit 1
+fi
+
+if [[ ! -f "$public_default" ]]; then
+  echo "Missing public reviewer profile: profiles/default.md" >&2
+  exit 1
+fi
+
+mapfile -t profile_values < <(
+  awk -F: '
+    {
+      field = $1
+      sub(/^[ \t]+/, "", field)
+      sub(/[ \t]+$/, "", field)
+    }
+    tolower(field) == "reviewer profile" {
+      value = $2
+      sub(/^[ \t]+/, "", value)
+      sub(/[ \t]+$/, "", value)
+      print value
+    }
+  ' "$case_md" 2>/dev/null || true
+)
+
+if [[ "${#profile_values[@]}" -gt 1 ]]; then
+  echo "Duplicate Reviewer profile fields in cases/$case_id/case.md" >&2
+  exit 1
+fi
+
+profile="${profile_values[0]:-default}"
+profile="${profile:-default}"
+
+relative_files=("profiles/default.md")
+
+if [[ "$profile" == "default" ]]; then
+  if [[ -f "$local_default" ]]; then
+    relative_files+=("profiles/local/default.md")
+  fi
+elif [[ "$profile" =~ ^local/[A-Za-z0-9_.-]+$ ]]; then
+  profile_id="${profile#local/}"
+  if [[ "$profile_id" == "." || "$profile_id" == ".." || "$profile_id" == *".."* ]]; then
+    echo "Invalid Reviewer profile in case.md: '$profile'. Profile id must not contain '..'." >&2
+    exit 1
+  fi
+  local_profile="$repo_root/profiles/local/$profile_id.md"
+  if [[ ! -f "$local_profile" ]]; then
+    echo "Missing private reviewer profile: profiles/local/$profile_id.md" >&2
+    exit 1
+  fi
+  relative_files+=("profiles/local/$profile_id.md")
+else
+  cat >&2 <<EOF
+Invalid Reviewer profile in case.md: '$profile'.
+Expected 'default' or 'local/<profile-id>' where profile-id uses only letters, numbers, dot, underscore, and dash.
+EOF
+  exit 1
+fi
+
+echo "Reviewer profile: $profile"
+echo "Effective profile files:"
+for relative_file in "${relative_files[@]}"; do
+  echo "- $relative_file"
+done

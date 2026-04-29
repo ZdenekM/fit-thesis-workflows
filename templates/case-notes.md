@@ -6,6 +6,7 @@ Academic year:
 Deadline mode: standard / deferred
 Deadline override:
 Student feedback language: cs
+Reviewer profile: default
 Student:
 Topic:
 Supervisor / opponent role:

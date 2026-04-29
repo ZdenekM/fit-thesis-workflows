@@ -25,12 +25,14 @@ cases/<case-id>/rounds/<round-id>/
 ## Process
 
 1. Resolve the active case and round.
-2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment and private assignment notes to `notes/assignment.md`.
-3. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
-4. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. State what was not available or not runnable.
-5. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-6. Build a map of:
+2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment, private assignment notes, or valid reviewer profile.
+3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
+4. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
+5. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. State what was not available or not runnable.
+6. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
+7. Build a map of:
    - assignment points and where they are covered,
+   - reviewer profile preferences that are relevant to this round,
    - main technical contribution,
    - implementation and artifact evidence,
    - implementation quality and design evidence,
@@ -39,16 +41,16 @@ cases/<case-id>/rounds/<round-id>/
    - literature/citation issues,
    - likely strengths,
    - risks that may affect grading.
-7. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
-8. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-9. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-10. Use confidence labels for important statements:
+8. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
+9. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+10. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+11. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-11. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
+12. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
 
 ## When Using Agents
 

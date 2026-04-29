@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__reviewer_profile_smoke_$$"
+local_profile_id="smoke-$case_prefix"
+created_cases=()
+created_local_default=0
+created_local_profile=0
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+  if [[ "$created_local_default" -eq 1 ]]; then
+    rm -f "$repo_root/profiles/local/default.md"
+  fi
+  if [[ "$created_local_profile" -eq 1 ]]; then
+    rm -f "$repo_root/profiles/local/$local_profile_id.md"
+  fi
+  rmdir "$repo_root/profiles/local" 2>/dev/null || true
+  rm -f /tmp/check-reviewer-profile.out /tmp/check-reviewer-profile.err
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  shift
+
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id"
+  {
+    echo "# Case Notes"
+    echo
+    echo "Case ID: $case_id"
+    local line
+    for line in "$@"; do
+      echo "$line"
+    done
+  } >"$repo_root/cases/$case_id/case.md"
+}
+
+make_ready_round() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+
+  mkdir -p "$round_dir/notes" "$round_dir/inputs" "$round_dir/extracted"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  {
+    echo "# Assignment"
+    echo
+    echo "## Formal Assignment Artifacts"
+    echo "- present"
+    echo
+    echo "## Formal Assignment Text Or Summary"
+    echo "- present"
+    echo
+    echo "## Private Assignment Notes For Student"
+    echo "- present"
+  } >"$round_dir/notes/assignment.md"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+
+  if ! "$@" >/tmp/check-reviewer-profile.out 2>/tmp/check-reviewer-profile.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-reviewer-profile.err >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+
+  if "$@" >/tmp/check-reviewer-profile.out 2>/tmp/check-reviewer-profile.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-reviewer-profile.out >&2
+    exit 1
+  fi
+}
+
+hook_output() {
+  python3 - "$1" <<'PY' | "$repo_root/.codex/hooks/pre_tool_use_privacy_guard.py"
+import json
+import sys
+
+print(json.dumps({"tool_input": {"command": sys.argv[1]}}))
+PY
+}
+
+expect_hook_deny() {
+  local name="$1"
+  local command="$2"
+
+  if ! hook_output "$command" | grep -q '"permissionDecision": "deny"'; then
+    echo "Expected hook denial but command was allowed: $name" >&2
+    echo "$command" >&2
+    exit 1
+  fi
+}
+
+expect_hook_allow() {
+  local name="$1"
+  local command="$2"
+  local output
+
+  output="$(hook_output "$command")"
+  if [[ -n "$output" ]]; then
+    echo "Expected hook allow but command was denied: $name" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_missing"
+make_case "$case_id"
+expect_success "missing profile defaults to default" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+
+case_id="${case_prefix}_blank"
+make_case "$case_id" "Reviewer profile:"
+expect_success "blank profile defaults to default" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+
+case_id="${case_prefix}_default"
+make_case "$case_id" "Reviewer profile: default"
+expect_success "explicit default passes" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+
+mkdir -p "$repo_root/profiles/local"
+if [[ ! -e "$repo_root/profiles/local/default.md" ]]; then
+  printf '# Local Default Profile\n' >"$repo_root/profiles/local/default.md"
+  created_local_default=1
+fi
+expect_success "local default override is listed" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+grep -Fxq -- "- profiles/local/default.md" /tmp/check-reviewer-profile.out
+
+case_id="${case_prefix}_local_missing"
+make_case "$case_id" "Reviewer profile: local/$local_profile_id"
+expect_failure "missing local profile fails" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+
+printf '# Local Smoke Profile\n' >"$repo_root/profiles/local/$local_profile_id.md"
+created_local_profile=1
+expect_success "existing local profile passes" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+grep -Fxq -- "- profiles/local/$local_profile_id.md" /tmp/check-reviewer-profile.out
+
+case_id="${case_prefix}_duplicate"
+make_case "$case_id" "Reviewer profile:" "Reviewer profile: local/$local_profile_id"
+expect_failure "duplicate profile fields fail" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+
+for bad_profile in "../x" "/tmp/x" "x/y/z" "colleague" "local/.." "local/a..b"; do
+  case_id="${case_prefix}_bad_${bad_profile//[^A-Za-z0-9]/_}"
+  make_case "$case_id" "Reviewer profile: $bad_profile"
+  expect_failure "invalid profile $bad_profile fails" "$repo_root/scripts/check-reviewer-profile" "$case_id"
+done
+
+expect_failure "invalid case id fails" "$repo_root/scripts/check-reviewer-profile" "../x"
+
+case_id="${case_prefix}_round_bad_profile"
+make_case "$case_id" "Reviewer profile: local/missing"
+make_ready_round "$case_id"
+expect_failure "check-round-ready fails invalid profile" "$repo_root/scripts/check-round-ready" "$case_id"
+
+case_id="${case_prefix}_round_bad_current"
+make_case "$case_id" "Reviewer profile: default"
+make_ready_round "$case_id"
+echo "../x" >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "bad current round id fails" "$repo_root/scripts/check-round-ready" "$case_id"
+expect_failure "bad explicit round id fails" "$repo_root/scripts/check-round-ready" "$case_id" "../x"
+
+expect_hook_deny "relative private profile force add" "git add -f profiles/local/private.md"
+expect_hook_deny "absolute private profile force add" "git add -f $repo_root/profiles/local/private.md"
+expect_hook_deny "git -C profile subdir private add" "git -C $repo_root/profiles add -f local/private.md"
+expect_hook_deny "compound cd profile subdir private add" "bash -lc 'cd $repo_root/profiles && git add -f local/private.md'"
+(
+  cd "$repo_root/profiles"
+  expect_hook_deny "hook cwd profile subdir private add" "git add -f local/private.md"
+)
+expect_hook_deny "broad force add" "git add -f ."
+expect_hook_deny "combined broad force add" "git add -Af ."
+expect_hook_deny "top-level force add" "git add -f :/"
+expect_hook_deny "private case add from subdir" "git -C $repo_root/cases/example add case.md"
+expect_hook_allow "public default profile add" "git add profiles/default.md"
+expect_hook_allow "public profiles directory add without force" "git add profiles"
+
+echo "Reviewer profile smoke passed"
