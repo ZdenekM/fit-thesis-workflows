@@ -1,18 +1,22 @@
 ---
 name: thesis-code-consistency
-description: Check whether BP/DP thesis text claims are supported by the submitted code, README, configs, tests, experiments, and reproducibility artifacts.
+description: Check whether BP/DP thesis text claims are supported by the submitted code, README, configs, tests, experiments, and reproducibility artifacts; use thesis-code-quality-review for implementation design quality.
 ---
 
 # Thesis Code Consistency
 
-Use this skill for code-aware checks inside supervisor feedback or opponent review.
+Use this skill for text-versus-code claim checks inside supervisor feedback or opponent review.
+
+This skill answers whether the thesis says things that are supported by submitted artifacts. It does not answer whether the implementation is well engineered overall; use `thesis-code-quality-review` for architecture, maintainability, runtime risks, comments, developer documentation, and smoke-test readiness.
+
+For README, reproducibility, and smoke-test evidence: this skill checks whether thesis claims are supported by artifacts; `thesis-code-quality-review` checks whether the submitted implementation is reviewable and maintainable independent of thesis claims. Cross-reference only when the same evidence affects both.
 
 ## Process
 
 1. Read `current-round.txt` if present and enumerate `inputs/`, `extracted/`, and code artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
 2. Identify thesis claims about:
    - implemented features,
-   - architecture,
+   - architecture, only where the text makes explicit architecture claims,
    - models/libraries/datasets,
    - experiments and metrics,
    - performance and accuracy,
@@ -39,7 +43,7 @@ Use this skill for code-aware checks inside supervisor feedback or opponent revi
 
 - Cite thesis location and code path together for mismatches.
 - Do not treat "not checked" as "not working".
-- Do not focus on style unless it affects reproducibility, comprehensibility, maintainability, licensing, or alignment with the thesis.
+- Do not focus on style or broad design quality unless it affects reproducibility, licensing, or alignment with an explicit thesis claim. Route broader implementation-quality findings to `thesis-code-quality-review`.
 - If dependencies or data are missing, state that limitation and perform static review.
 - For opponent work, do not turn missing run evidence into a claim that the implementation is non-functional.
 

@@ -1,4 +1,4 @@
-# diplomky_v2
+# FIT Thesis Workflows
 
 Minimal Codex-first workflow for BP/DP supervision and opponent work.
 
@@ -47,7 +47,7 @@ date into `case.md` as `Deadline override: YYYY-MM-DD`.
 Then work in chat/Codex by pointing the agent at the case and asking for the relevant artifact, for example:
 
 ```text
-Pouzij skill thesis-supervisor-feedback pro cases/novak-bp-2026. Udelej i kriticky druhy pruchod podle thesis-supervisor-feedback-review a final uloz do aktualniho roundu.
+Pouzij skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, udelej i kriticky druhy pruchod podle thesis-supervisor-feedback-review a final uloz do aktualniho roundu.
 ```
 
 ## Case Workspace
@@ -84,11 +84,14 @@ For supervisor feedback, the current round must take previous feedback into acco
 - `thesis-supervisor-feedback-review`: critical second pass before sending supervisor feedback.
 - `thesis-revision-diff`: compare two rounds and identify what changed and what prior feedback remains.
 - `thesis-code-consistency`: check whether thesis claims match code, README, tests, configs, and reproducibility evidence.
+- `thesis-code-quality-review`: review implementation quality, architecture/design, maintainability, runtime risks, developer documentation, and smoke-test readiness.
 - `thesis-opponent-materials`: prepare internal materials for an opponent report.
 - `thesis-opponent-materials-review`: review and harden generated opponent materials before writing the report.
 - `thesis-opponent-report-review`: review your own draft opponent report for fairness, evidence, tone, and consistency.
 
 The canonical workflow definitions live in `.agents/skills/*/SKILL.md`.
+
+When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; make them inspectable under `work/code/` before delegating to read-only reviewers, or record the limitation. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
 
 ## First Real Test
 
@@ -117,26 +120,31 @@ scripts/check-supervisor-ready <case-id>
 Use this prompt in Codex:
 
 ```text
-Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pouzij pripadne role text/code/evidence, udelej kriticky druhy pruchod a uloz final do outputs/feedback_student.md.
+Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, udelej kriticky druhy pruchod a uloz final do outputs/feedback_student.md.
 ```
 
 For the first opponent test, use:
 
 ```text
-Pouzij thesis-opponent-materials pro cases/<case-id>, potom thesis-opponent-materials-review. Vystup uloz jako outputs/oponent_podklady_revidovane.md.
+Pouzij thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, potom thesis-opponent-materials-review. Vystup uloz jako outputs/oponent_podklady_revidovane.md.
 ```
 
-Before committing workflow changes, run:
+Before committing workflow changes, run the lightweight hygiene checks relevant to the files touched:
 
 ```bash
+git diff --check
+git diff --cached --check
 scripts/check-private
+bash -n scripts/*
 ```
+
+When touching `.codex/agents/*.toml` or Python hooks, also parse the TOML and compile the hook files before committing.
 
 ## Codex Helpers
 
 This repo also defines lightweight Codex helpers:
 
-- `.codex/agents/*`: suggested read-only reviewer roles for thesis text, code consistency, and evidence calibration.
+- `.codex/agents/*`: suggested read-only reviewer roles for thesis text, code consistency, code quality, and evidence calibration.
 - `.codex/hooks.json`: session reminders and a privacy guard that blocks accidental `git add` of ignored case data.
 
 ## Privacy Check

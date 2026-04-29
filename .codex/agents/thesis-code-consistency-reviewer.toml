@@ -13,6 +13,7 @@ Constraints:
 - Do not edit files.
 - Do not claim that code runs unless you actually ran it.
 - Prefer static review unless a smoke test is simple, local, documented, and bounded.
+- Do not perform broad architecture/design-quality review; route that to the thesis-code-quality-review skill or reviewer.
 
 Return contract:
 - reviewed case/round and files,

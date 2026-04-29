@@ -20,6 +20,7 @@ cases/<case-id>/rounds/<round-id>/
   notes/previous-feedback-index.md
   inputs/
   extracted/
+  work/
   outputs/
 ```
 
@@ -32,9 +33,10 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 3. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`.
 4. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
 5. State review limits before analysis: what was available, what was static-only, and what was not checked.
-6. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes.
-7. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
-8. Build a short private map:
+6. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
+7. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes.
+8. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
+9. Build a short private map:
    - current thesis phase,
    - supervisor deadline context and time remaining,
    - assignment coverage,
@@ -42,10 +44,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - thesis structure,
    - experiment/result status,
    - code/reproducibility status,
+   - code quality/design status,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-9. If code is present, run the `thesis-code-consistency` workflow mentally or explicitly before writing feedback.
-10. Prioritize issues by impact on current phase. Do not list every possible improvement.
-11. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+10. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in `outputs/feedback_student.md` under `Rozsah kontroly` by naming inspected code paths and explicit limitations.
+11. Prioritize issues by impact on current phase. Do not list every possible improvement.
+12. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
 
 ## Phase Calibration
 
@@ -67,6 +70,7 @@ For a large round, split reviewer agents by role:
 
 - text structure and assignment coverage,
 - code/reproducibility and text-code consistency,
+- code quality/design, maintainability, runtime risks, and developer evidence,
 - evidence and priority calibration,
 - synthesis into the final `outputs/feedback_student.md`.
 
@@ -85,6 +89,8 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - Do not claim that code was run unless it was actually run.
 - If a smoke test is simple and local, it may be attempted. If not, perform static review and state the limit.
 - For text-code mismatch, cite both sides: thesis location and code/README/config path.
+- For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
+- Treat standalone `outputs/code_consistency.md` and `outputs/code_quality_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
 
 ## Output
@@ -117,7 +123,7 @@ Pokryj podle relevance: abstrakt, uvod a cil, strukturu kapitol, resersi/teorii,
 
 ## Soulad textu s kodem
 
-Uved, co odpovida, co je nejasne, kde text mozna slibuje vice nez kod/README/vysledky ukazuji, co doplnit do README/dokumentace/prilohy a co omezuje reprodukovatelnost.
+Uved, co odpovida, co je nejasne, kde text mozna slibuje vice nez kod/README/vysledky ukazuji, co doplnit do README/dokumentace/prilohy a co omezuje reprodukovatelnost. Pokud kod byl dostupny, pridej jen nejdulezitejsi akcni shrnuti code-quality/design review; nedelej z toho samostatny dlouhy code review uvnitr student feedbacku.
 
 ## Co z minule zpetne vazby zustava
 
@@ -145,4 +151,5 @@ Before finishing, verify:
 - P0/P1 items are truly important for the current phase,
 - any text-code mismatch cites both thesis and code evidence,
 - limitations of review are explicit,
+- code-quality/design review was used when code was available, or the limitation is explicit,
 - the document is usable by the student.

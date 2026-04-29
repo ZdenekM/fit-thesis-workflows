@@ -25,6 +25,11 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-opponent-report-review/SKILL.md` for reviewing a draft opponent report before submission.
 - `.agents/skills/thesis-revision-diff/SKILL.md` for comparing thesis/code revisions and checking whether prior feedback was addressed.
 - `.agents/skills/thesis-code-consistency/SKILL.md` for thesis-text versus code/reproducibility checks.
+- `.agents/skills/thesis-code-quality-review/SKILL.md` for implementation quality, architecture/design, maintainability, runtime risks, and reviewer-facing developer evidence.
+
+When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
+
+Code artifacts include source directories and archives copied into `inputs/`. Before delegating to read-only reviewer agents, make the code inspectable under the ignored round workspace, typically `work/code/`, or record a concrete limitation in the final artifact.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
 
@@ -60,6 +65,7 @@ When the user asks to use agents, give them enough time. For large thesis/code r
 
 - text structure and assignment coverage,
 - code/reproducibility and text-code consistency,
+- code quality/design and reviewer-facing implementation evidence,
 - evidence and claim calibration,
 - synthesis into the final Markdown artifact.
 
@@ -73,9 +79,12 @@ Default outputs go into the active round:
 - supervisor feedback draft, when a separate review pass is useful: `work/feedback_student_draft.md`
 - revision comparison: `outputs/revision_diff.md`
 - code consistency check: `outputs/code_consistency.md`
+- code quality/design review: `outputs/code_quality_review.md`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
 - opponent materials draft, when a separate review pass is useful: `work/oponent_podklady_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`
+
+Standalone code consistency and code quality outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
 
 Before closing a task, run relevant lightweight checks such as `scripts/check-private`, `bash -n scripts/*`, and `git diff --check`.

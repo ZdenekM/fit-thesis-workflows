@@ -26,14 +26,16 @@ If both draft and output files exist, review the draft unless the user explicitl
 ## Review Checks
 
 1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment context instead of reviewing/generating the final output.
-2. Re-check all P0/P1 risks and grade-impacting statements against available thesis, code, README, results, assignment, and notes.
+2. Re-check all P0/P1 risks and grade-impacting statements against available thesis, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, and notes.
 3. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 4. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
 5. Verify that assignment fulfillment is assessed point by point.
 6. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
-7. Keep strengths concrete and evidence-backed.
-8. Check that proposed defense questions are fair, answerable, and tied to important issues.
-9. Keep grading calibration as intervals and rationale, not false precision.
+7. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
+8. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
+9. Keep strengths concrete and evidence-backed.
+10. Check that proposed defense questions are fair, answerable, and tied to important issues.
+11. Keep grading calibration as intervals and rationale, not false precision.
 
 ## Output
 

@@ -1,0 +1,93 @@
+---
+name: thesis-code-quality-review
+description: Review BP/DP submitted code for architecture, design quality, maintainability, runtime risks, documentation, and smoke-test readiness, separate from thesis-text versus code consistency.
+---
+
+# Thesis Code Quality Review
+
+Use this skill when a thesis round contains implementation artifacts and you need to assess whether the implementation is technically well engineered and defensible.
+
+This is not the text-code consistency check. Use `thesis-code-consistency` for whether thesis claims match code, README, configs, tests, and results. Use this skill for the quality of the implementation itself.
+
+## Inputs
+
+Use the active round unless the user specifies another:
+
+```text
+cases/<case-id>/current-round.txt
+cases/<case-id>/rounds/<round-id>/
+  notes/
+  inputs/
+  extracted/
+  work/
+  outputs/
+```
+
+Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. The main workflow should unpack them into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
+
+## Process
+
+1. Resolve the active case and round.
+2. Enumerate available code artifacts, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
+3. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If you are in a read-only reviewer role, report the archive path and the need for an unpacked workspace instead of silently skipping the review.
+4. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
+5. Inspect the main implementation paths and assess:
+   - architecture/design fit for the assignment and chosen framework,
+   - module boundaries, data model, naming, and cohesion,
+   - maintainability and readability,
+   - error handling, validation, state handling, async/concurrency/runtime risks,
+   - testing strategy, smoke-test workflow, and reproducibility for a reviewer,
+   - README/developer documentation and installation/build instructions,
+   - whether comments explain non-obvious logic without replacing clear code.
+6. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
+7. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
+
+## Evidence Rules
+
+- Cite concrete code paths, functions, configs, README sections, missing tests, or missing build instructions.
+- Do not claim that code ran unless you actually ran a specific command.
+- Do not treat "not runnable from available inputs" as "broken".
+- Separate code quality from text-code mismatch. If the issue is mainly that the thesis overclaims what code shows, route it through `thesis-code-consistency`.
+- For README, reproducibility, and smoke-test evidence: `thesis-code-consistency` checks whether thesis claims are supported by artifacts; this skill checks whether the submitted implementation is reviewable and maintainable independent of thesis claims. Cross-reference only when the same evidence affects both.
+- Avoid low-value style nits unless they are repeated, confuse the implementation, or affect maintainability.
+- Do not reward noisy comments. Prefer clear code plus useful comments around non-obvious decisions.
+
+## Severity
+
+- `P0`: can affect assignment fulfillment, defensibility, core runtime correctness, submission completeness, or grade.
+- `P1`: significant engineering weakness or reviewer-confidence risk.
+- `P2`: useful maintainability, documentation, or testability improvement.
+- `P3`: minor style/readability issue; include only if repeated or representative.
+
+## Output
+
+Write `outputs/code_quality_review.md` when used as a standalone artifact:
+
+```markdown
+# Internal Code Quality Review
+
+## Rozsah kontroly
+
+## Technicky prehled implementace
+
+## Silne technicke stranky
+
+## Hlavni technicka rizika
+
+| Priorita | Oblast | Evidence v kodu | Dopad | Doporuceni |
+|---|---|---|---|---|
+
+## Architektura a modularita
+
+## Runtime, validace a chybove stavy
+
+## Testy, smoke testy a reprodukovatelnost
+
+## README, build a vyvojarska dokumentace
+
+## Komentare, citelnost a udrzovatelnost
+
+## Rucni kontroly
+```
+
+This standalone artifact is internal/operator evidence, not student-facing output by default. For supervisor feedback, summarize only actionable, phase-appropriate findings in `outputs/feedback_student.md`. For opponent materials, use the review as internal evidence for realization quality, reproducibility, risk calibration, and fair defense questions.

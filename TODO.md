@@ -7,7 +7,7 @@
    - Keep `pdftotext -layout` as the default import/extraction path for stable case evidence.
    - Do not require OCR support for scanned PDFs in V1; expected thesis inputs are text-based PDFs.
 2. [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
-3. [ ] Add an explicit code quality/design review layer for thesis submissions.
+3. [x] Add an explicit code quality/design review layer for thesis submissions.
    - Cover architecture/design fit, maintainability, module boundaries, naming, error handling, async/runtime risks, and code smells.
    - Check whether comments are helpful and sufficient without rewarding noisy comments.
    - Review README/developer documentation, installation instructions, reproducibility notes, and expected test/smoke-test workflow.
@@ -18,3 +18,11 @@
    - Support an explicit English mode for cases where English feedback is preferable.
    - Do not add Slovak as a generated-feedback mode for now; supervisor review/editing should stay comfortable for the Czech-speaking operator.
    - Update templates and skills so ASCII-only repo hygiene does not leak into student-facing Markdown outputs.
+5. [ ] Add a lightweight final feedback output check.
+   - Add a helper script such as `scripts/check-feedback-output`.
+   - Verify that student-facing feedback contains all required sections.
+   - Keep the priority table focused by checking for a reasonable number of priority rows.
+   - Require an explicit review scope and limitations section.
+   - Require concrete evidence for P0/P1 claims.
+   - Check the configured output language, including Czech diacritics for Czech student-facing feedback.
+   - Detect empty, generic, or placeholder-like checklist items and phrases.

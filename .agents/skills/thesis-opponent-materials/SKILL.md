@@ -1,6 +1,6 @@
 ---
 name: thesis-opponent-materials
-description: DEEP workflow for internal opponent materials for a BP/DP report, with evidence labels, risk calibration, and thesis/code consistency review.
+description: DEEP workflow for internal opponent materials for a BP/DP report, with evidence labels, risk calibration, thesis/code consistency review, and code-quality/design review.
 ---
 
 # Thesis Opponent Materials
@@ -17,6 +17,7 @@ cases/<case-id>/rounds/<round-id>/
   notes/opponent-intake.md
   inputs/
   extracted/
+  work/
   outputs/
 ```
 
@@ -26,25 +27,27 @@ cases/<case-id>/rounds/<round-id>/
 2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment and private assignment notes to `notes/assignment.md`.
 3. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
 4. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. State what was not available or not runnable.
-5. Build a map of:
+5. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
+6. Build a map of:
    - assignment points and where they are covered,
    - main technical contribution,
    - implementation and artifact evidence,
+   - implementation quality and design evidence,
    - experiments/results and whether conclusions are supported,
    - reproducibility status,
    - literature/citation issues,
    - likely strengths,
    - risks that may affect grading.
-6. Run `thesis-code-consistency` when code is available.
-7. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-8. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-9. Use confidence labels for important statements:
+7. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in the materials by naming inspected code paths and explicit limitations.
+8. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+9. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+10. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-10. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
+11. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
 
 ## When Using Agents
 
@@ -52,6 +55,7 @@ For a large opponent review, split reviewer agents by role:
 
 - thesis text, structure, and assignment coverage,
 - code/reproducibility and text-code consistency,
+- code quality/design, maintainability, runtime risks, and developer evidence,
 - evidence labels, severity, and grading calibration,
 - synthesis into `outputs/oponent_podklady.md` or `outputs/oponent_podklady_revidovane.md`.
 
@@ -102,6 +106,8 @@ Write `outputs/oponent_podklady.md`. If you intentionally split generation and r
 |---|---|---|---|---|
 
 ## 10. Technicka spravnost a realizacni vystup
+
+Shrn text-code consistency i code-quality/design review. Jasne oddel, co je rozpor mezi textem a artefakty, co je technicke riziko implementace, a co zustalo jen k rucni kontrole. Standalone `outputs/code_consistency.md` a `outputs/code_quality_review.md` ber jako internal/operator evidence.
 
 ## 11. Experimenty, vysledky a reprodukovatelnost
 
