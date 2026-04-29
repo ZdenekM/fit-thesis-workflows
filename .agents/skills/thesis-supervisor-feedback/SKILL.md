@@ -230,4 +230,5 @@ Before finishing, verify:
 - internal case/round identifiers are absent from student-facing prose unless intentionally introduced with a clear human-facing label,
 - review-scope wording excludes internal workflow mechanics unless they are actionable for the student,
 - `scripts/check-feedback-language <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; this validates heading structure, not the whole prose,
+- `scripts/check-feedback-output <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; warnings are non-blocking but should be read,
 - the document is usable by the student.

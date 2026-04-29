@@ -45,7 +45,8 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 18. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
 19. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
 20. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
-21. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+21. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
+22. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 
 ## Priority Calibration
 

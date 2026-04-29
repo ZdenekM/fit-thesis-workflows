@@ -1,0 +1,369 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__feedback_output_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local language_line="$2"
+  local round_id="${3:-round-a}"
+  local write_current="${4:-yes}"
+
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    if [[ -n "$language_line" ]]; then
+      echo "$language_line"
+    fi
+  } >"$repo_root/cases/$case_id/case.md"
+
+  if [[ "$write_current" == "yes" ]]; then
+    echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  fi
+}
+
+replace_text() {
+  local file="$1"
+  local old="$2"
+  local new="$3"
+  python3 - "$file" "$old" "$new" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+old = sys.argv[2]
+new = sys.argv[3]
+text = path.read_text(encoding="utf-8")
+if old not in text:
+    raise SystemExit(f"Missing expected smoke text: {old}")
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+PY
+}
+
+write_valid_cs_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 29. 4. 2026
+
+## Krátké celkové shrnutí
+
+Práce je použitelná pro další iteraci a nejdůležitější rizika jsou jasně vymezená. Doporučení níže míří na zadání, výsledky a finální čitelnost.
+
+## Rozsah kontroly
+
+Kontroloval jsem aktuální PDF, zadání, README, dostupný kód a předchozí zpětnou vazbu. Kód nebyl spuštěn a některé části nebylo možné ověřit, protože chybí nový implementační archiv; to je hlavní omezení této kontroly.
+
+## Odhad fáze práce a doporučené zaměření
+
+Práce je ve finální kontrole. Teď je vhodné řešit jen body, které mohou ovlivnit splnění zadání, obhajobu nebo technickou pravdivost.
+
+## Co se od minulé verze posunulo
+
+- Abstrakt je přesnější.
+- Výsledky jsou konkrétnější.
+- Zadání je lépe navázané na závěr.
+
+## Co je na práci už dobré
+
+Text má srozumitelnou strukturu, kapitola výsledků obsahuje konkrétní čísla a README pomáhá čtenáři pochopit realizaci.
+
+## Nejvyšší priority pro aktuální iteraci
+
+| Priorita | Oblast | Proč je to důležité teď | Co udělat | Kde se to projevuje |
+|---|---|---|---|---|
+| P0 | Zadání | Bez této části může být splnění zadání zpochybnitelné. | Ověř, že je bod zadání pokrytý v textu i odevzdání. | Zadání bod 2 a závěr práce. |
+| P1 | Výsledky | Čtenář musí rozumět tomu, z čeho závěr vychází. | Doplň krátké vysvětlení metrik a omezení měření. | Kapitola 8, tabulka výsledků. |
+| P2 | Jazyk | Drobné chyby zbytečně snižují dojem z finální verze. | Projdi abstrakt, závěr a popisky tabulek. | Abstrakt, závěr a tabulky. |
+
+## Splnění zadání
+
+Zadání je z velké části pokryté. Nejsilnější riziko je dohledatelnost konkrétního výstupu a jeho vazba na závěr.
+
+## Připomínky k textu práce
+
+V abstraktu a závěru používej opatrné formulace tam, kde výsledky ukazují spíše indikaci než definitivní potvrzení.
+
+## Soulad textu s kódem
+
+Text a README se rámcově podporují. Protože kód nebyl spuštěn, ber závěry o funkčnosti jako statickou kontrolu, ne jako runtime ověření.
+
+## Co z minulé zpětné vazby zůstává
+
+Zůstává ověřit finální PDF, zadání, README a vysvětlení výsledků.
+
+## Doporučený plán dalších úprav
+
+Nejdřív uzavři splnění zadání, potom výsledky a nakonec jazykovou korekturu.
+
+## Checklist pro aktuální fázi
+
+- [ ] Finální PDF je vizuálně zkontrolované.
+- [ ] Zadání bod 2 je jasně pokryté v textu.
+- [ ] README popisuje spuštění a hlavní soubory.
+- [ ] Kapitola 8 vysvětluje metriky a omezení měření.
+- [ ] Abstrakt a závěr mají poslední jazykovou korekturu.
+EOF
+}
+
+write_valid_en_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Feedback on the Current Thesis Version
+
+Review date: 2026-04-29
+
+## Brief Overall Summary
+
+The thesis is close to a usable submission state, with remaining work concentrated around assignment evidence, results, and final polish.
+
+## Review Scope
+
+I reviewed the current PDF, assignment summary, README, available code, and previous feedback. The code was not executed, and runtime behavior was not checked; no limitations beyond this static review were identified.
+
+## Estimated Work Phase and Recommended Focus
+
+This is a final review phase. Focus on assignment fulfillment, defensible claims, and submission artifacts.
+
+## Progress Since Previous Feedback
+
+- The abstract is more precise.
+- The results chapter is more concrete.
+- The README gives useful implementation context.
+
+## What Is Already Working Well
+
+The structure is understandable and the results chapter now gives the reader concrete evaluation anchors.
+
+## Highest Priorities for This Iteration
+
+| Priority | Area | Why it matters now | What to do | Where it appears |
+|---|---|---|---|---|
+| P0 | Assignment | Missing assignment evidence can affect submission readiness. | Verify that the required output is described and submitted. | Assignment point 2 and conclusion. |
+| P1 | Results | The reader needs to understand the basis for the conclusion. | Add a short explanation of metrics and measurement limits. | Chapter 8, results table. |
+| P2 | Language | Minor wording issues reduce final polish. | Review the abstract, conclusion, and table captions. | Abstract, conclusion, and tables. |
+
+## Assignment Fulfillment
+
+The assignment is mostly covered. The remaining risk is traceability of the final artifact.
+
+## Thesis Text Feedback
+
+Use cautious wording where the evidence supports an indication rather than a definitive proof.
+
+## Text-Code Alignment
+
+The text and README broadly support each other. Because the code was not executed, runtime functionality remains a static-review conclusion.
+
+## Remaining Items From Previous Feedback
+
+The final PDF, README, and results explanation still need a final check.
+
+## Recommended Next Revision Plan
+
+Close assignment evidence first, then results, then final wording.
+
+## Checklist for the Current Phase
+
+- [ ] The final PDF has been visually checked.
+- [ ] Assignment point 2 is clearly covered in the text.
+- [ ] README explains execution and the main files.
+- [ ] Chapter 8 explains metrics and measurement limits.
+- [ ] Abstract and conclusion have final language polish.
+EOF
+}
+
+write_ascii_cs_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Zpetna vazba k aktualni verzi prace
+## Kratke celkove shrnuti
+## Rozsah kontroly
+## Odhad faze prace a doporucene zamereni
+## Co se od minule verze posunulo
+## Co je na praci uz dobre
+## Nejvyssi priority pro aktualni iteraci
+## Splneni zadani
+## Pripominky k textu prace
+## Soulad textu s kodem
+## Co z minule zpetne vazby zustava
+## Doporuceny plan dalsich uprav
+## Checklist pro aktualni fazi
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+
+  if ! "$@" >/tmp/check-feedback-output.out 2>/tmp/check-feedback-output.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-feedback-output.err >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+
+  if "$@" >/tmp/check-feedback-output.out 2>/tmp/check-feedback-output.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-feedback-output.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_valid_cs"
+make_case "$case_id" "Student feedback language: cs"
+write_valid_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_success "valid Czech feedback passes" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_valid_en"
+make_case "$case_id" "Student feedback language: en"
+write_valid_en_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_success "valid English feedback passes" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_explicit_round"
+make_case "$case_id" "Student feedback language: cs" "round-b" "no"
+write_valid_cs_feedback "$repo_root/cases/$case_id/rounds/round-b/outputs/feedback_student.md"
+expect_success "explicit round works without current-round.txt" "$repo_root/scripts/check-feedback-output" "$case_id" "round-b"
+
+case_id="${case_prefix}_placeholder_date"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Datum kontroly: 29. 4. 2026" "Datum kontroly: YYYY-MM-DD"
+expect_failure "placeholder date fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_invalid_date"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Datum kontroly: 29. 4. 2026" "Datum kontroly: sometime in 2026"
+expect_failure "invalid date with year fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_missing_scope_limit"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Kontroloval jsem aktuální PDF, zadání, README, dostupný kód a předchozí zpětnou vazbu. Kód nebyl spuštěn a některé části nebylo možné ověřit, protože chybí nový implementační archiv; to je hlavní omezení této kontroly." "Kontroloval jsem aktuální PDF, zadání, README, dostupný kód a předchozí zpětnou vazbu. Zpráva shrnuje hlavní obsah práce a doporučené další kroky pro finální odevzdání."
+expect_failure "missing scope limitation fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_missing_priority_table"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+python3 - "$feedback" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = re.sub(
+    r"\| Priorita \|.*?\n(?=## Splnění zadání)",
+    "Bez tabulky priorit.\n\n",
+    text,
+    flags=re.S,
+)
+path.write_text(text, encoding="utf-8")
+PY
+expect_failure "missing priority table fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_missing_evidence_header"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Kde se to projevuje" "Kde hledat"
+expect_failure "missing evidence header fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_missing_action_header"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Co udělat" "Akce"
+expect_failure "missing action header fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_too_many_priorities"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "| P2 | Jazyk | Drobné chyby zbytečně snižují dojem z finální verze. | Projdi abstrakt, závěr a popisky tabulek. | Abstrakt, závěr a tabulky. |" "| P2 | Jazyk | Drobné chyby zbytečně snižují dojem z finální verze. | Projdi abstrakt, závěr a popisky tabulek. | Abstrakt, závěr a tabulky. |
+| P2 | Literatura | Pomáhá obhajobě. | Doplň návaznost na zdroje. | Kapitola 3 a zadání. |
+| P2 | Obrázky | Popisky musí být jasné. | Zkontroluj popisky obrázků. | Obrázek 2 a obrázek 3. |
+| P2 | Tabulky | Čtenář musí pochopit hodnoty. | Zkontroluj popisky tabulek. | Tabulka 1 a tabulka 2. |
+| P2 | README | Pomáhá reprodukovatelnosti. | Doplň stručný postup spuštění. | README a příloha. |
+| P2 | Závěr | Má být opatrný. | Uprav formulace v závěru. | Závěr práce. |
+| P2 | Abstrakt | Má být přesný. | Uprav poslední větu abstraktu. | Abstrakt práce. |"
+expect_failure "too many priority rows fail" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_p3_priority"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "| P2 | Jazyk |" "| P3 | Jazyk |"
+expect_failure "P3 priority fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_generic_evidence"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Zadání bod 2 a závěr práce." "text"
+expect_failure "generic P0 evidence fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_internal_leak"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Práce je použitelná pro další iteraci" "Práce je použitelná pro další iteraci, viz outputs/code_quality_review.md"
+expect_failure "internal output path leak fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_student_outputs_path"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Text má srozumitelnou strukturu" "Text má srozumitelnou strukturu a student může dokumentovat složku \`outputs/results.csv\`"
+expect_success "student project outputs path only warns" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_case_id_leak"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Práce je použitelná pro další iteraci" "Práce je použitelná pro další iteraci v $case_id"
+expect_failure "exact case id leak fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_round_id_leak"
+make_case "$case_id" "Student feedback language: cs" "20260429-111056-second-review"
+feedback="$repo_root/cases/$case_id/rounds/20260429-111056-second-review/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Práce je použitelná pro další iteraci" "Práce je použitelná pro další iteraci v roundu 20260429-111056-second-review"
+expect_failure "exact round id leak fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_placeholder_checklist"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "- [ ] Finální PDF je vizuálně zkontrolované." "- [ ] TODO:"
+expect_failure "placeholder checklist item fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_ascii_headings"
+make_case "$case_id" "Student feedback language: cs"
+write_ascii_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "ASCII Czech headings fail through language checker" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+rm -f /tmp/check-feedback-output.out /tmp/check-feedback-output.err
+echo "Feedback output smoke passed"

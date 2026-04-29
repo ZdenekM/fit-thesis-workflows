@@ -108,4 +108,4 @@ Standalone code consistency, code quality, and literature/citation outputs are i
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`.

@@ -202,13 +202,14 @@ Use this prompt in Codex:
 Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-supervisor-feedback-review a uloz reviewed final do outputs/feedback_student.md.
 ```
 
-Before sending supervisor feedback, validate the configured output-language heading structure:
+Before sending supervisor feedback, validate both the configured output-language heading structure and final feedback hygiene:
 
 ```bash
 scripts/check-feedback-language <case-id>
+scripts/check-feedback-output <case-id>
 ```
 
-This is a deterministic heading/structure guard. Still review the body text language, tone, and content manually before sending.
+`check-feedback-language` is a deterministic heading/structure guard. `check-feedback-output` also checks review date, scope/limitations, priority-table shape, obvious evidence anchors, internal workflow leaks, placeholders, and generic checklist items. Still review the body text language, tone, and content manually before sending.
 
 For the first opponent test, use:
 

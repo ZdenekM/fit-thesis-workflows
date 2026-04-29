@@ -14,7 +14,7 @@
    - For supervisor feedback, optionally suggest new relevant literature when the thesis has a clear literature gap.
    - For opponent workflows, limit this to relevance and defensibility checks of already cited sources; do not turn it into literature coaching.
    - Keep downloaded papers and derived evidence in the ignored case workspace, not in tracked repo paths.
-3. [ ] Add a lightweight final feedback output check.
+3. [x] Add a lightweight final feedback output check.
    - Add a helper script such as `scripts/check-feedback-output`.
    - Verify that student-facing feedback contains all required sections.
    - Keep the priority table focused by checking for a reasonable number of priority rows.
