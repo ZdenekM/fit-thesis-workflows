@@ -14,7 +14,12 @@ Purpose:
 - Student code:
 - README / docs:
 - Previous feedback:
-- Human notes:
+
+## Supervisor Notes to Verify
+
+These are supervisor hypotheses or preferences to check against the available evidence, not wording to paste directly into student feedback.
+
+-
 
 ## What To Check Explicitly
 

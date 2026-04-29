@@ -26,7 +26,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 ## Review Checks
 
 1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment context instead of reviewing/generating the final output.
-2. Re-check all P0/P1 risks and grade-impacting statements against available thesis, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, and notes.
+2. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics.
 3. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 4. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
 5. Verify that assignment fulfillment is assessed point by point.

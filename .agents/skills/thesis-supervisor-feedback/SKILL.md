@@ -32,10 +32,10 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 2. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, or deadline override. Keep the script output as deadline context for the feedback.
 3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 4. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
-5. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
+5. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
 6. State review limits before analysis: what was available, what was static-only, and what was not checked.
 7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-8. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes.
+8. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
 9. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
 10. Build a short private map:
    - current thesis phase,
@@ -47,10 +47,25 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - code/reproducibility status,
    - code quality/design status,
    - student feedback language,
+   - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-11. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in the language-specific review-scope section (`Rozsah kontroly` / `Review Scope`) of `outputs/feedback_student.md` by naming inspected code paths and explicit limitations.
+11. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
 12. Prioritize issues by impact on current phase. Do not list every possible improvement.
 13. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+
+## Supervisor Notes Handling
+
+Treat notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, as hypotheses to evaluate, not as text to paste into student feedback.
+
+For each supervisor note:
+
+- restate the concrete check or recommendation,
+- verify it against the submitted PDF text, LaTeX sources, code, README/docs, results, assignment, or previous feedback where available,
+- classify it privately as verified, partially verified, not verifiable from current inputs, out of phase, or rejected,
+- keep evidence for verified or partially verified points concrete enough to support a P0/P1 claim,
+- write only the resulting student-relevant synthesis into `outputs/feedback_student.md`.
+
+Do not include the private classification table in student-facing feedback. If an operator artifact such as `outputs/revision_diff.md` is already being written, it may record the classification or evidence there. If a supervisor note is mainly a preference, include it only when it is useful for the current phase and can be framed as an actionable recommendation.
 
 ## Phase Calibration
 
@@ -90,6 +105,7 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 
 - Do not claim that code was run unless it was actually run.
 - If a smoke test is simple and local, it may be attempted. If not, perform static review and state the limit.
+- Do not run LaTeX/Overleaf builds as a routine check. The submitted PDF is the rendered-text evidence; source zips support diff/search/evidence. If a build is explicitly requested or unavoidable because no PDF exists, state that scope clearly.
 - For text-code mismatch, cite both sides: thesis location and code/README/config path.
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
 - Treat standalone `outputs/code_consistency.md` and `outputs/code_quality_review.md` as internal/operator evidence unless the user explicitly asks to send them.
@@ -103,6 +119,8 @@ For `cs`, use Czech headings with diacritics and write Czech text with diacritic
 
 ```markdown
 # Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: <aktuální datum kontroly, např. 2026-04-29>
 
 ## Krátké celkové shrnutí
 
@@ -140,6 +158,8 @@ For `en`, use this English structure:
 
 ```markdown
 # Feedback on the Current Thesis Version
+
+Review date: <current review date, e.g. 2026-04-29>
 
 ## Brief Overall Summary
 
@@ -179,7 +199,11 @@ Priority:
 - `P1`: vyrazne zlepsi kvalitu prace v aktualni fazi.
 - `P2`: uzitecne vylepseni, pokud na nej ted dava smysl sahat.
 
-Keep the feedback concrete, kind, and usable. Do not write the thesis for the student; short illustrative rewrites are acceptable only to clarify a point.
+Keep the feedback concrete, kind, and usable. Include a human-readable review date near the top of the document. Do not write the thesis for the student; short illustrative rewrites are acceptable only to clarify a point.
+
+Avoid internal workflow identifiers in student-facing prose. Do not include case IDs, exact round IDs, workspace paths, or artifact filenames unless the student needs them to act. Prefer human wording such as "minulá kontrola" or "aktuální verze"; keep exact round IDs in operator artifacts such as `outputs/revision_diff.md`.
+
+Keep `Rozsah kontroly` / `Review Scope` student-relevant. Mention what kinds of materials and important limitations affect the feedback, but omit internal mechanics such as source-zip diffing, local build policy, extraction tooling, or operator artifact names unless the student must act on them.
 
 ## Final Self-Check
 
@@ -188,11 +212,15 @@ Before finishing, verify:
 - tone and strictness match the phase,
 - no unverified claim sounds like a fact,
 - previous feedback was considered without mechanical repetition,
+- supervisor notes were verified and synthesized rather than copied directly,
+- no placeholder date such as `YYYY-MM-DD` remains in the final output,
 - priorities are limited and actionable,
 - P0/P1 items are truly important for the current phase,
 - any text-code mismatch cites both thesis and code evidence,
 - limitations of review are explicit,
 - code-quality/design review was used when code was available, or the limitation is explicit,
 - body text and headings match the configured student feedback language,
+- internal case/round identifiers are absent from student-facing prose unless intentionally introduced with a clear human-facing label,
+- review-scope wording excludes internal workflow mechanics unless they are actionable for the student,
 - `scripts/check-feedback-language <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; this validates heading structure, not the whole prose,
 - the document is usable by the student.

@@ -28,19 +28,22 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 1. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment/deadline context instead of reviewing/generating the final output.
 2. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 3. Resolve the configured student feedback language and preserve it in the final student-facing output.
-4. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, and notes.
-5. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
-6. Merge duplicates and remove low-impact details that distract from the next iteration.
-7. Verify that previous feedback is not repeated after it has been addressed.
-8. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
-9. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
-10. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit review-scope entry naming inspected paths and limitations. If not, repair the output or state the limitation.
-11. Keep at most 8 priority rows, ideally 3-6.
-12. Preserve concrete positives and a motivating but direct tone.
-13. Make the final checklist specific to this thesis and phase, not generic.
-14. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
-15. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
-16. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+4. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, submitted PDF text, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics.
+5. Check that supervisor notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, were verified against available evidence and synthesized; remove or reframe anything that merely copies a supervisor preference into student-facing prose.
+6. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
+7. Merge duplicates and remove low-impact details that distract from the next iteration.
+8. Verify that previous feedback is not repeated after it has been addressed.
+9. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
+10. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
+11. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts. In the student-facing output, keep only student-actionable summaries and important limitations.
+12. Keep at most 8 priority rows, ideally 3-6.
+13. Preserve concrete positives and a motivating but direct tone.
+14. Make the final checklist specific to this thesis and phase, not generic.
+15. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
+16. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
+17. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, or operator artifact names.
+18. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
+19. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 
 ## Priority Calibration
 
@@ -61,6 +64,8 @@ For `cs`, the document starts with:
 ```markdown
 # Zpětná vazba k aktuální verzi práce
 
+Datum kontroly: <aktuální datum kontroly, např. 2026-04-29>
+
 ## Krátké celkové shrnutí
 ## Rozsah kontroly
 ## Odhad fáze práce a doporučené zaměření
@@ -79,6 +84,8 @@ For `en`, the document starts with:
 
 ```markdown
 # Feedback on the Current Thesis Version
+
+Review date: <current review date, e.g. 2026-04-29>
 
 ## Brief Overall Summary
 ## Review Scope

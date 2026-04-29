@@ -20,6 +20,11 @@ scripts/import-round novak-bp-2026 second-review ~/Downloads/thesis.pdf ~/Downlo
 
 `import-round` copies inputs into the ignored case workspace and extracts PDF text into `extracted/` when `pdftotext` is available.
 
+Treat the submitted PDF as the rendered thesis source of truth. LaTeX/Overleaf
+source zips are useful for text diffs, search, and precise evidence, but the
+workflow does not build them by default. Ask for a build only when you
+explicitly want compile diagnostics or no rendered PDF is available.
+
 Before generating supervisor feedback or opponent materials, fill the assignment gate:
 
 ```text
@@ -81,6 +86,14 @@ For supervisor feedback, the current round must take previous feedback into acco
 
 Student-facing supervisor feedback uses `Student feedback language` from `case.md`. Missing or empty means `cs`, which requires Czech output with diacritics. Use `en` only when English feedback is preferable. `Jazyk prace` in intake notes describes the thesis language and does not control feedback language.
 
+Put supervisor observations for the current round into `notes/round-notes.md`
+under `Supervisor Notes to Verify`. Treat them as hypotheses for Codex to
+check, expand, or reject against the thesis and artifacts, not as text to copy
+directly into `outputs/feedback_student.md`. Example: `For SUS and similar
+averages, check whether the thesis should include standard deviation or
+variance; if the questionnaire has useful free-text responses, consider short
+anonymized quotes or a theme summary.`
+
 ## Main Workflows
 
 - `thesis-supervisor-feedback`: iterative student-facing feedback for a supervised BP/DP.
@@ -93,8 +106,15 @@ Student-facing supervisor feedback uses `Student feedback language` from `case.m
 - `thesis-opponent-report-review`: review your own draft opponent report for fairness, evidence, tone, and consistency.
 
 The canonical workflow definitions live in `.agents/skills/*/SKILL.md`.
+Durable workflow lessons and rationale live in `WORKFLOW_MEMORY.md`; promote
+anything operational from there into the relevant skill, template, README,
+AGENTS, or TODO entry before relying on it as an active rule.
 
 When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; make them inspectable under `work/code/` before delegating to read-only reviewers, or record the limitation. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
+
+For thesis text review, use the submitted PDF as the rendered artifact. Use
+LaTeX sources for structural diffs and exact snippets, not as a build target by
+default.
 
 ## First Real Test
 
@@ -113,6 +133,10 @@ cases/<case-id>/rounds/<round-id>/notes/assignment.md
 cases/<case-id>/rounds/<round-id>/notes/supervisor-intake.md
 cases/<case-id>/rounds/<round-id>/notes/round-notes.md
 ```
+
+Put current supervisor hypotheses under `Supervisor Notes to Verify` in
+`round-notes.md`; the skills verify and synthesize them before they reach
+student-facing feedback.
 
 Check readiness before asking Codex to generate the artifact:
 

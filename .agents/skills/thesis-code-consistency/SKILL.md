@@ -13,7 +13,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 
 ## Process
 
-1. Read `current-round.txt` if present and enumerate `inputs/`, `extracted/`, and code artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
+1. Read `current-round.txt` if present and enumerate `inputs/`, `extracted/`, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default.
 2. Identify thesis claims about:
    - implemented features,
    - architecture, only where the text makes explicit architecture claims,

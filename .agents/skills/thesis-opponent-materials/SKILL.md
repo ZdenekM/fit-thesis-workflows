@@ -15,6 +15,7 @@ Use the active round unless the user specifies another:
 cases/<case-id>/rounds/<round-id>/
   notes/assignment.md
   notes/opponent-intake.md
+  notes/round-notes.md
   inputs/
   extracted/
   work/
@@ -26,7 +27,7 @@ cases/<case-id>/rounds/<round-id>/
 1. Resolve the active case and round.
 2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment and private assignment notes to `notes/assignment.md`.
 3. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
-4. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. State what was not available or not runnable.
+4. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. State what was not available or not runnable.
 5. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
 6. Build a map of:
    - assignment points and where they are covered,
@@ -38,7 +39,7 @@ cases/<case-id>/rounds/<round-id>/
    - literature/citation issues,
    - likely strengths,
    - risks that may affect grading.
-7. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in the materials by naming inspected code paths and explicit limitations.
+7. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
 8. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
 9. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
 10. Use confidence labels for important statements:

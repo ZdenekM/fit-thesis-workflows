@@ -11,6 +11,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Avoid workaround thinking. If the workflow is too complicated, simplify the workflow rather than adding fallback layers.
 - Do not pretend to have checked anything that was not available in the inputs. Mark indirect conclusions as estimates, risks, or items for manual verification.
 - Important negative claims must cite evidence: a chapter/section/page, a file/path/function, a README/config/test, a missing artifact, or a concrete mismatch.
+- Treat the submitted thesis PDF as the authoritative rendered thesis artifact. Do not run LaTeX/Overleaf builds by default; use source zips for diff/search/evidence. Compile only when the user explicitly asks, or when no rendered PDF is available and the limitation is stated.
 - Before generating supervisor feedback, require both assignment and deadline context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, or deadline override.
 - Before generating opponent materials, require assignment context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 
@@ -32,6 +33,9 @@ When a round contains code, supervisor feedback and opponent materials must use 
 Code artifacts include source directories and archives copied into `inputs/`. Before delegating to read-only reviewer agents, make the code inspectable under the ignored round workspace, typically `work/code/`, or record a concrete limitation in the final artifact.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
+When changing workflow docs or skills, scan `WORKFLOW_MEMORY.md` for reusable
+lessons and promote active rules into the appropriate workflow file instead of
+treating memory as a second instruction system.
 
 ## Case Layout
 

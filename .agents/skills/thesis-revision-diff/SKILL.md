@@ -21,7 +21,7 @@ If the user does not name rounds, compare the newest round with the previous one
 ## Process
 
 1. Read both rounds' notes and outputs.
-2. Compare thesis text extracts, LaTeX sources, code trees, README/configs, and generated outputs where available.
+2. Compare thesis text extracts, LaTeX sources, code trees, README/configs, and generated outputs where available. Treat submitted PDFs as rendered artifacts; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default.
 3. Read old `outputs/feedback_student.md`.
 4. Classify old feedback:
    - addressed,
