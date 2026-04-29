@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__feedback_language_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local language_line="$2"
+  local round_id="${3:-round-a}"
+  local write_current="${4:-yes}"
+
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    if [[ -n "$language_line" ]]; then
+      echo "$language_line"
+    fi
+  } >"$repo_root/cases/$case_id/case.md"
+
+  if [[ "$write_current" == "yes" ]]; then
+    echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  fi
+}
+
+write_cs_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Zpětná vazba k aktuální verzi práce
+## Krátké celkové shrnutí
+## Rozsah kontroly
+## Odhad fáze práce a doporučené zaměření
+## Co se od minulé verze posunulo
+## Co je na práci už dobré
+## Nejvyšší priority pro aktuální iteraci
+## Splnění zadání
+## Připomínky k textu práce
+## Soulad textu s kódem
+## Co z minulé zpětné vazby zůstává
+## Doporučený plán dalších úprav
+## Checklist pro aktuální fázi
+EOF
+}
+
+write_ascii_cs_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Zpetna vazba k aktualni verzi prace
+## Kratke celkove shrnuti
+## Rozsah kontroly
+## Odhad faze prace a doporucene zamereni
+## Co se od minule verze posunulo
+## Co je na praci uz dobre
+## Nejvyssi priority pro aktualni iteraci
+## Splneni zadani
+## Pripominky k textu prace
+## Soulad textu s kodem
+## Co z minule zpetne vazby zustava
+## Doporuceny plan dalsich uprav
+## Checklist pro aktualni fazi
+EOF
+}
+
+write_en_feedback() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Feedback on the Current Thesis Version
+## Brief Overall Summary
+## Review Scope
+## Estimated Work Phase and Recommended Focus
+## Progress Since Previous Feedback
+## What Is Already Working Well
+## Highest Priorities for This Iteration
+## Assignment Fulfillment
+## Thesis Text Feedback
+## Text-Code Alignment
+## Remaining Items From Previous Feedback
+## Recommended Next Revision Plan
+## Checklist for the Current Phase
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+
+  if ! "$@" >/tmp/check-feedback-language.out 2>/tmp/check-feedback-language.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-feedback-language.err >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+
+  if "$@" >/tmp/check-feedback-language.out 2>/tmp/check-feedback-language.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-feedback-language.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_default_cs"
+make_case "$case_id" ""
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_success "missing language defaults to cs" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_empty_cs"
+make_case "$case_id" "Student feedback language:"
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_success "empty language defaults to cs" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_ascii_cs"
+make_case "$case_id" "Student feedback language: cs"
+write_ascii_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "ASCII Czech headings are rejected" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_en"
+make_case "$case_id" "Student feedback language: en"
+write_en_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_success "English headings pass" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_cs_with_en"
+make_case "$case_id" "Student feedback language: cs"
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_en_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/english_duplicate.md"
+cat "$repo_root/cases/$case_id/rounds/round-a/outputs/english_duplicate.md" >>"$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "English headings in Czech feedback are rejected" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_en_with_cs"
+make_case "$case_id" "Student feedback language: en"
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "Czech headings in English feedback are rejected" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_sk"
+make_case "$case_id" "Student feedback language: sk"
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "unsupported language fails" "$repo_root/scripts/check-feedback-language" "$case_id"
+expect_failure "unsupported language fails in config-only mode" "$repo_root/scripts/check-feedback-language" --config-only "$case_id"
+
+case_id="${case_prefix}_missing_feedback"
+make_case "$case_id" "Student feedback language: cs"
+expect_failure "missing feedback output fails" "$repo_root/scripts/check-feedback-language" "$case_id"
+
+case_id="${case_prefix}_explicit_round"
+make_case "$case_id" "Student feedback language: cs" "round-b" "no"
+write_cs_feedback "$repo_root/cases/$case_id/rounds/round-b/outputs/feedback_student.md"
+expect_failure "missing current round fails without explicit round" "$repo_root/scripts/check-feedback-language" "$case_id"
+expect_success "explicit round works without current-round.txt" "$repo_root/scripts/check-feedback-language" "$case_id" "round-b"
+expect_success "config-only works before a round is needed" "$repo_root/scripts/check-feedback-language" --config-only "$case_id"
+
+rm -f /tmp/check-feedback-language.out /tmp/check-feedback-language.err
+echo "Feedback language smoke passed"

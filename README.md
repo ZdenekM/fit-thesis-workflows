@@ -63,7 +63,8 @@ Each case can contain multiple rounds:
 ```text
 cases/<case-id>/
   case.md
-  # includes Work type, Academic year, Deadline mode, and optional Deadline override
+  # includes Work type, Academic year, Deadline mode, optional Deadline override,
+  # and Student feedback language: cs / en
   current-round.txt
   rounds/
     20260428-1530-first-review/
@@ -77,6 +78,8 @@ cases/<case-id>/
 ```
 
 For supervisor feedback, the current round must take previous feedback into account. Earlier `outputs/feedback_student.md` files are part of the input and should be used to avoid repeating resolved feedback.
+
+Student-facing supervisor feedback uses `Student feedback language` from `case.md`. Missing or empty means `cs`, which requires Czech output with diacritics. Use `en` only when English feedback is preferable. `Jazyk prace` in intake notes describes the thesis language and does not control feedback language.
 
 ## Main Workflows
 
@@ -123,6 +126,14 @@ Use this prompt in Codex:
 Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review, udelej kriticky druhy pruchod a uloz final do outputs/feedback_student.md.
 ```
 
+Before sending supervisor feedback, validate the configured output-language heading structure:
+
+```bash
+scripts/check-feedback-language <case-id>
+```
+
+This is a deterministic heading/structure guard. Still review the body text language, tone, and content manually before sending.
+
 For the first opponent test, use:
 
 ```text
@@ -135,7 +146,7 @@ Before committing workflow changes, run the lightweight hygiene checks relevant 
 git diff --check
 git diff --cached --check
 scripts/check-private
-bash -n scripts/*
+scripts/check-scripts
 ```
 
 When touching `.codex/agents/*.toml` or Python hooks, also parse the TOML and compile the hook files before committing.

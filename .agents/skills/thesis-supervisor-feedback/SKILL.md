@@ -30,13 +30,14 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 
 1. Resolve the active case and round.
 2. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, or deadline override. Keep the script output as deadline context for the feedback.
-3. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`.
-4. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
-5. State review limits before analysis: what was available, what was static-only, and what was not checked.
-6. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-7. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes.
-8. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
-9. Build a short private map:
+3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
+4. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
+5. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
+6. State review limits before analysis: what was available, what was static-only, and what was not checked.
+7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
+8. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes.
+9. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
+10. Build a short private map:
    - current thesis phase,
    - supervisor deadline context and time remaining,
    - assignment coverage,
@@ -45,10 +46,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - experiment/result status,
    - code/reproducibility status,
    - code quality/design status,
+   - student feedback language,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-10. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in `outputs/feedback_student.md` under `Rozsah kontroly` by naming inspected code paths and explicit limitations.
-11. Prioritize issues by impact on current phase. Do not list every possible improvement.
-12. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+11. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Leave visible evidence either as `outputs/code_consistency.md` and `outputs/code_quality_review.md`, or in the language-specific review-scope section (`Rozsah kontroly` / `Review Scope`) of `outputs/feedback_student.md` by naming inspected code paths and explicit limitations.
+12. Prioritize issues by impact on current phase. Do not list every possible improvement.
+13. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
 
 ## Phase Calibration
 
@@ -95,41 +97,80 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 
 ## Output
 
-Write `outputs/feedback_student.md` with this structure. If you intentionally split generation and review, put the first draft in `work/feedback_student_draft.md` and let the review pass write `outputs/feedback_student.md`.
+Write `outputs/feedback_student.md` in the configured student feedback language. If you intentionally split generation and review, put the first draft in `work/feedback_student_draft.md` and let the review pass write `outputs/feedback_student.md`.
+
+For `cs`, use Czech headings with diacritics and write Czech text with diacritics. Do not use ASCII-only Czech headings:
 
 ```markdown
-# Zpetna vazba k aktualni verzi prace
+# Zpětná vazba k aktuální verzi práce
 
-## Kratke celkove shrnuti
+## Krátké celkové shrnutí
 
 ## Rozsah kontroly
 
-## Odhad faze prace a doporucene zamereni
+## Odhad fáze práce a doporučené zaměření
 
-## Co se od minule posunulo
+## Co se od minulé verze posunulo
 
-## Co je na praci uz dobre
+## Co je na práci už dobré
 
-## Nejvyssi priority pro aktualni iteraci
+## Nejvyšší priority pro aktuální iteraci
 
-| Priorita | Oblast | Proc je to dulezite ted | Co udelat | Kde se to projevuje |
+| Priorita | Oblast | Proč je to důležité teď | Co udělat | Kde se to projevuje |
 |---|---|---|---|---|
 
-## Splneni zadani
+## Splnění zadání
 
-## Pripominky k textu prace
+## Připomínky k textu práce
 
-Pokryj podle relevance: abstrakt, uvod a cil, strukturu kapitol, resersi/teorii, navrh, implementaci, data/metriky, experimenty, vysledky, diskusi, zaver, obrazky/tabulky, citace a formalni stranku.
+Pokryj podle relevance: abstrakt, úvod a cíl, strukturu kapitol, rešerši/teorii, návrh, implementaci, data/metriky, experimenty, výsledky, diskusi, závěr, obrázky/tabulky, citace a formální stránku.
 
-## Soulad textu s kodem
+## Soulad textu s kódem
 
-Uved, co odpovida, co je nejasne, kde text mozna slibuje vice nez kod/README/vysledky ukazuji, co doplnit do README/dokumentace/prilohy a co omezuje reprodukovatelnost. Pokud kod byl dostupny, pridej jen nejdulezitejsi akcni shrnuti code-quality/design review; nedelej z toho samostatny dlouhy code review uvnitr student feedbacku.
+Uveď, co odpovídá, co je nejasné, kde text možná slibuje více než kód/README/výsledky ukazují, co doplnit do README/dokumentace/přílohy a co omezuje reprodukovatelnost. Pokud byl kód dostupný, přidej jen nejdůležitější akční shrnutí code-quality/design review; nedělej z toho samostatný dlouhý code review uvnitř student feedbacku.
 
-## Co z minule zpetne vazby zustava
+## Co z minulé zpětné vazby zůstává
 
-## Doporuceny plan dalsich uprav
+## Doporučený plán dalších úprav
 
-## Checklist pro aktualni fazi
+## Checklist pro aktuální fázi
+```
+
+For `en`, use this English structure:
+
+```markdown
+# Feedback on the Current Thesis Version
+
+## Brief Overall Summary
+
+## Review Scope
+
+## Estimated Work Phase and Recommended Focus
+
+## Progress Since Previous Feedback
+
+## What Is Already Working Well
+
+## Highest Priorities for This Iteration
+
+| Priority | Area | Why it matters now | What to do | Where it appears |
+|---|---|---|---|---|
+
+## Assignment Fulfillment
+
+## Thesis Text Feedback
+
+Cover as relevant: abstract, introduction and goal, chapter structure, related work/theory, design, implementation, data/metrics, experiments, results, discussion, conclusion, figures/tables, citations, and formal presentation.
+
+## Text-Code Alignment
+
+State what matches, what is unclear, where the text may promise more than code/README/results show, what to add to README/documentation/appendices, and what limits reproducibility. If code was available, include only the most important actionable summary of code-quality/design review; do not turn the student feedback into a long standalone code review.
+
+## Remaining Items From Previous Feedback
+
+## Recommended Next Revision Plan
+
+## Checklist for the Current Phase
 ```
 
 Priority:
@@ -152,4 +193,6 @@ Before finishing, verify:
 - any text-code mismatch cites both thesis and code evidence,
 - limitations of review are explicit,
 - code-quality/design review was used when code was available, or the limitation is explicit,
+- body text and headings match the configured student feedback language,
+- `scripts/check-feedback-language <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; this validates heading structure, not the whole prose,
 - the document is usable by the student.

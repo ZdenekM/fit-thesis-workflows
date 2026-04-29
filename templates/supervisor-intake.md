@@ -4,7 +4,7 @@ Most fields are optional. Formal assignment context is required in `notes/assign
 before generating feedback.
 
 Typ prace: BP / DP
-Jazyk prace:
+Jazyk prace (neridi jazyk feedbacku; ten je v case.md jako Student feedback language):
 Tema jednou vetou:
 Formalni zadani / hlavni body zadani: viz notes/assignment.md
 Datum revize:

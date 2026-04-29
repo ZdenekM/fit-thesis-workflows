@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/check-feedback-language [--config-only] CASE_ID [ROUND_ID]
+
+Checks outputs/feedback_student.md heading structure against Student feedback language in case.md.
+Use --config-only to validate case.md before feedback output exists.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+config_only=0
+if [[ "${1:-}" == "--config-only" ]]; then
+  config_only=1
+  shift
+fi
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  usage >&2
+  exit 2
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="$1"
+case_dir="$repo_root/cases/$case_id"
+
+if [[ ! -d "$case_dir" ]]; then
+  echo "Case does not exist: cases/$case_id" >&2
+  exit 1
+fi
+
+case_md="$case_dir/case.md"
+if [[ ! -f "$case_md" ]]; then
+  echo "Missing case metadata: cases/$case_id/case.md" >&2
+  exit 1
+fi
+
+language="$(
+  awk -F: '
+    tolower($1) == "student feedback language" {
+      value = $2
+      sub(/^[ \t]+/, "", value)
+      sub(/[ \t]+$/, "", value)
+      print tolower(value)
+      exit
+    }
+  ' "$case_md" 2>/dev/null || true
+)"
+language="${language:-cs}"
+
+if [[ "$language" != "cs" && "$language" != "en" ]]; then
+  echo "Unsupported Student feedback language in case.md: '$language'. Expected 'cs' or 'en'." >&2
+  exit 1
+fi
+
+if [[ "$config_only" -eq 1 ]]; then
+  echo "Feedback language config OK: $language"
+  exit 0
+fi
+
+round_id="${2:-}"
+if [[ -z "$round_id" ]]; then
+  if [[ ! -f "$case_dir/current-round.txt" ]]; then
+    echo "Missing current round: cases/$case_id/current-round.txt" >&2
+    exit 1
+  fi
+  round_id="$(<"$case_dir/current-round.txt")"
+fi
+
+round_dir="$case_dir/rounds/$round_id"
+if [[ ! -d "$round_dir" ]]; then
+  echo "Round does not exist: cases/$case_id/rounds/$round_id" >&2
+  exit 1
+fi
+
+feedback="$round_dir/outputs/feedback_student.md"
+if [[ ! -f "$feedback" ]]; then
+  echo "Missing feedback output: cases/$case_id/rounds/$round_id/outputs/feedback_student.md" >&2
+  exit 1
+fi
+
+cs_required_headings=(
+  "# Zpětná vazba k aktuální verzi práce"
+  "## Krátké celkové shrnutí"
+  "## Rozsah kontroly"
+  "## Odhad fáze práce a doporučené zaměření"
+  "## Co se od minulé verze posunulo"
+  "## Co je na práci už dobré"
+  "## Nejvyšší priority pro aktuální iteraci"
+  "## Splnění zadání"
+  "## Připomínky k textu práce"
+  "## Soulad textu s kódem"
+  "## Co z minulé zpětné vazby zůstává"
+  "## Doporučený plán dalších úprav"
+  "## Checklist pro aktuální fázi"
+)
+
+cs_ascii_reject_headings=(
+  "# Zpetna vazba k aktualni verzi prace"
+  "## Kratke celkove shrnuti"
+  "## Odhad faze prace a doporucene zamereni"
+  "## Co se od minule posunulo"
+  "## Co se od minule verze posunulo"
+  "## Co je na praci uz dobre"
+  "## Nejvyssi priority pro aktualni iteraci"
+  "## Splneni zadani"
+  "## Pripominky k textu prace"
+  "## Soulad textu s kodem"
+  "## Co z minule zpetne vazby zustava"
+  "## Doporuceny plan dalsich uprav"
+  "## Checklist pro aktualni fazi"
+)
+
+en_required_headings=(
+  "# Feedback on the Current Thesis Version"
+  "## Brief Overall Summary"
+  "## Review Scope"
+  "## Estimated Work Phase and Recommended Focus"
+  "## Progress Since Previous Feedback"
+  "## What Is Already Working Well"
+  "## Highest Priorities for This Iteration"
+  "## Assignment Fulfillment"
+  "## Thesis Text Feedback"
+  "## Text-Code Alignment"
+  "## Remaining Items From Previous Feedback"
+  "## Recommended Next Revision Plan"
+  "## Checklist for the Current Phase"
+)
+
+failed=0
+
+report_missing() {
+  local label="$1"
+  local heading
+  local printed=0
+  shift
+
+  for heading in "$@"; do
+    if ! grep -Fxq "$heading" "$feedback"; then
+      if [[ "$printed" -eq 0 ]]; then
+        echo "$label" >&2
+        printed=1
+      fi
+      echo "- $heading" >&2
+      failed=1
+    fi
+  done
+}
+
+report_present() {
+  local label="$1"
+  local heading
+  local printed=0
+  shift
+
+  for heading in "$@"; do
+    if grep -Fxq "$heading" "$feedback"; then
+      if [[ "$printed" -eq 0 ]]; then
+        echo "$label" >&2
+        printed=1
+      fi
+      echo "- $heading" >&2
+      failed=1
+    fi
+  done
+}
+
+if [[ "$language" == "cs" ]]; then
+  report_missing "Missing Czech headings with diacritics:" "${cs_required_headings[@]}"
+  report_present "Found ASCII-only Czech headings:" "${cs_ascii_reject_headings[@]}"
+  report_present "Found English headings in Czech feedback:" "${en_required_headings[@]}"
+else
+  report_missing "Missing English headings:" "${en_required_headings[@]}"
+  report_present "Found Czech headings in English feedback:" "${cs_required_headings[@]}" "${cs_ascii_reject_headings[@]}"
+fi
+
+if [[ "$failed" -ne 0 ]]; then
+  exit 1
+fi
+
+echo "Feedback language check passed: $language"

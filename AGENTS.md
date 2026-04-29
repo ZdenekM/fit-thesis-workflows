@@ -87,4 +87,6 @@ Default outputs go into the active round:
 
 Standalone code consistency and code quality outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
 
-Before closing a task, run relevant lightweight checks such as `scripts/check-private`, `bash -n scripts/*`, and `git diff --check`.
+Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
+
+Before closing a task, run relevant lightweight checks such as `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.

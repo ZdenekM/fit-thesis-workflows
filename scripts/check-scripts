@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+for script in "$repo_root"/scripts/*; do
+  [[ -f "$script" ]] || continue
+
+  case "$(head -n 1 "$script")" in
+    *bash*)
+      bash -n "$script"
+      ;;
+    *python*)
+      python3 - "$script" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+compile(path.read_text(encoding="utf-8"), str(path), "exec")
+PY
+      ;;
+  esac
+done
+
+echo "Script syntax check passed"

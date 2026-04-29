@@ -13,7 +13,7 @@
    - Review README/developer documentation, installation instructions, reproducibility notes, and expected test/smoke-test workflow.
    - Keep this distinct from syntax checks and thesis-code consistency: it should answer whether the implementation is well engineered, not only whether it exists and matches the text.
    - Surface the result in supervisor feedback when useful, and in opponent materials as internal evidence when relevant.
-4. [ ] Add an output-language setting for generated student feedback.
+4. [x] Add an output-language setting for generated student feedback.
    - Default student-facing supervisor feedback to Czech with diacritics.
    - Support an explicit English mode for cases where English feedback is preferable.
    - Do not add Slovak as a generated-feedback mode for now; supervisor review/editing should stay comfortable for the Czech-speaking operator.

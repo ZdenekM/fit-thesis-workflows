@@ -26,18 +26,21 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 ## Review Checks
 
 1. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment/deadline context instead of reviewing/generating the final output.
-2. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, and notes.
-3. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
-4. Merge duplicates and remove low-impact details that distract from the next iteration.
-5. Verify that previous feedback is not repeated after it has been addressed.
-6. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
-7. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
-8. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit `Rozsah kontroly` entry naming inspected paths and limitations. If not, repair the output or state the limitation.
-9. Keep at most 8 priority rows, ideally 3-6.
-10. Preserve concrete positives and a motivating but direct tone.
-11. Make the final checklist specific to this thesis and phase, not generic.
-12. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
-13. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+2. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
+3. Resolve the configured student feedback language and preserve it in the final student-facing output.
+4. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, and notes.
+5. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
+6. Merge duplicates and remove low-impact details that distract from the next iteration.
+7. Verify that previous feedback is not repeated after it has been addressed.
+8. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
+9. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
+10. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit review-scope entry naming inspected paths and limitations. If not, repair the output or state the limitation.
+11. Keep at most 8 priority rows, ideally 3-6.
+12. Preserve concrete positives and a motivating but direct tone.
+13. Make the final checklist specific to this thesis and phase, not generic.
+14. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
+15. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
+16. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 
 ## Priority Calibration
 
@@ -51,21 +54,42 @@ If a priority does not pass that test, downgrade it, merge it, move it to the ch
 
 Write the final sendable Markdown to `outputs/feedback_student.md`. Do not write a separate audit unless the user asks for one.
 
-The final document must retain the supervisor-feedback structure:
+The final document must retain the language-specific supervisor-feedback structure from `thesis-supervisor-feedback`.
+
+For `cs`, the document starts with:
 
 ```markdown
-# Zpetna vazba k aktualni verzi prace
+# Zpětná vazba k aktuální verzi práce
 
-## Kratke celkove shrnuti
+## Krátké celkové shrnutí
 ## Rozsah kontroly
-## Odhad faze prace a doporucene zamereni
-## Co se od minule posunulo
-## Co je na praci uz dobre
-## Nejvyssi priority pro aktualni iteraci
-## Splneni zadani
-## Pripominky k textu prace
-## Soulad textu s kodem
-## Co z minule zpetne vazby zustava
-## Doporuceny plan dalsich uprav
-## Checklist pro aktualni fazi
+## Odhad fáze práce a doporučené zaměření
+## Co se od minulé verze posunulo
+## Co je na práci už dobré
+## Nejvyšší priority pro aktuální iteraci
+## Splnění zadání
+## Připomínky k textu práce
+## Soulad textu s kódem
+## Co z minulé zpětné vazby zůstává
+## Doporučený plán dalších úprav
+## Checklist pro aktuální fázi
+```
+
+For `en`, the document starts with:
+
+```markdown
+# Feedback on the Current Thesis Version
+
+## Brief Overall Summary
+## Review Scope
+## Estimated Work Phase and Recommended Focus
+## Progress Since Previous Feedback
+## What Is Already Working Well
+## Highest Priorities for This Iteration
+## Assignment Fulfillment
+## Thesis Text Feedback
+## Text-Code Alignment
+## Remaining Items From Previous Feedback
+## Recommended Next Revision Plan
+## Checklist for the Current Phase
 ```

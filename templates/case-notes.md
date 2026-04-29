@@ -5,6 +5,7 @@ Work type: BP / DP / unknown
 Academic year:
 Deadline mode: standard / deferred
 Deadline override:
+Student feedback language: cs
 Student:
 Topic:
 Supervisor / opponent role:
