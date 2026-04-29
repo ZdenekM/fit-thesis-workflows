@@ -80,11 +80,19 @@ workflow configuration rather than workflow memory. Public defaults belong in
 
 Promoted to: `profiles/README.md`, `README.md`, profile checker, privacy guard.
 
+### 2026-04-29: PDF Detail Layer Before Literature Review
+
+Status: promoted
+
+Keep `pdftotext -layout` as the stable case evidence path. Use `pdf-reader-mcp`
+only as an optional targeted detail layer for page ranges, metadata, figures,
+tables, layout-sensitive checks, and literature PDFs that need page-local
+evidence.
+
+Promoted to: `docs/pdf-detail-layer.md`, README, thesis skills.
+
 ## Candidate Improvements
 
-- Add a literature/citation relevance layer that can collect cited sources,
-  resolve accessible PDFs or metadata, check relevance, and keep downloaded
-  evidence in the ignored case workspace.
 - Add a final feedback output check for required sections, focused priorities,
   explicit scope, evidence for P0/P1 claims, language mode, and generic
   checklist phrasing.

@@ -27,16 +27,17 @@ If both draft and output files exist, review the draft unless the user explicitl
 
 1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment/profile context instead of reviewing/generating the final output.
 2. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
-3. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics.
+3. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout claims as valid only when a concrete PDF detail check was performed.
 4. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 5. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
 6. Verify that assignment fulfillment is assessed point by point.
 7. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
 8. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
 9. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
-10. Keep strengths concrete and evidence-backed.
-11. Check that proposed defense questions are fair, answerable, and tied to important issues.
-12. Keep grading calibration as intervals and rationale, not false precision.
+10. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
+11. Keep strengths concrete and evidence-backed.
+12. Check that proposed defense questions are fair, answerable, and tied to important issues.
+13. Keep grading calibration as intervals and rationale, not false precision.
 
 ## Output
 

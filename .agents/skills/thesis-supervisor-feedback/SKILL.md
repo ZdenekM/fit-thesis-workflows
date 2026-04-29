@@ -33,7 +33,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
 5. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
-6. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory.
+6. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
 7. State review limits before analysis: what was available, what was static-only, and what was not checked.
 8. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
 9. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
@@ -52,8 +52,9 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
 12. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-13. Prioritize issues by impact on current phase. Do not list every possible improvement.
-14. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
+13. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
+14. Prioritize issues by impact on current phase. Do not list every possible improvement.
+15. In DEEP mode, perform a critical second pass before treating the output as final. Use `thesis-supervisor-feedback-review` when the first draft is substantial, high-stakes, or was produced by another agent.
 
 ## Supervisor Notes Handling
 
@@ -108,9 +109,11 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - Do not claim that code was run unless it was actually run.
 - If a smoke test is simple and local, it may be attempted. If not, perform static review and state the limit.
 - Do not run LaTeX/Overleaf builds as a routine check. The submitted PDF is the rendered-text evidence; source zips support diff/search/evidence. If a build is explicitly requested or unavoidable because no PDF exists, state that scope clearly.
+- Keep `pdftotext -layout` extracts as the default stable evidence. Use `pdf-reader-mcp` only for targeted PDF details such as page ranges, metadata, figures, tables, and layout-sensitive checks. Do not claim page/layout evidence unless a concrete PDF-detail check was performed.
 - For text-code mismatch, cite both sides: thesis location and code/README/config path.
+- For literature/citation findings, cite the thesis claim or section and the source evidence or missing-source evidence. Do not claim to have read an inaccessible paper.
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
-- Treat standalone `outputs/code_consistency.md` and `outputs/code_quality_review.md` as internal/operator evidence unless the user explicitly asks to send them.
+- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, and `outputs/literature_citation_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
 
 ## Output
@@ -222,6 +225,7 @@ Before finishing, verify:
 - any text-code mismatch cites both thesis and code evidence,
 - limitations of review are explicit,
 - code-quality/design review was used when code was available, or the limitation is explicit,
+- literature/citation review was used when literature relevance is material, or the limitation is explicit,
 - body text and headings match the configured student feedback language,
 - internal case/round identifiers are absent from student-facing prose unless intentionally introduced with a clear human-facing label,
 - review-scope wording excludes internal workflow mechanics unless they are actionable for the student,

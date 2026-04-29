@@ -13,7 +13,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 
 ## Process
 
-1. Read `current-round.txt` if present and enumerate `inputs/`, `extracted/`, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default.
+1. Read `current-round.txt` if present and enumerate `inputs/`, `extracted/`, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
 2. Identify thesis claims about:
    - implemented features,
    - architecture, only where the text makes explicit architecture claims,
@@ -42,6 +42,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 ## Evidence Rules
 
 - Cite thesis location and code path together for mismatches.
+- Do not claim page/layout evidence unless `pdf-reader-mcp` or another concrete PDF-detail check was used; otherwise cite text-extract evidence.
 - Do not treat "not checked" as "not working".
 - Do not focus on style or broad design quality unless it affects reproducibility, licensing, or alignment with an explicit thesis claim. Route broader implementation-quality findings to `thesis-code-quality-review`.
 - If dependencies or data are missing, state that limitation and perform static review.

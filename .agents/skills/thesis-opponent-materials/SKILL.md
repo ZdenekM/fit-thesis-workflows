@@ -28,7 +28,7 @@ cases/<case-id>/rounds/<round-id>/
 2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment, private assignment notes, or valid reviewer profile.
 3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
 4. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
-5. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. State what was not available or not runnable.
+5. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
 6. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
 7. Build a map of:
    - assignment points and where they are covered,
@@ -42,15 +42,16 @@ cases/<case-id>/rounds/<round-id>/
    - likely strengths,
    - risks that may affect grading.
 8. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
-9. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-10. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-11. Use confidence labels for important statements:
+9. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
+10. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+11. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+12. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-12. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
+13. In DEEP mode, run `thesis-opponent-materials-review` before treating the materials as ready for writing the report.
 
 ## When Using Agents
 
@@ -59,6 +60,7 @@ For a large opponent review, split reviewer agents by role:
 - thesis text, structure, and assignment coverage,
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
+- literature/citation relevance, source availability, and claim support,
 - evidence labels, severity, and grading calibration,
 - synthesis into `outputs/oponent_podklady.md` or `outputs/oponent_podklady_revidovane.md`.
 
@@ -115,6 +117,8 @@ Shrn text-code consistency i code-quality/design review. Jasne oddel, co je rozp
 ## 11. Experimenty, vysledky a reprodukovatelnost
 
 ## 12. Text, struktura, formalni stranka a literatura
+
+Shrn relevantni body z `outputs/literature_citation_review.md`, pokud byl tento review pouzit. U oponentskych podkladu res hlavne relevanci, obhajitelnost a oporu citaci pro tvrzeni v praci; nenavrhuj studentovi novou literaturu jako coaching.
 
 ## 13. Orientacni kalibrace hodnoceni
 

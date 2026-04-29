@@ -25,25 +25,39 @@ source zips are useful for text diffs, search, and precise evidence, but the
 workflow does not build them by default. Ask for a build only when you
 explicitly want compile diagnostics or no rendered PDF is available.
 
-Before generating supervisor feedback or opponent materials, fill the assignment gate:
+For PDF details that plain text extraction cannot answer, optionally configure
+`pdf-reader-mcp`:
+
+```bash
+codex mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
+
+It requires Node.js 22 or newer. Keep `pdftotext -layout` as the default
+case-evidence path; use the MCP only for targeted page ranges, metadata, page
+counts, figures, tables, layout-sensitive checks, or ambiguous extraction.
+See `docs/pdf-detail-layer.md`.
+
+Before generating supervisor feedback or opponent materials, fill the assignment
+context:
 
 ```text
 cases/<case-id>/rounds/<round-id>/notes/assignment.md
 ```
 
-The round is not ready until it contains the formal assignment and the private assignment notes given to the student:
-
-```bash
-scripts/check-round-ready <case-id>
-```
-
-Supervisor feedback also uses academic-year deadlines from
-`config/supervisor-deadlines.tsv` to calibrate how much can realistically be
-asked from the student:
+For supervisor feedback, `check-supervisor-ready` is the gate. It verifies the
+round assignment context and adds deadline calibration:
 
 ```bash
 scripts/check-supervisor-ready <case-id>
 scripts/supervisor-deadline <case-id>
+```
+
+For opponent materials or generic internal round checks, use `check-round-ready`.
+It verifies the formal assignment and private assignment notes, but it does not
+perform supervisor deadline calibration:
+
+```bash
+scripts/check-round-ready <case-id>
 ```
 
 For deferred or August-defense cases, put the exact case-specific submission
@@ -118,6 +132,7 @@ anonymized quotes or a theme summary.`
 - `thesis-revision-diff`: compare two rounds and identify what changed and what prior feedback remains.
 - `thesis-code-consistency`: check whether thesis claims match code, README, tests, configs, and reproducibility evidence.
 - `thesis-code-quality-review`: review implementation quality, architecture/design, maintainability, runtime risks, developer documentation, and smoke-test readiness.
+- `thesis-literature-citation-review`: review cited literature relevance, source availability, and whether citations support thesis claims.
 - `thesis-opponent-materials`: prepare internal materials for an opponent report.
 - `thesis-opponent-materials-review`: review and harden generated opponent materials before writing the report.
 - `thesis-opponent-report-review`: review your own draft opponent report for fairness, evidence, tone, and consistency.
@@ -132,6 +147,13 @@ When a round contains code, supervisor feedback and opponent materials must run 
 For thesis text review, use the submitted PDF as the rendered artifact. Use
 LaTeX sources for structural diffs and exact snippets, not as a build target by
 default.
+
+For literature-heavy checks, use `thesis-literature-citation-review`. It writes
+`outputs/literature_citation_review.md` as internal evidence and stores any
+downloaded papers or metadata cache only under the ignored case workspace.
+Supervisor workflows may use it to suggest better use of already cited work or
+new literature for a clear gap. Opponent workflows should use it only for
+relevance, defensibility, and citation-quality checks of the submitted work.
 
 ## First Real Test
 
@@ -184,6 +206,7 @@ Pouzij thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij 
 Before committing workflow changes, run the lightweight hygiene checks relevant to the files touched:
 
 ```bash
+git status --short --untracked-files=all
 git diff --check
 git diff --cached --check
 scripts/check-private

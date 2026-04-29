@@ -27,6 +27,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-revision-diff/SKILL.md` for comparing thesis/code revisions and checking whether prior feedback was addressed.
 - `.agents/skills/thesis-code-consistency/SKILL.md` for thesis-text versus code/reproducibility checks.
 - `.agents/skills/thesis-code-quality-review/SKILL.md` for implementation quality, architecture/design, maintainability, runtime risks, and reviewer-facing developer evidence.
+- `.agents/skills/thesis-literature-citation-review/SKILL.md` for cited-literature relevance, source availability, and citation-support checks.
 
 When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
@@ -70,6 +71,7 @@ When the user asks to use agents, give them enough time. For large thesis/code r
 - text structure and assignment coverage,
 - code/reproducibility and text-code consistency,
 - code quality/design and reviewer-facing implementation evidence,
+- literature/citation relevance, source availability, and claim support,
 - evidence and claim calibration,
 - synthesis into the final Markdown artifact.
 
@@ -84,13 +86,14 @@ Default outputs go into the active round:
 - revision comparison: `outputs/revision_diff.md`
 - code consistency check: `outputs/code_consistency.md`
 - code quality/design review: `outputs/code_quality_review.md`
+- literature/citation review: `outputs/literature_citation_review.md`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
 - opponent materials draft, when a separate review pass is useful: `work/oponent_podklady_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`
 
-Standalone code consistency and code quality outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
+Standalone code consistency, code quality, and literature/citation outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 
-Before closing a task, run relevant lightweight checks such as `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.

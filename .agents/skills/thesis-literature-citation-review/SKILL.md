@@ -1,0 +1,99 @@
+---
+name: thesis-literature-citation-review
+description: Review BP/DP cited literature for relevance, claim support, accessible source evidence, and defensible use in supervisor or opponent workflows.
+---
+
+# Thesis Literature Citation Review
+
+Use this skill when a supervisor or opponent workflow needs a deeper look at
+whether cited literature is relevant and used defensibly. The output is
+internal/operator evidence, not student-facing prose by default.
+
+## Inputs
+
+Use the active round unless the user specifies another:
+
+```text
+cases/<case-id>/rounds/<round-id>/
+  notes/assignment.md
+  notes/supervisor-intake.md or notes/opponent-intake.md
+  notes/round-notes.md
+  inputs/
+  extracted/
+  work/
+  outputs/
+```
+
+Use the submitted thesis PDF text as the authoritative rendered evidence for
+what the thesis actually cites and claims. Use LaTeX sources and `.bib` files to
+resolve citation keys, metadata, exact snippets, or mismatches against the
+rendered PDF. Mark `.bib` entries that do not appear in the submitted PDF as
+source-only, not as cited thesis literature. Also use assignment notes, reviewer
+profile preferences, and any user-provided source PDFs. Publicly accessible
+paper PDFs and metadata may be saved only inside the ignored round workspace,
+for example `work/literature/`.
+
+## Process
+
+1. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, or a standalone operator check. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]` unless fresh output from that command is already in context. For opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
+2. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Keep a source map from citation key or title to thesis locations and claims it appears to support.
+3. Resolve sources using legal/public metadata and PDFs where available. Prefer DOI, arXiv, publisher pages, project pages, open repositories, and user-provided PDFs. Do not bypass paywalls or imply access to unavailable sources.
+4. For PDFs, use `pdftotext` extracts as the default evidence. Use `pdf-reader-mcp` only for targeted metadata, page ranges, page counts, figures/tables, equations, or layout-sensitive checks; if unavailable, record the limitation.
+5. Classify each important citation:
+   - relevant and used appropriately,
+   - relevant but underused or weakly connected to the thesis claim,
+   - only partially relevant,
+   - bibliographic/metadata issue,
+   - inaccessible or not verifiable from current inputs,
+   - potentially missing literature area.
+6. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
+7. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
+8. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
+
+## Evidence Rules
+
+- Important negative claims must cite thesis location plus source evidence or missing-source evidence.
+- Do not claim to have read a source when only metadata or an abstract was available.
+- Do not equate inaccessible with irrelevant.
+- Do not treat literature freshness as a problem unless the field, assignment, or thesis claim makes it material.
+- When recommending new literature in supervisor mode, explain the thesis gap it would address.
+- When summarizing into student-facing feedback, include only phase-appropriate action items and avoid exposing internal download/cache paths.
+
+## Output
+
+Write `outputs/literature_citation_review.md`:
+
+```markdown
+# Literature And Citation Review
+
+## Review Scope
+
+## Bibliography Source Map
+
+| Citation | Thesis location / claim supported | Source status | Notes |
+|---|---|---|---|
+
+## Relevant And Well Used Sources
+
+## Underused Or Weakly Connected Sources
+
+| Priority | Citation | Thesis claim or section | Evidence | Recommendation |
+|---|---|---|---|---|
+
+## Missing Or Inaccessible Sources
+
+| Citation / area | Status | What is needed | Impact |
+|---|---|---|---|
+
+## Candidate Literature Improvements
+
+Use this section only for supervisor mode or when an opponent needs to record a
+missing-area risk. Separate new-source suggestions from already-cited-source
+relevance checks.
+
+## Manual Checks
+```
+
+This artifact is internal/operator evidence. Supervisor feedback may summarize
+only actionable, phase-appropriate items. Opponent materials may use it for
+fairness, relevance, defensibility, and citation-quality calibration.
