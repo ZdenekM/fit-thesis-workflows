@@ -133,6 +133,7 @@ design/runtime rizika a nice-to-have zlepšení. Použij agenty.
 - oficiální zadání nebo jeho věrné shrnutí,
 - vaše neveřejné poznámky ke kontextu práce,
 - zda jde o BP nebo DP,
+- jazyk práce (`cs`, `en`, nebo `auto`), pokud ho nelze spolehlivě poznat z PDF,
 - akademický rok a případný posunutý termín,
 - fáze práce: raná kostra, pracovní verze, předfinální verze, finální kontrola,
 - co chcete explicitně ověřit,
@@ -199,6 +200,8 @@ Nejběžnější výstupy jsou:
 - `outputs/literature_citation_review.md` - interní kontrola literatury a citací,
 - `outputs/figure_media_review.md` - interní kontrola obrázků, tabulek,
   screenshotů, výsledkových grafů a jejich změn mezi revizemi,
+- `outputs/typography_formal_review.md` - interní pozdní kontrola typografie
+  a formální stránky podle jazyka práce,
 - `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
   vizuálních prvků a jejich popisů,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
@@ -210,11 +213,12 @@ Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po vět
 úpravě se výstup znovu bere jako draft.
 
 Interní evidence jako `revision_diff.md`, `code_consistency.md`,
-`code_quality_review.md`, `literature_citation_review.md` nebo
-`figure_media_review.md` je samostatně finální jen tehdy, když prošla vlastní
-evidenční review smyčkou a verdikt je zapsaný. Pokud je použita jen jako
-podklad pro studentský feedback nebo oponentské podklady, certifikuje ji až
-review dané syntézy, a to jen v rozsahu použitých zjištění.
+`code_quality_review.md`, `literature_citation_review.md`,
+`figure_media_review.md` nebo `typography_formal_review.md` je samostatně
+finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
+zapsaný. Pokud je použita jen jako podklad pro studentský feedback nebo
+oponentské podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu
+použitých zjištění.
 
 ## Role a review smyčky
 
@@ -225,6 +229,7 @@ Pro větší práci má agent rozdělit role, typicky:
 - soulad textu s kódem,
 - kvalita kódu, design, runtime rizika a reprodukovatelnost,
 - literatura a citace, pokud jsou pro daný round důležité,
+- pozdní typografie a formální stránka, pokud jde o předfinální/final round,
 - kalibrace evidence a tvrzení,
 - syntéza do finálního Markdownu.
 
@@ -245,6 +250,14 @@ claim alignment se znovu použije jen při shodném vizuálu i textovém kontext
 Vizuální tvrzení smějí vzniknout jen po konkrétní PDF-detail/vision kontrole
 nebo po kontrole source assetu svázaného s finálním PDF; textový extract sám o
 sobě stačí pouze na inventář, caption claims a `not_verifiable` alignment.
+
+U předfinálních a finálních roundů může agent udělat samostatnou typografickou
+a formální kontrolu. Pravidla se kalibrují podle jazyka práce, ne podle jazyka
+feedbacku: u českých prací se hlídají mimo jiné jednoznakové předložky/spojky
+na koncích řádků a LaTeX/`vlna` hinty, u anglických prací se česká pravidla
+nepoužívají a důraz je spíš na běžné editor/Overleaf kontroly a ruční final
+proofread. Studentovi se neposílá auditní seznam všech výskytů; do feedbacku
+patří shrnutý vzorec problému a doporučený postup opravy.
 
 ## Kdy požádat o diagnostiku
 
@@ -270,6 +283,7 @@ scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
 scripts/check-evaluation-claims <case-id>
+scripts/check-typography-formal <case-id>
 ```
 
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
@@ -301,6 +315,8 @@ Workflow definují repo skills v `.agents/skills/`:
 - `thesis-literature-citation-review` - literatura, zdroje a citace,
 - `thesis-figure-media-review` - obrázky, tabulky, screenshoty, grafy,
   vizuální evidence, kontext tvrzení a změny mezi roundy,
+- `thesis-typography-formal-review` - pozdní typografie a formální stránka
+  podle jazyka práce,
 - `thesis-opponent-materials` - interní podklady pro oponenta,
 - `thesis-opponent-materials-review` - review oponentských podkladů,
 - `thesis-opponent-report-review` - review draftu posudku.
@@ -313,12 +329,14 @@ jaký výstup chcete a že má použít agenty. Přesné workflow si má dohleda
 `case.md` obsahuje:
 
 ```text
+Thesis language: auto
 Student feedback language: cs
 Reviewer profile: default
 ```
 
-Chybějící jazyk znamená `cs`. Jazyk práce v intake poznámkách neřídí jazyk
-feedbacku.
+Chybějící jazyk feedbacku znamená `cs`. `Thesis language` může být `cs`, `en`
+nebo `auto` a řídí jen kontroly textu práce, ne jazyk studentského feedbacku.
+Jazyk práce v intake poznámkách neřídí jazyk feedbacku.
 
 Veřejný repozitář obsahuje jen `profiles/default.md`. Osobní preference patří
 pod ignorované cesty:
@@ -354,6 +372,7 @@ například:
 scripts/smoke-feedback-output
 scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
+scripts/smoke-typography-formal
 scripts/smoke-private
 ```
 

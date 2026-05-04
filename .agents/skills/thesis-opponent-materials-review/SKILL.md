@@ -37,11 +37,12 @@ If both draft and output files exist, review the draft unless the user explicitl
 10. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
 11. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
 12. If figure/media review was used or visual evidence is grade-impacting, verify that claims are backed by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status and suitable claim alignment. Do not turn an `inventoried_only` item into a visual-content claim, and do not expose cache hashes or reuse metadata in opponent-facing prose.
-13. Keep strengths concrete and evidence-backed.
-14. Check that proposed defense questions are fair, answerable, and tied to important issues.
-15. Keep grading calibration as intervals and rationale, not false precision.
-16. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
-17. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
+13. If typography/formal review was used or formal presentation affects report quality, verify that claims are backed by `outputs/typography_formal_review.md` or `scripts/check-typography-formal` output, calibrated by thesis language, and summarized as repeated patterns rather than a line-by-line typo list.
+14. Keep strengths concrete and evidence-backed.
+15. Check that proposed defense questions are fair, answerable, and tied to important issues.
+16. Keep grading calibration as intervals and rationale, not false precision.
+17. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
+18. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
 
 ## Output
 

@@ -4,7 +4,7 @@ Most fields are optional. Formal assignment context is required in `notes/assign
 before generating opponent materials.
 
 Typ prace: BP / DP
-Jazyk prace:
+Jazyk prace (preferovane nastaveni je Thesis language v case.md; zde jen round poznamka):
 Nazev prace:
 Tema jednou vetou:
 Formalni zadani / hlavni body zadani: viz notes/assignment.md

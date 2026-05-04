@@ -5,6 +5,7 @@ Work type: BP / DP / unknown
 Academic year:
 Deadline mode: standard / deferred
 Deadline override:
+Thesis language: auto
 Student feedback language: cs
 Reviewer profile: default
 Student:

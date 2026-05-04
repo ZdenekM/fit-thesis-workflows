@@ -51,6 +51,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - experiment/result status,
    - code/reproducibility status,
    - code quality/design status,
+   - typography/formal presentation status when the round is near final or explicitly asks for it,
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
@@ -58,8 +59,9 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
 15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
 16. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
-17. Prioritize issues by impact on current phase. Do not list every possible improvement.
-18. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+17. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
+18. Prioritize issues by impact on current phase. Do not list every possible improvement.
+19. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
 
 ## Supervisor Notes Handling
 
@@ -115,8 +117,11 @@ First calibrate by deadline context from `scripts/check-supervisor-ready`; this 
 For a large round, split reviewer agents by role:
 
 - text structure and assignment coverage,
+- figure/media evidence when visual material is material,
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
+- literature/citation relevance when sources are material,
+- typography/formal presentation for near-final/final or explicitly requested formal checks,
 - evidence and priority calibration,
 - synthesis into draft `work/feedback_student_draft.md`, followed by review into `outputs/feedback_student.md`.
 
@@ -140,7 +145,8 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - For literature/citation findings, cite the thesis claim or section and the source evidence or missing-source evidence. Do not claim to have read an inaccessible paper.
 - For figure/media findings, cite the thesis/PDF anchor, inspection status, and claim alignment from `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl`. Do not say what a visual element shows unless it was `pdf_inspected` or `source_asset_checked`. Use text mentions and claim alignment to decide whether an item becomes student-facing feedback; do not copy cache hashes or reuse metadata into student-facing prose.
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
-- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, and `outputs/figure_media_review.md` as internal/operator evidence unless the user explicitly asks to send them.
+- For typography/formal findings, cite `outputs/typography_formal_review.md` or `scripts/check-typography-formal` output internally, but write student-facing guidance as a repeated pattern plus repair workflow. Do not give the student an audit backlog of every occurrence unless explicitly requested.
+- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
 - For quantitative/evaluation results, do not stop at checking whether a metric is present. Sanity-check whether the values are plausible in the thesis domain, whether the improvement is practically meaningful, whether the baseline/comparator and sample size are clear, whether the calculation is reproducible, and whether the conclusion is not stronger than the evidence.
 
@@ -256,6 +262,7 @@ Before finishing, verify:
 - code-quality/design review was used when code was available, or the limitation is explicit,
 - literature/citation review was used when literature relevance is material, or the limitation is explicit,
 - figure/media review was used when visual evidence or figure changes are material, or the limitation is explicit,
+- typography/formal review was used for near-final/final or explicitly requested formal checks, or the limitation is explicit,
 - body text and headings match the configured student feedback language,
 - internal case/round identifiers are absent from student-facing prose unless intentionally introduced with a clear human-facing label,
 - review-scope wording excludes internal workflow mechanics unless they are actionable for the student,

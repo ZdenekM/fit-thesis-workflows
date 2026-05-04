@@ -25,7 +25,7 @@ fi
 
 sensitive_pattern='\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$'
 private_jsonl_pattern='(^|/)visual_inventory\.jsonl$'
-private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_consistency|code_quality_review|literature_citation_review|figure_media_review|demo_artifacts_review|reference_report_comparison|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane)\.md$'
+private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_consistency|code_quality_review|literature_citation_review|figure_media_review|typography_formal_review|demo_artifacts_review|reference_report_comparison|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane)\.md$'
 sensitive_tracked="$(
   git ls-files \
     | grep -E "$sensitive_pattern|$private_jsonl_pattern" \

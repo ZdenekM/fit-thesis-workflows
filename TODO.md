@@ -27,6 +27,11 @@
    - Add figure/table quality checks for axes, units, legends, captions, source/data provenance, readability, scale, time range, and whether the text interpretation is stronger than the visual evidence.
    - For result graphs and metric tables, route unresolved quality or interpretation issues to evaluation-claim review instead of treating visual inspection as proof of metric validity.
    - Surface only actionable synthesis into supervisor/opponent feedback, such as missing axis labels, unsupported graph interpretation, or placeholder table values.
+- [ ] Add advanced typography/formal review automation after V1 proves useful.
+   - Use precise PDF layout evidence such as `pdftotext -bbox` or `pdf-reader-mcp` for exact rendered line positions instead of relying only on `pdftotext -layout`.
+   - Offer LaTeX patch suggestions only when explicitly requested; keep the default workflow read-only and student-owned.
+   - Consider full grammar/style tooling for Czech and English after the narrow typography workflow stays stable.
+   - Add deeper style checks for units, percentages, abbreviations, quote consistency, and anglicisms only where they can be calibrated by thesis language and phase.
 - [ ] Add a case and round readiness/status doctor.
    - Add a helper script such as `scripts/case-doctor <case-id> [round-id]`.
    - Report the active round, reviewer profile, assignment readiness, deadline calibration, and configured student feedback language.

@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__typography_formal_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+  rm -f /tmp/check-typography-formal.out /tmp/check-typography-formal.err
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local language="${2:-auto}"
+  local round_id="${3:-round-a}"
+  local write_current="${4:-yes}"
+
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Thesis language: $language"
+    echo "Student feedback language: cs"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+
+  if [[ "$write_current" == "yes" ]]; then
+    echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  fi
+}
+
+write_text() {
+  local case_id="$1"
+  local round_id="round-a"
+  local text
+
+  if [[ $# -eq 2 ]]; then
+    text="$2"
+  elif [[ $# -eq 3 ]]; then
+    round_id="$2"
+    text="$3"
+  else
+    echo "write_text expects CASE_ID [ROUND_ID] TEXT" >&2
+    exit 1
+  fi
+
+  printf "%s\n" "$text" >"$repo_root/cases/$case_id/rounds/$round_id/extracted/thesis.txt"
+}
+
+expect_success_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if ! "$@" >/tmp/check-typography-formal.out 2>/tmp/check-typography-formal.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-typography-formal.err >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-typography-formal.out /tmp/check-typography-formal.err >/dev/null; then
+    echo "Expected output did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-typography-formal.out >&2
+    cat /tmp/check-typography-formal.err >&2
+    exit 1
+  fi
+}
+
+expect_success_not_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if ! "$@" >/tmp/check-typography-formal.out 2>/tmp/check-typography-formal.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-typography-formal.err >&2
+    exit 1
+  fi
+  if grep -E "$pattern" /tmp/check-typography-formal.out /tmp/check-typography-formal.err >/dev/null; then
+    echo "Unexpected output matched pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-typography-formal.out >&2
+    cat /tmp/check-typography-formal.err >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if "$@" >/tmp/check-typography-formal.out 2>/tmp/check-typography-formal.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-typography-formal.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-typography-formal.out /tmp/check-typography-formal.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-typography-formal.err >&2
+    cat /tmp/check-typography-formal.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_cs_line_break"
+make_case "$case_id" "cs"
+write_text "$case_id" $'Tato práce popisuje návrh systému a\nv\nnásledující kapitole ukazuje výsledky.'
+expect_success_contains "Czech line-break warning" "cs-line-breaks.*vlna" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_en_no_vlna"
+make_case "$case_id" "en"
+write_text "$case_id" $'This thesis presents a design and\na\nfollowing chapter evaluates results.'
+expect_success_not_contains "English mode does not apply Czech vlna warning" "cs-line-breaks" "$repo_root/scripts/check-typography-formal" "$case_id"
+grep -E "English typography mode" /tmp/check-typography-formal.out >/dev/null
+
+case_id="${case_prefix}_round_language_override"
+make_case "$case_id" "auto"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/notes"
+echo "Thesis language: en" >"$repo_root/cases/$case_id/rounds/round-a/notes/round-notes.md"
+write_text "$case_id" $'This thesis presents a design and\na\nfollowing chapter evaluates results.'
+expect_success_not_contains "round language override is honored" "cs-line-breaks" "$repo_root/scripts/check-typography-formal" "$case_id"
+grep -E "Thesis language: en" /tmp/check-typography-formal.out >/dev/null
+
+case_id="${case_prefix}_supervisor_language_label"
+make_case "$case_id" "auto"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/notes"
+echo "Jazyk prace (neridi jazyk feedbacku; preferovane nastaveni je Thesis language v case.md): en" \
+  >"$repo_root/cases/$case_id/rounds/round-a/notes/supervisor-intake.md"
+write_text "$case_id" $'This thesis presents a design and\na\nfollowing chapter evaluates results.'
+expect_success_not_contains "supervisor-intake language label is honored" "cs-line-breaks" "$repo_root/scripts/check-typography-formal" "$case_id"
+grep -E "Thesis language: en" /tmp/check-typography-formal.out >/dev/null
+
+case_id="${case_prefix}_invalid_language"
+make_case "$case_id" "klingon"
+write_text "$case_id" "This thesis presents a design, implementation, results, and conclusion."
+expect_success_contains "invalid language metadata warns" "language-metadata.*klingon" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_final_report_extract"
+make_case "$case_id" "en"
+printf "%s\n" "This final report has normal thesis text and conclusion." \
+  >"$repo_root/cases/$case_id/rounds/round-a/extracted/final_report.txt"
+expect_success_contains "final_report extract is accepted" "English typography mode" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_punctuation"
+make_case "$case_id" "en"
+write_text "$case_id" "This thesis has spacing before punctuation ,and text( with bracket spacing )."
+expect_success_contains "punctuation warning" "space-before-punctuation|bracket-spacing" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_latex_source"
+make_case "$case_id" "cs"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+mkdir -p "$round_dir/work/thesis-source"
+cat >"$round_dir/work/thesis-source/thesis.tex" <<'EOF'
+Tato kapitola vede k dalsimu vysvetleni a vysledkum.
+EOF
+write_text "$case_id" "Tato práce popisuje návrh a výsledky."
+expect_success_contains "LaTeX source warning" "cs-latex-nonbreaking-space.*vlna" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_explicit_round"
+make_case "$case_id" "cs" "round-b" "no"
+write_text "$case_id" "round-b" $'Tato práce obsahuje text a\nk\nněmu další vysvětlení.'
+expect_success_contains "explicit round works" "cs-line-breaks" "$repo_root/scripts/check-typography-formal" "$case_id" "round-b"
+
+case_id="${case_prefix}_skip_non_thesis_extract"
+make_case "$case_id" "en"
+write_text "$case_id" "This thesis has normal English paragraphs and no Czech line-break issue."
+printf "%s\n" $'Reviewer note has a Czech-looking line\nv\nthat should not affect thesis checks.' \
+  >"$repo_root/cases/$case_id/rounds/round-a/extracted/Reviewer_report.txt"
+expect_success_not_contains "non-thesis extract ignored" "cs-line-breaks|Reviewer_report" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_missing_text"
+make_case "$case_id" "cs"
+rm -f "$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
+expect_failure_contains "missing source fails" "no extracted thesis text" "$repo_root/scripts/check-typography-formal" "$case_id"
+
+case_id="${case_prefix}_require_output"
+make_case "$case_id" "en"
+write_text "$case_id" "This thesis has normal English paragraphs and conclusion."
+expect_failure_contains "require output fails when artifact is missing" "output-artifact.*typography_formal_review" "$repo_root/scripts/check-typography-formal" "--require-output" "$case_id"
+
+case_id="${case_prefix}_empty_output"
+make_case "$case_id" "en"
+write_text "$case_id" "This thesis has normal English paragraphs and conclusion."
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/outputs"
+{
+  echo "# Typography/Formal Review"
+  echo
+  echo "## Review Scope"
+  echo "## Thesis Language"
+  echo "## Deterministic Checker Findings"
+  echo "## Source-Level Hints"
+  echo "## Student-Facing Synthesis"
+  echo "## Downstream Use"
+  echo "## Review Status"
+  echo "## Manual Checks"
+} >"$repo_root/cases/$case_id/rounds/round-a/outputs/typography_formal_review.md"
+expect_failure_contains "require output fails on empty artifact" "empty required section|Review Status" "$repo_root/scripts/check-typography-formal" "--require-output" "$case_id"
+
+case_id="${case_prefix}_valid_output"
+make_case "$case_id" "en"
+write_text "$case_id" "This thesis has normal English paragraphs and conclusion."
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/outputs"
+cat >"$repo_root/cases/$case_id/rounds/round-a/outputs/typography_formal_review.md" <<'EOF'
+# Typography/Formal Review
+
+## Review Scope
+
+Smoke artifact for output validation.
+
+## Thesis Language
+
+English.
+
+## Deterministic Checker Findings
+
+No repeated warning pattern in this smoke artifact.
+
+## Source-Level Hints
+
+No LaTeX source hints in this smoke artifact.
+
+## Student-Facing Synthesis
+
+No student-facing typography action is needed from this smoke artifact.
+
+## Downstream Use
+
+No downstream use.
+
+## Review Status
+
+Approved by smoke validation.
+
+## Manual Checks
+
+No manual checks required for this smoke artifact.
+EOF
+expect_success_not_contains "require output accepts valid artifact" "output-artifact" "$repo_root/scripts/check-typography-formal" "--require-output" "$case_id"
+
+echo "Typography/formal smoke passed"

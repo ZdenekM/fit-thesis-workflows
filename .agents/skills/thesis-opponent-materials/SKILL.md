@@ -43,21 +43,23 @@ cases/<case-id>/rounds/<round-id>/
    - experiments/results and whether conclusions are supported,
    - reproducibility status,
    - literature/citation issues,
+   - typography/formal presentation issues calibrated by thesis language,
    - likely strengths,
    - risks that may affect grading.
 10. Run `thesis-figure-media-review` when thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds materially affect the opponent assessment. Leave reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; summarize only relevant findings and limitations in the materials.
 11. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
 12. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
-13. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-14. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-15. Use confidence labels for important statements:
+13. Run `thesis-typography-formal-review` when the thesis is in final submission state or formal presentation may affect report quality. Use it as pattern evidence; do not turn it into a long typo inventory.
+14. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+15. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+16. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-16. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
-17. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
+17. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
+18. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
 
 ## When Using Agents
 
@@ -68,6 +70,7 @@ For a large opponent review, split reviewer agents by role:
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - literature/citation relevance, source availability, and claim support,
+- typography/formal presentation for final submitted text,
 - evidence labels, severity, and grading calibration,
 - synthesis into draft `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, followed by review into `outputs/oponent_podklady_revidovane.md`.
 
@@ -133,7 +136,7 @@ Zahrn relevantni figure/media zjisteni, pokud grafy, tabulky, screenshoty nebo d
 
 ## 12. Text, struktura, formalni stranka a literatura
 
-Zhodnot strukturu textu vcetne nadpisu kapitol a podkapitol: delku, srozumitelnost, vztah k nasledujicimu obsahu, zbytecne opakovani slov z nadrazenych nebo sousednich nadpisu a jasne rozliseni navrhu, implementace, testovani, vysledku a diskuse. Shrn relevantni body z `outputs/literature_citation_review.md`, pokud byl tento review pouzit. U oponentskych podkladu res hlavne relevanci, obhajitelnost a oporu citaci pro tvrzeni v praci; nenavrhuj studentovi novou literaturu jako coaching.
+Zhodnot strukturu textu vcetne nadpisu kapitol a podkapitol: delku, srozumitelnost, vztah k nasledujicimu obsahu, zbytecne opakovani slov z nadrazenych nebo sousednich nadpisu a jasne rozliseni navrhu, implementace, testovani, vysledku a diskuse. Shrn relevantni body z `outputs/literature_citation_review.md`, pokud byl tento review pouzit. Pokud byl pouzit `outputs/typography_formal_review.md`, zohledni jen opakovane vzorce a dopad na profesionalni uroven textu, ne seznam jednotlivych preklepu nebo radkovych problemu. U oponentskych podkladu res hlavne relevanci, obhajitelnost a oporu citaci pro tvrzeni v praci; nenavrhuj studentovi novou literaturu jako coaching.
 
 ## 13. Orientacni kalibrace hodnoceni
 

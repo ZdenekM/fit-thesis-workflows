@@ -80,6 +80,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/figure_media_review.md"
 
+make_untracked_file "tmp-feedback-smoke/typography_formal_review.md"
+expect_failure_contains \
+  "typography/formal review outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/typography_formal_review.md"
+
 make_untracked_file "tmp-feedback-smoke/visual_inventory.jsonl"
 expect_failure_contains \
   "visual inventory outside cases fails" \

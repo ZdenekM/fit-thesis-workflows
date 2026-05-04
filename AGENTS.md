@@ -35,6 +35,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-code-quality-review/SKILL.md` for implementation quality, architecture/design, maintainability, runtime risks, and reviewer-facing developer evidence.
 - `.agents/skills/thesis-literature-citation-review/SKILL.md` for cited-literature relevance, source availability, and citation-support checks.
 - `.agents/skills/thesis-figure-media-review/SKILL.md` for internal visual evidence about thesis figures, tables, screenshots, result images, diagrams, reusable visual descriptions, context/claim alignment, and figure changes between rounds.
+- `.agents/skills/thesis-typography-formal-review/SKILL.md` for late-stage, language-calibrated typography and formal-presentation checks.
 
 When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
@@ -80,6 +81,7 @@ When the user explicitly authorizes agents, give them enough time. If authorizat
 - code/reproducibility and text-code consistency,
 - code quality/design and reviewer-facing implementation evidence,
 - literature/citation relevance, source availability, and claim support,
+- late-stage typography/formal presentation when the round is near final or explicitly asks for it,
 - evidence and claim calibration,
 - synthesis into the final Markdown artifact.
 
@@ -95,7 +97,7 @@ Dedicated review loops:
 - opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
 - opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
 
-Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, and `outputs/figure_media_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
+Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
 
 ## Output Conventions
 
@@ -108,14 +110,16 @@ Default outputs go into the active round:
 - code quality/design review: `outputs/code_quality_review.md`
 - literature/citation review: `outputs/literature_citation_review.md`
 - figure/media review: `outputs/figure_media_review.md`
+- typography/formal review: `outputs/typography_formal_review.md`
 - reusable visual inventory: `work/figure_media/visual_inventory.jsonl`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
 - opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`
 
-Standalone code consistency, code quality, literature/citation, and figure/media outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
+Standalone code consistency, code quality, literature/citation, figure/media, and typography/formal outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
+`Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. When changing deterministic checkers, run their smoke scripts too. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. When changing deterministic checkers, run their smoke scripts too. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`.
