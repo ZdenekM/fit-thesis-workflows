@@ -70,6 +70,8 @@ INTERNAL_PATTERNS = (
     r"\bcode_consistency\.md\b",
     r"\bcode_quality_review\.md\b",
     r"\bliterature_citation_review\.md\b",
+    r"\bfigure_media_review\.md\b",
+    r"\bvisual_inventory\.jsonl\b",
     r"\brevision_diff\.md\b",
     r"\bround-notes\.md\b",
     r"\bsupervisor-intake\.md\b",

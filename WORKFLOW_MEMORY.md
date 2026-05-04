@@ -117,3 +117,28 @@ Calibrate severity by phase; in final rounds this is usually presentation polish
 unless the outline harms orientation or defensibility.
 
 Promoted to: supervisor/opponent skills.
+
+### 2026-05-04: Figure/Media Claims Need Reusable Visual Evidence
+
+Status: promoted
+
+Visual thesis findings need a reusable per-item record. Text extraction can
+inventory figures and captions, but claims about what an image shows require a
+concrete PDF-detail/vision check or a source asset explicitly linked to the
+rendered PDF. Figure/media review should also compare visual evidence between
+rounds when previous inventories are available.
+
+Promoted to: `thesis-figure-media-review`, `AGENTS.md`, README, figure/media checker.
+
+### 2026-05-04: Figure/Media Cache Must Separate Visual Reuse From Context Claims
+
+Status: promoted
+
+Expensive visual descriptions may be reused between rounds only when the source
+asset or rendered crop hash and visual-analysis version match. Claim alignment
+is a separate judgment: it may be reused only when the visual hash, normalized
+caption/text context hash, and claim-alignment version all match. If the
+surrounding text or role of the figure changes, keep the visual reuse but redo
+the claim-alignment pass.
+
+Promoted to: `thesis-figure-media-review`, figure/media checker, supervisor/opponent skills.

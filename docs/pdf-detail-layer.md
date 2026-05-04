@@ -40,3 +40,8 @@ inputs, literature PDFs, metadata cache, and working notes under the ignored
 When student-facing feedback mentions page/layout evidence, it must be based on
 a concrete PDF check. If only plain text extraction was used, phrase findings as
 text-extract evidence rather than page/layout evidence.
+
+For the dedicated figure/media workflow, absence of `pdf-reader-mcp` is still
+not a repo-wide blocker, but visual-content claims require a concrete
+PDF-detail/vision check or a source asset that is explicitly linked to a
+rendered-PDF occurrence. Otherwise record only inventory and limitations.

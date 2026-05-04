@@ -93,6 +93,8 @@ DRAFT_ARTIFACT_PATTERNS = (
 )
 
 INTERNAL_WORKFLOW_PATTERNS = (
+    r"\bfigure_media_review\.md\b",
+    r"\bvisual_inventory\.jsonl\b",
     r"\bfeedback_student\.md\b",
     r"\bround-notes\.md\b",
     r"\bsupervisor-intake\.md\b",

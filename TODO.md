@@ -1,34 +1,5 @@
 # TODO
 
-- [ ] Add thesis figure/media review workflow layer.
-   - Add `.agents/skills/thesis-figure-media-review/SKILL.md` as an
-   internal/operator evidence workflow.
-   - Inventory rendered-thesis figures, tables, screenshots, result images,
-   diagrams, and thesis-source figure assets referenced by the PDF.
-   - Keep external poster/video/demo-package material in the separate demo
-   artifact review unless the thesis text directly relies on it as evidence.
-   - For thesis figures, compare visual content with caption, nearby text, result claims,
-   and source files where available.
-   - Check caption self-containment, readability, axes/units/legends, referenced-from-text
-   status, copied/adapted-source attribution, raster/vector suitability, and obvious
-   compression/readability issues.
-   - For result graphs, verify baseline/comparator, metric direction, practical magnitude,
-   and whether the textual interpretation is proportionate to what the figure shows.
-   - For screenshots and UI figures, distinguish implemented functionality, mockups, and
-   illustrative images.
-   - Write operator evidence to outputs/figure_media_review.md and summarize only
-   actionable findings into supervisor feedback or opponent materials.
-   - Use PDF detail/vision checks only for targeted figure inspection; record which figures
-   were actually inspected and which were only inventoried.
-   - Do not make visual-content claims unless a concrete PDF-detail or vision
-   check was actually performed.
-   - Route result graphs to evaluation-claim sanity review, functionality
-   screenshots to code consistency/code quality review, and copied/adapted
-   figures to literature/citation review where relevant.
-   - During implementation, update skill routing, output conventions,
-   README/operator docs, generated-artifact review-loop wording, and privacy
-   guards for `outputs/figure_media_review.md`.
-   - Keep extracted images/crops/media notes under ignored case workspace paths.
 - [ ] Add a review evidence/provenance manifest.
    - Record which inputs, extracted artifacts, helper checks, skills, generating agent/role, and reviewer agent/role contributed to each generated review artifact.
    - Mark whether each generated `outputs/*.md` artifact passed an independent review loop before being used as final evidence or sendable feedback.
@@ -52,6 +23,10 @@
    - Distinguish file existence from content actually opened, played, or inspected.
    - Record whether demo artifacts show the developed solution, only general principles, or cannot be assessed from available inputs.
    - Keep heavyweight media inspection optional and scoped; do not unpack large archives blindly.
+- [ ] Add figure/media graph and table quality checks.
+   - Add figure/table quality checks for axes, units, legends, captions, source/data provenance, readability, scale, time range, and whether the text interpretation is stronger than the visual evidence.
+   - For result graphs and metric tables, route unresolved quality or interpretation issues to evaluation-claim review instead of treating visual inspection as proof of metric validity.
+   - Surface only actionable synthesis into supervisor/opponent feedback, such as missing axis labels, unsupported graph interpretation, or placeholder table values.
 - [ ] Add a case and round readiness/status doctor.
    - Add a helper script such as `scripts/case-doctor <case-id> [round-id]`.
    - Report the active round, reviewer profile, assignment readiness, deadline calibration, and configured student feedback language.

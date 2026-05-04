@@ -179,6 +179,10 @@ Nejběžnější výstupy jsou:
 - `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
 - `outputs/code_quality_review.md` - interní code-quality/design review,
 - `outputs/literature_citation_review.md` - interní kontrola literatury a citací,
+- `outputs/figure_media_review.md` - interní kontrola obrázků, tabulek,
+  screenshotů, výsledkových grafů a jejich změn mezi revizemi,
+- `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
+  vizuálních prvků a jejich popisů,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
 - `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
@@ -188,17 +192,18 @@ Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po vět
 úpravě se výstup znovu bere jako draft.
 
 Interní evidence jako `revision_diff.md`, `code_consistency.md`,
-`code_quality_review.md` nebo `literature_citation_review.md` je samostatně
-finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
-zapsaný. Pokud je použita jen jako podklad pro studentský feedback nebo
-oponentské podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu
-použitých zjištění.
+`code_quality_review.md`, `literature_citation_review.md` nebo
+`figure_media_review.md` je samostatně finální jen tehdy, když prošla vlastní
+evidenční review smyčkou a verdikt je zapsaný. Pokud je použita jen jako
+podklad pro studentský feedback nebo oponentské podklady, certifikuje ji až
+review dané syntézy, a to jen v rozsahu použitých zjištění.
 
 ## Role a review smyčky
 
 Pro větší práci má agent rozdělit role, typicky:
 
 - text, struktura a splnění zadání,
+- obrázky, tabulky, screenshoty, grafy, captiony a změny vizuální evidence,
 - soulad textu s kódem,
 - kvalita kódu, design, runtime rizika a reprodukovatelnost,
 - literatura a citace, pokud jsou pro daný round důležité,
@@ -213,6 +218,15 @@ Když práce obsahuje měření, metriky, výsledky experimentů nebo uživatels
 hodnocení, agent má zkontrolovat jednotky, baseline, praktickou velikost efektu,
 reprodukovatelnost a přiměřenost interpretace. Skriptový guard pro tyto případy
 je uveden níže.
+
+Když práce obsahuje důležité obrázky, screenshoty, diagramy nebo výsledkové
+grafy, samostatný figure/media workflow vytvoří interní inventář a krátké
+znovupoužitelné popisy. Inventář může znovu použít drahou vizuální analýzu
+mezi roundy jen při shodě hashe source assetu nebo PDF cropu a verze analýzy;
+claim alignment se znovu použije jen při shodném vizuálu i textovém kontextu.
+Vizuální tvrzení smějí vzniknout jen po konkrétní PDF-detail/vision kontrole
+nebo po kontrole source assetu svázaného s finálním PDF; textový extract sám o
+sobě stačí pouze na inventář, caption claims a `not_verifiable` alignment.
 
 ## Kdy požádat o diagnostiku
 

@@ -47,6 +47,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - claimed contribution,
    - thesis structure,
    - thesis heading/outline quality,
+   - figure/media evidence and important visual changes,
    - experiment/result status,
    - code/reproducibility status,
    - code quality/design status,
@@ -54,10 +55,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
 13. When the thesis contains quantitative, evaluation, experiment, metric, performance, or result claims, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. Use the warnings as review prompts for unit/scale, baseline or comparator, better/worse direction, practical magnitude, reproducibility, and whether the interpretation is proportionate to the measured evidence.
-14. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-15. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
-16. Prioritize issues by impact on current phase. Do not list every possible improvement.
-17. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
+15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+16. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
+17. Prioritize issues by impact on current phase. Do not list every possible improvement.
+18. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
 
 ## Supervisor Notes Handling
 
@@ -136,8 +138,9 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - Keep `pdftotext -layout` extracts as the default stable evidence. Use `pdf-reader-mcp` only for targeted PDF details such as page ranges, metadata, figures, tables, and layout-sensitive checks. Do not claim page/layout evidence unless a concrete PDF-detail check was performed.
 - For text-code mismatch, cite both sides: thesis location and code/README/config path.
 - For literature/citation findings, cite the thesis claim or section and the source evidence or missing-source evidence. Do not claim to have read an inaccessible paper.
+- For figure/media findings, cite the thesis/PDF anchor, inspection status, and claim alignment from `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl`. Do not say what a visual element shows unless it was `pdf_inspected` or `source_asset_checked`. Use text mentions and claim alignment to decide whether an item becomes student-facing feedback; do not copy cache hashes or reuse metadata into student-facing prose.
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
-- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, and `outputs/literature_citation_review.md` as internal/operator evidence unless the user explicitly asks to send them.
+- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, and `outputs/figure_media_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
 - For quantitative/evaluation results, do not stop at checking whether a metric is present. Sanity-check whether the values are plausible in the thesis domain, whether the improvement is practically meaningful, whether the baseline/comparator and sample size are clear, whether the calculation is reproducible, and whether the conclusion is not stronger than the evidence.
 
@@ -252,6 +255,7 @@ Before finishing, verify:
 - limitations of review are explicit,
 - code-quality/design review was used when code was available, or the limitation is explicit,
 - literature/citation review was used when literature relevance is material, or the limitation is explicit,
+- figure/media review was used when visual evidence or figure changes are material, or the limitation is explicit,
 - body text and headings match the configured student feedback language,
 - internal case/round identifiers are absent from student-facing prose unless intentionally introduced with a clear human-facing label,
 - review-scope wording excludes internal workflow mechanics unless they are actionable for the student,

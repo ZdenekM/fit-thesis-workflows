@@ -28,7 +28,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment/profile context instead of reviewing/generating the final output.
 2. Confirm that the user explicitly authorized agent use in the current request. This review is the required independent agent pass for opponent materials. If explicit authorization is missing, stop before writing reviewed materials and ask the user to authorize agents.
 3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
-4. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout claims as valid only when a concrete PDF detail check was performed.
+4. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
 5. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 6. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
 7. Verify that assignment fulfillment is assessed point by point.
@@ -36,11 +36,12 @@ If both draft and output files exist, review the draft unless the user explicitl
 9. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
 10. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
 11. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
-12. Keep strengths concrete and evidence-backed.
-13. Check that proposed defense questions are fair, answerable, and tied to important issues.
-14. Keep grading calibration as intervals and rationale, not false precision.
-15. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
-16. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
+12. If figure/media review was used or visual evidence is grade-impacting, verify that claims are backed by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status and suitable claim alignment. Do not turn an `inventoried_only` item into a visual-content claim, and do not expose cache hashes or reuse metadata in opponent-facing prose.
+13. Keep strengths concrete and evidence-backed.
+14. Check that proposed defense questions are fair, answerable, and tied to important issues.
+15. Keep grading calibration as intervals and rationale, not false precision.
+16. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
+17. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
 
 ## Output
 

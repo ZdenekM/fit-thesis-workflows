@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__figure_media_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+  rm -f /tmp/check-figure-media-review.out /tmp/check-figure-media-review.err
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work/figure_media"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+make_round() {
+  local case_id="$1"
+  local round_id="$2"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work/figure_media"
+}
+
+write_review() {
+  local output="$1"
+  local inventory_rows="$2"
+  local findings_rows="$3"
+  local changes="${4:-No previous round exists.}"
+  local context_rows="${5:-| none | references_only | not_verifiable | no reuse | No context-specific action. |}"
+  cat >"$output" <<EOF
+# Figure/Media Review
+
+## Review Scope
+
+Synthetic smoke review over rendered PDF captions and targeted visual evidence. Limitations are explicitly recorded per item in the reusable inventory.
+
+## Visual Inventory
+
+| Item | Type | PDF anchor | Inspection status | Description |
+|---|---|---|---|---|
+$inventory_rows
+
+## Inspected Figures And Tables
+
+Targeted inspections are represented by inventory status values.
+
+## Changes Since Previous Round
+
+$changes
+
+## Context And Claim Alignment
+
+| Item | Text role | Claim alignment | Reuse status | Action |
+|---|---|---|---|---|
+$context_rows
+
+## Findings
+
+| Priority | Item | Inspection status | Claim | Evidence | Downstream use |
+|---|---|---|---|---|---|
+$findings_rows
+
+## Downstream Use
+
+Summarize only actionable findings into supervisor feedback or opponent materials.
+
+## Review Status
+
+Draft evidence checked by deterministic smoke data.
+
+## Manual Checks
+
+- Review any visual item that remains inventoried only before making visual claims.
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >/tmp/check-figure-media-review.out 2>/tmp/check-figure-media-review.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-figure-media-review.err >&2
+    cat /tmp/check-figure-media-review.out >&2
+    exit 1
+  fi
+}
+
+expect_success_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+  if ! "$@" >/tmp/check-figure-media-review.out 2>/tmp/check-figure-media-review.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-figure-media-review.err >&2
+    cat /tmp/check-figure-media-review.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-figure-media-review.out /tmp/check-figure-media-review.err >/dev/null; then
+    echo "Expected success output did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-figure-media-review.err >&2
+    cat /tmp/check-figure-media-review.out >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+  if "$@" >/tmp/check-figure-media-review.out 2>/tmp/check-figure-media-review.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-figure-media-review.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-figure-media-review.out /tmp/check-figure-media-review.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-figure-media-review.err >&2
+    cat /tmp/check-figure-media-review.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_valid"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Overview diagram.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; inventory is based on caption and nearby text only.","limitations":"No PDF-detail or vision check was performed.","downstream_relevance":"May affect text clarity."}
+{"item_id":"fig-2-1","type":"result_graph","pdf_anchor":"PDF p. 12, Figure 2.1","caption_or_nearby_claim":"Result trend.","source_asset_path":"","inspection_status":"pdf_inspected","visual_description":"The inspected graph shows a rising measured trend over three labeled conditions.","limitations":"None.","downstream_relevance":"Supports result-claim calibration."}
+{"item_id":"fig-3-1","type":"screenshot","pdf_anchor":"PDF p. 18, Figure 3.1","caption_or_nearby_claim":"Implemented UI.","source_asset_path":"work/thesis-source/figures/ui.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows the submitted UI screen with navigation and status panel.","limitations":"Checked against source asset and PDF anchor, not a live application.","downstream_relevance":"Feeds text-code consistency for UI claims.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","text_mentions":[{"anchor":"PDF p. 18, paragraph before Figure 3.1","excerpt":"The thesis introduces the UI as implemented functionality.","role":"uses_as_evidence"}],"context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"supports","claim_alignment_rationale":"The checked source asset matches the UI functionality claim at caption level.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 5, Figure 1.1 | inventoried_only | Visual content was not verified; caption-only inventory. |
+| fig-2-1 | result_graph | PDF p. 12, Figure 2.1 | pdf_inspected | The inspected graph shows a rising trend. |
+| fig-3-1 | screenshot | PDF p. 18, Figure 3.1 | source_asset_checked | The linked source asset shows the submitted UI screen. |' \
+  '| P2 | fig-1-1 | inventoried_only | Caption may need clearer context. | PDF p. 5 caption; no visual claim. | Student text polish. |
+| P1 | fig-2-1 | pdf_inspected | The inspected figure shows a result trend that needs baseline explanation. | PDF p. 12 visual inspection and caption. | Evaluation-claim review. |
+| P1 | fig-3-1 | source_asset_checked | The checked screenshot shows UI functionality that should match code evidence. | PDF p. 18 and source asset path. | Code consistency review. |' \
+  'No previous round exists.' \
+  '| fig-1-1 | references_only | not_verifiable | no reuse | Caption-only item; avoid visual claims. |
+| fig-3-1 | uses_as_evidence | supports | no reuse | Cross-check UI claim with code evidence. |'
+expect_success "valid mixed inventory passes" "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_unsupported_visual_claim"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Overview diagram.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; inventory is based on caption only.","limitations":"No visual check.","downstream_relevance":"Text polish."}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 5, Figure 1.1 | inventoried_only | Visual content was not verified. |' \
+  '| P1 | fig-1-1 | inventoried_only | The figure shows a complete architecture. | Caption-only inventory. | Supervisor feedback. |'
+expect_failure_contains \
+  "visual claim without inspected status fails" \
+  "visual-content claim requires" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_source_without_pdf"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-2-1","type":"figure","pdf_anchor":"","caption_or_nearby_claim":"Source figure.","source_asset_path":"work/thesis-source/figures/source.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows a component diagram.","limitations":"No PDF anchor was recorded.","downstream_relevance":"Source provenance."}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-2-1 | figure |  | source_asset_checked | The source asset shows a component diagram. |' \
+  '| P1 | fig-2-1 | source_asset_checked | The source asset shows a component diagram. | Source asset only. | Opponent evidence. |'
+expect_failure_contains \
+  "source asset without PDF anchor fails" \
+  "requires a PDF anchor" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_invalid_hash"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Source figure.","source_asset_path":"work/thesis-source/figures/source.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows a component diagram.","limitations":"No extra limitation.","downstream_relevance":"Visual evidence.","source_asset_sha256":"not-a-sha","visual_analysis_version":"figure-media-visual-v1"}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 5, Figure 1.1 | source_asset_checked | The source asset shows a component diagram. |' \
+  '| P1 | fig-1-1 | source_asset_checked | The checked figure shows a component diagram. | Source asset and PDF anchor. | Opponent evidence. |' \
+  'No previous round exists.' \
+  '| fig-1-1 | references_only | not_verifiable | no reuse | Invalid hash should fail before reuse. |'
+expect_failure_contains \
+  "invalid source asset hash fails" \
+  "invalid source_asset_sha256" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_visual_reuse"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+old_round="$repo_root/cases/$case_id/rounds/round-a"
+new_round="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$old_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"None.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1"}
+EOF
+cat >"$new_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Architecture, updated text.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"Visual description reused from previous round because the source asset hash and analysis version match.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","visual_reused_from_round":"round-a","visual_reuse_reason":"matching_source_asset_sha256","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"partially_supports","claim_alignment_rationale":"The unchanged visual supports the high-level architecture, but surrounding text adds a stronger runtime claim.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+write_review "$new_round/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | source_asset_checked | Visual description reused from previous round. |' \
+  '| P2 | fig-1-1 | source_asset_checked | The checked figure only partially supports the updated runtime claim. | Source asset hash matched previous round; context was rechecked. | Supervisor feedback. |' \
+  'fig-1-1: caption_changed against the previous round.' \
+  '| fig-1-1 | uses_as_evidence | partially_supports | visual reused from round-a | Recheck text claim; visual description was reused. |'
+expect_success "valid visual reuse passes" "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+case_id="${case_prefix}_bad_visual_reuse"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+old_round="$repo_root/cases/$case_id/rounds/round-a"
+new_round="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$old_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"None.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1"}
+EOF
+cat >"$new_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"Claimed reuse with mismatched source hash.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","visual_analysis_version":"figure-media-visual-v1","visual_reused_from_round":"round-a","visual_reuse_reason":"matching_source_asset_sha256"}
+EOF
+write_review "$new_round/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | source_asset_checked | Claimed reuse with mismatched source hash. |' \
+  '| P2 | fig-1-1 | source_asset_checked | The checked figure needs review. | Source asset hash mismatch should fail. | Supervisor feedback. |' \
+  'fig-1-1: unchanged against the previous round.' \
+  '| fig-1-1 | references_only | not_verifiable | visual reused from round-a | Invalid visual reuse should fail. |'
+expect_failure_contains \
+  "visual reuse without matching hash fails" \
+  "visual reuse source_asset_sha256 does not match" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+case_id="${case_prefix}_changed_context_blocks_claim_reuse"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+old_round="$repo_root/cases/$case_id/rounds/round-a"
+new_round="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$old_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"None.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"supports","claim_alignment_rationale":"The visual supports the caption-level claim.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+cat >"$new_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Architecture with stronger runtime claim.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"Visual description reused from previous round; claim alignment should not be reused because context changed.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","visual_reused_from_round":"round-a","visual_reuse_reason":"matching_source_asset_sha256","context_hash":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","claim_alignment":"supports","claim_alignment_rationale":"Incorrectly reused from previous round despite changed context.","claim_alignment_version":"figure-media-claim-v1","claim_alignment_reused_from_round":"round-a"}
+EOF
+write_review "$new_round/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | source_asset_checked | Visual description reused from previous round. |' \
+  '| P2 | fig-1-1 | source_asset_checked | Claim alignment reuse should be rejected when context changes. | Context hash mismatch. | Supervisor feedback. |' \
+  'fig-1-1: claim_alignment_changed against the previous round.' \
+  '| fig-1-1 | uses_as_evidence | supports | visual and claim reused from round-a | Invalid claim alignment reuse should fail. |'
+expect_failure_contains \
+  "changed context blocks claim alignment reuse" \
+  "context_hash does not match" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+case_id="${case_prefix}_inventoried_alignment"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Caption-only item.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; inventory is based on caption and nearby text only.","limitations":"No visual check.","downstream_relevance":"Text polish.","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"not_verifiable","claim_alignment_rationale":"No visual inspection was available.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 5, Figure 1.1 | inventoried_only | Visual content was not verified. |' \
+  '| P2 | fig-1-1 | inventoried_only | Caption needs clearer text context. | Caption-only inventory. | Supervisor feedback. |' \
+  'No previous round exists.' \
+  '| fig-1-1 | references_only | not_verifiable | no reuse | Avoid visual claims. |'
+expect_success "inventoried not_verifiable alignment passes" "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_inventoried_supports"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Caption-only item.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; inventory is based on caption and nearby text only.","limitations":"No visual check.","downstream_relevance":"Text polish.","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"supports","claim_alignment_rationale":"Unsupported claim alignment.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 5, Figure 1.1 | inventoried_only | Visual content was not verified. |' \
+  '| P2 | fig-1-1 | inventoried_only | Caption needs clearer text context. | Caption-only inventory. | Supervisor feedback. |' \
+  'No previous round exists.' \
+  '| fig-1-1 | references_only | supports | no reuse | Unsupported claim alignment should fail. |'
+expect_failure_contains \
+  "inventoried supports alignment fails" \
+  "claim_alignment=supports requires" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id"
+
+case_id="${case_prefix}_claim_alignment_reuse"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+old_round="$repo_root/cases/$case_id/rounds/round-a"
+new_round="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$old_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"None.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"supports","claim_alignment_rationale":"The visual supports the caption-level claim.","claim_alignment_version":"figure-media-claim-v1"}
+EOF
+cat >"$new_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Architecture.","source_asset_path":"work/thesis-source/figures/arch.png","inspection_status":"source_asset_checked","visual_description":"The linked source asset shows an architecture diagram.","limitations":"Visual and claim alignment reused from previous round.","downstream_relevance":"Reusable visual evidence.","source_asset_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","visual_analysis_version":"figure-media-visual-v1","visual_reused_from_round":"round-a","visual_reuse_reason":"matching_source_asset_sha256","context_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","claim_alignment":"supports","claim_alignment_rationale":"The visual supports the caption-level claim.","claim_alignment_version":"figure-media-claim-v1","claim_alignment_reused_from_round":"round-a"}
+EOF
+write_review "$new_round/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | source_asset_checked | Visual description reused from previous round. |' \
+  '| P2 | fig-1-1 | source_asset_checked | The checked figure supports the unchanged caption-level claim. | Matching source hash, context hash, and analysis versions. | Supervisor feedback. |' \
+  'fig-1-1: unchanged against the previous round.' \
+  '| fig-1-1 | uses_as_evidence | supports | visual and claim reused from round-a | No new action. |'
+expect_success "valid claim alignment reuse passes" "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+case_id="${case_prefix}_revision_change"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+old_round="$repo_root/cases/$case_id/rounds/round-a"
+new_round="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$old_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 5, Figure 1.1","caption_or_nearby_claim":"Old caption.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; old inventory only.","limitations":"No visual check.","downstream_relevance":"Prior round."}
+EOF
+cat >"$new_round/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Updated caption.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; current inventory only.","limitations":"No visual check.","downstream_relevance":"Revision diff.","previous_round_change":"caption_changed"}
+EOF
+write_review "$new_round/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | inventoried_only | Visual content was not verified. |' \
+  '| P2 | fig-1-1 | inventoried_only | Caption changed and should be rechecked. | Previous and current captions. | Revision diff. |' \
+  'fig-1-1: caption_changed against the previous round.'
+expect_success "valid previous-round comparison passes" "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+case_id="${case_prefix}_missing_revision_comparison"
+make_case "$case_id" "round-a"
+make_round "$case_id" "round-b"
+echo "round-b" >"$repo_root/cases/$case_id/current-round.txt"
+round_dir="$repo_root/cases/$case_id/rounds/round-b"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'EOF'
+{"item_id":"fig-1-1","type":"figure","pdf_anchor":"PDF p. 6, Figure 1.1","caption_or_nearby_claim":"Caption.","source_asset_path":"","inspection_status":"inventoried_only","visual_description":"Visual content was not verified; inventory only.","limitations":"No visual check.","downstream_relevance":"Revision diff."}
+EOF
+write_review "$round_dir/outputs/figure_media_review.md" \
+  '| fig-1-1 | figure | PDF p. 6, Figure 1.1 | inventoried_only | Visual content was not verified. |' \
+  '| P2 | fig-1-1 | inventoried_only | Caption needs context. | Current caption. | Revision diff. |' \
+  'Previous round exists, but no classified change was recorded.'
+expect_success_contains \
+  "missing previous-round comparison warns" \
+  "does not record a known change classification" \
+  "$repo_root/scripts/check-figure-media-review" "$case_id" "round-b"
+
+echo "Figure/media review smoke passed"

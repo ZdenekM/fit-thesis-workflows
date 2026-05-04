@@ -30,7 +30,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
 5. Resolve the configured student feedback language and preserve it in the final student-facing output.
-6. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, submitted PDF text, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, literature/citation evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout claims as valid only when a concrete PDF detail check was performed.
+6. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, submitted PDF text, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
 7. Check that supervisor notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, were verified against available evidence and synthesized; remove or reframe anything that merely copies a supervisor preference into student-facing prose.
 8. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
 9. Merge duplicates and remove low-impact details that distract from the next iteration.
@@ -39,16 +39,17 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 12. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
 13. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts. In the student-facing output, keep only student-actionable summaries and important limitations.
 14. If literature/citation review was used or literature relevance is a priority, verify that claims are supported by `outputs/literature_citation_review.md` or explicit source limitations. Keep only student-actionable, phase-appropriate items in student-facing feedback.
-15. Keep at most 8 priority rows, ideally 3-6.
-16. Preserve concrete positives and a motivating but direct tone.
-17. Make the final checklist specific to this thesis and phase, not generic.
-18. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
-19. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
-20. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
-21. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
-22. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
-23. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
-24. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
+15. If figure/media review was used or visual evidence is a priority, verify that visual-content claims are supported by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status, and that the used item has suitable claim alignment for the surrounding text claim. Keep only student-actionable, phase-appropriate items in student-facing feedback, and do not expose cache hashes or reuse metadata.
+16. Keep at most 8 priority rows, ideally 3-6.
+17. Preserve concrete positives and a motivating but direct tone.
+18. Make the final checklist specific to this thesis and phase, not generic.
+19. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
+20. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
+21. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
+22. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
+23. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
+24. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+25. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
 ## Priority Calibration
 

@@ -37,6 +37,7 @@ cases/<case-id>/rounds/<round-id>/
    - reviewer profile preferences that are relevant to this round,
    - main technical contribution,
    - thesis structure and heading/outline quality,
+   - figure/media evidence, visual descriptions, and figure changes between rounds,
    - implementation and artifact evidence,
    - implementation quality and design evidence,
    - experiments/results and whether conclusions are supported,
@@ -44,24 +45,26 @@ cases/<case-id>/rounds/<round-id>/
    - literature/citation issues,
    - likely strengths,
    - risks that may affect grading.
-10. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
-11. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
-12. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-13. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-14. Use confidence labels for important statements:
+10. Run `thesis-figure-media-review` when thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds materially affect the opponent assessment. Leave reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; summarize only relevant findings and limitations in the materials.
+11. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
+12. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
+13. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+14. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+15. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-15. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
-16. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
+16. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
+17. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
 
 ## When Using Agents
 
 For a large opponent review, split reviewer agents by role:
 
 - thesis text, structure, and assignment coverage,
+- figure/media evidence, visual claims, captions, and figure changes,
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - literature/citation relevance, source availability, and claim support,
@@ -125,6 +128,8 @@ scripts/check-opponent-materials <case-id> [round-id]
 Shrn text-code consistency i code-quality/design review. Jasne oddel, co je rozpor mezi textem a artefakty, co je technicke riziko implementace, a co zustalo jen k rucni kontrole. Standalone `outputs/code_consistency.md` a `outputs/code_quality_review.md` ber jako internal/operator evidence.
 
 ## 11. Experimenty, vysledky a reprodukovatelnost
+
+Zahrn relevantni zjisteni z `outputs/figure_media_review.md`, pokud grafy, tabulky, screenshoty nebo diagramy nesou vysledkova nebo funkcni tvrzeni. Vizualni tvrzeni pouzij jen tehdy, kdyz maji `pdf_inspected` nebo `source_asset_checked` status a claim alignment podporuje prislusne textove tvrzeni; jinak je formuluj jako omezeni nebo rucni kontrolu. Cache hashe a reuse metadata nepřenášej do oponentskych podkladu.
 
 ## 12. Text, struktura, formalni stranka a literatura
 
