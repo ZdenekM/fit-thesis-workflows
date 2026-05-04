@@ -5,7 +5,9 @@ description: Review a drafted opponent report for fairness, evidence, tone, IS-i
 
 # Thesis Opponent Report Review
 
-Use this skill after the user has drafted their own opponent report.
+Use this skill after the user has drafted their own opponent report, or after
+`scripts/draft-opponent-report` has produced an internal bridge draft from
+reviewed opponent materials and a human has calibrated it.
 
 ## Inputs
 
@@ -15,10 +17,16 @@ Expected files in the active round:
 outputs/oponent_podklady.md
 outputs/oponent_podklady_revidovane.md
 notes/opponent-report-review-intake.md
+work/oponent_posudek_draft.md
 work/muj_posudek_draft.md
 ```
 
-If the draft is elsewhere, use the path provided by the user.
+If `work/oponent_posudek_draft.md` exists, treat it as the generated report draft
+to review unless the user provides a newer human draft elsewhere. A generated
+draft is not sendable by itself: it must contain concrete points and grade, must
+match the current `outputs/oponent_podklady_revidovane.md` hash, and must pass
+`scripts/check-opponent-report <case-id> [round-id]`. If the draft is elsewhere,
+use the path provided by the user.
 
 ## Process
 
@@ -42,6 +50,11 @@ Review the report as a report, not as the student's thesis. Check:
 8. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
 
 Do not soften the report automatically. The goal is accuracy, fairness, evidence, and consistency.
+
+When reviewing `work/oponent_posudek_draft.md`, first run
+`scripts/check-opponent-report <case-id> [round-id]`. Treat failures as draft
+issues to fix or explicitly return to the user before IS submission. Do not
+review an uncalibrated helper draft as if it were a final human report.
 
 ## Review Loop
 

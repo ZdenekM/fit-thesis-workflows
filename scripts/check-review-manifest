@@ -167,6 +167,7 @@ def has_relevant_limitation(manifest: dict[str, Any], term: str | None = None) -
 def check_helper_checks(
     checks: Any,
     required: set[str],
+    round_dir: Path,
     require_complete: bool,
     errors: list[str],
     warnings: list[str],
@@ -210,6 +211,26 @@ def check_helper_checks(
         targets = check.get("target_artifacts", [])
         if not isinstance(targets, list):
             errors.append(f"helper_checks {name}: target_artifacts must be a list")
+            targets = []
+        recorded_hashes = check.get("target_sha256", {})
+        if require_complete and name in required and name != "check-review-manifest":
+            if not isinstance(recorded_hashes, dict):
+                errors.append(f"helper_checks {name}: target_sha256 must record checked target hashes")
+                recorded_hashes = {}
+            for target in targets:
+                path = validate_rel_path(
+                    f"helper_checks {name} target",
+                    target,
+                    round_dir,
+                    errors,
+                    must_exist=True,
+                )
+                if path and path.is_file():
+                    recorded_hash = recorded_hashes.get(target)
+                    if not isinstance(recorded_hash, str) or not recorded_hash:
+                        errors.append(f"helper_checks {name}: missing target hash for {target}")
+                    elif recorded_hash != sha256_file(path):
+                        errors.append(f"helper_checks {name}: target hash is stale for {target}")
     missing = sorted(required - seen)
     for name in missing:
         errors.append(f"missing required helper check record: {name}")
@@ -225,6 +246,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-figure-media-review")
     if "outputs/typography_formal_review.md" in paths:
         required.add("check-typography-formal")
+    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        required.add("check-opponent-report")
     if coverage_required(round_dir, manifest):
         required.add("check-agent-coverage")
     return required
@@ -378,10 +401,12 @@ def artifact_review_ok(
     if require_complete and scope in FINAL_SCOPES and status in REVIEWED_STATUSES:
         review_basis_path = review.get("review_basis_path")
         review_basis_sha256 = review.get("review_basis_sha256")
-        default_basis = {
-            "outputs/feedback_student.md": "work/feedback_student_draft.md",
-            "outputs/oponent_podklady_revidovane.md": "work/oponent_podklady_draft.md",
-        }.get(str(path))
+        basis_candidates = {
+            "outputs/feedback_student.md": ("work/feedback_student_draft.md",),
+            "outputs/oponent_podklady_revidovane.md": ("work/oponent_podklady_draft.md",),
+            "outputs/feedback_k_posudku.md": ("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
+        }.get(str(path), ())
+        default_basis = next((candidate for candidate in basis_candidates if (round_dir / candidate).is_file()), None)
         if default_basis and (round_dir / default_basis).is_file():
             basis = validate_rel_path(f"{path}: review_basis_path", review_basis_path, round_dir, errors)
             if basis and basis.is_file():
@@ -500,6 +525,7 @@ def check_manifest(
     check_helper_checks(
         manifest.get("helper_checks"),
         required_checks(artifact_paths, round_dir, manifest),
+        round_dir,
         require_complete,
         errors,
         warnings,

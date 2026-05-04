@@ -26,7 +26,7 @@ fi
 sensitive_pattern='\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$'
 private_jsonl_pattern='(^|/)visual_inventory\.jsonl$'
 private_manifest_pattern='(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest)\.json$'
-private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|code_consistency|code_quality_review|literature_citation_review|figure_media_review|typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|reference_report_comparison|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane)\.md$'
+private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|code_consistency|code_quality_review|literature_citation_review|figure_media_review|typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|reference_report_comparison|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane|oponent_posudek_draft)\.md$'
 private_github_pattern='(^|/)(code-manifest\.generated\.ya?ml|changed-files\.tsv|contribution-map\.md|[^/]+\.inventory\.md|[^/]+__author-[^/]+__(open|closed)\.json|pr\.(url\.txt|meta\.json|diff|patch|files\.(txt|json)|issue-comments\.(json|md)|reviews\.(json|md)|review-comments\.(json|md)|checks\.(txt|json|md)|summary\.md)|repo\.(url\.txt|meta\.json|refs\.json|readme\.md|license\.txt|default-branch\.txt|snapshot\.txt))$'
 sensitive_tracked="$(
   git ls-files \

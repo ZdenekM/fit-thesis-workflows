@@ -96,6 +96,15 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def target_hashes(round_dir: Path, targets: list[str]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for target in targets:
+        path = round_dir / target
+        if path.is_file():
+            hashes[target] = sha256_file(path)
+    return hashes
+
+
 def rel(path: Path, round_dir: Path) -> str:
     return path.relative_to(round_dir).as_posix()
 
@@ -134,6 +143,7 @@ def collect_work_artifacts(round_dir: Path) -> list[dict[str, str]]:
     explicit = [
         work / "feedback_student_draft.md",
         work / "oponent_podklady_draft.md",
+        work / "oponent_posudek_draft.md",
         work / "code_workspace.md",
         work / "serena_roots.json",
         work / COVERAGE_REL.relative_to("work"),
@@ -297,6 +307,7 @@ def required_checks(
                 "check": name,
                 "command": command,
                 "target_artifacts": targets,
+                "target_sha256": target_hashes(round_dir, targets),
                 "status": "not_recorded",
                 "checked_at": "",
                 "exit_code": None,
@@ -315,6 +326,11 @@ def required_checks(
         add("check-figure-media-review", f"scripts/check-figure-media-review {case_id} {round_id}", ["outputs/figure_media_review.md"])
     if "outputs/typography_formal_review.md" in artifact_paths:
         add("check-typography-formal", f"scripts/check-typography-formal --require-output {case_id} {round_id}", ["outputs/typography_formal_review.md"])
+    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        targets = ["work/oponent_posudek_draft.md"]
+        if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():
+            targets.append("outputs/oponent_podklady_revidovane.md")
+        add("check-opponent-report", f"scripts/check-opponent-report {case_id} {round_id}", targets)
     if coverage_required(round_dir, manifest):
         add("check-agent-coverage", f"scripts/check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
     add("check-review-manifest", f"scripts/check-review-manifest --require-complete {case_id} {round_id}", sorted(artifact_paths))
@@ -335,9 +351,16 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
         if item.get("check") == "check-review-manifest":
             merged.append(item)
         elif isinstance(previous, dict) and previous.get("command") == item.get("command"):
+            if previous.get("target_sha256") != item.get("target_sha256"):
+                stale = dict(item)
+                stale["notes"] = "Target artifact hash changed since the previous check; rerun this helper check."
+                merged.append(stale)
+                continue
             updated = {**item, **previous}
             if not updated.get("target_artifacts"):
                 updated["target_artifacts"] = item["target_artifacts"]
+            if not updated.get("target_sha256"):
+                updated["target_sha256"] = item["target_sha256"]
             merged.append(updated)
         else:
             merged.append(item)
@@ -397,7 +420,7 @@ def compact_output(stdout: str, stderr: str) -> str:
     return text
 
 
-def run_check_record(root: Path, check: dict[str, Any]) -> None:
+def run_check_record(root: Path, round_dir: Path, check: dict[str, Any]) -> None:
     command = check.get("command")
     if not isinstance(command, str) or not command.strip():
         check["status"] = "failed"
@@ -416,6 +439,9 @@ def run_check_record(root: Path, check: dict[str, Any]) -> None:
     check["status"] = "passed" if result.returncode == 0 else "failed"
     check["checked_at"] = now_utc()
     check["exit_code"] = result.returncode
+    targets = check.get("target_artifacts")
+    if isinstance(targets, list) and all(isinstance(target, str) for target in targets):
+        check["target_sha256"] = target_hashes(round_dir, targets)
     detail = compact_output(result.stdout, result.stderr)
     check["notes"] = detail or "Executed by init-review-manifest --run-checks."
 
@@ -424,6 +450,7 @@ def run_helper_checks(root: Path, manifest_path: Path, manifest: dict[str, Any])
     checks = manifest.get("helper_checks")
     if not isinstance(checks, list):
         return
+    round_dir = manifest_path.parents[1]
     for check in checks:
         if not isinstance(check, dict):
             continue
@@ -433,7 +460,7 @@ def run_helper_checks(root: Path, manifest_path: Path, manifest: dict[str, Any])
             check["exit_code"] = None
             check["notes"] = "Run this command after review metadata has been recorded; it is not executed by init-review-manifest --run-checks."
             continue
-        run_check_record(root, check)
+        run_check_record(root, round_dir, check)
     write_manifest(manifest_path, manifest)
 
 

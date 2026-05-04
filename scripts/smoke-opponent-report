@@ -1,0 +1,377 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__opponent_report_smoke_$$"
+created_cases=()
+out_file="/tmp/opponent-report-smoke.$$.out"
+err_file="/tmp/opponent-report-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes" \
+    "$repo_root/cases/$case_id/rounds/$round_id/outputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+}
+
+write_valid_materials() {
+  local target="$1"
+  cat >"$target" <<'EOF'
+# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+
+Kontrola zahrnula renderovane PDF, extrahovany text, assignment summary, README,
+zdrojovy kod v `work/code/src/`, vysledkovou tabulku a interni evidence review.
+Kod nebyl spusten nad plnymi daty; to je hlavni omezeni kontroly.
+
+## 2. Strucna mapa prace
+
+Prace navrhuje a implementuje prototyp pro zpracovani obrazovych dat.
+
+## 3. Splneni zadani
+
+| Bod zadani | Stav | Evidence | Kalibrace |
+|---|---|---|---|
+| 1. Study relevant methods | Splneno | Kapitola 2 a bibliography prace. | Bez zasadni vyhrady. |
+| 2. Implement prototype | Splneno s vyhradou | README, `main.py` a zadani bod 2. | Dulezite pro realizacni vystup. |
+| 3. Evaluate solution | Castecne splneno | Kapitola 5, tabulka 2 a vysledky experimentu. | Slabsi reprodukovatelnost. |
+
+## 4. Technicke jadro prace vysvetlene oponentovi
+
+Technicke jadro tvori klasicka pipeline s vlastni orchestrace zpracovani dat.
+
+## 5. Mapa textu, kodu a artefaktu
+
+| Oblast | Evidence | Stav |
+|---|---|---|
+| Text prace | `extracted/thesis.txt` a kapitola 2 | Dostupne. |
+| Kod | `work/code/src/main.py` a README | Inspektovatelne. |
+
+## 6. Evidence ledger: hlavni tvrzeni a opora
+
+| Tvrzeni | Znacka jistoty | Opora | Dopad na posudek | Pouzit do posudku? |
+|---|---|---|---|---|
+| Student implementoval vlastni prototyp. | [FAKT] | README, `main.py` a kapitola 4. | Pozitivni realizacni bod. | Ano. |
+| Vyhodnoceni je vecne relevantni, ale omezeně reprodukovatelne. | [INTERPRETACE] | Kapitola 5, tabulka 2 a chybejici metricke skripty. | Stredni vyhrada. | Ano. |
+| Plny runtime nebyl overen. | [NEOVERENO] | Scope section a chybejici smoke dataset. | Nutna opatrnost ve formulaci. | Ano. |
+
+## 7. Silne stranky
+
+- Prace ma konkretni implementacni vystup dolozeny README a zdrojovym kodem.
+- Text obsahuje smysluplnou strukturu od metod po vysledky.
+- Student uvadi omezeni experimentu a neprezentuje vysledky jako univerzalni.
+
+## 8. Hlavni rizika a nedostatky
+
+| Priorita | Tvrzeni | Evidence | Dopad | Mozna formulace do posudku |
+|---|---|---|---|---|
+| P1 | Reprodukovatelnost vysledku neni primo pripravena. | README, kapitola 5 a chybejici metricke skripty. | Snizuje overitelnost. | "Vysledky nejsou z dodanych zdroju snadno reprodukovatelne." |
+
+## 9. Pokryti polozek IS a navrhy formulaci
+
+| Polozka IS | Stav | Evidence | Dopad | Mozna formulace |
+|---|---|---|---|---|
+| Narocnost zadani | Stredni | Zadani a technicke metody. | Korekcni faktor. | "Zadani hodnotim jako stredne narocne." |
+| Rozsah splneni zadani | Splneno s vyhradou | Zadani bod 2 a kapitola 4. | Vyssi. | "Zadani bylo naplneno s vyhradami." |
+| Rozsah technicke zpravy | Dostatecny | Kapitoly 2 az 5. | Stredni. | "Zprava pokryva hlavni principy." |
+| Prezentacni uroven | Dobra | Struktura textu a tabulka 2. | Stredni. | "Text je prevazne citelny." |
+| Formalni uprava | Bez zasadniho nalezu | PDF a tabulky. | Nizky. | "Formalni stranka neni hlavni slabina." |
+| Prace s literaturou | Relevantni s rezervou | Bibliography a kapitola 2. | Stredni. | "Literatura je relevantni, ale mohla byt vice vyuzita." |
+| Realizacni vystup | Funkcni prototyp | README, `main.py` a vysledky. | Vyssi. | "Realizace je funkcni prototyp." |
+| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |
+| Celkove hodnoceni | Dobre az velmi dobre | Kombinace zadani, kodu a vysledku. | Synteticke. | "Celkove jde o obhajitelny BP vystup." |
+
+## 10. Technicka spravnost a realizacni vystup
+
+Text-code consistency je v zakladnich tvrzenich dobra.
+
+## 11. Experimenty, vysledky a reprodukovatelnost
+
+Experimenty jsou tematicky vhodne a maji konkretni tabulkove vysledky.
+
+## 12. Text, struktura, formalni stranka a literatura
+
+Text je strukturovany a obhajitelny.
+
+## 13. Orientacni kalibrace hodnoceni
+
+- Konzervativni interval: 70-76 bodu, pokud bude hlavni vaha na reprodukovatelnosti.
+- Standardni interval: 76-82 bodu, pokud se oceni funkcni prototyp a priznana omezeni.
+- Mirnejsi interval: 82-86 bodu, pokud se prototypova omezeni budou brat jako BP uroven.
+
+Nejlepe obhajitelny interval je 76-82 bodu.
+
+## 14. Navrhy otazek k obhajobe
+
+1. Jak presne lze reprodukovat vysledky z tabulky 2?
+2. Co by bylo potreba doplnit, aby byl prototyp robustnejsi?
+3. Ktere casti reseni jsou vase vlastni a ktere primo zavisi na knihovnich metodach?
+
+## 15. Rucni kontroly pred napsanim posudku
+
+- Spustit maly smoke test nad pripravenym datasetem a zaznamenat vysledek.
+- Otevrit vysledkove obrazky a porovnat je s tabulkou 2.
+- Zkontrolovat video nebo poster, pokud maji ovlivnit hodnoceni prezentace.
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+replace_text() {
+  local file="$1"
+  local old="$2"
+  local new="$3"
+  python3 - "$file" "$old" "$new" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+old = sys.argv[2]
+new = sys.argv[3]
+text = path.read_text(encoding="utf-8")
+if old not in text:
+    raise SystemExit(f"Missing expected text: {old}")
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+PY
+}
+
+calibrate_draft() {
+  local draft="$1"
+  replace_text "$draft" "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace." "Stav: připraveno pro nezávislou kontrolu oponentem."
+  replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 80"
+  replace_text "$draft" "Navržená známka: k ruční kalibraci ve stejné interpretaci jako bodové hodnocení." "Známka: B"
+}
+
+complete_manifest_for_smoke() {
+  local case_id="$1"
+  local round_id="$2"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  local manifest="$round_dir/work/review_manifest.json"
+  local coverage="$round_dir/work/agent_coverage.json"
+
+  python3 - "$manifest" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+for artifact in manifest["artifacts"]:
+    if artifact["path"] == "outputs/oponent_podklady_revidovane.md":
+        artifact["generated_by"] = [
+            {
+                "role": "thesis-opponent-materials",
+                "agent": "opponent-materials-generator",
+                "contribution": "generation",
+                "notes": "Smoke generated source materials.",
+            }
+        ]
+        artifact["independent_review"] = {
+            "status": "reviewed",
+            "reviewer_role": "thesis-opponent-materials-review",
+            "reviewer_agent": "opponent-materials-reviewer",
+            "reviewed_at": "2026-05-04T00:01:00Z",
+            "reviewed_hash": artifact["artifact_sha256"],
+            "covered_by_artifact": "",
+            "used_findings": "",
+            "exception": "",
+            "notes": "Smoke review passed.",
+        }
+        artifact["limitations"] = ["None."]
+for check in manifest["helper_checks"]:
+    if check["check"] == "check-review-manifest":
+        check["status"] = "not_applicable"
+        check["exit_code"] = None
+        check["checked_at"] = ""
+    else:
+        check["status"] = "passed"
+        check["exit_code"] = 0
+        check["checked_at"] = "2026-05-04T00:02:00Z"
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
+  python3 - "$manifest" "$coverage" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+coverage_path = pathlib.Path(sys.argv[2])
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+for check in manifest["helper_checks"]:
+    if check["check"] == "check-review-manifest":
+        check["status"] = "not_applicable"
+        check["exit_code"] = None
+        check["checked_at"] = ""
+    else:
+        check["status"] = "passed"
+        check["exit_code"] = 0
+        check["checked_at"] = "2026-05-04T00:02:00Z"
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+for role in coverage["roles"]:
+    if role["role"] == "typography_formal":
+        role["status"] = "blocked"
+        role["output_evidence"] = []
+        role["typed_limitation"] = {
+            "type": "manual_review_required",
+            "role": role["role"],
+            "trigger": role["trigger"],
+            "required_for": role["required_for"],
+            "description": "Synthetic smoke case has no standalone typography/formal review artifact.",
+        }
+        role["notes"] = "Blocked intentionally in smoke data."
+coverage_path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+case_id="${case_prefix}_valid"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_success "reviewed materials are valid" "$repo_root/scripts/check-opponent-materials" "$case_id" round-a
+expect_success "draft helper writes report draft" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
+expect_failure "generated report draft requires human calibration" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "open calibration"
+expect_failure "draft helper refuses overwrite without force" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
+expect_output "Refusing to overwrite"
+draft="$round_dir/work/oponent_posudek_draft.md"
+calibrate_draft "$draft"
+expect_success "calibrated report draft passes check" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+"$repo_root/scripts/init-review-manifest" --run-checks "$case_id" round-a >/dev/null
+python3 - "$round_dir/work/review_manifest.json" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+checks = {check["check"]: check for check in manifest["helper_checks"]}
+assert checks["check-opponent-report"]["status"] == "passed", checks["check-opponent-report"]
+support = {item["path"] for item in manifest["supporting_work_artifacts"]}
+assert "work/oponent_posudek_draft.md" in support, support
+PY
+complete_manifest_for_smoke "$case_id" round-a
+expect_success "case doctor includes calibrated report draft" "$repo_root/scripts/case-doctor" "$case_id" round-a
+expect_output "opponent report draft"
+expect_success "manifest validates with final closeout" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Zadani hodnotim jako stredne narocne po pozdejsi uprave."
+expect_failure "manifest closeout fails after report draft edit" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+expect_output "target hash is stale"
+expect_success "restore clean draft after manifest stale check" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+calibrate_draft "$draft"
+
+printf '\nAdditional source note after draft.\n' >>"$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_failure "stale source hash fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "stale"
+replace_text "$round_dir/outputs/oponent_podklady_revidovane.md" "## 15. Rucni kontroly pred napsanim posudku" "## 15. Broken Section"
+expect_failure "invalid reviewed source materials fail report check" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "reviewed opponent materials check failed"
+
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_success "force regenerate clean draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+calibrate_draft "$draft"
+replace_text "$draft" "- Zachovat opatrnou formulaci pro ručně neověřený bod: Plny runtime nebyl overen" "- Zachovat obecnou opatrnost tam, kde dostupné podklady nejsou úplné."
+expect_failure "uncertain claim must remain tied to caution wording" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "uncertain source claim"
+
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+replace_text "$round_dir/outputs/oponent_podklady_revidovane.md" '| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |' ""
+expect_success "materials can warn on missing IS area" "$repo_root/scripts/check-opponent-materials" "$case_id" round-a
+expect_success "force regenerate fallback draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+calibrate_draft "$draft"
+expect_failure "fallback section text must be replaced" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "open calibration"
+
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_success "force regenerate clean draft after fallback test" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+replace_text "$draft" "Zadani hodnotim jako stredne narocne." "TODO: doplnit narocnost."
+expect_failure "placeholder fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "placeholder remains"
+
+expect_success "regenerate clean draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Viz outputs/oponent_podklady_revidovane.md."
+expect_failure "internal path fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "internal workflow path"
+
+expect_success "regenerate clean draft 2" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+python3 - "$draft" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+path.write_text(path.read_text(encoding="utf-8").replace("?", "."), encoding="utf-8")
+PY
+expect_failure "missing question mark fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "defense questions"
+
+expect_success "regenerate clean draft 3" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 150"
+expect_failure "invalid points fail" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "point value outside"
+
+echo "Opponent report smoke passed"

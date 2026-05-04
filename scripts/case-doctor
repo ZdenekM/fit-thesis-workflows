@@ -748,6 +748,13 @@ def output_expectations(round_dir: Path, outputs: list[Path], code_present: bool
         add_issue(issues, "WARNING", "Supervisor feedback draft exists but outputs/feedback_student.md is missing.")
     if (round_dir / "work" / "oponent_podklady_draft.md").is_file() and "oponent_podklady_revidovane.md" not in names:
         add_issue(issues, "WARNING", "Opponent materials draft exists but reviewed output is missing.")
+    if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file() and not (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        add_issue(issues, "WARNING", "Reviewed opponent materials exist but work/oponent_posudek_draft.md is missing.")
+        lines.append("- work/oponent_posudek_draft.md: missing (opponent report draft)")
+    elif (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        lines.append("- work/oponent_posudek_draft.md: present (opponent report draft)")
+        if "feedback_k_posudku.md" not in names:
+            add_issue(issues, "WARNING", "Opponent report draft exists but outputs/feedback_k_posudku.md review is missing.")
 
     if code_present and names & FINAL_OUTPUTS:
         missing = [
@@ -903,6 +910,8 @@ def main(argv: list[str]) -> int:
         gates.append(run_gate(root, "feedback output", ["scripts/check-feedback-output", args.case_id, round_id]))
     if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():
         gates.append(run_gate(root, "opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id]))
+    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        gates.append(run_gate(root, "opponent report draft", ["scripts/check-opponent-report", args.case_id, round_id]))
     if (round_dir / "outputs" / "figure_media_review.md").is_file():
         gates.append(run_gate(root, "figure/media review", ["scripts/check-figure-media-review", args.case_id, round_id]))
     if (round_dir / "outputs" / "typography_formal_review.md").is_file():

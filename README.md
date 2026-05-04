@@ -227,11 +227,19 @@ Nejběžnější výstupy jsou:
   jejich triggery, výstupní evidenci, agent/reviewer údaje a typované výjimky,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
 - `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
+- `work/oponent_posudek_draft.md` - pracovní draft oponentského posudku podle
+  položek FIT IS,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
 
 Studentský feedback a oponentské materiály nejsou hotové jen proto, že vznikly.
 Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po větší
 úpravě se výstup znovu bere jako draft.
+
+`work/oponent_posudek_draft.md` je jen most z revidovaných podkladů do struktury
+IS. Helper do něj zapisuje hash zdrojových podkladů a nechává body/známku
+otevřené; `scripts/check-opponent-report` projde až po lidské kalibraci
+konkrétních bodů a známky a po ověření, že draft odpovídá aktuálním
+`outputs/oponent_podklady_revidovane.md`.
 
 Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consistency.md`,
 `code_quality_review.md`, `literature_citation_review.md`,
@@ -333,6 +341,7 @@ jen rychle ukáže, co chybí nebo je stale před začátkem review.
 scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
+scripts/check-opponent-report <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/check-typography-formal <case-id>
 scripts/init-review-manifest --run-checks <case-id>
@@ -346,6 +355,7 @@ Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 scripts/prepare-code-workspace <case-id>
+scripts/draft-opponent-report <case-id>
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 ```
@@ -444,6 +454,7 @@ scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
 scripts/smoke-agent-coverage
+scripts/smoke-opponent-report
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace
 scripts/smoke-private

@@ -1,15 +1,5 @@
 # TODO
 
-- [ ] Add an opponent report composition bridge.
-   - Add a narrow workflow or helper that turns `outputs/oponent_podklady_revidovane.md` into a draft report structured by FIT IS fields.
-   - Add an explicit report draft artifact such as `work/oponent_posudek_draft.md`; keep the report draft out of `outputs/` until reviewed or explicitly accepted for manual use.
-   - Add or reuse a FIT IS opponent-report template based on `docs/fit-is-rubric.md`.
-   - Add `scripts/check-opponent-report` for FIT IS field coverage, point/comment consistency, defense questions, no internal path leaks, no placeholders, and no upgrade of uncertain/manual-check claims into unsupported final claims.
-   - Extend `init-review-manifest`, `check-review-manifest`, and `case-doctor` so report draft, report review, reviewed materials freshness, and next missing opponent-report step are visible.
-   - Preserve `thesis-opponent-materials` as the evidence source and `thesis-opponent-report-review` as the final report review pass.
-   - Keep the generated report draft separate from internal evidence, for example under `work/` until reviewed.
-   - Require the bridge to preserve uncertainty labels and manual-check caveats instead of turning them into unsupported final claims.
-   - Avoid coaching-style student feedback language; output should be opponent-report wording for the evaluator.
 - [ ] Add a tooling and connector preflight.
    - Add a read-only `scripts/check-tooling` that reports availability and versions for `pdftotext`, `git`, `gh` authentication, Node/pdf-reader MCP readiness, Serena activation viability, and optional local grammar/literature tools.
    - Keep optional tools non-blocking by default, but make missing required tools explicit before long agent workflows start.
