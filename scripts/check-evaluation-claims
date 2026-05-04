@@ -205,22 +205,12 @@ def resolve_round(root: Path, case_id: str, round_id: str | None) -> Path:
 def thesis_text_paths(round_dir: Path) -> list[Path]:
     extracted_base = round_dir / "extracted"
     if extracted_base.is_dir():
-        extracted_paths = sorted(
+        return sorted(
             path
             for path in extracted_base.rglob("*")
             if path.is_file() and path.suffix.lower() == ".txt"
         )
-        if extracted_paths:
-            return extracted_paths
-
-    source_base = round_dir / "work" / "thesis-source"
-    if not source_base.is_dir():
-        return []
-    return sorted(
-        path
-        for path in source_base.rglob("*")
-        if path.is_file() and path.suffix.lower() == ".tex"
-    )
+    return []
 
 
 def supplemental_source_paths(round_dir: Path, primary_paths: list[Path]) -> list[Path]:
@@ -753,8 +743,8 @@ def main(argv: list[str]) -> int:
 
     if not source_paths:
         print(
-            "ERROR: no extracted thesis text or thesis source was found; "
-            "evaluation claims were not checked",
+            "ERROR: no extracted thesis text was found; evaluation claims were not checked. "
+            "Use the submitted PDF as the rendered source of truth and extract it into extracted/ first.",
             file=sys.stderr,
         )
         return 1

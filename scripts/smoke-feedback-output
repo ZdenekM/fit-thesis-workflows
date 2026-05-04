@@ -21,6 +21,7 @@ make_case() {
 
   created_cases+=("$case_id")
   mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/notes"
   {
     echo "Work type: BP"
     echo "Academic year: 2025/2026"
@@ -28,6 +29,25 @@ make_case() {
       echo "$language_line"
     fi
   } >"$repo_root/cases/$case_id/case.md"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Smoke assignment PDF is represented by this synthetic note.
+
+## Formal Assignment Text Or Summary
+
+Smoke assignment summary for feedback output validation.
+
+## Private Assignment Notes For Student
+
+None.
+
+## Assignment Coverage Hints
+
+-
+EOF
 
   if [[ "$write_current" == "yes" ]]; then
     echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"

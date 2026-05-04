@@ -123,4 +123,12 @@ make_case "$case_id"
 rm -f "$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
 expect_failure_contains "missing source fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
+case_id="${case_prefix}_tex_without_extract"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+rm -f "$round_dir/extracted/thesis.txt"
+mkdir -p "$round_dir/work/thesis-source"
+echo "Experiment ukazuje RMSE 12.4." >"$round_dir/work/thesis-source/thesis.tex"
+expect_failure_contains "tex without extracted PDF text fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+
 echo "Evaluation claims smoke passed"

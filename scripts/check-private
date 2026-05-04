@@ -24,6 +24,7 @@ if [[ -n "$bad_profile_tracked" ]]; then
 fi
 
 sensitive_pattern='\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$'
+private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_consistency|code_quality_review|literature_citation_review|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane)\.md$'
 sensitive_tracked="$(
   git ls-files \
     | grep -E "$sensitive_pattern" \
@@ -35,6 +36,18 @@ sensitive_tracked="$(
 if [[ -n "$sensitive_tracked" ]]; then
   echo "Potential private thesis artifacts are tracked outside ignored cases/:" >&2
   echo "$sensitive_tracked" >&2
+  exit 1
+fi
+
+private_markdown_tracked="$(
+  git ls-files \
+    | grep -E "$private_markdown_pattern" \
+    | grep -v '^cases/' \
+    || true
+)"
+if [[ -n "$private_markdown_tracked" ]]; then
+  echo "Potential private generated Markdown artifacts are tracked outside ignored cases/:" >&2
+  echo "$private_markdown_tracked" >&2
   exit 1
 fi
 
@@ -50,6 +63,19 @@ sensitive_untracked="$(
 if [[ -n "$sensitive_untracked" ]]; then
   echo "Potential private thesis artifacts are present outside ignored cases/:" >&2
   echo "$sensitive_untracked" >&2
+  exit 1
+fi
+
+private_markdown_untracked="$(
+  git status --porcelain --untracked-files=all \
+    | sed -n 's/^?? //p' \
+    | grep -E "$private_markdown_pattern" \
+    | grep -v '^cases/' \
+    || true
+)"
+if [[ -n "$private_markdown_untracked" ]]; then
+  echo "Potential private generated Markdown artifacts are present outside ignored cases/:" >&2
+  echo "$private_markdown_untracked" >&2
   exit 1
 fi
 

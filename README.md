@@ -1,274 +1,325 @@
 # FIT Thesis Workflows
 
-Minimal Codex-first workflow for BP/DP supervision and opponent work.
+Human-first workflow pro vedení a oponování BP/DP prací s pomocí agentů.
 
-The repository stores workflow instructions, skills, templates, and tiny helper scripts. Real thesis data stays inside `cases/`, which is ignored by git.
+Tento repozitář není aplikace pro studenty. Je to pracovní vrstva pro vedoucí,
+oponenty a další hodnotitele, kteří chtějí přes chat s agentem zpracovat
+odevzdané PDF, zdrojové soubory, kód, předchozí zpětné vazby a vlastní poznámky.
 
-## Quick Start
-
-Create a local case:
-
-```bash
-scripts/new-case novak-bp-2026 BP first-review
-```
-
-Add another revision later:
-
-```bash
-scripts/import-round novak-bp-2026 second-review ~/Downloads/thesis.pdf ~/Downloads/student-code.zip
-```
-
-`import-round` copies inputs into the ignored case workspace and extracts PDF text into `extracted/` when `pdftotext` is available.
-
-Treat the submitted PDF as the rendered thesis source of truth. LaTeX/Overleaf
-source zips are useful for text diffs, search, and precise evidence, but the
-workflow does not build them by default. Ask for a build only when you
-explicitly want compile diagnostics or no rendered PDF is available.
-
-For PDF details that plain text extraction cannot answer, optionally configure
-`pdf-reader-mcp`:
-
-```bash
-codex mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
-```
-
-It requires Node.js 22 or newer. Keep `pdftotext -layout` as the default
-case-evidence path; use the MCP only for targeted page ranges, metadata, page
-counts, figures, tables, layout-sensitive checks, or ambiguous extraction.
-See `docs/pdf-detail-layer.md`.
-
-Before generating supervisor feedback or opponent materials, fill the assignment
-context:
+Typické použití není ruční volání skriptů. Typické použití je napsat agentovi:
 
 ```text
-cases/<case-id>/rounds/<round-id>/notes/assignment.md
+Přidej nový případ pro tuto BP. Přikládám zadání, PDF práce, zdrojový zip,
+kód a moje poznámky. Připrav studentovi zpětnou vazbu, použij agenty,
+zkontroluj soulad textu s kódem a kvalitu implementace a nálezy po review
+rovnou oprav.
 ```
 
-For supervisor feedback, `check-supervisor-ready` is the gate. It verifies the
-round assignment context and adds deadline calibration:
+Výsledkem má být použitelný Markdown pro vedoucího nebo oponenta, ne jen
+seznam interních poznámek.
 
-```bash
-scripts/check-supervisor-ready <case-id>
-scripts/supervisor-deadline <case-id>
-```
+## Nejrychlejší cesta
 
-For opponent materials or generic internal round checks, use `check-round-ready`.
-It verifies the formal assignment and private assignment notes, but it does not
-perform supervisor deadline calibration:
+1. Otevřete chat s agentem v tomto repozitáři.
+2. Přiložte nebo uveďte cesty k souborům: zadání, aktuální PDF práce,
+   případně LaTeX/Overleaf zip, kód, starší feedback, návrh posudku nebo
+   vlastní poznámky.
+3. Napište, jaký výstup chcete: studentskou zpětnou vazbu, oponentské podklady,
+   revizní diff, kontrolu kódu, kontrolu citací, nebo review hotového posudku.
+4. Pokud má vzniknout finální výstup, nebo samostatná evidence, na kterou se
+   budete spoléhat, napište výslovně `použij agenty`. Workflow to vyžaduje pro
+   nezávislou review smyčku.
+5. Agent si vyžádá chybějící kontext, založí nebo doplní case, zpracuje vstupy
+   v ignorovaném workspace a uloží výstupy do aktivního roundu.
 
-```bash
-scripts/check-round-ready <case-id>
-```
+Case data pod `cases/` jsou ignorovaná gitem. Do repozitáře patří workflow,
+skripty, šablony a profily, ne soukromé studentské materiály.
 
-For deferred or August-defense cases, put the exact case-specific submission
-date into `case.md` as `Deadline override: YYYY-MM-DD`.
+## Co napsat agentovi
 
-Then work in chat/Codex by pointing the agent at the case and asking for the relevant artifact, for example:
+Níže jsou copy-paste recepty. První tři pokrývají nejběžnější práci; další
+příklady jsou pro speciálnější situace.
+
+### Nová studentská zpětná vazba
 
 ```text
-Pouzij agenty a skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta s thesis-supervisor-feedback-review a teprve reviewed final uloz do outputs/feedback_student.md.
+Přidej nový případ pro práci.
+
+Typ: BP/DP
+Akademický rok: 2025/2026
+Deadline: standard / YYYY-MM-DD
+Jazyk feedbacku: cs/en
+Reviewer profile: default
+Téma: <stručně>
+Moje poznámky k zadání: <co student měl dělat, kontext laboratoře, omezení>
+
+Přikládám zadání, aktuální PDF práce, případně zdrojový zip a kód.
+Zpracuj studentskou zpětnou vazbu, použij agenty. Pokud je dostupný kód,
+zkontroluj soulad textu s kódem i kvalitu implementace. Výsledný feedback
+napiš tak, abych ho mohl poslat studentovi s minimální úpravou.
 ```
 
-## Case Workspace
+Pokud některý řádek nevíte, nechte ho prázdný nebo napište `nevím`. Agent má
+říct, jestli je to skutečný blocker.
 
-Case data is stored under:
+### Aktuální revize se starší zpětnou vazbou
 
 ```text
-cases/<case-id>/
+Tady je aktuální stav práce a předchozí zpětná vazba. Založ nový round ve
+stávajícím case, porovnej posun od minule a připrav studentovi krátký
+final-sprint feedback. Použij agenty, dej jim dost času, nálezy z review oprav.
 ```
 
-Each case can contain multiple rounds:
+### Oponentské podklady
+
+```text
+Připrav interní oponentské podklady pro tuto BP/DP. Přikládám zadání, PDF,
+zdroje a kód. Použij agenty. Pokud je dostupný kód, zkontroluj soulad textu
+s kódem i kvalitu implementace. Výstup má být interní evidence pro oponenta,
+ne studentský feedback.
+```
+
+## Další příklady
+
+### Jen import a příprava kontextu
+
+```text
+Zatím jen založ case a importuj vstupy. Neprodukuj finální feedback. Vyplň
+poznámky k zadání, rozbal kód pod work/code a řekni mi, co ještě chybí pro
+studentskou zpětnou vazbu od vedoucího.
+```
+
+### Finální kontrola před odevzdáním
+
+```text
+Pro aktuální round udělej finální kontrolu před odevzdáním. Priorita:
+splnění zadání, technická pravdivost, chybějící soubory, výsledky,
+README/reprodukovatelnost a obhajitelnost. Použij agenty a nálezy oprav ve
+feedbacku.
+```
+
+### Revizní diff
+
+```text
+Porovnej aktuální round s předchozí verzí práce. Zaměř se na to, co z minulé
+zpětné vazby bylo vyřešeno, co zůstává a co je nové riziko. Použij agenty.
+```
+
+### Review vlastního posudku
+
+```text
+Tady je můj draft oponentského posudku. Zkontroluj férovost, oporu v důkazech,
+tón, konzistenci bodů/známky, pokrytí zadání a otázky k obhajobě. Použij
+agenty. Nálezy rovnou promítni do revidované verze nebo mi vrať blokující
+připomínky.
+```
+
+### Samostatná kontrola kódu
+
+```text
+Udělej samostatný review kódu pro aktuální round. Odděl nesoulad textu s kódem,
+design/runtime rizika a nice-to-have zlepšení. Použij agenty.
+```
+
+## Co agent potřebuje vědět
+
+Čím konkrétnější zadání dostane, tím méně bude muset hádat. Nejvíc pomáhá:
+
+- oficiální zadání nebo jeho věrné shrnutí,
+- vaše neveřejné poznámky ke kontextu práce,
+- zda jde o BP nebo DP,
+- akademický rok a případný posunutý termín,
+- fáze práce: raná kostra, pracovní verze, předfinální verze, finální kontrola,
+- co chcete explicitně ověřit,
+- co už nechcete v této fázi znovu otevírat,
+- jazyk studentského feedbacku, pokud nemá být výchozí čeština,
+- reviewer profile, pokud nemá být výchozí `default`.
+
+Chybějící jazyk feedbacku znamená `cs`. Chybějící reviewer profile znamená
+`default`. Agent se má zastavit hlavně tehdy, když chybí zadání, termínový
+kontext, validní profile soubor, nebo jiné podklady nutné pro požadovaný výstup.
+
+## Co se děje pod kapotou
+
+Repo používá lokální case workspace:
 
 ```text
 cases/<case-id>/
   case.md
-  # includes Work type, Academic year, Deadline mode, optional Deadline override,
-  # Student feedback language: cs / en, and Reviewer profile
   current-round.txt
   rounds/
-    20260428-1530-first-review/
+    <timestamp>-<label>/
       notes/
       inputs/
       extracted/
       work/
       outputs/
-    20260510-1015-second-review/
-      ...
 ```
 
-For supervisor feedback, the current round must take previous feedback into account. Earlier `outputs/feedback_student.md` files are part of the input and should be used to avoid repeating resolved feedback.
+Vstupy zůstávají v ignorovaném `cases/`. PDF text se extrahuje do `extracted/`,
+zdrojové zippy a kód se pro inspekci rozbalují pod `work/`.
 
-Student-facing supervisor feedback uses `Student feedback language` from `case.md`. Missing or empty means `cs`, which requires Czech output with diacritics. Use `en` only when English feedback is preferable. `Jazyk prace` in intake notes describes the thesis language and does not control feedback language.
+Odevzdané PDF je autoritativní renderovaná verze práce. LaTeX/Overleaf zipy jsou
+pomocná vrstva pro hledání, diff a přesnou evidenci. Agent nemá LaTeX běžně
+kompilovat, pokud výslovně nechcete build diagnostiku nebo nemáte k dispozici
+renderované PDF.
 
-Reviewer preferences are selected by `Reviewer profile` in `case.md`. Missing
-or empty means `default`. The public repository contains only the generic
-`profiles/default.md`; personal profiles and local overrides belong exclusively
-under ignored paths such as `profiles/local/default.md` or
-`profiles/local/<profile-id>.md`. Use `Reviewer profile: local/<profile-id>` in
-`case.md` only when that private file exists locally.
+## Výstupy
 
-Profiles are preference layers, not hard workflow rules. They can shape tone,
-priority count, strictness calibration, and domain emphasis, but they cannot
-override privacy, evidence requirements, assignment/deadline gates, output
-language checks, or the obligation to state what was not checked. Validate the
-effective profile files with:
+Nejběžnější výstupy jsou:
 
-```bash
-scripts/check-reviewer-profile <case-id>
-```
+- `outputs/feedback_student.md` - studentská zpětná vazba,
+- `work/feedback_student_draft.md` - pracovní draft před nezávislým review,
+- `outputs/revision_diff.md` - rozdíl proti předchozí verzi,
+- `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
+- `outputs/code_quality_review.md` - interní code-quality/design review,
+- `outputs/literature_citation_review.md` - interní kontrola literatury a citací,
+- `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
+- `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
+- `outputs/feedback_k_posudku.md` - review návrhu posudku.
 
-Put supervisor observations for the current round into `notes/round-notes.md`
-under `Supervisor Notes to Verify`. Treat them as hypotheses for Codex to
-check, expand, or reject against the thesis and artifacts, not as text to copy
-directly into `outputs/feedback_student.md`. Example: `For SUS and similar
-averages, check whether the thesis should include standard deviation or
-variance; if the questionnaire has useful free-text responses, consider short
-anonymized quotes or a theme summary.`
+Studentský feedback a oponentské materiály nejsou hotové jen proto, že vznikly.
+Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po větší
+úpravě se výstup znovu bere jako draft.
 
-## Main Workflows
+Interní evidence jako `revision_diff.md`, `code_consistency.md`,
+`code_quality_review.md` nebo `literature_citation_review.md` je samostatně
+finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
+zapsaný. Pokud je použita jen jako podklad pro studentský feedback nebo
+oponentské podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu
+použitých zjištění.
 
-- `thesis-supervisor-feedback`: iterative student-facing feedback for a supervised BP/DP.
-- `thesis-supervisor-feedback-review`: critical second pass before sending supervisor feedback.
-- `thesis-revision-diff`: compare two rounds and identify what changed and what prior feedback remains.
-- `thesis-code-consistency`: check whether thesis claims match code, README, tests, configs, and reproducibility evidence.
-- `thesis-code-quality-review`: review implementation quality, architecture/design, maintainability, runtime risks, developer documentation, and smoke-test readiness.
-- `thesis-literature-citation-review`: review cited literature relevance, source availability, and whether citations support thesis claims.
-- `thesis-opponent-materials`: prepare internal materials for an opponent report.
-- `thesis-opponent-materials-review`: review and harden generated opponent materials before writing the report.
-- `thesis-opponent-report-review`: review your own draft opponent report for fairness, evidence, tone, and consistency.
+## Role a review smyčky
 
-The canonical workflow definitions live in `.agents/skills/*/SKILL.md`.
-Durable workflow lessons and rationale live in `WORKFLOW_MEMORY.md`; promote
-anything operational from there into the relevant skill, template, README,
-AGENTS, or TODO entry before relying on it as an active rule.
+Pro větší práci má agent rozdělit role, typicky:
 
-Any generated Markdown under `outputs/` that is sendable to a
-student/opponent context, or used as final operator evidence, is treated as
-ready only after an independent review loop. The loop terminates when a
-different explicitly authorized reviewer agent checks the draft/evidence and
-writes or approves the reviewed target artifact; later material edits reopen
-the draft state. Supervisor feedback uses the
-`thesis-supervisor-feedback` -> `thesis-supervisor-feedback-review` loop.
-Opponent materials use the `thesis-opponent-materials` ->
-`thesis-opponent-materials-review` loop. Internal evidence artifacts such as
-`outputs/revision_diff.md`, `outputs/code_consistency.md`,
-`outputs/code_quality_review.md`, and `outputs/literature_citation_review.md`
-are final standalone evidence only after a separate explicitly authorized
-evidence-calibration reviewer/agent checks them and the verdict is recorded.
-Downstream synthesis review certifies only the findings used in that synthesis.
+- text, struktura a splnění zadání,
+- soulad textu s kódem,
+- kvalita kódu, design, runtime rizika a reprodukovatelnost,
+- literatura a citace, pokud jsou pro daný round důležité,
+- kalibrace evidence a tvrzení,
+- syntéza do finálního Markdownu.
 
-When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; after agent use is authorized, make them inspectable under `work/code/` before delegating to read-only reviewers. Record a limitation only when the archive or submitted code cannot be technically unpacked or inspected from the available inputs. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
+Když je v roundu kód, supervisor feedback a oponentské podklady mají použít
+kontrolu souladu textu s kódem i kontrolu kvality implementace, nebo výslovně
+říct, proč to z dostupných vstupů nešlo.
 
-When a thesis contains quantitative results, experiments, metrics, performance claims, user-study scores, or other measured values, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. The script emits review prompts for missing data/calculation artifacts, unclear units or baselines, weak practical effect sizes, domain-scale concerns, and strong conclusions near measured values. Treat those warnings as inputs to agent/human calibration, not as automatic findings.
+Když práce obsahuje měření, metriky, výsledky experimentů nebo uživatelské
+hodnocení, agent má zkontrolovat jednotky, baseline, praktickou velikost efektu,
+reprodukovatelnost a přiměřenost interpretace. Skriptový guard pro tyto případy
+je uveden níže.
 
-For thesis text review, use the submitted PDF as the rendered artifact. Use
-LaTeX sources for structural diffs and exact snippets, not as a build target by
-default.
+## Kdy požádat o diagnostiku
 
-For literature-heavy checks, use `thesis-literature-citation-review`. It writes
-`outputs/literature_citation_review.md` as internal evidence and stores any
-downloaded papers or metadata cache only under the ignored case workspace.
-Supervisor workflows may use it to suggest better use of already cited work or
-new literature for a clear gap. Opponent workflows should use it only for
-relevance, defensibility, and citation-quality checks of the submitted work.
-
-## First Real Test
-
-For the first supervised-thesis test:
-
-```bash
-scripts/new-case <case-id> BP first-review
-scripts/import-round <case-id> first-materials /path/to/prace.pdf /path/to/code-or-zip
-```
-
-Then fill the most important fields:
+Skripty jsou hlavně guardy pro agenta. Ručně je obvykle volat nemusíte; můžete
+agenta požádat například:
 
 ```text
-cases/<case-id>/case.md
-cases/<case-id>/rounds/<round-id>/notes/assignment.md
-cases/<case-id>/rounds/<round-id>/notes/supervisor-intake.md
-cases/<case-id>/rounds/<round-id>/notes/round-notes.md
+Spusť readiness a privacy kontroly pro aktuální case a řekni mi, co chybí.
 ```
 
-Put current supervisor hypotheses under `Supervisor Notes to Verify` in
-`round-notes.md`; the skills verify and synthesize them before they reach
-student-facing feedback.
-
-Check readiness before asking Codex to generate the artifact:
+Základní diagnostika:
 
 ```bash
 scripts/check-supervisor-ready <case-id>
+scripts/check-round-ready <case-id>
+scripts/check-private
 ```
 
-Use this prompt in Codex:
-
-```text
-Pouzij agenty a thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta s thesis-supervisor-feedback-review a uloz reviewed final do outputs/feedback_student.md.
-```
-
-Before sending supervisor feedback, validate both the configured output-language heading structure and final feedback hygiene:
+Časté finální kontroly:
 
 ```bash
 scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
+scripts/check-opponent-materials <case-id>
+scripts/check-evaluation-claims <case-id>
 ```
 
-`check-feedback-language` is a deterministic heading/structure guard. `check-feedback-output` also checks review date, scope/limitations, priority-table shape, obvious evidence anchors, internal workflow leaks, placeholders, and generic checklist items. Still review the body text language, tone, and content manually before sending. If the work contains quantitative results, `check-evaluation-claims` should already have been run before synthesis and its warnings should have been calibrated in the feedback.
-
-For the first opponent test, use:
-
-```text
-Pouzij agenty a thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/oponent_podklady_draft.md; potom pouzij jineho reviewer agenta s thesis-opponent-materials-review a uloz reviewed vystup jako outputs/oponent_podklady_revidovane.md.
-```
-
-Before relying on reviewed opponent materials, validate the deterministic output
-shape and hygiene:
+Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 
 ```bash
-scripts/check-opponent-materials <case-id>
+scripts/new-case <case-id> BP first-review
+scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 ```
 
-`check-opponent-materials` checks the reviewed output sections, assignment
-coverage table, evidence ledger confidence labels, risk table shape, concrete
-P0/P1 evidence anchors, IS coverage, grading intervals, defense questions,
-manual checks, placeholders, and obvious workflow leaks. It does not judge
-whether the substantive opponent conclusions are correct.
+`check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
+zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
+oponentní a interní materiály bez supervisor deadline kalibrace.
 
-Before committing workflow changes, run the lightweight hygiene checks relevant to the files touched:
+Pro odložené nebo srpnové obhajoby uveďte přesné datum do `case.md`:
+
+```text
+Deadline override: YYYY-MM-DD
+```
+
+## Reference pro agenty a údržbu
+
+Workflow definují repo skills v `.agents/skills/`:
+
+- `thesis-supervisor-feedback` - studentská zpětná vazba od vedoucího,
+- `thesis-supervisor-feedback-review` - nezávislá kontrola před odesláním,
+- `thesis-revision-diff` - porovnání dvou verzí,
+- `thesis-code-consistency` - soulad práce s kódem a reprodukovatelností,
+- `thesis-code-quality-review` - kvalita implementace a designu,
+- `thesis-literature-citation-review` - literatura, zdroje a citace,
+- `thesis-opponent-materials` - interní podklady pro oponenta,
+- `thesis-opponent-materials-review` - review oponentských podkladů,
+- `thesis-opponent-report-review` - review draftu posudku.
+
+Jako operátor obvykle nemusíte znát přesný obsah skillů. Stačí agentovi říct,
+jaký výstup chcete a že má použít agenty. Přesné workflow si má dohledat sám.
+
+## Reviewer profily
+
+`case.md` obsahuje:
+
+```text
+Student feedback language: cs
+Reviewer profile: default
+```
+
+Chybějící jazyk znamená `cs`. Jazyk práce v intake poznámkách neřídí jazyk
+feedbacku.
+
+Veřejný repozitář obsahuje jen `profiles/default.md`. Osobní preference patří
+pod ignorované cesty:
+
+```text
+profiles/local/default.md
+profiles/local/<profile-id>.md
+```
+
+Profily jsou preference, ne tvrdá workflow pravidla. Nemohou přepsat soukromí,
+evidenční požadavky, readiness gate, jazyk výstupu ani povinnost říct, co nebylo
+ověřeno.
+
+## Soukromí a git
+
+Do gitu nepatří studentská PDF, zdrojové zipy, extrakty, kódové odevzdávky,
+soukromé poznámky ani vygenerované case výstupy. Tyto věci mají zůstat pod
+ignorovaným `cases/`.
+
+Před commitem workflow změn:
 
 ```bash
 git status --short --untracked-files=all
 git diff --check
-git diff --cached --check
 scripts/check-private
 scripts/check-scripts
 ```
 
-When touching deterministic workflow validators, run the matching smoke scripts
-as well, for example:
+Při změně deterministických validatorů spusťte i odpovídající smoke testy,
+například:
 
 ```bash
 scripts/smoke-feedback-output
 scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
+scripts/smoke-private
 ```
 
-When touching `.codex/agents/*.toml` or Python hooks, also parse the TOML and compile the hook files before committing.
+`WORKFLOW_MEMORY.md` obsahuje zkušenosti a rationale. Není to druhý instrukční
+systém. Pokud se z něj stane aktivní pravidlo, promujte ho do README, skillu,
+šablony, `AGENTS.md` nebo `TODO.md`.
 
-## Codex Helpers
-
-This repo also defines lightweight Codex helpers:
-
-- `.codex/agents/*`: suggested read-only reviewer roles for thesis text, code consistency, code quality, and evidence calibration.
-- `.codex/hooks.json`: session reminders and a privacy guard that blocks accidental `git add` of ignored case data.
-
-## Privacy Check
-
-Before committing workflow changes:
-
-```bash
-scripts/check-private
-git status --short
-```
-
-Only workflow files should appear in git. Case contents under `cases/<case-id>/` must remain ignored.
+`AGENTS.md` má zůstat krátký. Dlouhé postupy patří do skills a dokumentace.

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+created_paths=()
+
+cleanup() {
+  local path
+  for path in "${created_paths[@]}"; do
+    rm -f "$repo_root/$path"
+  done
+  rm -f /tmp/check-private.out /tmp/check-private.err
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+
+  if ! "$@" >/tmp/check-private.out 2>/tmp/check-private.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-private.err >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if "$@" >/tmp/check-private.out 2>/tmp/check-private.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-private.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-private.out /tmp/check-private.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-private.err >&2
+    cat /tmp/check-private.out >&2
+    exit 1
+  fi
+}
+
+make_untracked_file() {
+  local path="$1"
+  mkdir -p "$(dirname "$repo_root/$path")"
+  printf "private smoke\n" >"$repo_root/$path"
+  created_paths+=("$path")
+}
+
+expect_success "baseline privacy check passes" "$repo_root/scripts/check-private"
+
+make_untracked_file "tmp-feedback-smoke/feedback_student_draft.md"
+expect_failure_contains \
+  "student feedback draft outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/feedback_student_draft.md"
+
+make_untracked_file "tmp-feedback-smoke/oponent_podklady_draft.md"
+expect_failure_contains \
+  "opponent materials draft outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/oponent_podklady_draft.md"
+
+make_untracked_file "tmp-feedback-smoke/code_quality_review.md"
+expect_failure_contains \
+  "code quality review outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/code_quality_review.md"
+
+expect_success "privacy check recovers after cleanup" "$repo_root/scripts/check-private"
+
+echo "Private smoke passed"
