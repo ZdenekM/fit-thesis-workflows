@@ -223,6 +223,8 @@ Nejběžnější výstupy jsou:
   vizuálních prvků a jejich popisů,
 - `work/review_manifest.json` - interní manifest vstupů, výstupů, helper checků,
   skillů, rolí agentů, review stavu, hashů výstupů a omezení,
+- `work/agent_coverage.json` - interní role matrix pro povinné agentní role,
+  jejich triggery, výstupní evidenci, agent/reviewer údaje a typované výjimky,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
 - `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
@@ -246,6 +248,15 @@ když se Markdown po review změní, validátor to označí jako stale review. S
 closeout nebere finální nebo odesílatelný výstup jako hotový, dokud manifest
 neobsahuje review status, reviewer roli, čas review a hash přesně té verze
 souboru, která má být použita.
+
+Pokud dostupné vstupy vyžadují specializované role, `scripts/init-review-manifest`
+založí nebo obnoví generovaný `work/agent_coverage.json`. Zdroj pravdy pro
+generator/reviewer údaje zůstává `work/review_manifest.json`; v coverage souboru
+se ručně doplňují jen typované výjimky. `scripts/check-agent-coverage` hlídá,
+že povinné role mají odpovídající výstupní evidenci, skill, zapsaného
+role-specific agenta a u review rolí také reviewer údaje a hash kontrolované
+verze. Chybějící roli je možné uzavřít jen konkrétní `typed_limitation`, ne
+tichým přeskočením.
 
 ## Role a review smyčky
 
@@ -325,6 +336,7 @@ scripts/check-opponent-materials <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/check-typography-formal <case-id>
 scripts/init-review-manifest --run-checks <case-id>
+scripts/check-agent-coverage <case-id>
 scripts/check-review-manifest --require-complete <case-id>
 ```
 
@@ -431,6 +443,7 @@ scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
+scripts/smoke-agent-coverage
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace
 scripts/smoke-private

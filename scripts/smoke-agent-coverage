@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__agent_coverage_smoke_$$"
+created_cases=()
+out_file="/tmp/agent-coverage-smoke.$$.out"
+err_file="/tmp/agent-coverage-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes" \
+    "$repo_root/cases/$case_id/rounds/$round_id/outputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+EOF
+}
+
+write_output() {
+  local case_id="$1"
+  local round_id="$2"
+  local name="$3"
+  printf '# %s\n\nSynthetic output.\n' "$name" >"$repo_root/cases/$case_id/rounds/$round_id/outputs/$name"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mutate_manifest() {
+  local manifest="$1"
+  local code="$2"
+  python3 - "$manifest" "$code" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+code = sys.argv[2]
+manifest = json.loads(path.read_text(encoding="utf-8"))
+exec(code, {"manifest": manifest})
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+mutate_coverage() {
+  local coverage="$1"
+  local code="$2"
+  python3 - "$coverage" "$code" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+code = sys.argv[2]
+coverage = json.loads(path.read_text(encoding="utf-8"))
+exec(code, {"coverage": coverage})
+path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+mark_review_manifest_ready() {
+  local manifest="$1"
+  python3 - "$manifest" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+for artifact in manifest["artifacts"]:
+    skills = artifact.get("skills") or [artifact["artifact_type"]]
+    generator_role = skills[0]
+    reviewer_role = skills[-1] if len(skills) > 1 else f'{skills[0]}-review'
+    artifact["generated_by"] = [
+        {
+            "role": generator_role,
+            "agent": f'{artifact["artifact_type"]}-agent',
+            "contribution": "generation",
+            "notes": "Smoke generator.",
+        }
+    ]
+    artifact["independent_review"] = {
+        "status": "reviewed",
+        "reviewer_role": reviewer_role,
+        "reviewer_agent": f'{artifact["artifact_type"]}-reviewer',
+        "reviewed_at": "2026-05-04T00:01:00Z",
+        "reviewed_hash": artifact["artifact_sha256"],
+        "covered_by_artifact": "",
+        "used_findings": "",
+        "exception": "",
+        "notes": "Smoke review passed.",
+    }
+    artifact["limitations"] = ["None."]
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+case_id="${case_prefix}_none"
+make_case "$case_id"
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "no final synthesis needs no coverage file" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_code"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+printf 'print("synthetic")\n' >"$repo_root/cases/$case_id/rounds/round-a/inputs/code/main.py"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a code_consistency.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_failure "required code roles need recorded agents" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+expect_output "code_consistency: required role must record generator_agent"
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "recorded code roles pass" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_opponent"
+make_case "$case_id"
+write_output "$case_id" round-a oponent_podklady_revidovane.md
+write_output "$case_id" round-a typography_formal_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_failure "opponent roles need recorded agents" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "reviewed opponent and typography roles pass" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_blocked"
+make_case "$case_id"
+write_output "$case_id" round-a oponent_podklady_revidovane.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+coverage="$repo_root/cases/$case_id/rounds/round-a/work/agent_coverage.json"
+mutate_coverage "$coverage" 'role = next(role for role in coverage["roles"] if role["role"] == "typography_formal"); role.update({"status": "blocked", "typed_limitation": {"type": "unavailable_evidence", "role": role["role"], "trigger": role["trigger"], "required_for": role["required_for"], "description": "Typography/formal review was not available in this smoke scenario."}})'
+expect_success "typed limitation can block missing typography role" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_thesis_archive"
+make_case "$case_id"
+python3 - "$repo_root/cases/$case_id/rounds/round-a/inputs/diplomova_prace_source.zip" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("thesis/main.tex", "\\section{Synthetic}\\n")
+    archive.writestr("thesis/references.bib", "@misc{x,title={X}}\\n")
+PY
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+if grep -Fq '"role": "code_quality"' "$repo_root/cases/$case_id/rounds/round-a/work/agent_coverage.json"; then
+  echo "Thesis/source archive should not trigger code quality coverage" >&2
+  exit 1
+fi
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+mutate_manifest "$manifest" '[(check.update({"status": "passed", "checked_at": "2026-05-04T00:02:00Z", "exit_code": 0}) if check["check"] != "check-review-manifest" else None) for check in manifest["helper_checks"]]'
+expect_success "thesis/source archive does not trigger manifest code evidence gate" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_code_media"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/work/code/assets"
+printf 'synthetic image\n' >"$repo_root/cases/$case_id/rounds/round-a/work/code/assets/icon.png"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a code_consistency.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+if grep -Fq '"role": "figure_media"' "$repo_root/cases/$case_id/rounds/round-a/work/agent_coverage.json"; then
+  echo "Code workspace image should not trigger figure/media coverage" >&2
+  exit 1
+fi
+
+case_id="${case_prefix}_github"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/github/repo"
+printf '{}\n' >"$repo_root/cases/$case_id/rounds/round-a/inputs/github/repo/meta.json"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a github_code_intake.md
+write_output "$case_id" round-a code_consistency.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "GitHub intake role passes when recorded" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_stale_hash"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+printf 'print("synthetic")\n' >"$repo_root/cases/$case_id/rounds/round-a/inputs/code/main.py"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a code_consistency.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+printf '# code_consistency.md\n\nEdited after coverage.\n' >"$repo_root/cases/$case_id/rounds/round-a/outputs/code_consistency.md"
+expect_failure "stale evidence hash fails coverage" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+expect_output "manifest artifact hash is stale"
+
+case_id="${case_prefix}_stale_role"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+printf 'print("synthetic")\n' >"$repo_root/cases/$case_id/rounds/round-a/inputs/code/main.py"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a code_consistency.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+rm "$repo_root/cases/$case_id/rounds/round-a/outputs/"*.md
+rm -rf "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "stale not-applicable roles do not keep old evidence paths live" "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+
+case_id="${case_prefix}_integration"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_review_manifest_ready "$manifest"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_failure "helper checks still block manifest closeout" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+mutate_manifest "$manifest" '[(check.update({"status": "passed", "checked_at": "2026-05-04T00:02:00Z", "exit_code": 0}) if check["check"] != "check-review-manifest" else None) for check in manifest["helper_checks"]]'
+expect_success "review manifest invokes passing agent coverage gate" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+expect_failure "case-doctor shows role coverage section despite other workflow errors" "$repo_root/scripts/case-doctor" "$case_id" round-a
+expect_output "## Agent Role Coverage"
+expect_output "supervisor_feedback_review"
+
+echo "Agent coverage smoke passed"

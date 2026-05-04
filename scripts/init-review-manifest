@@ -13,6 +13,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from agent_coverage_lib import (
+    COVERAGE_REL,
+    build_coverage,
+    coverage_required,
+    load_json_object,
+    write_coverage,
+)
+
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -128,6 +136,7 @@ def collect_work_artifacts(round_dir: Path) -> list[dict[str, str]]:
         work / "oponent_podklady_draft.md",
         work / "code_workspace.md",
         work / "serena_roots.json",
+        work / COVERAGE_REL.relative_to("work"),
         work / "code" / ".prepare-code-workspace-manifest.json",
         work / "figure_media" / "visual_inventory.jsonl",
     ]
@@ -273,7 +282,13 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
     return artifacts
 
 
-def required_checks(case_id: str, round_id: str, artifact_paths: set[str]) -> list[dict[str, Any]]:
+def required_checks(
+    case_id: str,
+    round_id: str,
+    artifact_paths: set[str],
+    round_dir: Path,
+    manifest: dict[str, Any],
+) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
 
     def add(name: str, command: str, targets: list[str]) -> None:
@@ -300,6 +315,8 @@ def required_checks(case_id: str, round_id: str, artifact_paths: set[str]) -> li
         add("check-figure-media-review", f"scripts/check-figure-media-review {case_id} {round_id}", ["outputs/figure_media_review.md"])
     if "outputs/typography_formal_review.md" in artifact_paths:
         add("check-typography-formal", f"scripts/check-typography-formal --require-output {case_id} {round_id}", ["outputs/typography_formal_review.md"])
+    if coverage_required(round_dir, manifest):
+        add("check-agent-coverage", f"scripts/check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
     add("check-review-manifest", f"scripts/check-review-manifest --require-complete {case_id} {round_id}", sorted(artifact_paths))
     checks[-1]["status"] = "not_applicable"
     checks[-1]["notes"] = "This command is the closeout gate itself; run it after review metadata has been recorded."
@@ -457,9 +474,6 @@ def main() -> int:
     inputs = collect_tree(round_dir, "inputs")
     extracted = collect_tree(round_dir, "extracted")
     notes = collect_tree(round_dir, "notes")
-    work_artifacts = collect_work_artifacts(round_dir)
-    checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths))
-
     manifest = {
         "schema_version": "review-manifest-v1",
         "case_id": args.case_id,
@@ -469,11 +483,22 @@ def main() -> int:
         "inputs": inputs,
         "extracted_artifacts": extracted,
         "notes": notes,
-        "supporting_work_artifacts": work_artifacts,
-        "helper_checks": checks,
+        "supporting_work_artifacts": [],
+        "helper_checks": [],
         "workflow_limitations": limitations,
         "artifacts": artifacts,
     }
+    add_artifact_refs(manifest)
+
+    existing_coverage = load_json_object(round_dir / COVERAGE_REL)
+    write_coverage(
+        round_dir / COVERAGE_REL,
+        build_coverage(args.case_id, round_id, round_dir, manifest, existing_coverage),
+    )
+    work_artifacts = collect_work_artifacts(round_dir)
+    manifest["supporting_work_artifacts"] = work_artifacts
+    checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths, round_dir, manifest))
+    manifest["helper_checks"] = checks
     add_artifact_refs(manifest)
 
     write_manifest(manifest_path, manifest)

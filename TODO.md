@@ -2,10 +2,25 @@
 
 - [ ] Add an opponent report composition bridge.
    - Add a narrow workflow or helper that turns `outputs/oponent_podklady_revidovane.md` into a draft report structured by FIT IS fields.
+   - Add an explicit report draft artifact such as `work/oponent_posudek_draft.md`; keep the report draft out of `outputs/` until reviewed or explicitly accepted for manual use.
+   - Add or reuse a FIT IS opponent-report template based on `docs/fit-is-rubric.md`.
+   - Add `scripts/check-opponent-report` for FIT IS field coverage, point/comment consistency, defense questions, no internal path leaks, no placeholders, and no upgrade of uncertain/manual-check claims into unsupported final claims.
+   - Extend `init-review-manifest`, `check-review-manifest`, and `case-doctor` so report draft, report review, reviewed materials freshness, and next missing opponent-report step are visible.
    - Preserve `thesis-opponent-materials` as the evidence source and `thesis-opponent-report-review` as the final report review pass.
    - Keep the generated report draft separate from internal evidence, for example under `work/` until reviewed.
    - Require the bridge to preserve uncertainty labels and manual-check caveats instead of turning them into unsupported final claims.
    - Avoid coaching-style student feedback language; output should be opponent-report wording for the evaluator.
+- [ ] Add a tooling and connector preflight.
+   - Add a read-only `scripts/check-tooling` that reports availability and versions for `pdftotext`, `git`, `gh` authentication, Node/pdf-reader MCP readiness, Serena activation viability, and optional local grammar/literature tools.
+   - Keep optional tools non-blocking by default, but make missing required tools explicit before long agent workflows start.
+   - Show the preflight result in `case-doctor` so an operator sees likely blockers before spawning review agents.
+- [ ] Add thin validators for core internal evidence artifacts.
+   - Add shape/evidence validators such as `scripts/check-revision-diff`, `scripts/check-code-consistency`, and `scripts/check-code-quality-review`.
+   - Keep them as structural/evidence checks, not judgment engines: required headings, concrete evidence references, limitations, no placeholders, no internal path leaks in downstream-facing summaries, and stale-manifest compatibility.
+   - Reuse shared Markdown validation helpers instead of duplicating section/table/path-leak logic across scripts.
+- [ ] Add an assignment coverage map helper.
+   - Parse `notes/assignment.md` into rough assignment points and record whether supervisor feedback, opponent materials, and report drafts cover, defer, or explicitly mark each point as unverifiable.
+   - Keep the helper advisory; final interpretation stays with the reviewer.
 - [ ] Add optional historical reference-report comparison for pipeline calibration.
    - When a previous human opponent report is provided, compare it only after `outputs/oponent_podklady_revidovane.md` exists.
    - Write an operator-only artifact such as `outputs/reference_report_comparison.md`.
@@ -24,7 +39,7 @@
 - [ ] Add advanced typography/formal review automation after V1 proves useful.
    - Use precise PDF layout evidence such as `pdftotext -bbox` or `pdf-reader-mcp` for exact rendered line positions instead of relying only on `pdftotext -layout`.
    - Offer LaTeX patch suggestions only when explicitly requested; keep the default workflow read-only and student-owned.
-   - Consider full grammar/style tooling for Czech and English after the narrow typography workflow stays stable.
+   - Consider local LanguageTool/Vale-style grammar and prose linting for Czech and English after the narrow typography workflow stays stable.
    - Add deeper style checks for units, percentages, abbreviations, quote consistency, and anglicisms only where they can be calibrated by thesis language and phase.
 - [ ] Expand GitHub code intake beyond the light V1.
    - Add manifest-driven import from `inputs/github/code-manifest.yml` with multiple repositories, multiple PRs, and explicit PR relations such as independent, depends-on, follow-up, split-from, and supersedes.
@@ -37,5 +52,8 @@
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 - [ ] Add optional literature-source collection automation.
    - Add a helper such as `scripts/collect-literature-sources` for DOI/arXiv/open metadata resolution.
+   - Evaluate GROBID-style PDF reference extraction for bibliography/source maps, but keep extraction confidence explicit.
+   - Query public metadata APIs such as Crossref and OpenAlex for DOI/source metadata, citation availability, retraction/open-access signals, and source disambiguation.
+   - Consider Zotero-compatible import/export formats such as BibTeX/RIS/CSL JSON for operator handoff.
    - Keep downloaded papers, metadata cache, and derived evidence inside the ignored case workspace.
    - Preserve the manual `thesis-literature-citation-review` workflow as the source of judgment.

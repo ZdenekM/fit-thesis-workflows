@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from agent_coverage_lib import COVERAGE_REL, coverage_required, inferred_coverage_required, inferred_role_specs, load_json_object
+
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -644,6 +646,17 @@ def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) 
     artifacts = manifest.get("artifacts", [])
     checks = manifest.get("helper_checks", [])
     lines.append(f"- review manifest: present ({MANIFEST_REL.as_posix()})")
+    coverage_path = round_dir / COVERAGE_REL
+    if inferred_coverage_required(round_dir, manifest):
+        if coverage_path.is_file():
+            lines.append(f"- agent coverage: present ({COVERAGE_REL.as_posix()})")
+        else:
+            add_issue(issues, "ERROR", f"Required agent coverage is missing: {COVERAGE_REL.as_posix()}.")
+            lines.append(f"- agent coverage: missing ({COVERAGE_REL.as_posix()})")
+    elif coverage_path.is_file():
+        lines.append(f"- agent coverage: present but no default role trigger is active ({COVERAGE_REL.as_posix()})")
+    else:
+        lines.append("- agent coverage: not required")
     if isinstance(artifacts, list):
         lines.append(f"- manifest artifacts: {len(artifacts)}")
     else:
@@ -654,6 +667,72 @@ def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) 
     else:
         add_issue(issues, "ERROR", "Review manifest helper_checks field is not a list.")
         lines.append("- manifest helper checks: invalid")
+    return lines
+
+
+def agent_coverage_summary(round_dir: Path, issues: list[Issue]) -> list[str]:
+    manifest_path = round_dir / MANIFEST_REL
+    if not manifest_path.is_file():
+        return ["- unavailable: review manifest is missing"]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ["- unavailable: review manifest JSON is invalid"]
+    if not isinstance(manifest, dict):
+        return ["- unavailable: review manifest is not an object"]
+
+    specs = inferred_role_specs(round_dir, manifest)
+    try:
+        coverage = load_json_object(round_dir / COVERAGE_REL)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        add_issue(issues, "ERROR", f"Agent coverage JSON is invalid: {exc}.")
+        coverage = None
+    records = {}
+    if coverage and isinstance(coverage.get("roles"), list):
+        records = {
+            item.get("role"): item
+            for item in coverage["roles"]
+            if isinstance(item, dict) and isinstance(item.get("role"), str)
+        }
+
+    if not specs and not records:
+        return ["- no required role coverage for current round state"]
+
+    lines: list[str] = []
+    for role, spec in sorted(specs.items()):
+        record = records.get(role)
+        if not record:
+            lines.append(f"- MISSING {role}: needs {spec.skill} -> {spec.evidence_path}")
+            continue
+        status = str(record.get("status", ""))
+        evidence = ", ".join(str(item) for item in record.get("output_evidence", [])) or spec.evidence_path
+        missing: list[str] = []
+        if status == "required":
+            if spec.evidence_path not in record.get("output_evidence", []):
+                missing.append("output_evidence")
+            elif not (round_dir / spec.evidence_path).is_file():
+                missing.append("output_file")
+            if str(record.get("generator_agent", "")).strip() in {"", "not_recorded"}:
+                missing.append("generator_agent")
+            if str(record.get("generator_role", "")).strip() in {"", "not_recorded"}:
+                missing.append("generator_role")
+            if spec.requires_review:
+                if str(record.get("reviewer_agent", "")).strip() in {"", "not_recorded"}:
+                    missing.append("reviewer_agent")
+                if str(record.get("reviewer_role", "")).strip() in {"", "not_recorded"}:
+                    missing.append("reviewer_role")
+                if not str(record.get("reviewed_hash", "")).strip():
+                    missing.append("reviewed_hash")
+        elif status == "blocked":
+            limitation = record.get("typed_limitation")
+            limitation_type = limitation.get("type") if isinstance(limitation, dict) else "(missing limitation)"
+            missing.append(f"blocked:{limitation_type}")
+        detail = f"; missing {', '.join(missing)}" if missing else ""
+        lines.append(f"- {status.upper()} {role}: {spec.skill}; evidence {evidence}{detail}")
+
+    for role in sorted(set(records) - set(specs)):
+        record = records[role]
+        lines.append(f"- STALE {role}: status {record.get('status', '(missing)')}; no current default trigger")
     return lines
 
 
@@ -811,6 +890,13 @@ def main(argv: list[str]) -> int:
     manifest_lines = manifest_summary(round_dir, outputs, issues)
 
     if outputs or (round_dir / MANIFEST_REL).is_file():
+        if (round_dir / MANIFEST_REL).is_file():
+            try:
+                manifest = json.loads((round_dir / MANIFEST_REL).read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                manifest = {}
+            if isinstance(manifest, dict) and coverage_required(round_dir, manifest):
+                gates.append(run_gate(root, "agent coverage", ["scripts/check-agent-coverage", args.case_id, round_id]))
         gates.append(run_gate(root, "review manifest", ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id]))
     if (round_dir / "outputs" / "feedback_student.md").is_file():
         gates.append(run_gate(root, "feedback language output", ["scripts/check-feedback-language", args.case_id, round_id]))
@@ -921,6 +1007,8 @@ def main(argv: list[str]) -> int:
     output_section("Demo And Media", media_lines)
 
     output_section("Generated Outputs", output_lines + manifest_lines)
+
+    output_section("Agent Role Coverage", agent_coverage_summary(round_dir, issues))
 
     issue_lines = [f"- {issue.severity}: {issue.message}" for issue in issues]
     output_section("Issues / Next Actions", issue_lines if issue_lines else ["- OK: no blocking findings or warnings from this read-only diagnostic."])
