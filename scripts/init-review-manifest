@@ -54,8 +54,8 @@ def repo_root() -> Path:
 
 
 def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value):
-        raise SystemExit(f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash.")
+    if not ID_RE.fullmatch(value) or set(value) == {"."}:
+        raise SystemExit(f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.")
 
 
 def resolve_round(case_dir: Path, round_id: str | None) -> str:
@@ -126,6 +126,9 @@ def collect_work_artifacts(round_dir: Path) -> list[dict[str, str]]:
     explicit = [
         work / "feedback_student_draft.md",
         work / "oponent_podklady_draft.md",
+        work / "code_workspace.md",
+        work / "serena_roots.json",
+        work / "code" / ".prepare-code-workspace-manifest.json",
         work / "figure_media" / "visual_inventory.jsonl",
     ]
     for path in explicit:

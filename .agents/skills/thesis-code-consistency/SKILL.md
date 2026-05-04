@@ -24,8 +24,10 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - experiments and metrics,
    - performance and accuracy,
    - deployment, reproducibility, and user-facing behavior.
-6. Inspect code artifacts:
+6. If code is present only as an archive or source directory in `inputs/`, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids; activate Serena only on one listed code root at a time. If you are in a read-only reviewer agent and the prepared workspace is missing, report that limitation instead of silently skipping code checks.
+7. Inspect code artifacts:
    - `outputs/github_code_intake.md`, `inputs/github/`, and `work/github-intake/` when GitHub repo/PR intake was used,
+   - `work/code_workspace.md`, `work/serena_roots.json`, and `work/code/` when submitted archives or source directories were prepared with `scripts/prepare-code-workspace`,
    - README and run instructions,
    - dependency files,
    - configs,
@@ -35,14 +37,14 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - notebooks,
    - result tables/logs,
    - licenses and third-party assets.
-7. For PR-based contributions, distinguish upstream baseline from student-owned changes. Check whether the thesis clearly separates existing upstream functionality, reused libraries/modules, and the student's PR diff/commits/tests/docs.
-8. For each important claim, classify:
+8. For PR-based contributions, distinguish upstream baseline from student-owned changes. Check whether the thesis clearly separates existing upstream functionality, reused libraries/modules, and the student's PR diff/commits/tests/docs.
+9. For each important claim, classify:
    - supported by code/artifacts,
    - plausible but not directly verified,
    - unclear,
    - contradicted by code/artifacts,
    - not checkable from available inputs.
-9. Run only simple local smoke tests when they are clearly documented and do not need missing external data, models, credentials, or long execution.
+10. Run only simple local smoke tests when they are clearly documented and do not need missing external data, models, credentials, or long execution.
 
 ## Evidence Rules
 

@@ -45,9 +45,9 @@ def repo_root() -> Path:
 
 
 def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value):
+    if not ID_RE.fullmatch(value) or set(value) == {"."}:
         print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash.",
+            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
             file=sys.stderr,
         )
         raise SystemExit(2)

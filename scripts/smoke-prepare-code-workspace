@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__prepare_code_workspace_smoke_$$"
+created_cases=()
+out_file="/tmp/prepare-code-workspace-smoke.$$.out"
+err_file="/tmp/prepare-code-workspace-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/notes"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Student feedback language: cs"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_file_contains() {
+  local path="$1"
+  local needle="$2"
+  if ! grep -Fq "$needle" "$path"; then
+    echo "Expected $path to contain: $needle" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+make_code_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic project\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    archive.writestr("project/src/main.py", "print('synthetic')\n")
+    archive.writestr("project/tests/test_smoke.py", "def test_smoke():\n    assert True\n")
+PY
+}
+
+make_text_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("latex/thesis.tex", "Synthetic thesis source.\n")
+    archive.writestr("latex/chapters/chapter1.tex", "Synthetic chapter.\n")
+PY
+}
+
+make_zip_slip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'safe'\n")
+    archive.writestr("../escaped.py", "print('bad')\n")
+PY
+}
+
+make_duplicate_root_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("dup/README.md", "# Duplicate root\n")
+    archive.writestr("dup/src/main.py", "print('dup')\n")
+PY
+}
+
+case_id="${case_prefix}_archive"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/code.zip"
+make_text_zip "$round_dir/inputs/thesis-source.zip"
+expect_success "prepare archive workspace" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_output "Likely code roots: 1"
+test -f "$round_dir/work/code/code/project/src/main.py"
+test ! -e "$round_dir/work/code/thesis-source"
+expect_file_contains "$round_dir/work/code_workspace.md" "python -m compileall ."
+expect_file_contains "$round_dir/work/code_workspace.md" "Serena suitable: yes"
+expect_file_contains "$round_dir/work/serena_roots.json" "serena-code-roots-v1"
+
+expect_success "idempotent rerun" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test ! -e "$round_dir/work/code/code-2"
+
+python3 - "$round_dir/inputs/code.zip" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic project\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    archive.writestr("project/src/main.py", "print('changed')\n")
+PY
+expect_success "changed archive refreshes target" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_file_contains "$round_dir/work/code/code/project/src/main.py" "changed"
+expect_file_contains "$round_dir/work/code/.prepare-code-workspace-manifest.json" "prepare-code-workspace-manifest-v1"
+
+mv "$round_dir/inputs/code.zip" "$round_dir/inputs/renamed-code.zip"
+expect_success "renamed archive prunes stale target" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test ! -e "$round_dir/work/code/code"
+test -f "$round_dir/work/code/renamed-code/project/src/main.py"
+expect_file_contains "$round_dir/work/code_workspace.md" "removed stale prepared workspace"
+
+case_id="${case_prefix}_directory"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+mkdir -p "$round_dir/inputs/frontend/src"
+printf '%s\n' '{"scripts":{"test":"vitest --run","build":"vite build"}}' >"$round_dir/inputs/frontend/package.json"
+printf '%s\n' 'console.log("synthetic")' >"$round_dir/inputs/frontend/src/main.ts"
+printf '%s\n' 'private outside input' >"$round_dir/secret.txt"
+ln -s "$round_dir/secret.txt" "$round_dir/inputs/frontend/src/secret-link.txt"
+expect_success "prepare directory workspace" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test -f "$round_dir/work/code/frontend/package.json"
+test ! -e "$round_dir/work/code/frontend/src/secret-link.txt"
+expect_file_contains "$round_dir/work/code_workspace.md" "npm test"
+expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 symlink/unsafe/unsupported/over-limit entries"
+expect_file_contains "$round_dir/work/serena_roots.json" "typescript"
+
+case_id="${case_prefix}_zip_slip"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_zip_slip "$round_dir/inputs/code.zip"
+expect_success "safe archive extraction" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test -f "$round_dir/work/code/code/project/pyproject.toml"
+test ! -e "$round_dir/work/code/escaped.py"
+test ! -e "$round_dir/work/escaped.py"
+test ! -e "$round_dir/escaped.py"
+expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 unsafe/unsupported/over-limit entries"
+
+case_id="${case_prefix}_duplicate_root"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_duplicate_root_zip "$round_dir/inputs/dup.zip"
+expect_success "duplicate archive root is collapsed" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test -f "$round_dir/work/code/dup/src/main.py"
+test ! -e "$round_dir/work/code/dup/dup/src/main.py"
+expect_file_contains "$round_dir/work/code_workspace.md" "collapsed duplicate top-level directory"
+
+case_id="${case_prefix}_unsupported_archive"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' 'synthetic unsupported archive' >"$round_dir/inputs/code.rar"
+expect_success "unsupported archive is reported" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_file_contains "$round_dir/work/code_workspace.md" "unsupported archive format"
+
+case_id="${case_prefix}_existing_target"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/code.zip"
+mkdir -p "$round_dir/work/code/code"
+printf '%s\n' 'manual content' >"$round_dir/work/code/code/manual.txt"
+expect_success "existing target without manifest is reported" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_file_contains "$round_dir/work/code_workspace.md" "without a matching prepare manifest"
+expect_file_contains "$round_dir/work/code/code/manual.txt" "manual content"
+
+case_id="${case_prefix}_bad_round"
+make_case "$case_id"
+echo "..." >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "dot-only current round fails" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_output "dot-only ids are not allowed"
+
+python3 - "$repo_root/scripts/thesis_code_workspace.py" <<'PY'
+import importlib.util
+import pathlib
+import sys
+import tempfile
+import zipfile
+
+module_path = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("thesis_code_workspace", module_path)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+module.MAX_EXTRACTED_FILE_BYTES = 8
+module.MAX_EXTRACTED_BYTES = 16
+with tempfile.TemporaryDirectory() as tmp:
+    root = pathlib.Path(tmp)
+    archive_path = root / "code.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("project/main.py", "print('too large')\n")
+    extracted, skipped = module.extract_zip(archive_path, root / "out")
+    assert extracted == 0, extracted
+    assert skipped and "exceeds per-file limit" in skipped[0], skipped
+with tempfile.TemporaryDirectory() as tmp:
+    root = pathlib.Path(tmp)
+    archive_path = root / "code.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("project/a.py", "12345678")
+        archive.writestr("project/b.py", "12345678")
+        archive.writestr("project/c.py", "1")
+    extracted, skipped = module.extract_zip(archive_path, root / "out")
+    assert extracted == 2, extracted
+    assert skipped and "workspace copy limit" in skipped[0], skipped
+PY
+
+echo "Prepare code workspace smoke passed"

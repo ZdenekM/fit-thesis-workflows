@@ -194,9 +194,9 @@ def repo_root() -> Path:
 
 
 def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value):
+    if not ID_RE.fullmatch(value) or set(value) == {"."}:
         print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash.",
+            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
             file=sys.stderr,
         )
         raise SystemExit(2)
@@ -730,7 +730,7 @@ def main(argv: list[str]) -> int:
     current_round_label = "(missing)"
     if current_round_raw:
         current_round_label = current_round_raw
-        if ID_RE.fullmatch(current_round_raw):
+        if ID_RE.fullmatch(current_round_raw) and set(current_round_raw) != {"."}:
             current_round = current_round_raw
         elif args.round_id:
             add_issue(
@@ -891,6 +891,10 @@ def main(argv: list[str]) -> int:
     output_section("Archives", archive_lines)
 
     code_lines: list[str] = [f"- Code evidence detected: {'yes' if code_present else 'no'}"]
+    code_workspace_report = round_dir / "work" / "code_workspace.md"
+    serena_roots = round_dir / "work" / "serena_roots.json"
+    code_lines.append(f"- Code workspace report: {'present' if code_workspace_report.is_file() else 'missing'}")
+    code_lines.append(f"- Serena roots: {'present' if serena_roots.is_file() else 'missing'}")
     for inventory in inventories:
         code_lines.append(
             f"- {rel_round(round_dir, inventory.path)}: {inventory.files_seen} files"

@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""CLI wrapper for preparing a thesis-round code workspace."""
+
+from __future__ import annotations
+
+import sys
+
+from thesis_code_workspace import main
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

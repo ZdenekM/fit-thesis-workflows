@@ -23,14 +23,14 @@ cases/<case-id>/rounds/<round-id>/
   outputs/
 ```
 
-Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. GitHub repo/PR snapshots imported by `thesis-github-code-intake` also count as code evidence, but PR-mode review must stay scoped to student-owned diffs and contribution areas. After agent use is authorized, the main workflow should unpack/import code into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
+Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. GitHub repo/PR snapshots imported by `thesis-github-code-intake` also count as code evidence, but PR-mode review must stay scoped to student-owned diffs and contribution areas. After agent use is authorized, the main workflow should run `scripts/prepare-code-workspace <case-id> [round-id]` or otherwise unpack/import code into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
 
 ## Process
 
 1. Resolve the active case and round.
 2. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
 3. Enumerate available code artifacts, GitHub intake evidence, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
-4. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If GitHub URL/PR evidence is present but not yet imported, run or request `thesis-github-code-intake` before judging code quality. If you are in a read-only reviewer agent, report the missing prepared workspace/evidence instead of silently skipping the review.
+4. If code is present only as an archive, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids; activate Serena only on one listed code root at a time. Use `--refresh` only after confirming the whole ignored `work/code/` workspace can be rebuilt, because it removes manually imported code roots too. If GitHub URL/PR evidence is present but not yet imported, run or request `thesis-github-code-intake` before judging code quality. If you are in a read-only reviewer agent, report the missing prepared workspace/evidence instead of silently skipping the review.
 5. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
 6. For upstream PR contribution mode, use upstream code as integration context and focus findings on changed files, tests/docs, PR review discussion, CI state, and declared thesis scope.
 7. Inspect the main implementation paths and assess:

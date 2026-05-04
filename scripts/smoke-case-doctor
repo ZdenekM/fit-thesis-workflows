@@ -120,6 +120,12 @@ echo "missing-round" >"$repo_root/cases/$case_id/current-round.txt"
 expect_failure "current round points to missing dir" "$repo_root/scripts/case-doctor" "$case_id"
 expect_output "Round does not exist"
 
+case_id="${case_prefix}_dot_round"
+make_case "$case_id"
+echo "..." >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "dot-only current round is invalid" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "Invalid ROUND_ID"
+
 case_id="${case_prefix}_explicit_round"
 make_case "$case_id" round-current
 mkdir -p "$repo_root/cases/$case_id/rounds/round-other/inputs" \

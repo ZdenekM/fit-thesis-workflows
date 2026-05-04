@@ -150,6 +150,12 @@ make_case "$case_id"
 write_output "$case_id" round-a feedback_student.md
 expect_failure "missing manifest" "$repo_root/scripts/check-review-manifest" "$case_id" round-a
 
+case_id="${case_prefix}_dot_round"
+make_case "$case_id"
+echo "..." >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "dot-only current round fails init" "$repo_root/scripts/init-review-manifest" "$case_id"
+expect_failure "dot-only current round fails check" "$repo_root/scripts/check-review-manifest" "$case_id"
+
 case_id="${case_prefix}_valid"
 make_case "$case_id"
 write_output "$case_id" round-a feedback_student.md
@@ -245,5 +251,30 @@ manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
 mark_reviewed "$manifest"
 mutate_manifest "$manifest" 'manifest["inputs"].append({"path": "/home/example/private.pdf", "kind": "pdf"})'
 expect_failure "absolute path in evidence" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_code_workspace_supporting"
+make_case "$case_id"
+write_output "$case_id" round-a code_quality_review.md
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+mkdir -p "$round_dir/work/code"
+printf '%s\n' '# Code Workspace Preparation' >"$round_dir/work/code_workspace.md"
+printf '%s\n' '{"schema":"serena-code-roots-v1","roots":[]}' >"$round_dir/work/serena_roots.json"
+printf '%s\n' '{"schema":"prepare-code-workspace-manifest-v1","sources":{}}' >"$round_dir/work/code/.prepare-code-workspace-manifest.json"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+python3 - "$round_dir/work/review_manifest.json" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+paths = {item["path"] for item in manifest["supporting_work_artifacts"]}
+expected = {
+    "work/code_workspace.md",
+    "work/serena_roots.json",
+    "work/code/.prepare-code-workspace-manifest.json",
+}
+missing = expected - paths
+assert not missing, missing
+PY
 
 echo "Review manifest smoke passed"

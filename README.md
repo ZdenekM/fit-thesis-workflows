@@ -333,9 +333,20 @@ Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 ```bash
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
+scripts/prepare-code-workspace <case-id>
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 ```
+
+`prepare-code-workspace` rozbalí nebo zkopíruje pravděpodobné zdrojové archivy a
+adresáře do ignorovaného `work/code/`, zapíše `work/code_workspace.md` a
+`work/serena_roots.json` a navrhne levné smoke příkazy. Serena se má aktivovat
+vždy nad jedním konkrétním code rootem z tohoto inventáře, ne nad celým
+`cases/` ani nad celým roundem. Repo `.serena/project.yml` platí jen pro tento
+workflow repozitář a záměrně ignoruje `cases/**`; kód studenta je samostatný
+Serena projekt podle konkrétního rootu z `work/serena_roots.json`. Pokud je
+potřeba přegenerovat celý `work/code/`, použijte `--refresh` jen po ověření, že
+v něm nejsou ručně importované GitHub/code rooty, které by se tím smazaly.
 
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
 zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
@@ -421,6 +432,7 @@ scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
 scripts/smoke-case-doctor
+scripts/smoke-prepare-code-workspace
 scripts/smoke-private
 ```
 
