@@ -281,6 +281,8 @@ Workflow definují repo skills v `.agents/skills/`:
 - `thesis-code-consistency` - soulad práce s kódem a reprodukovatelností,
 - `thesis-code-quality-review` - kvalita implementace a designu,
 - `thesis-literature-citation-review` - literatura, zdroje a citace,
+- `thesis-figure-media-review` - obrázky, tabulky, screenshoty, grafy,
+  vizuální evidence, kontext tvrzení a změny mezi roundy,
 - `thesis-opponent-materials` - interní podklady pro oponenta,
 - `thesis-opponent-materials-review` - review oponentských podkladů,
 - `thesis-opponent-report-review` - review draftu posudku.

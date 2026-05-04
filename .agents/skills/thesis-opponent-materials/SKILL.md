@@ -129,7 +129,7 @@ Shrn text-code consistency i code-quality/design review. Jasne oddel, co je rozp
 
 ## 11. Experimenty, vysledky a reprodukovatelnost
 
-Zahrn relevantni zjisteni z `outputs/figure_media_review.md`, pokud grafy, tabulky, screenshoty nebo diagramy nesou vysledkova nebo funkcni tvrzeni. Vizualni tvrzeni pouzij jen tehdy, kdyz maji `pdf_inspected` nebo `source_asset_checked` status a claim alignment podporuje prislusne textove tvrzeni; jinak je formuluj jako omezeni nebo rucni kontrolu. Cache hashe a reuse metadata nepřenášej do oponentskych podkladu.
+Zahrn relevantni figure/media zjisteni, pokud grafy, tabulky, screenshoty nebo diagramy nesou vysledkova nebo funkcni tvrzeni. Vizualni tvrzeni pouzij jen tehdy, kdyz maji `pdf_inspected` nebo `source_asset_checked` status a claim alignment podporuje prislusne textove tvrzeni; jinak je formuluj jako omezeni nebo rucni kontrolu. Cache hashe, reuse metadata a nazvy internich evidence souboru nepřenášej do oponentskych podkladu.
 
 ## 12. Text, struktura, formalni stranka a literatura
 

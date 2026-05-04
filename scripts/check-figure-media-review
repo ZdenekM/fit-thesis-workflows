@@ -86,7 +86,7 @@ AUTOLINK_RE = re.compile(
 )
 VISUAL_CLAIM_RE = re.compile(
     r"\b("
-    r"shows?|depicts?|displays?|visible|visually|contains?|"
+    r"shows?|depicts?|displays?|visible|contains?|"
     r"ukazuje|zobrazuje|znazornuje|znázorňuje|videt|vidět|viditel|obsahuje"
     r")\b",
     re.IGNORECASE,
@@ -204,7 +204,7 @@ def is_delimiter_row(cells: list[str]) -> bool:
 
 def extract_table(body: list[str]) -> tuple[list[str], list[list[str]], str | None]:
     table_lines = [line for line in body if line.strip().startswith("|")]
-    if len(table_lines) < 3:
+    if len(table_lines) < 2:
         return [], [], "missing Markdown table"
 
     rows = [split_table_row(line) for line in table_lines]
@@ -439,8 +439,8 @@ def check_inventory(
     errors: list[str],
     warnings: list[str],
     previous_records_by_round: dict[str, list[dict[str, Any]]],
-) -> dict[str, str]:
-    statuses_by_item: dict[str, str] = {}
+) -> dict[str, dict[str, str]]:
+    inventory_by_item: dict[str, dict[str, str]] = {}
     seen: set[str] = set()
     for index, record in enumerate(records, start=1):
         missing = [field for field in REQUIRED_JSON_FIELDS if field not in record]
@@ -469,7 +469,13 @@ def check_inventory(
         if item_id in seen:
             errors.append(f"inventory record {index}: duplicate item_id: {item_id}")
         seen.add(item_id)
-        statuses_by_item[item_id] = status
+        inventory_by_item[item_id] = {
+            "inspection_status": status,
+            "claim_alignment": claim_alignment,
+            "context_hash": context_hash,
+            "visual_reused_from_round": scalar(record.get("visual_reused_from_round", "")),
+            "claim_alignment_reused_from_round": scalar(record.get("claim_alignment_reused_from_round", "")),
+        }
 
         if status not in KNOWN_STATUSES:
             errors.append(f"{item_id}: unknown inspection_status: {status}")
@@ -503,16 +509,17 @@ def check_inventory(
             previous_records_by_round,
             errors,
         )
-        if claim_alignment:
-            if claim_alignment not in KNOWN_CLAIM_ALIGNMENTS:
-                errors.append(f"{item_id}: unknown claim_alignment: {claim_alignment}")
-            if claim_alignment in EVIDENCE_CLAIM_ALIGNMENTS and status not in EVIDENCE_STATUSES:
-                errors.append(f"{item_id}: claim_alignment={claim_alignment} requires pdf_inspected or source_asset_checked status")
-            if not claim_version:
-                errors.append(f"{item_id}: claim_alignment requires claim_alignment_version")
-            if not claim_rationale:
-                warnings.append(f"{item_id}: claim_alignment_rationale is empty")
-        elif "claim_alignment_reused_from_round" in record:
+        if not claim_alignment:
+            errors.append(f"{item_id}: missing claim_alignment")
+        elif claim_alignment not in KNOWN_CLAIM_ALIGNMENTS:
+            errors.append(f"{item_id}: unknown claim_alignment: {claim_alignment}")
+        elif claim_alignment in EVIDENCE_CLAIM_ALIGNMENTS and status not in EVIDENCE_STATUSES:
+            errors.append(f"{item_id}: claim_alignment={claim_alignment} requires pdf_inspected or source_asset_checked status")
+        if claim_alignment and not claim_version:
+            errors.append(f"{item_id}: claim_alignment requires claim_alignment_version")
+        if claim_alignment and not claim_rationale:
+            warnings.append(f"{item_id}: claim_alignment_rationale is empty")
+        if not claim_alignment and "claim_alignment_reused_from_round" in record:
             errors.append(f"{item_id}: claim_alignment_reused_from_round requires claim_alignment")
         check_claim_alignment_reuse(
             record,
@@ -527,7 +534,7 @@ def check_inventory(
             change = scalar(record["previous_round_change"])
             if change and change not in CHANGE_STATUSES:
                 errors.append(f"{item_id}: unknown previous_round_change: {change}")
-    return statuses_by_item
+    return inventory_by_item
 
 
 def check_headings(lines: list[str], errors: list[str]) -> None:
@@ -581,6 +588,10 @@ def cell(headers: list[str], row: list[str], name: str) -> str:
     return row[index]
 
 
+def item_cell(headers: list[str], row: list[str], name: str = "item") -> str:
+    return re.sub(r"^`([^`]*)`$", r"\1", cell(headers, row, name).strip()).strip()
+
+
 def check_visual_inventory_table(lines: list[str], errors: list[str]) -> None:
     headers, rows = check_required_table(
         lines,
@@ -597,7 +608,11 @@ def check_visual_inventory_table(lines: list[str], errors: list[str]) -> None:
             errors.append(f"visual inventory row {row_number}: unknown inspection status: {status}")
 
 
-def check_context_alignment_table(lines: list[str], errors: list[str]) -> None:
+def check_context_alignment_table(
+    lines: list[str],
+    inventory_by_item: dict[str, dict[str, str]],
+    errors: list[str],
+) -> None:
     headers, rows = check_required_table(
         lines,
         "## Context And Claim Alignment",
@@ -607,15 +622,33 @@ def check_context_alignment_table(lines: list[str], errors: list[str]) -> None:
     )
     if not headers:
         return
+    context_items: set[str] = set()
     for row_number, row in enumerate(rows, start=1):
+        item = item_cell(headers, row)
+        role = normalized(cell(headers, row, "text role"))
         alignment = normalized(cell(headers, row, "claim alignment"))
+        if item not in inventory_by_item:
+            errors.append(f"context alignment row {row_number}: item is not present in visual_inventory.jsonl: {item}")
+            continue
+        context_items.add(item)
+        if role and role not in KNOWN_TEXT_MENTION_ROLES:
+            errors.append(f"context alignment row {row_number}: unknown text role: {role}")
         if alignment and alignment not in KNOWN_CLAIM_ALIGNMENTS:
             errors.append(f"context alignment row {row_number}: unknown claim alignment: {alignment}")
+        inventory_alignment = inventory_by_item[item].get("claim_alignment", "")
+        if alignment != inventory_alignment:
+            errors.append(
+                f"context alignment row {row_number}: claim alignment {alignment or '<empty>'} "
+                f"does not match inventory claim_alignment {inventory_alignment or '<empty>'} for {item}"
+            )
+    missing_items = sorted(set(inventory_by_item) - context_items)
+    for item in missing_items:
+        errors.append(f"Context And Claim Alignment is missing inventory item: {item}")
 
 
 def check_findings_table(
     lines: list[str],
-    statuses_by_item: dict[str, str],
+    inventory_by_item: dict[str, dict[str, str]],
     errors: list[str],
     warnings: list[str],
 ) -> None:
@@ -629,7 +662,7 @@ def check_findings_table(
     if not headers:
         return
     for row_number, row in enumerate(rows, start=1):
-        item = cell(headers, row, "item").strip()
+        item = item_cell(headers, row)
         status = normalized(cell(headers, row, "inspection status"))
         claim = cell(headers, row, "claim")
         evidence = cell(headers, row, "evidence")
@@ -637,12 +670,14 @@ def check_findings_table(
         if status not in KNOWN_STATUSES:
             errors.append(f"finding row {row_number}: unknown inspection status: {status}")
             continue
-        if item in statuses_by_item and statuses_by_item[item] != status:
+        inventory = inventory_by_item.get(item)
+        if not inventory:
+            if item:
+                errors.append(f"finding row {row_number}: item is not present in visual_inventory.jsonl: {item}")
+        elif inventory.get("inspection_status") != status:
             errors.append(
-                f"finding row {row_number}: status {status} does not match inventory status {statuses_by_item[item]} for {item}"
+                f"finding row {row_number}: status {status} does not match inventory status {inventory.get('inspection_status')} for {item}"
             )
-        elif item and item not in statuses_by_item:
-            warnings.append(f"finding row {row_number}: item is not present in visual_inventory.jsonl: {item}")
         if VISUAL_CLAIM_RE.search(combined) and status not in EVIDENCE_STATUSES:
             errors.append(
                 f"finding row {row_number}: visual-content claim requires pdf_inspected or source_asset_checked status"
@@ -725,14 +760,14 @@ def main(argv: list[str]) -> int:
     warnings: list[str] = []
     previous_records_by_round = previous_inventories(case_dir, round_id, errors)
     records = read_inventory(inventory, errors)
-    statuses_by_item = check_inventory(records, errors, warnings, previous_records_by_round)
+    inventory_by_item = check_inventory(records, errors, warnings, previous_records_by_round)
 
     text = output.read_text(encoding="utf-8")
     lines = text.splitlines()
     check_headings(lines, errors)
     check_visual_inventory_table(lines, errors)
-    check_context_alignment_table(lines, errors)
-    check_findings_table(lines, statuses_by_item, errors, warnings)
+    check_context_alignment_table(lines, inventory_by_item, errors)
+    check_findings_table(lines, inventory_by_item, errors, warnings)
     check_previous_round_comparison(lines, case_dir, round_id, warnings)
     check_manual_checks(lines, warnings)
     check_hygiene(text, errors)
