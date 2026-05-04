@@ -126,6 +126,22 @@ Udělej samostatný review kódu pro aktuální round. Odděl nesoulad textu s k
 design/runtime rizika a nice-to-have zlepšení. Použij agenty.
 ```
 
+### Kód nebo PR na GitHubu
+
+```text
+Student pracoval formou příspěvku do upstream projektu.
+Upstream repo: https://github.com/owner/project
+PR: https://github.com/owner/project/pull/123
+GitHub login studenta: <login>
+Nejdřív udělej GitHub code intake: metadata PR, diff, komentáře, review a CI
+stav. Potom použij jen ověřené závěry pro soulad textu s kódem a code-quality
+review. Použij agenty.
+```
+
+Pokud neznáte přesný seznam PR, uveďte upstream repo a autorův GitHub login.
+Agent může použít read-only vyhledání PR podle autora a výsledek uložit jako
+zmrazenou evidenci v case workspace.
+
 ## Co agent potřebuje vědět
 
 Čím konkrétnější zadání dostane, tím méně bude muset hádat. Nejvíc pomáhá:
@@ -195,6 +211,7 @@ Nejběžnější výstupy jsou:
 - `outputs/feedback_student.md` - studentská zpětná vazba,
 - `work/feedback_student_draft.md` - pracovní draft před nezávislým review,
 - `outputs/revision_diff.md` - rozdíl proti předchozí verzi,
+- `outputs/github_code_intake.md` - interní evidence GitHub repo/PR importu,
 - `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
 - `outputs/code_quality_review.md` - interní code-quality/design review,
 - `outputs/literature_citation_review.md` - interní kontrola literatury a citací,
@@ -212,7 +229,7 @@ Studentský feedback a oponentské materiály nejsou hotové jen proto, že vzni
 Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po větší
 úpravě se výstup znovu bere jako draft.
 
-Interní evidence jako `revision_diff.md`, `code_consistency.md`,
+Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consistency.md`,
 `code_quality_review.md`, `literature_citation_review.md`,
 `figure_media_review.md` nebo `typography_formal_review.md` je samostatně
 finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
@@ -226,6 +243,7 @@ Pro větší práci má agent rozdělit role, typicky:
 
 - text, struktura a splnění zadání,
 - obrázky, tabulky, screenshoty, grafy, captiony a změny vizuální evidence,
+- GitHub/PR intake, pokud je kód dostupný přes repo URL nebo upstream PR,
 - soulad textu s kódem,
 - kvalita kódu, design, runtime rizika a reprodukovatelnost,
 - literatura a citace, pokud jsou pro daný round důležité,
@@ -236,6 +254,12 @@ Pro větší práci má agent rozdělit role, typicky:
 Když je v roundu kód, supervisor feedback a oponentské podklady mají použít
 kontrolu souladu textu s kódem i kontrolu kvality implementace, nebo výslovně
 říct, proč to z dostupných vstupů nešlo.
+
+Když je kód dostupný přes GitHub repo nebo PR, agent má nejdřív udělat read-only
+GitHub intake. U PR-based prací nesmí hodnotit celý upstream projekt jako
+studentův výstup; upstream je baseline a kontext, studentův rozsah se posuzuje
+podle PR diffů, commitů, testů/dokumentace, review diskuse, CI a deklarovaného
+scope.
 
 Když práce obsahuje měření, metriky, výsledky experimentů nebo uživatelské
 hodnocení, agent má zkontrolovat jednotky, baseline, praktickou velikost efektu,
@@ -291,6 +315,8 @@ Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 ```bash
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
+scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
+scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 ```
 
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
@@ -310,6 +336,8 @@ Workflow definují repo skills v `.agents/skills/`:
 - `thesis-supervisor-feedback` - studentská zpětná vazba od vedoucího,
 - `thesis-supervisor-feedback-review` - nezávislá kontrola před odesláním,
 - `thesis-revision-diff` - porovnání dvou verzí,
+- `thesis-github-code-intake` - read-only GitHub repo/PR import a PR
+  contribution evidence,
 - `thesis-code-consistency` - soulad práce s kódem a reprodukovatelností,
 - `thesis-code-quality-review` - kvalita implementace a designu,
 - `thesis-literature-citation-review` - literatura, zdroje a citace,
@@ -373,6 +401,7 @@ scripts/smoke-feedback-output
 scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
+scripts/smoke-github-code-intake
 scripts/smoke-private
 ```
 

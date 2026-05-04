@@ -1,0 +1,394 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__github_code_intake_smoke_$$"
+fakebin="$(mktemp -d)"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+  rm -rf "$fakebin"
+  rm -f /tmp/import-github-code.out /tmp/import-github-code.err
+}
+trap cleanup EXIT
+
+cat >"$fakebin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" == "--version" ]]; then
+  echo "gh version 2.0.0 (smoke)"
+  exit 0
+fi
+
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
+  echo "Logged in to github.com as smoke-user"
+  exit 0
+fi
+
+if [[ "${1:-}" == "search" && "${2:-}" == "prs" ]]; then
+  state=""
+  while [[ $# -gt 0 ]]; do
+    if [[ "${1:-}" == "--state" ]]; then
+      state="${2:-}"
+      break
+    fi
+    shift
+  done
+  if [[ "$state" != "open" && "$state" != "closed" ]]; then
+    echo "unsupported smoke search state: $state" >&2
+    exit 2
+  fi
+  cat <<'JSON'
+[
+  {
+    "url": "https://github.com/owner/project/pull/123",
+    "number": 123,
+    "title": "Smoke PR",
+    "state": "open",
+    "author": {"login": "student"},
+    "createdAt": "2026-05-01T10:00:00Z",
+    "updatedAt": "2026-05-02T10:00:00Z"
+  }
+]
+JSON
+  exit 0
+fi
+
+if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
+  cat <<'JSON'
+{
+  "nameWithOwner": "owner/project",
+  "url": "https://github.com/owner/project",
+  "description": "Smoke repository",
+  "defaultBranchRef": {"name": "main"},
+  "isFork": false,
+  "parent": null,
+  "isPrivate": false,
+  "visibility": "PUBLIC",
+  "licenseInfo": null,
+  "primaryLanguage": {"name": "Python"},
+  "languages": {"nodes": [{"name": "Python"}]},
+  "pushedAt": "2026-05-02T10:00:00Z",
+  "updatedAt": "2026-05-02T10:00:00Z",
+  "repositoryTopics": {"nodes": []}
+}
+JSON
+  exit 0
+fi
+
+if [[ "${1:-}" == "pr" && "${2:-}" == "view" ]]; then
+  if [[ "${SMOKE_FAIL_PR_VIEW:-}" == "1" ]]; then
+    echo "forced pr view failure" >&2
+    exit 1
+  fi
+  head_oid="${SMOKE_HEAD_SHA:-2222222222222222222222222222222222222222}"
+  cat <<JSON
+{
+  "number": 123,
+  "title": "Smoke PR",
+  "state": "OPEN",
+  "isDraft": false,
+  "author": {"login": "student"},
+  "url": "https://github.com/owner/project/pull/123",
+  "body": "Implements the thesis-relevant change.",
+  "baseRefName": "main",
+  "headRefName": "student-feature",
+  "headRefOid": "$head_oid",
+  "headRepository": {"nameWithOwner": "student/project"},
+  "headRepositoryOwner": {"login": "student"},
+  "isCrossRepository": true,
+  "createdAt": "2026-05-01T10:00:00Z",
+  "updatedAt": "2026-05-02T10:00:00Z",
+  "closedAt": null,
+  "mergedAt": null,
+  "mergedBy": null,
+  "mergeStateStatus": "CLEAN",
+  "mergeable": "MERGEABLE",
+  "reviewDecision": "REVIEW_REQUIRED",
+  "reviewRequests": [],
+  "latestReviews": [],
+  "commits": [{"author": {"name": "Student", "email": "student@example.com", "user": {"login": "student"}}}],
+  "files": [{"path": "src/feature.py"}, {"path": "tests/test_feature.py"}, {"path": "README.md"}],
+  "additions": 42,
+  "deletions": 7,
+  "changedFiles": 3,
+  "statusCheckRollup": [],
+  "labels": [],
+  "milestone": null
+}
+JSON
+  exit 0
+fi
+
+if [[ "${1:-}" == "pr" && "${2:-}" == "diff" ]]; then
+  for arg in "$@"; do
+    if [[ "$arg" == "--name-only" ]]; then
+      printf '%s\n' "src/feature.py" "tests/test_feature.py" "README.md"
+      exit 0
+    fi
+  done
+  for arg in "$@"; do
+    if [[ "$arg" == "--patch" ]]; then
+      cat <<'PATCH'
+From smoke Mon Sep 17 00:00:00 2001
+diff --git a/src/feature.py b/src/feature.py
+new file mode 100644
+PATCH
+      exit 0
+    fi
+  done
+  cat <<'DIFF'
+diff --git a/src/feature.py b/src/feature.py
+new file mode 100644
+DIFF
+  exit 0
+fi
+
+if [[ "${1:-}" == "pr" && "${2:-}" == "checks" ]]; then
+  for arg in "$@"; do
+    if [[ "$arg" == "--json" ]]; then
+      echo "fake gh pr checks does not support --json" >&2
+      exit 2
+    fi
+  done
+  if [[ "${SMOKE_CHECKS_FAIL_WITH_STDOUT:-}" == "1" ]]; then
+    printf '%s\n' "unit	fail	CI	https://github.com/owner/project/actions/runs/1"
+    exit 1
+  fi
+  printf '%s\n' "unit	pass	CI	https://github.com/owner/project/actions/runs/1"
+  exit 0
+fi
+
+if [[ "${1:-}" == "api" ]]; then
+  endpoint="${@: -1}"
+  case "$endpoint" in
+    repos/owner/project/issues/123/comments)
+      cat <<'JSON'
+[{"user":{"login":"maintainer"},"created_at":"2026-05-02T11:00:00Z","body":"Please add tests.","html_url":"https://github.com/owner/project/pull/123#issuecomment-1"}]
+JSON
+      ;;
+    repos/owner/project/pulls/123/reviews)
+      cat <<'JSON'
+[{"user":{"login":"reviewer"},"state":"COMMENTED","submitted_at":"2026-05-02T12:00:00Z","body":"Looks reasonable.","html_url":"https://github.com/owner/project/pull/123#pullrequestreview-1"}]
+JSON
+      ;;
+    repos/owner/project/pulls/123/comments)
+      cat <<'JSON'
+[{"user":{"login":"reviewer"},"created_at":"2026-05-02T12:05:00Z","path":"src/feature.py","line":10,"body":"Check edge cases.","html_url":"https://github.com/owner/project/pull/123#discussion_r1"}]
+JSON
+      ;;
+    *)
+      echo "[]" ;;
+  esac
+  exit 0
+fi
+
+echo "unexpected fake gh invocation: $*" >&2
+exit 99
+EOF
+chmod +x "$fakebin/gh"
+
+make_case() {
+  local case_id="$1"
+  local round_id="round-a"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id"/{notes,inputs,extracted,work,outputs}
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Thesis language: auto"
+    echo "Student feedback language: cs"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! PATH="$fakebin:$PATH" "$@" >/tmp/import-github-code.out 2>/tmp/import-github-code.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/import-github-code.err >&2
+    cat /tmp/import-github-code.out >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+  if PATH="$fakebin:$PATH" "$@" >/tmp/import-github-code.out 2>/tmp/import-github-code.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/import-github-code.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/import-github-code.out /tmp/import-github-code.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/import-github-code.err >&2
+    cat /tmp/import-github-code.out >&2
+    exit 1
+  fi
+}
+
+expect_file_contains() {
+  local name="$1"
+  local path="$2"
+  local pattern="$3"
+  if ! grep -E "$pattern" "$path" >/dev/null; then
+    echo "Expected file pattern not found: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+expect_path_absent() {
+  local name="$1"
+  local path="$2"
+  if [[ -e "$path" ]]; then
+    echo "Expected path to be absent: $name" >&2
+    echo "Path: $path" >&2
+    find "$path" -maxdepth 3 -print >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_pr_failure"
+make_case "$case_id"
+expect_failure_contains \
+  "failed PR metadata import does not leave generated evidence" \
+  "forced pr view failure" \
+  env SMOKE_FAIL_PR_VIEW=1 \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --pr-url "https://github.com/owner/project/pull/123" \
+  --student-login student \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_path_absent "PR evidence absent after metadata failure" "$round_dir/inputs/github/prs/owner__project__pr-123"
+expect_path_absent "manifest absent after metadata failure" "$round_dir/inputs/github/code-manifest.generated.yml"
+
+case_id="${case_prefix}_discover_pr_failure"
+make_case "$case_id"
+expect_failure_contains \
+  "failed discovered PR metadata import does not leave discovery or generated evidence" \
+  "forced pr view failure" \
+  env SMOKE_FAIL_PR_VIEW=1 \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --discover-prs owner/project \
+  --author student \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_path_absent "discovery evidence absent after discovered PR metadata failure" "$round_dir/inputs/github/discovery"
+expect_path_absent "PR evidence absent after discovered PR metadata failure" "$round_dir/inputs/github/prs/owner__project__pr-123"
+expect_path_absent "manifest absent after discovered PR metadata failure" "$round_dir/inputs/github/code-manifest.generated.yml"
+
+case_id="${case_prefix}_pr"
+make_case "$case_id"
+expect_success \
+  "direct PR import" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --pr-url "https://github.com/owner/project/pull/123" \
+  --student-login student \
+  --expected-scope "smoke contribution" \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_file_contains "PR mode output" "$round_dir/outputs/github_code_intake.md" "upstream_pr_contribution"
+expect_file_contains "PR metadata saved" "$round_dir/inputs/github/prs/owner__project__pr-123/pr.meta.json" "Smoke PR"
+expect_file_contains "comments converted" "$round_dir/inputs/github/prs/owner__project__pr-123/pr.review-comments.md" "Check edge cases"
+expect_file_contains "contribution map" "$round_dir/work/github-intake/contribution-map.md" "tests/test_feature.py"
+expect_failure_contains \
+  "rerun without refresh refuses to mutate existing intake" \
+  "already exists" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --pr-url "https://github.com/owner/project/pull/123" \
+  --student-login student \
+  --no-checkout
+
+case_id="${case_prefix}_checks_stdout"
+make_case "$case_id"
+expect_success \
+  "failing PR checks preserve stdout" \
+  env SMOKE_CHECKS_FAIL_WITH_STDOUT=1 \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --pr-url "https://github.com/owner/project/pull/123" \
+  --student-login student \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_file_contains "failing checks stdout saved" "$round_dir/inputs/github/prs/owner__project__pr-123/pr.checks.md" "unit"
+expect_file_contains "failing checks summarized" "$round_dir/outputs/github_code_intake.md" "fail:1"
+
+case_id="${case_prefix}_discover"
+make_case "$case_id"
+expect_success \
+  "author discovery import" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --discover-prs owner/project \
+  --author student \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_file_contains "discovery output" "$round_dir/outputs/github_code_intake.md" "owner/project#123"
+expect_file_contains "discovery evidence" "$round_dir/inputs/github/discovery/owner__project__author-student__open.json" "Smoke PR"
+expect_file_contains "discovery attribution" "$round_dir/outputs/github_code_intake.md" 'Student GitHub login: `student`'
+expect_failure_contains \
+  "discovery rerun without refresh refuses to mutate existing intake" \
+  "already exists" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --discover-prs owner/project \
+  --author student \
+  --no-checkout
+
+case_id="${case_prefix}_repo"
+make_case "$case_id"
+expect_success \
+  "standalone repo metadata import" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --repo "https://github.com/owner/project" \
+  --ref main \
+  --no-checkout
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_file_contains "repo mode output" "$round_dir/outputs/github_code_intake.md" "standalone_repo"
+expect_file_contains "repo metadata saved" "$round_dir/inputs/github/repos/owner__project/repo.meta.json" "Smoke repository"
+
+checkout_src="$fakebin/project-work"
+checkout_bare="$fakebin/project.git"
+git init "$checkout_src" >/dev/null
+git -C "$checkout_src" config user.email "smoke@example.com"
+git -C "$checkout_src" config user.name "Smoke"
+mkdir -p "$checkout_src/src" "$checkout_src/tests"
+printf '%s\n' "print('smoke')" >"$checkout_src/src/feature.py"
+printf '%s\n' "def test_smoke(): pass" >"$checkout_src/tests/test_feature.py"
+printf '%s\n' "# Smoke" >"$checkout_src/README.md"
+git -C "$checkout_src" add .
+git -C "$checkout_src" commit -m "smoke" >/dev/null
+SMOKE_HEAD_SHA="$(git -C "$checkout_src" rev-parse HEAD)"
+export SMOKE_HEAD_SHA
+git clone --bare "$checkout_src" "$checkout_bare" >/dev/null 2>&1
+git -C "$checkout_bare" update-ref refs/pull/123/head "$SMOKE_HEAD_SHA"
+git -C "$checkout_bare" update-ref refs/pull/123/merge "$SMOKE_HEAD_SHA"
+cat >"$fakebin/gitconfig" <<EOF
+[url "file://$checkout_bare"]
+  insteadOf = https://github.com/owner/project.git
+EOF
+export GIT_CONFIG_GLOBAL="$fakebin/gitconfig"
+
+case_id="${case_prefix}_checkout"
+make_case "$case_id"
+expect_success \
+  "PR checkout import uses local rewrite" \
+  "$repo_root/scripts/import-github-code" "$case_id" \
+  --pr-url "https://github.com/owner/project/pull/123" \
+  --student-login student \
+  --expected-scope "checkout smoke"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_file_contains "checkout workspace listed" "$round_dir/outputs/github_code_intake.md" "head checkout prepared"
+expect_file_contains "checkout head sha recorded" "$round_dir/work/github-intake/owner__project__pr-123.head-sha.txt" "$SMOKE_HEAD_SHA"
+expect_file_contains "checkout inventory" "$round_dir/work/github-intake/owner__project__pr-123.inventory.md" "tests/test_feature.py"
+
+echo "GitHub code intake smoke passed"

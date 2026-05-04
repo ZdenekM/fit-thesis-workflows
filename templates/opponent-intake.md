@@ -10,6 +10,7 @@ Tema jednou vetou:
 Formalni zadani / hlavni body zadani: viz notes/assignment.md
 Co je podle me hlavni technicke jadro prace:
 Co chci explicitne zkontrolovat:
+GitHub repo / PR URL / student login:
 Co je podle me hlavni riziko:
 Co je podle me silna stranka:
 Muj predbezny dojem:

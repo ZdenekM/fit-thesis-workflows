@@ -87,6 +87,69 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/typography_formal_review.md"
 
+make_untracked_file "tmp-feedback-smoke/github_code_intake.md"
+expect_failure_contains \
+  "GitHub code intake outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github_code_intake.md"
+
+make_untracked_file "tmp-feedback-smoke/pr_contribution_review.md"
+expect_failure_contains \
+  "PR contribution review outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/pr_contribution_review.md"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/pr.meta.json"
+expect_failure_contains \
+  "GitHub PR metadata outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/pr.meta.json"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/pr.diff"
+expect_failure_contains \
+  "GitHub PR diff outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/pr.diff"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/pr.summary.md"
+expect_failure_contains \
+  "GitHub PR summary outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/pr.summary.md"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/contribution-map.md"
+expect_failure_contains \
+  "GitHub contribution map outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/contribution-map.md"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/code-manifest.generated.yml"
+expect_failure_contains \
+  "GitHub generated manifest outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/code-manifest.generated.yml"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/owner__project__author-student__open.json"
+expect_failure_contains \
+  "GitHub PR discovery open JSON outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/owner__project__author-student__open.json"
+
+make_untracked_file "tmp-feedback-smoke/github-intake/owner__project__author-student__closed.json"
+expect_failure_contains \
+  "GitHub PR discovery closed JSON outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/github-intake/owner__project__author-student__closed.json"
+
 make_untracked_file "tmp-feedback-smoke/visual_inventory.jsonl"
 expect_failure_contains \
   "visual inventory outside cases fails" \

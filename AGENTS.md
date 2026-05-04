@@ -31,6 +31,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-opponent-materials-review/SKILL.md` for reviewing and hardening generated opponent materials.
 - `.agents/skills/thesis-opponent-report-review/SKILL.md` for reviewing a draft opponent report before submission.
 - `.agents/skills/thesis-revision-diff/SKILL.md` for comparing thesis/code revisions and checking whether prior feedback was addressed.
+- `.agents/skills/thesis-github-code-intake/SKILL.md` for read-only GitHub repository and upstream PR contribution intake before code reviews.
 - `.agents/skills/thesis-code-consistency/SKILL.md` for thesis-text versus code/reproducibility checks.
 - `.agents/skills/thesis-code-quality-review/SKILL.md` for implementation quality, architecture/design, maintainability, runtime risks, and reviewer-facing developer evidence.
 - `.agents/skills/thesis-literature-citation-review/SKILL.md` for cited-literature relevance, source availability, and citation-support checks.
@@ -39,7 +40,7 @@ Use these repo-local skills as the primary workflow definitions:
 
 When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
-Code artifacts include source directories and archives copied into `inputs/`. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically `work/code/`, before delegating to read-only reviewer agents. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
+Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically `work/code/`, before delegating to read-only reviewer agents. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
 When changing workflow docs or skills, scan `WORKFLOW_MEMORY.md` for reusable
@@ -80,6 +81,7 @@ When the user explicitly authorizes agents, give them enough time. If authorizat
 - figure/media evidence, captions, visual claims, context/claim alignment, and figure changes between rounds,
 - code/reproducibility and text-code consistency,
 - code quality/design and reviewer-facing implementation evidence,
+- GitHub/PR contribution intake when code evidence comes from GitHub URLs or upstream PRs,
 - literature/citation relevance, source availability, and claim support,
 - late-stage typography/formal presentation when the round is near final or explicitly asks for it,
 - evidence and claim calibration,
@@ -97,7 +99,7 @@ Dedicated review loops:
 - opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
 - opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
 
-Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
+Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
 
 ## Output Conventions
 
@@ -106,6 +108,7 @@ Default outputs go into the active round:
 - supervisor feedback: `outputs/feedback_student.md`
 - supervisor feedback draft for agent-generated first passes: `work/feedback_student_draft.md`
 - revision comparison: `outputs/revision_diff.md`
+- GitHub code intake: `outputs/github_code_intake.md`
 - code consistency check: `outputs/code_consistency.md`
 - code quality/design review: `outputs/code_quality_review.md`
 - literature/citation review: `outputs/literature_citation_review.md`
@@ -117,7 +120,7 @@ Default outputs go into the active round:
 - opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`
 
-Standalone code consistency, code quality, literature/citation, figure/media, and typography/formal outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
+Standalone GitHub intake, code consistency, code quality, literature/citation, figure/media, and typography/formal outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 `Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.

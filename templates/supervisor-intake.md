@@ -25,6 +25,7 @@ Hlavni cil teto revize:
 Hlavni riziko podle me:
 Co uz nechci v teto fazi otevirat:
 Co chci explicitne zkontrolovat:
+GitHub repo / PR URL / student login:
 Co je pro me mene dulezite:
 Jak primocary ma byt feedback:
 Poznamka ke studentovi:

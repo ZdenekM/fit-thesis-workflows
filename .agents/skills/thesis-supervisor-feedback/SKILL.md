@@ -36,7 +36,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 6. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
 7. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
 8. State review limits before analysis: what was available, what was static-only, and what was not checked.
-9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
+9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
 10. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
 11. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
 12. Build a short private map:
@@ -49,6 +49,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - thesis heading/outline quality,
    - figure/media evidence and important visual changes,
    - experiment/result status,
+   - GitHub/PR intake status when code evidence comes from GitHub,
    - code/reproducibility status,
    - code quality/design status,
    - typography/formal presentation status when the round is near final or explicitly asks for it,
@@ -57,7 +58,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
 13. When the thesis contains quantitative, evaluation, experiment, metric, performance, or result claims, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. Use the warnings as review prompts for unit/scale, baseline or comparator, better/worse direction, practical magnitude, reproducibility, and whether the interpretation is proportionate to the measured evidence.
 14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
-15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
 16. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
 17. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
 18. Prioritize issues by impact on current phase. Do not list every possible improvement.
@@ -118,6 +119,7 @@ For a large round, split reviewer agents by role:
 
 - text structure and assignment coverage,
 - figure/media evidence when visual material is material,
+- GitHub/PR intake and contribution scoping when code evidence comes from GitHub,
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - literature/citation relevance when sources are material,
@@ -146,7 +148,7 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - For figure/media findings, cite the thesis/PDF anchor, inspection status, and claim alignment from `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl`. Do not say what a visual element shows unless it was `pdf_inspected` or `source_asset_checked`. Use text mentions and claim alignment to decide whether an item becomes student-facing feedback; do not copy cache hashes or reuse metadata into student-facing prose.
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
 - For typography/formal findings, cite `outputs/typography_formal_review.md` or `scripts/check-typography-formal` output internally, but write student-facing guidance as a repeated pattern plus repair workflow. Do not give the student an audit backlog of every occurrence unless explicitly requested.
-- Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` as internal/operator evidence unless the user explicitly asks to send them.
+- Treat standalone `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
 - For quantitative/evaluation results, do not stop at checking whether a metric is present. Sanity-check whether the values are plausible in the thesis domain, whether the improvement is practically meaningful, whether the baseline/comparator and sample size are clear, whether the calculation is reproducible, and whether the conclusion is not stronger than the evidence.
 

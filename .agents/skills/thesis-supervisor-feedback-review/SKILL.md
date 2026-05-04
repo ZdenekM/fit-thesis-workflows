@@ -37,20 +37,21 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 10. Verify that previous feedback is not repeated after it has been addressed.
 11. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
 12. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
-13. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts. In the student-facing output, keep only student-actionable summaries and important limitations.
-14. If literature/citation review was used or literature relevance is a priority, verify that claims are supported by `outputs/literature_citation_review.md` or explicit source limitations. Keep only student-actionable, phase-appropriate items in student-facing feedback.
-15. If figure/media review was used or visual evidence is a priority, verify that visual-content claims are supported by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status, and that the used item has suitable claim alignment for the surrounding text claim. Keep only student-actionable, phase-appropriate items in student-facing feedback, and do not expose cache hashes or reuse metadata.
-16. If typography/formal review was used or the round is near-final/final, verify that findings are language-calibrated by thesis language, not feedback language, and that student-facing prose summarizes repeated patterns and repair workflow instead of listing every occurrence.
-17. Keep at most 8 priority rows, ideally 3-6.
-18. Preserve concrete positives and a motivating but direct tone.
-19. Make the final checklist specific to this thesis and phase, not generic.
-20. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
-21. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
-22. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
-23. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
-24. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
-25. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
-26. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
+13. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, or CI links into student-facing prose unless they are necessary and access-safe; summarize them as action items.
+14. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts. In the student-facing output, keep only student-actionable summaries and important limitations.
+15. If literature/citation review was used or literature relevance is a priority, verify that claims are supported by `outputs/literature_citation_review.md` or explicit source limitations. Keep only student-actionable, phase-appropriate items in student-facing feedback.
+16. If figure/media review was used or visual evidence is a priority, verify that visual-content claims are supported by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status, and that the used item has suitable claim alignment for the surrounding text claim. Keep only student-actionable, phase-appropriate items in student-facing feedback, and do not expose cache hashes or reuse metadata.
+17. If typography/formal review was used or the round is near-final/final, verify that findings are language-calibrated by thesis language, not feedback language, and that student-facing prose summarizes repeated patterns and repair workflow instead of listing every occurrence.
+18. Keep at most 8 priority rows, ideally 3-6.
+19. Preserve concrete positives and a motivating but direct tone.
+20. Make the final checklist specific to this thesis and phase, not generic.
+21. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
+22. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
+23. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
+24. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
+25. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
+26. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+27. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
 ## Priority Calibration
 

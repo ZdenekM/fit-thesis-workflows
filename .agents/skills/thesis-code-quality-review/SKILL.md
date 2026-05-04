@@ -23,16 +23,17 @@ cases/<case-id>/rounds/<round-id>/
   outputs/
 ```
 
-Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. After agent use is authorized, the main workflow should unpack them into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
+Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. GitHub repo/PR snapshots imported by `thesis-github-code-intake` also count as code evidence, but PR-mode review must stay scoped to student-owned diffs and contribution areas. After agent use is authorized, the main workflow should unpack/import code into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
 
 ## Process
 
 1. Resolve the active case and round.
 2. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
-3. Enumerate available code artifacts, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
-4. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If you are in a read-only reviewer agent, report the archive path and the need for an unpacked workspace instead of silently skipping the review.
+3. Enumerate available code artifacts, GitHub intake evidence, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
+4. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If GitHub URL/PR evidence is present but not yet imported, run or request `thesis-github-code-intake` before judging code quality. If you are in a read-only reviewer agent, report the missing prepared workspace/evidence instead of silently skipping the review.
 5. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
-6. Inspect the main implementation paths and assess:
+6. For upstream PR contribution mode, use upstream code as integration context and focus findings on changed files, tests/docs, PR review discussion, CI state, and declared thesis scope.
+7. Inspect the main implementation paths and assess:
    - architecture/design fit for the assignment and chosen framework,
    - module boundaries, data model, naming, and cohesion,
    - maintainability and readability,
@@ -40,8 +41,8 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
    - testing strategy, smoke-test workflow, and reproducibility for a reviewer,
    - README/developer documentation and installation/build instructions,
    - whether comments explain non-obvious logic without replacing clear code.
-7. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
-8. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
+8. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
+9. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
 
 ## Evidence Rules
 
@@ -49,6 +50,8 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 - Do not claim that code ran unless you actually ran a specific command.
 - Do not treat "not runnable from available inputs" as "broken".
 - Separate code quality from text-code mismatch. If the issue is mainly that the thesis overclaims what code shows, route it through `thesis-code-consistency`.
+- For PR-based work, do not treat the whole upstream repository as the student's implementation. Cite PR changed files, contribution map, review comments, CI state, or specific checkout paths from `outputs/github_code_intake.md`.
+- If both a submitted archive and GitHub evidence exist, use the submitted archive as authoritative unless case/round notes explicitly declare GitHub as the submitted source; if they were not compared, keep GitHub-only quality findings scoped as supplemental evidence.
 - For README, reproducibility, and smoke-test evidence: `thesis-code-consistency` checks whether thesis claims are supported by artifacts; this skill checks whether the submitted implementation is reviewable and maintainable independent of thesis claims. Cross-reference only when the same evidence affects both.
 - Avoid low-value style nits unless they are repeated, confuse the implementation, or affect maintainability.
 - Do not reward noisy comments. Prefer clear code plus useful comments around non-obvious decisions.

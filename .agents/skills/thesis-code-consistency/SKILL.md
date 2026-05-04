@@ -15,7 +15,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 
 1. Resolve the active case and round from the user's target or `current-round.txt`.
 2. Confirm that the user explicitly authorized agent use in the current request when this check will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
-3. Enumerate `inputs/`, `extracted/`, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
+3. Enumerate `inputs/`, `extracted/`, GitHub intake evidence, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
 4. When the thesis contains quantitative, evaluation, experiment, metric, performance, or result claims, run `scripts/check-evaluation-claims <case-id> [round-id]` after thesis text extraction. Treat warnings as semantic-review prompts, not as automatic findings. For every warning that affects supervisor feedback or opponent materials, verify the claim against thesis text, code/notebooks/scripts, data, result exports, README instructions, and reproducibility evidence.
 5. Identify thesis claims about:
    - implemented features,
@@ -25,6 +25,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - performance and accuracy,
    - deployment, reproducibility, and user-facing behavior.
 6. Inspect code artifacts:
+   - `outputs/github_code_intake.md`, `inputs/github/`, and `work/github-intake/` when GitHub repo/PR intake was used,
    - README and run instructions,
    - dependency files,
    - configs,
@@ -34,13 +35,14 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - notebooks,
    - result tables/logs,
    - licenses and third-party assets.
-7. For each important claim, classify:
+7. For PR-based contributions, distinguish upstream baseline from student-owned changes. Check whether the thesis clearly separates existing upstream functionality, reused libraries/modules, and the student's PR diff/commits/tests/docs.
+8. For each important claim, classify:
    - supported by code/artifacts,
    - plausible but not directly verified,
    - unclear,
    - contradicted by code/artifacts,
    - not checkable from available inputs.
-8. Run only simple local smoke tests when they are clearly documented and do not need missing external data, models, credentials, or long execution.
+9. Run only simple local smoke tests when they are clearly documented and do not need missing external data, models, credentials, or long execution.
 
 ## Evidence Rules
 
@@ -49,6 +51,9 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 - Do not treat "not checked" as "not working".
 - Do not focus on style or broad design quality unless it affects reproducibility, licensing, or alignment with an explicit thesis claim. Route broader implementation-quality findings to `thesis-code-quality-review`.
 - If dependencies or data are missing, state that limitation and perform static review.
+- If GitHub PR comments, reviews, CI, head/base refs, or checkout evidence are unavailable, state the limitation instead of inferring contribution quality.
+- If both a submitted archive and GitHub evidence exist, use the submitted archive as authoritative unless case/round notes explicitly declare GitHub as the submitted source; if they were not compared, state that limitation.
+- For PR-based work, cite PR number/URL, changed files, commit/review evidence, and thesis text together; do not review the entire upstream project as student-authored code.
 - For opponent work, do not turn missing run evidence into a claim that the implementation is non-functional.
 - For quantitative/evaluation claims, check more than metric names: unit/scale, baseline or comparator, better/worse direction, sample size/date range, variance or uncertainty, practical magnitude in the domain, source data and calculation path, and whether the written conclusion is proportionate to the measured effect.
 

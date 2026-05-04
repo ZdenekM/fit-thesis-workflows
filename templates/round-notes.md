@@ -12,6 +12,7 @@ Purpose:
 - Extracted thesis text:
 - LaTeX sources:
 - Student code:
+- GitHub repo/PR:
 - README / docs:
 - Previous feedback:
 

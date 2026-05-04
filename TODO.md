@@ -32,6 +32,13 @@
    - Offer LaTeX patch suggestions only when explicitly requested; keep the default workflow read-only and student-owned.
    - Consider full grammar/style tooling for Czech and English after the narrow typography workflow stays stable.
    - Add deeper style checks for units, percentages, abbreviations, quote consistency, and anglicisms only where they can be calibrated by thesis language and phase.
+- [ ] Expand GitHub code intake beyond the light V1.
+   - Add manifest-driven import from `inputs/github/code-manifest.yml` with multiple repositories, multiple PRs, and explicit PR relations such as independent, depends-on, follow-up, split-from, and supersedes.
+   - Add a dedicated `outputs/pr_contribution_review.md` workflow for deeper upstream PR contribution analysis after `outputs/github_code_intake.md` proves useful.
+   - Prefer GitHub MCP/App structured reads for resolved review-thread state, linked issues, and richer CI/action metadata when available; keep `gh` as deterministic export fallback.
+   - Add base/head/merge workspace views for each PR and compare submitted archives against GitHub snapshots when both are available.
+   - Auto-slice large PRs by commits, directories, APIs, tests, docs, generated files, and runtime subsystems, but keep upstream baseline separate from student-owned changes.
+   - Add a focused validator for `outputs/github_code_intake.md` once the evidence shape stabilizes.
 - [ ] Add a case and round readiness/status doctor.
    - Add a helper script such as `scripts/case-doctor <case-id> [round-id]`.
    - Report the active round, reviewer profile, assignment readiness, deadline calibration, and configured student feedback language.
