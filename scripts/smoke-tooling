@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__tooling_smoke_$$"
+created_cases=()
+out_file="/tmp/tooling-smoke.$$.out"
+err_file="/tmp/tooling-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/extracted" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_success "repo-level JSON schema" "$repo_root/scripts/check-tooling" --json
+python3 - "$out_file" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema"] == "tooling-preflight-v1"
+keys = {item["key"] for item in payload["checks"]}
+for required in {"git", "python", "pdftotext", "gh", "serena"}:
+    assert required in keys, keys
+PY
+
+case_id="${case_prefix}_pdf_missing"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' '%PDF-1.4 synthetic' >"$round_dir/inputs/thesis.pdf"
+expect_failure "missing pdftotext blocks missing extracts" env THESIS_TOOLING_FORCE_MISSING=pdftotext "$repo_root/scripts/check-tooling" "$case_id" round-a
+expect_output "pdftotext not found"
+expect_output "FAIL pdftotext"
+
+printf '%s\n' '%PDF-1.4 synthetic assignment' >"$round_dir/inputs/assignment.pdf"
+printf 'Synthetic assignment extract.\n' >"$round_dir/extracted/assignment.txt"
+expect_failure "missing pdftotext blocks mismatched thesis extract" env THESIS_TOOLING_FORCE_MISSING=pdftotext "$repo_root/scripts/check-tooling" "$case_id" round-a
+expect_output "missing matched extracts: 1"
+
+printf 'Synthetic extracted text.\n' >"$round_dir/extracted/thesis.txt"
+expect_success "missing pdftotext warns when extract exists" env THESIS_TOOLING_FORCE_MISSING=pdftotext "$repo_root/scripts/check-tooling" "$case_id" round-a
+expect_output "WARN pdftotext"
+expect_success "missing codex warns for pdf-reader on PDF round" env THESIS_TOOLING_FORCE_MISSING=codex "$repo_root/scripts/check-tooling" "$case_id" round-a
+expect_output "WARN pdf-reader MCP"
+
+mkdir -p "$round_dir/work/code/src"
+printf 'print(\"smoke\")\n' >"$round_dir/work/code/src/main.py"
+expect_success "case doctor exposes tooling preflight" "$repo_root/scripts/case-doctor" "$case_id" round-a
+expect_output "## Tooling Preflight"
+expect_output "Tooling preflight:"
+
+case_id="${case_prefix}_archive_code"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf 'not a real tarball, just a name-level smoke marker\n' >"$round_dir/inputs/artifact-v1.tar.gz"
+expect_success "archive-only code makes Serena relevant" "$repo_root/scripts/check-tooling" "$case_id" round-a
+expect_output "WARN Serena"
+
+echo "Tooling smoke passed"

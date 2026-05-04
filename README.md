@@ -338,6 +338,7 @@ jen rychle ukáže, co chybí nebo je stale před začátkem review.
 Časté finální kontroly:
 
 ```bash
+scripts/check-tooling <case-id>
 scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
@@ -369,6 +370,12 @@ workflow repozitář a záměrně ignoruje `cases/**`; kód studenta je samostat
 Serena projekt podle konkrétního rootu z `work/serena_roots.json`. Pokud je
 potřeba přegenerovat celý `work/code/`, použijte `--refresh` jen po ověření, že
 v něm nejsou ručně importované GitHub/code rooty, které by se tím smazaly.
+
+`scripts/check-tooling <case-id> [round-id]` je read-only preflight pro lokální
+nástroje a konektory. Tvrdě selže jen na blokerech v aktuálním kontextu, např.
+chybějící `pdftotext` u roundu s PDF bez extractu; GitHub CLI auth, Serena,
+`pdf-reader-mcp` a jazykové/literační nástroje hlásí jako explicitní stav nebo
+varování podle relevance pro daný round.
 
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
 zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
@@ -455,6 +462,7 @@ scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
 scripts/smoke-agent-coverage
 scripts/smoke-opponent-report
+scripts/smoke-tooling
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace
 scripts/smoke-private

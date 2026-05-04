@@ -862,6 +862,7 @@ def main(argv: list[str]) -> int:
     gates = [
         run_gate(root, "reviewer profile", ["scripts/check-reviewer-profile", args.case_id]),
         run_gate(root, "round readiness", ["scripts/check-round-ready", args.case_id, round_id]),
+        run_gate(root, "tooling preflight", ["scripts/check-tooling", "--fast", args.case_id, round_id]),
         run_gate(root, "supervisor deadline", ["scripts/supervisor-deadline", args.case_id, round_id]),
         run_gate(root, "supervisor readiness", ["scripts/check-supervisor-ready", args.case_id, round_id]),
         run_gate(root, "feedback language config", ["scripts/check-feedback-language", "--config-only", args.case_id, round_id]),
@@ -959,6 +960,12 @@ def main(argv: list[str]) -> int:
         output = one_line(gate.output) if gate.ok else compact_output(gate.output)
         gate_lines.append(f"- {label} {gate.name}: `{gate.command}` -> {output}")
     output_section("Workflow Gates", gate_lines)
+
+    tooling_gate = next((gate for gate in gates if gate.name == "tooling preflight"), None)
+    output_section(
+        "Tooling Preflight",
+        nonempty_lines(tooling_gate.output) if tooling_gate else ["- not run"],
+    )
 
     note_files = sorted((round_dir / "notes").glob("*.md")) if (round_dir / "notes").is_dir() else []
     thesis_source = round_dir / "work" / "thesis-source"

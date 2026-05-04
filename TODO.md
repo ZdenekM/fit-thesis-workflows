@@ -1,9 +1,5 @@
 # TODO
 
-- [ ] Add a tooling and connector preflight.
-   - Add a read-only `scripts/check-tooling` that reports availability and versions for `pdftotext`, `git`, `gh` authentication, Node/pdf-reader MCP readiness, Serena activation viability, and optional local grammar/literature tools.
-   - Keep optional tools non-blocking by default, but make missing required tools explicit before long agent workflows start.
-   - Show the preflight result in `case-doctor` so an operator sees likely blockers before spawning review agents.
 - [ ] Add thin validators for core internal evidence artifacts.
    - Add shape/evidence validators such as `scripts/check-revision-diff`, `scripts/check-code-consistency`, and `scripts/check-code-quality-review`.
    - Keep them as structural/evidence checks, not judgment engines: required headings, concrete evidence references, limitations, no placeholders, no internal path leaks in downstream-facing summaries, and stale-manifest compatibility.
