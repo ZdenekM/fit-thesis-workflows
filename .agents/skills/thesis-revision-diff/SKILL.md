@@ -20,22 +20,23 @@ If the user does not name rounds, compare the newest round with the previous one
 
 ## Process
 
-1. Read both rounds' notes and outputs.
-2. Compare thesis text extracts, LaTeX sources, code trees, README/configs, and generated outputs where available. Treat submitted PDFs as rendered artifacts; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only for targeted PDF detail checks such as page ranges, metadata, page counts, figures/tables, layout-sensitive changes, or ambiguous extraction.
-3. Read old `outputs/feedback_student.md`.
-4. Classify old feedback:
+1. Confirm that the user explicitly authorized agent use in the current request when this diff will be used as final standalone evidence or as input to sendable feedback. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+2. Read both rounds' notes and outputs.
+3. Compare thesis text extracts, LaTeX sources, code trees, README/configs, and generated outputs where available. Treat submitted PDFs as rendered artifacts; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only for targeted PDF detail checks such as page ranges, metadata, page counts, figures/tables, layout-sensitive changes, or ambiguous extraction.
+4. Read old `outputs/feedback_student.md`.
+5. Classify old feedback:
    - addressed,
    - partially addressed,
    - still relevant,
    - no longer relevant,
    - cannot verify from current inputs.
-5. Identify new risks introduced by the current revision.
+6. Identify new risks introduced by the current revision.
 
 Use structured tools when available: `diff`, `git diff --no-index`, file lists, README/config inspection, and targeted text search. Do not rely on vague impressions when files are available.
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback, `thesis-supervisor-feedback-review` must re-check the previous-feedback status before using it; that certifies only the findings used in student-facing feedback, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 ## Output
 

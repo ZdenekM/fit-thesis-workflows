@@ -25,12 +25,14 @@ cases/<case-id>/rounds/<round-id>/
 ## Process
 
 1. Resolve the active case and round.
-2. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment, private assignment notes, or valid reviewer profile.
-3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
-4. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
-5. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
-6. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-7. Build a map of:
+2. Confirm that the user explicitly authorized agent use in the current request. This workflow requires role-split agents. If explicit authorization is missing, stop before generating or revising opponent materials and ask the user to authorize agents.
+3. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment, private assignment notes, or valid reviewer profile.
+4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
+5. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
+6. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
+7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
+8. When the thesis contains quantitative, evaluation, experiment, metric, performance, or result claims, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. Use the warnings as review prompts for unit/scale, baseline or comparator, better/worse direction, practical magnitude, reproducibility, and whether the interpretation is proportionate to the measured evidence.
+9. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
    - main technical contribution,
@@ -41,17 +43,18 @@ cases/<case-id>/rounds/<round-id>/
    - literature/citation issues,
    - likely strengths,
    - risks that may affect grading.
-8. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
-9. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
-10. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-11. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-12. Use confidence labels for important statements:
+10. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
+11. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
+12. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+13. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+14. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-13. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different reviewer agent or reviewer role run that review pass.
+15. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
+16. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
 
 ## When Using Agents
 
@@ -76,6 +79,12 @@ The synthesis step must integrate findings into one coherent operator artifact.
 ## Output
 
 Write `outputs/oponent_podklady.md` for the first generated materials. Agent-generated drafts should preferably go to `work/oponent_podklady_draft.md`; the review pass writes `outputs/oponent_podklady_revidovane.md`.
+
+Before closeout, validate reviewed materials with:
+
+```bash
+scripts/check-opponent-materials <case-id> [round-id]
+```
 
 ```markdown
 # Podklady pro oponentsky posudek

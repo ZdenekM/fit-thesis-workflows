@@ -29,16 +29,17 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 ## Process
 
 1. Resolve the active case and round.
-2. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, deadline override, or valid reviewer profile. Keep the script output as deadline context for the feedback.
-3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
-4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
-5. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
-6. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
-7. State review limits before analysis: what was available, what was static-only, and what was not checked.
-8. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers, or record the concrete limitation.
-9. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
-10. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
-11. Build a short private map:
+2. Confirm that the user explicitly authorized agent use in the current request. This workflow requires role-split agents. If explicit authorization is missing, stop before generating or revising feedback and ask the user to authorize agents.
+3. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, deadline override, or valid reviewer profile. Keep the script output as deadline context for the feedback.
+4. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
+5. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
+6. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
+7. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
+8. State review limits before analysis: what was available, what was static-only, and what was not checked.
+9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
+10. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
+11. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
+12. Build a short private map:
    - current thesis phase,
    - supervisor deadline context and time remaining,
    - reviewer profile preferences that are relevant to this round,
@@ -51,10 +52,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-12. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-13. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
-14. Prioritize issues by impact on current phase. Do not list every possible improvement.
-15. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different reviewer agent or reviewer role run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+13. When the thesis contains quantitative, evaluation, experiment, metric, performance, or result claims, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. Use the warnings as review prompts for unit/scale, baseline or comparator, better/worse direction, practical magnitude, reproducibility, and whether the interpretation is proportionate to the measured evidence.
+14. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+15. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
+16. Prioritize issues by impact on current phase. Do not list every possible improvement.
+17. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
 
 ## Supervisor Notes Handling
 
@@ -115,6 +117,7 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - For code-quality findings, cite concrete code paths, configs, README sections, missing tests, or missing build instructions, and keep only actionable phase-appropriate items in student-facing feedback.
 - Treat standalone `outputs/code_consistency.md`, `outputs/code_quality_review.md`, and `outputs/literature_citation_review.md` as internal/operator evidence unless the user explicitly asks to send them.
 - Mark indirect conclusions as estimates or risks.
+- For quantitative/evaluation results, do not stop at checking whether a metric is present. Sanity-check whether the values are plausible in the thesis domain, whether the improvement is practically meaningful, whether the baseline/comparator and sample size are clear, whether the calculation is reproducible, and whether the conclusion is not stronger than the evidence.
 
 ## Output
 

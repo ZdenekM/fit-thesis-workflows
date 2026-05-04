@@ -84,11 +84,15 @@ GENERIC_WORKFLOW_DIR_PATTERNS = (
 )
 
 PLACEHOLDER_PATTERNS = (
-    r"<[^>\n]+>",
     r"\bYYYY-MM-DD\b",
     r"\bTBD\b",
     r"\blorem ipsum\b",
     r"^\s*(?:[-*]\s*)?TODO\s*:",
+)
+ANGLE_PLACEHOLDER_RE = re.compile(r"<([^>\n]+)>")
+AUTOLINK_RE = re.compile(
+    r"(?:https?://|mailto:)[^\s<>]+|[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+",
+    re.IGNORECASE,
 )
 
 CONCRETE_ANCHORS = (
@@ -314,11 +318,31 @@ def check_scope(lines: list[str], lang: str, errors: list[str]) -> None:
 
 def split_table_row(line: str) -> list[str]:
     stripped = line.strip()
-    if stripped.startswith("|"):
-        stripped = stripped[1:]
-    if stripped.endswith("|"):
-        stripped = stripped[:-1]
-    return [cell.strip() for cell in stripped.split("|")]
+    cells: list[str] = []
+    current: list[str] = []
+    escaped = False
+    in_code = False
+
+    for char in stripped:
+        if char == "\\" and not escaped:
+            current.append(char)
+            escaped = True
+            continue
+        if char == "`" and not escaped:
+            in_code = not in_code
+        if char == "|" and not escaped and not in_code:
+            cells.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+        escaped = False
+
+    cells.append("".join(current).strip())
+    if cells and cells[0] == "":
+        cells = cells[1:]
+    if cells and cells[-1] == "":
+        cells = cells[:-1]
+    return cells
 
 
 def is_delimiter_row(cells: list[str]) -> bool:
@@ -479,6 +503,11 @@ def check_internal_leaks(
 
 
 def check_placeholders(text: str, errors: list[str], warnings: list[str]) -> None:
+    for match in ANGLE_PLACEHOLDER_RE.finditer(text):
+        value = match.group(1).strip()
+        if not AUTOLINK_RE.fullmatch(value):
+            errors.append("leftover angle-bracket placeholder/template text")
+
     for pattern in PLACEHOLDER_PATTERNS:
         if re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE):
             errors.append(f"leftover placeholder/template text matching: {pattern}")

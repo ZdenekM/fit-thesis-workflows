@@ -9,11 +9,14 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Never move student PDFs, source zips, extracted text, code submissions, private notes, or generated case outputs into tracked paths.
 - Do not preserve backward compatibility with older `~/code/diplomky` workflows unless the user explicitly asks.
 - Avoid workaround thinking. If the workflow is too complicated, simplify the workflow rather than adding fallback layers.
+- Pipeline and helper-script extensions must be general and context-aware. Do not encode one real thesis, domain, dataset, concrete metric value, filename, or expected conclusion as an active workflow rule. When a case exposes a useful pattern, generalize it into evidence classes, configurable reviewer prompts, or cross-case checks, and apply the interpretation in the context of the current assignment, thesis phase, artifacts, and claims.
 - Do not pretend to have checked anything that was not available in the inputs. Mark indirect conclusions as estimates, risks, or items for manual verification.
 - Important negative claims must cite evidence: a chapter/section/page, a file/path/function, a README/config/test, a missing artifact, or a concrete mismatch.
+- Quantitative, evaluation, experiment, metric, performance, and result claims require semantic sanity review: check unit/scale, baseline, practical magnitude, reproducibility, and whether the thesis interpretation is proportionate to the values.
 - Treat the submitted thesis PDF as the authoritative rendered thesis artifact. Do not run LaTeX/Overleaf builds by default; use source zips for diff/search/evidence. Compile only when the user explicitly asks, or when no rendered PDF is available and the limitation is stated.
 - Before generating supervisor feedback, require assignment, deadline, and reviewer-profile context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, deadline override, or valid reviewer profile.
 - Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
+- Supervisor feedback, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
 
 ## Skill Routing
 
@@ -31,7 +34,7 @@ Use these repo-local skills as the primary workflow definitions:
 
 When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
-Code artifacts include source directories and archives copied into `inputs/`. Before delegating to read-only reviewer agents, make the code inspectable under the ignored round workspace, typically `work/code/`, or record a concrete limitation in the final artifact.
+Code artifacts include source directories and archives copied into `inputs/`. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically `work/code/`, before delegating to read-only reviewer agents. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
 When changing workflow docs or skills, scan `WORKFLOW_MEMORY.md` for reusable
@@ -66,7 +69,7 @@ Do not repeat old feedback mechanically.
 
 ## Parallel Review
 
-When the user asks to use agents, give them enough time. For large thesis/code reviews, split work by role rather than by arbitrary files:
+When the user explicitly authorizes agents, give them enough time. If authorization is missing, ask once and wait; do not begin the parallel review or generate a sendable/final artifact. For thesis/code reviews, split work by role rather than by arbitrary files:
 
 - text structure and assignment coverage,
 - code/reproducibility and text-code consistency,
@@ -79,7 +82,7 @@ The final output must integrate findings into the requested artifact, not just l
 
 ## Generated Artifact Review Loop
 
-Any agent-generated Markdown artifact under `outputs/` must pass an independent review loop before it is treated as sendable output or final operator evidence. The loop terminates when a different reviewer agent or reviewer role checks the draft or evidence and either writes the reviewed target artifact or explicitly approves it. Material edits after that review reopen the draft state.
+Any generated Markdown artifact under `outputs/` that is sendable to a student/opponent context, or used as final operator evidence, must pass an explicitly authorized independent agent review loop. If the user has not authorized agents in the current request, ask for authorization and stop before writing or revising the final artifact. The loop terminates only when a different explicitly authorized reviewer agent checks the draft or evidence and either writes the reviewed target artifact or explicitly approves it. Material edits after that review reopen the draft state.
 
 Dedicated review loops:
 
@@ -108,4 +111,4 @@ Standalone code consistency, code quality, and literature/citation outputs are i
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. When changing deterministic checkers, run their smoke scripts too. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`.

@@ -66,7 +66,7 @@ date into `case.md` as `Deadline override: YYYY-MM-DD`.
 Then work in chat/Codex by pointing the agent at the case and asking for the relevant artifact, for example:
 
 ```text
-Pouzij skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-supervisor-feedback-review a teprve reviewed final uloz do outputs/feedback_student.md.
+Pouzij agenty a skill thesis-supervisor-feedback pro cases/novak-bp-2026. Pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta s thesis-supervisor-feedback-review a teprve reviewed final uloz do outputs/feedback_student.md.
 ```
 
 ## Case Workspace
@@ -142,20 +142,24 @@ Durable workflow lessons and rationale live in `WORKFLOW_MEMORY.md`; promote
 anything operational from there into the relevant skill, template, README,
 AGENTS, or TODO entry before relying on it as an active rule.
 
-Agent-generated Markdown under `outputs/` is treated as ready only after an
-independent review loop. The loop terminates when a different reviewer agent or
-reviewer role checks the draft/evidence and writes or approves the reviewed
-target artifact; later material edits reopen the draft state. Supervisor
-feedback uses the `thesis-supervisor-feedback` ->
-`thesis-supervisor-feedback-review` loop. Opponent materials use the
-`thesis-opponent-materials` -> `thesis-opponent-materials-review` loop.
-Internal evidence artifacts such as `outputs/revision_diff.md`,
-`outputs/code_consistency.md`, `outputs/code_quality_review.md`, and
-`outputs/literature_citation_review.md` are final standalone evidence only
-after a separate evidence-calibration review or an explicit recorded verdict.
+Any generated Markdown under `outputs/` that is sendable to a
+student/opponent context, or used as final operator evidence, is treated as
+ready only after an independent review loop. The loop terminates when a
+different explicitly authorized reviewer agent checks the draft/evidence and
+writes or approves the reviewed target artifact; later material edits reopen
+the draft state. Supervisor feedback uses the
+`thesis-supervisor-feedback` -> `thesis-supervisor-feedback-review` loop.
+Opponent materials use the `thesis-opponent-materials` ->
+`thesis-opponent-materials-review` loop. Internal evidence artifacts such as
+`outputs/revision_diff.md`, `outputs/code_consistency.md`,
+`outputs/code_quality_review.md`, and `outputs/literature_citation_review.md`
+are final standalone evidence only after a separate explicitly authorized
+evidence-calibration reviewer/agent checks them and the verdict is recorded.
 Downstream synthesis review certifies only the findings used in that synthesis.
 
-When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; make them inspectable under `work/code/` before delegating to read-only reviewers, or record the limitation. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
+When a round contains code, supervisor feedback and opponent materials must run both `thesis-code-consistency` and `thesis-code-quality-review`, or state why one of those checks could not be performed from the available inputs. Archives in `inputs/` count as code; after agent use is authorized, make them inspectable under `work/code/` before delegating to read-only reviewers. Record a limitation only when the archive or submitted code cannot be technically unpacked or inspected from the available inputs. Standalone code-check artifacts such as `outputs/code_consistency.md` and `outputs/code_quality_review.md` are internal/operator evidence, not student-facing output by default.
+
+When a thesis contains quantitative results, experiments, metrics, performance claims, user-study scores, or other measured values, run `scripts/check-evaluation-claims <case-id> [round-id]` before synthesis. The script emits review prompts for missing data/calculation artifacts, unclear units or baselines, weak practical effect sizes, domain-scale concerns, and strong conclusions near measured values. Treat those warnings as inputs to agent/human calibration, not as automatic findings.
 
 For thesis text review, use the submitted PDF as the rendered artifact. Use
 LaTeX sources for structural diffs and exact snippets, not as a build target by
@@ -199,7 +203,7 @@ scripts/check-supervisor-ready <case-id>
 Use this prompt in Codex:
 
 ```text
-Pouzij thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-supervisor-feedback-review a uloz reviewed final do outputs/feedback_student.md.
+Pouzij agenty a thesis-supervisor-feedback pro cases/<case-id>. Projdi aktualni round, zohledni predchozi feedback, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/feedback_student_draft.md; potom pouzij jineho reviewer agenta s thesis-supervisor-feedback-review a uloz reviewed final do outputs/feedback_student.md.
 ```
 
 Before sending supervisor feedback, validate both the configured output-language heading structure and final feedback hygiene:
@@ -209,13 +213,26 @@ scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 ```
 
-`check-feedback-language` is a deterministic heading/structure guard. `check-feedback-output` also checks review date, scope/limitations, priority-table shape, obvious evidence anchors, internal workflow leaks, placeholders, and generic checklist items. Still review the body text language, tone, and content manually before sending.
+`check-feedback-language` is a deterministic heading/structure guard. `check-feedback-output` also checks review date, scope/limitations, priority-table shape, obvious evidence anchors, internal workflow leaks, placeholders, and generic checklist items. Still review the body text language, tone, and content manually before sending. If the work contains quantitative results, `check-evaluation-claims` should already have been run before synthesis and its warnings should have been calibrated in the feedback.
 
 For the first opponent test, use:
 
 ```text
-Pouzij thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/oponent_podklady_draft.md; potom pouzij jineho reviewer agenta nebo reviewer roli s thesis-opponent-materials-review a uloz reviewed vystup jako outputs/oponent_podklady_revidovane.md.
+Pouzij agenty a thesis-opponent-materials pro cases/<case-id>, pri dostupnem kodu pouzij thesis-code-consistency i thesis-code-quality-review. Prvni agentni navrh uloz do work/oponent_podklady_draft.md; potom pouzij jineho reviewer agenta s thesis-opponent-materials-review a uloz reviewed vystup jako outputs/oponent_podklady_revidovane.md.
 ```
+
+Before relying on reviewed opponent materials, validate the deterministic output
+shape and hygiene:
+
+```bash
+scripts/check-opponent-materials <case-id>
+```
+
+`check-opponent-materials` checks the reviewed output sections, assignment
+coverage table, evidence ledger confidence labels, risk table shape, concrete
+P0/P1 evidence anchors, IS coverage, grading intervals, defense questions,
+manual checks, placeholders, and obvious workflow leaks. It does not judge
+whether the substantive opponent conclusions are correct.
 
 Before committing workflow changes, run the lightweight hygiene checks relevant to the files touched:
 
@@ -225,6 +242,15 @@ git diff --check
 git diff --cached --check
 scripts/check-private
 scripts/check-scripts
+```
+
+When touching deterministic workflow validators, run the matching smoke scripts
+as well, for example:
+
+```bash
+scripts/smoke-feedback-output
+scripts/smoke-opponent-materials
+scripts/smoke-evaluation-claims
 ```
 
 When touching `.codex/agents/*.toml` or Python hooks, also parse the TOML and compile the hook files before committing.

@@ -35,20 +35,21 @@ for example `work/literature/`.
 
 ## Process
 
-1. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, or a standalone operator check. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]` unless fresh output from that command is already in context. For opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
-2. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Keep a source map from citation key or title to thesis locations and claims it appears to support.
-3. Resolve sources using legal/public metadata and PDFs where available. Prefer DOI, arXiv, publisher pages, project pages, open repositories, and user-provided PDFs. Do not bypass paywalls or imply access to unavailable sources.
-4. For PDFs, use `pdftotext` extracts as the default evidence. Use `pdf-reader-mcp` only for targeted metadata, page ranges, page counts, figures/tables, equations, or layout-sensitive checks; if unavailable, record the limitation.
-5. Classify each important citation:
+1. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+2. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, or a standalone operator check. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]` unless fresh output from that command is already in context. For opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
+3. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Keep a source map from citation key or title to thesis locations and claims it appears to support.
+4. Resolve sources using legal/public metadata and PDFs where available. Prefer DOI, arXiv, publisher pages, project pages, open repositories, and user-provided PDFs. Do not bypass paywalls or imply access to unavailable sources.
+5. For PDFs, use `pdftotext` extracts as the default evidence. Use `pdf-reader-mcp` only for targeted metadata, page ranges, page counts, figures/tables, equations, or layout-sensitive checks; if unavailable, record the limitation.
+6. Classify each important citation:
    - relevant and used appropriately,
    - relevant but underused or weakly connected to the thesis claim,
    - only partially relevant,
    - bibliographic/metadata issue,
    - inaccessible or not verifiable from current inputs,
    - potentially missing literature area.
-6. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
-7. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
-8. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
+7. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
+8. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
+9. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
 
 ## Evidence Rules
 
@@ -61,7 +62,7 @@ for example `work/literature/`.
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback or opponent materials, the downstream synthesis review must re-check source availability, claim support, and priority calibration before using it; that certifies only the findings used in the synthesis, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 ## Output
 

@@ -22,6 +22,8 @@ If the draft is elsewhere, use the path provided by the user.
 
 ## Process
 
+Before reviewing or rewriting a sendable report, confirm that the user explicitly authorized agent use in the current request. This workflow requires an independent agent review. If explicit authorization is missing, stop and ask the user to authorize agents.
+
 Review the report as a report, not as the student's thesis. Check:
 
 1. Whether every important criticism is supported by evidence.
@@ -43,7 +45,7 @@ Do not soften the report automatically. The goal is accuracy, fairness, evidence
 
 ## Review Loop
 
-This skill is the independent review pass for a human-drafted opponent report. If an agent later rewrites the report text itself, run this review again on the rewritten draft before treating the report as sendable.
+This skill is the independent review pass for a human-drafted opponent report. If agent authorization is missing, ask before writing final sendable review feedback or rewriting the report. If an agent later rewrites the report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
 ## Output
 

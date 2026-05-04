@@ -23,15 +23,16 @@ cases/<case-id>/rounds/<round-id>/
   outputs/
 ```
 
-Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. The main workflow should unpack them into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
+Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. After agent use is authorized, the main workflow should unpack them into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
 
 ## Process
 
 1. Resolve the active case and round.
-2. Enumerate available code artifacts, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
-3. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If you are in a read-only reviewer role, report the archive path and the need for an unpacked workspace instead of silently skipping the review.
-4. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
-5. Inspect the main implementation paths and assess:
+2. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+3. Enumerate available code artifacts, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, and thesis text that explains implementation choices.
+4. If code is present only as an archive, unpack it into `work/code/` when the current task permits writing ignored case workspace evidence. If you are in a read-only reviewer agent, report the archive path and the need for an unpacked workspace instead of silently skipping the review.
+5. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
+6. Inspect the main implementation paths and assess:
    - architecture/design fit for the assignment and chosen framework,
    - module boundaries, data model, naming, and cohesion,
    - maintainability and readability,
@@ -39,8 +40,8 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
    - testing strategy, smoke-test workflow, and reproducibility for a reviewer,
    - README/developer documentation and installation/build instructions,
    - whether comments explain non-obvious logic without replacing clear code.
-6. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
-7. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
+7. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
+8. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
 
 ## Evidence Rules
 
@@ -61,7 +62,7 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent or reviewer role checks it. For standalone final use, record the reviewer verdict in `## Review Status`, the provenance manifest, or the final response. When it is generated as input to supervisor feedback or opponent materials, the downstream synthesis review must re-check the important findings before using them; that certifies only the findings used in the synthesis, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 ## Output
 

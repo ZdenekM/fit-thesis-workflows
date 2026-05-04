@@ -188,21 +188,33 @@ EOF
 
 write_ascii_cs_feedback() {
   local output="$1"
-  cat >"$output" <<'EOF'
-# Zpetna vazba k aktualni verzi prace
-## Kratke celkove shrnuti
-## Rozsah kontroly
-## Odhad faze prace a doporucene zamereni
-## Co se od minule verze posunulo
-## Co je na praci uz dobre
-## Nejvyssi priority pro aktualni iteraci
-## Splneni zadani
-## Pripominky k textu prace
-## Soulad textu s kodem
-## Co z minule zpetne vazby zustava
-## Doporuceny plan dalsich uprav
-## Checklist pro aktualni fazi
-EOF
+  write_valid_cs_feedback "$output"
+  python3 - "$output" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+replacements = {
+    "# Zpětná vazba k aktuální verzi práce": "# Zpetna vazba k aktualni verzi prace",
+    "## Krátké celkové shrnutí": "## Kratke celkove shrnuti",
+    "## Odhad fáze práce a doporučené zaměření": "## Odhad faze prace a doporucene zamereni",
+    "## Co se od minulé verze posunulo": "## Co se od minule verze posunulo",
+    "## Co je na práci už dobré": "## Co je na praci uz dobre",
+    "## Nejvyšší priority pro aktuální iteraci": "## Nejvyssi priority pro aktualni iteraci",
+    "## Splnění zadání": "## Splneni zadani",
+    "## Připomínky k textu práce": "## Pripominky k textu prace",
+    "## Soulad textu s kódem": "## Soulad textu s kodem",
+    "## Co z minulé zpětné vazby zůstává": "## Co z minule zpetne vazby zustava",
+    "## Doporučený plán dalších úprav": "## Doporuceny plan dalsich uprav",
+    "## Checklist pro aktuální fázi": "## Checklist pro aktualni fazi",
+}
+for old, new in replacements.items():
+    if old not in text:
+        raise SystemExit(f"Missing expected heading: {old}")
+    text = text.replace(old, new, 1)
+path.write_text(text, encoding="utf-8")
+PY
 }
 
 expect_success() {
@@ -227,10 +239,32 @@ expect_failure() {
   fi
 }
 
+expect_failure_matching() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  expect_failure "$name" "$@"
+  if ! grep -E "$pattern" /tmp/check-feedback-output.out /tmp/check-feedback-output.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-feedback-output.err >&2
+    cat /tmp/check-feedback-output.out >&2
+    exit 1
+  fi
+}
+
 case_id="${case_prefix}_valid_cs"
 make_case "$case_id" "Student feedback language: cs"
 write_valid_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 expect_success "valid Czech feedback passes" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_escaped_pipe_autolink"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Zadání bod 2 a závěr práce." "Zadání bod 2 \\| závěr práce a <https://example.com/metriky>."
+expect_success "escaped pipe and autolink pass" "$repo_root/scripts/check-feedback-output" "$case_id"
 
 case_id="${case_prefix}_valid_en"
 make_case "$case_id" "Student feedback language: en"
@@ -363,7 +397,7 @@ expect_failure "placeholder checklist item fails" "$repo_root/scripts/check-feed
 case_id="${case_prefix}_ascii_headings"
 make_case "$case_id" "Student feedback language: cs"
 write_ascii_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
-expect_failure "ASCII Czech headings fail through language checker" "$repo_root/scripts/check-feedback-output" "$case_id"
+expect_failure_matching "ASCII Czech headings fail through language checker" "language/heading check failed|Missing expected heading" "$repo_root/scripts/check-feedback-output" "$case_id"
 
 rm -f /tmp/check-feedback-output.out /tmp/check-feedback-output.err
 echo "Feedback output smoke passed"

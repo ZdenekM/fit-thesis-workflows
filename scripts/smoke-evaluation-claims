@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__evaluation_claims_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+  rm -f /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local write_current="${3:-yes}"
+
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+  } >"$repo_root/cases/$case_id/case.md"
+
+  if [[ "$write_current" == "yes" ]]; then
+    echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  fi
+}
+
+write_text() {
+  local case_id="$1"
+  local round_id="round-a"
+  local text
+
+  if [[ $# -eq 2 ]]; then
+    text="$2"
+  elif [[ $# -eq 3 ]]; then
+    round_id="$2"
+    text="$3"
+  else
+    echo "write_text expects CASE_ID [ROUND_ID] TEXT" >&2
+    exit 1
+  fi
+
+  printf "%s\n" "$text" >"$repo_root/cases/$case_id/rounds/$round_id/extracted/thesis.txt"
+}
+
+expect_success_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if ! "$@" >/tmp/check-evaluation-claims.out 2>/tmp/check-evaluation-claims.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-evaluation-claims.err >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err >/dev/null; then
+    echo "Expected output did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-evaluation-claims.out >&2
+    cat /tmp/check-evaluation-claims.err >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+
+  if "$@" >/tmp/check-evaluation-claims.out 2>/tmp/check-evaluation-claims.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-evaluation-claims.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/check-evaluation-claims.err >&2
+    cat /tmp/check-evaluation-claims.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_no_metrics"
+make_case "$case_id"
+write_text "$case_id" "Prace popisuje navrh, architekturu a strukturu odevzdanych artefaktu."
+expect_success_contains "no metric text passes" "Evaluation-claim check passed" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+
+case_id="${case_prefix}_metric_no_artifacts"
+make_case "$case_id"
+write_text "$case_id" "Experiment ukazuje RMSE 12.4 a zaver tvrdi, ze metoda je lepsi."
+expect_success_contains "metric text without artifacts warns" "metric/evaluation claims are present, but no obvious measurement data" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+
+case_id="${case_prefix}_table_warning"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+cat >"$round_dir/extracted/thesis.txt" <<'EOF'
+Kapacita systemu je 100 kW, coz dava meritko pro interpretaci vysledku.
+
+Method        RMSE [kW]    MAE [kW]
+baseline      10           8
+variant       9            10
+EOF
+echo "method,rmse,mae" >"$round_dir/inputs/eval_results.csv"
+echo "print('calculate metrics')" >"$round_dir/work/eval_metrics.py"
+expect_success_contains "metric table relationship warns" "RMSE is lower than MAE" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+
+case_id="${case_prefix}_explicit_round"
+make_case "$case_id" "round-b" "no"
+write_text "$case_id" "round-b" "Accuracy 105 % vyzaduje kontrolu jednotek."
+expect_success_contains "explicit round works" "metric/evaluation claims are present" "$repo_root/scripts/check-evaluation-claims" "$case_id" "round-b"
+
+case_id="${case_prefix}_missing_text"
+make_case "$case_id"
+rm -f "$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
+expect_failure_contains "missing source fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+
+echo "Evaluation claims smoke passed"
