@@ -305,10 +305,16 @@ Spusť readiness a privacy kontroly pro aktuální case a řekni mi, co chybí.
 Základní diagnostika:
 
 ```bash
+scripts/case-doctor <case-id>
 scripts/check-supervisor-ready <case-id>
 scripts/check-round-ready <case-id>
 scripts/check-private
 ```
+
+`scripts/case-doctor <case-id> [round-id]` je read-only operator snapshot: shrne
+aktivní round, readiness checky, deadline kalibraci, vstupy, extracty, kód,
+výstupy, review manifest a předchozí feedback. Nenahrazuje finální gate checky,
+jen rychle ukáže, co chybí nebo je stale před začátkem review.
 
 Časté finální kontroly:
 
@@ -414,6 +420,7 @@ scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
+scripts/smoke-case-doctor
 scripts/smoke-private
 ```
 

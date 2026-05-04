@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__case_doctor_smoke_$$"
+created_cases=()
+out_file="/tmp/case-doctor-smoke.$$.out"
+err_file="/tmp/case-doctor-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/notes"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Student feedback language: cs"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  write_assignment "$case_id" "$round_id"
+}
+
+write_assignment() {
+  local case_id="$1"
+  local round_id="$2"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available in this smoke workspace.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+make_zip_with_code() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname='synthetic'\n")
+    archive.writestr("project/src/main.py", "print('synthetic')\n")
+PY
+}
+
+case_id="${case_prefix}_valid"
+make_case "$case_id"
+expect_success "valid minimal case" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "Status: OK"
+
+case_id="${case_prefix}_missing_current"
+make_case "$case_id"
+rm "$repo_root/cases/$case_id/current-round.txt"
+expect_failure "missing current round" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "Missing current round"
+expect_success "explicit round works without current round" "$repo_root/scripts/case-doctor" "$case_id" round-a
+expect_output "Missing current round"
+
+case_id="${case_prefix}_missing_round"
+make_case "$case_id"
+echo "missing-round" >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "current round points to missing dir" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "Round does not exist"
+
+case_id="${case_prefix}_explicit_round"
+make_case "$case_id" round-current
+mkdir -p "$repo_root/cases/$case_id/rounds/round-other/inputs" \
+  "$repo_root/cases/$case_id/rounds/round-other/extracted" \
+  "$repo_root/cases/$case_id/rounds/round-other/notes" \
+  "$repo_root/cases/$case_id/rounds/round-other/outputs" \
+  "$repo_root/cases/$case_id/rounds/round-other/work"
+write_assignment "$case_id" round-other
+expect_success "explicit round differs from current" "$repo_root/scripts/case-doctor" "$case_id" round-other
+expect_output "differs from current-round.txt"
+
+case_id="${case_prefix}_pdf_missing_extract"
+make_case "$case_id"
+printf '%s\n' '%PDF-1.4 synthetic' >"$repo_root/cases/$case_id/rounds/round-a/inputs/thesis.pdf"
+expect_success "pdf missing extract warns" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "missing matching extracted text"
+
+case_id="${case_prefix}_pdf_with_extract"
+make_case "$case_id"
+printf '%s\n' '%PDF-1.4 synthetic' >"$repo_root/cases/$case_id/rounds/round-a/inputs/thesis.pdf"
+printf '%s\n' 'Synthetic thesis text.' >"$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
+expect_success "pdf with extract" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "thesis.txt (present)"
+
+case_id="${case_prefix}_multi_pdf_single_extract"
+make_case "$case_id"
+printf '%s\n' '%PDF-1.4 synthetic' >"$repo_root/cases/$case_id/rounds/round-a/inputs/thesis.pdf"
+printf '%s\n' '%PDF-1.4 synthetic' >"$repo_root/cases/$case_id/rounds/round-a/inputs/assignment.pdf"
+printf '%s\n' 'Synthetic thesis text.' >"$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
+expect_success "multi pdf does not reuse single extract" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "inputs/thesis.pdf -> extracted/thesis.txt"
+expect_output "inputs/assignment.pdf -> missing matching extracted text"
+
+case_id="${case_prefix}_code_archive"
+make_case "$case_id"
+make_zip_with_code "$repo_root/cases/$case_id/rounds/round-a/inputs/code.zip"
+expect_success "code archive without work code warns" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "Code evidence detected: yes"
+expect_output "no inspectable work/code"
+
+case_id="${case_prefix}_final_missing_code_reviews"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+printf '%s\n' 'print("synthetic")' >"$repo_root/cases/$case_id/rounds/round-a/inputs/code/main.py"
+printf '%s\n' '# Synthetic final feedback' >"$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "final feedback with code but no code evidence outputs" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "missing code review outputs"
+
+case_id="${case_prefix}_stale_manifest"
+make_case "$case_id"
+printf '%s\n' '# Code Quality Review' >"$repo_root/cases/$case_id/rounds/round-a/outputs/code_quality_review.md"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+printf '%s\n' '# Code Quality Review edited after manifest' >"$repo_root/cases/$case_id/rounds/round-a/outputs/code_quality_review.md"
+expect_failure "stale manifest" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "review manifest failed"
+
+case_id="${case_prefix}_large_archive"
+make_case "$case_id"
+truncate -s 101M "$repo_root/cases/$case_id/rounds/round-a/inputs/code.zip"
+expect_success "large archive metadata only" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "large archive; metadata only"
+expect_output "Code evidence detected: yes"
+
+case_id="${case_prefix}_previous_feedback"
+make_case "$case_id" 20260504-current
+mkdir -p "$repo_root/cases/$case_id/rounds/20260503-previous/outputs"
+printf '%s\n' '# Previous feedback' >"$repo_root/cases/$case_id/rounds/20260503-previous/outputs/feedback_student.md"
+expect_success "previous feedback listed" "$repo_root/scripts/case-doctor" "$case_id"
+expect_output "20260503-previous"
+
+echo "Case doctor smoke passed"
