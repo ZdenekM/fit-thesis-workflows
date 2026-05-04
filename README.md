@@ -18,6 +18,11 @@ rovnou oprav.
 Výsledkem má být použitelný Markdown pro vedoucího nebo oponenta, ne jen
 seznam interních poznámek.
 
+Když se při konkrétní práci ukáže problém, který se bude pravděpodobně opakovat
+i u dalších prací, agent ho má po dokončení výstupu nabídnout k promítnutí do
+workflow. Typicky nejde o case-specifickou věc, ale o obecnou kontrolu, šablonu,
+skill pravidlo nebo TODO pro budoucí helper.
+
 ## Nejrychlejší cesta
 
 1. Otevřete chat s agentem v tomto repozitáři.

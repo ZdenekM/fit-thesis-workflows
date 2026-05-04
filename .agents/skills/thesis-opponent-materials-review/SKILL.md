@@ -39,7 +39,8 @@ If both draft and output files exist, review the draft unless the user explicitl
 12. Keep strengths concrete and evidence-backed.
 13. Check that proposed defense questions are fair, answerable, and tied to important issues.
 14. Keep grading calibration as intervals and rationale, not false precision.
-15. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
+15. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
+16. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
 
 ## Output
 

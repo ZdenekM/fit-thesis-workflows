@@ -73,6 +73,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/code_quality_review.md"
 
+make_untracked_file "tmp-feedback-smoke/figure_media_review.md"
+expect_failure_contains \
+  "figure media review outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/figure_media_review.md"
+
 expect_success "privacy check recovers after cleanup" "$repo_root/scripts/check-private"
 
 echo "Private smoke passed"

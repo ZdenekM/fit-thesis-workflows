@@ -36,6 +36,7 @@ cases/<case-id>/rounds/<round-id>/
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
    - main technical contribution,
+   - thesis structure and heading/outline quality,
    - implementation and artifact evidence,
    - implementation quality and design evidence,
    - experiments/results and whether conclusions are supported,
@@ -127,7 +128,7 @@ Shrn text-code consistency i code-quality/design review. Jasne oddel, co je rozp
 
 ## 12. Text, struktura, formalni stranka a literatura
 
-Shrn relevantni body z `outputs/literature_citation_review.md`, pokud byl tento review pouzit. U oponentskych podkladu res hlavne relevanci, obhajitelnost a oporu citaci pro tvrzeni v praci; nenavrhuj studentovi novou literaturu jako coaching.
+Zhodnot strukturu textu vcetne nadpisu kapitol a podkapitol: delku, srozumitelnost, vztah k nasledujicimu obsahu, zbytecne opakovani slov z nadrazenych nebo sousednich nadpisu a jasne rozliseni navrhu, implementace, testovani, vysledku a diskuse. Shrn relevantni body z `outputs/literature_citation_review.md`, pokud byl tento review pouzit. U oponentskych podkladu res hlavne relevanci, obhajitelnost a oporu citaci pro tvrzeni v praci; nenavrhuj studentovi novou literaturu jako coaching.
 
 ## 13. Orientacni kalibrace hodnoceni
 

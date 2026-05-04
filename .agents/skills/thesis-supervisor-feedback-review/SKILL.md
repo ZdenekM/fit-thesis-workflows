@@ -48,6 +48,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 21. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
 22. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
 23. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+24. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
 ## Priority Calibration
 

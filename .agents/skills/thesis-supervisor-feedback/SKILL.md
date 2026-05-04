@@ -46,6 +46,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - assignment coverage,
    - claimed contribution,
    - thesis structure,
+   - thesis heading/outline quality,
    - experiment/result status,
    - code/reproducibility status,
    - code quality/design status,
@@ -71,6 +72,27 @@ For each supervisor note:
 - write only the resulting student-relevant synthesis into `outputs/feedback_student.md`.
 
 Do not include the private classification table in student-facing feedback. If an operator artifact such as `outputs/revision_diff.md` is already being written, it may record the classification or evidence there. If a supervisor note is mainly a preference, include it only when it is useful for the current phase and can be framed as an actionable recommendation.
+
+## Thesis Heading Review
+
+During text-structure review, inspect the thesis outline from the rendered PDF
+extract and, when useful, from LaTeX/Overleaf source headings. Check whether
+chapter and section titles:
+
+- are reasonably concise for their outline level,
+- accurately match the content that follows,
+- avoid repeating words already carried by the parent chapter or neighboring
+  section titles,
+- distinguish design, implementation, testing, results, and discussion levels
+  clearly,
+- use terminology consistently without turning the table of contents into a
+  repetitive phrase list.
+
+Treat heading problems as phase-calibrated text feedback. In final checks,
+include only fixes that are quick and improve readability or professional
+presentation; do not make minor title polish compete with blockers. Short
+illustrative rewrites are acceptable, but avoid renaming a whole thesis
+structure for the student.
 
 ## Phase Calibration
 
@@ -149,7 +171,7 @@ Datum kontroly: <aktuální datum kontroly, např. 2026-04-29>
 
 ## Připomínky k textu práce
 
-Pokryj podle relevance: abstrakt, úvod a cíl, strukturu kapitol, rešerši/teorii, návrh, implementaci, data/metriky, experimenty, výsledky, diskusi, závěr, obrázky/tabulky, citace a formální stránku.
+Pokryj podle relevance: abstrakt, úvod a cíl, strukturu kapitol, nadpisy kapitol a podkapitol, rešerši/teorii, návrh, implementaci, data/metriky, experimenty, výsledky, diskusi, závěr, obrázky/tabulky, citace a formální stránku.
 
 ## Soulad textu s kódem
 
@@ -188,7 +210,7 @@ Review date: <current review date, e.g. 2026-04-29>
 
 ## Thesis Text Feedback
 
-Cover as relevant: abstract, introduction and goal, chapter structure, related work/theory, design, implementation, data/metrics, experiments, results, discussion, conclusion, figures/tables, citations, and formal presentation.
+Cover as relevant: abstract, introduction and goal, chapter structure, chapter/section headings, related work/theory, design, implementation, data/metrics, experiments, results, discussion, conclusion, figures/tables, citations, and formal presentation.
 
 ## Text-Code Alignment
 
@@ -222,6 +244,7 @@ Before finishing, verify:
 - previous feedback was considered without mechanical repetition,
 - reviewer profile preferences were considered without overriding hard workflow rules,
 - supervisor notes were verified and synthesized rather than copied directly,
+- thesis heading/outline quality was considered where text structure is in scope,
 - no placeholder date such as `YYYY-MM-DD` remains in the final output,
 - priorities are limited and actionable,
 - P0/P1 items are truly important for the current phase,

@@ -27,6 +27,8 @@ workspace.
   implementation detail unless it helps the current task.
 - Keep `AGENTS.md` short. Put reusable procedures into skills, templates, or
   focused docs.
+- Keep `TODO.md` as an unnumbered list of open work; remove completed items
+  instead of preserving checked-off history.
 - Preserve repeated-round history and revision diffs as first-class workflow
   evidence.
 - Keep real case data private by default; tracked workflow files must not
@@ -91,8 +93,27 @@ evidence.
 
 Promoted to: `docs/pdf-detail-layer.md`, README, thesis skills.
 
-## Candidate Improvements
+### 2026-05-04: Recurrent Review Patterns Should Be Promoted
 
-- Add a final feedback output check for required sections, focused priorities,
-  explicit scope, evidence for P0/P1 claims, language mode, and generic
-  checklist phrasing.
+Status: promoted
+
+When a concrete case exposes a review issue that is likely to recur across BP/DP
+work, finish the current artifact first and then offer to promote the pattern
+into the workflow. Promote it at the right level: core guardrail in `AGENTS.md`,
+procedure in a skill, operator guidance in `README.md`, template text, or TODO
+for future automation.
+
+Promoted to: `AGENTS.md`, `README.md`.
+
+### 2026-05-04: Thesis Headings Need Structure Review
+
+Status: promoted
+
+Thesis text review should include a quick outline pass over chapter and section
+headings. Check title length, whether the title matches the following content,
+unnecessary repetition with parent or neighboring headings, and whether design,
+implementation, testing, results, and discussion levels are clearly separated.
+Calibrate severity by phase; in final rounds this is usually presentation polish
+unless the outline harms orientation or defensibility.
+
+Promoted to: supervisor/opponent skills.
