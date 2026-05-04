@@ -137,6 +137,12 @@ draft evidence until a different explicitly authorized reviewer agent checks it.
 A downstream synthesis review certifies only the findings it uses, not the whole
 standalone artifact.
 
+After writing or revising `outputs/github_code_intake.md`, run
+`scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the intake
+is standalone final evidence or only covered by downstream synthesis. Before
+relying on it, run `scripts/check-review-manifest --require-complete <case-id>
+[round-id]`.
+
 ## Limits Of V1
 
 - The helper is `gh`/`git` based; MCP/App reads are a workflow preference for

@@ -1,11 +1,5 @@
 # TODO
 
-- [ ] Add a review evidence/provenance manifest.
-   - Record which inputs, extracted artifacts, helper checks, skills, generating agent/role, and reviewer agent/role contributed to each generated review artifact.
-   - Mark whether each generated `outputs/*.md` artifact passed an independent review loop before being used as final evidence or sendable feedback.
-   - Capture explicit workflow limitations and unavailable evidence in one operator-facing place.
-   - Keep the manifest in the ignored round workspace, for example under `work/`, unless it contains only generic non-case metadata.
-   - Use the manifest to make repeated rounds easier to audit without copying internal workflow detail into student-facing feedback.
 - [ ] Add an opponent report composition bridge.
    - Add a narrow workflow or helper that turns `outputs/oponent_podklady_revidovane.md` into a draft report structured by FIT IS fields.
    - Preserve `thesis-opponent-materials` as the evidence source and `thesis-opponent-report-review` as the final report review pass.

@@ -40,6 +40,8 @@ Use structured tools when available: `diff`, `git diff --no-index`, file lists, 
 
 When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
+After writing or revising `outputs/revision_diff.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the diff is standalone final evidence or only covered by downstream synthesis. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+
 ## Output
 
 Write `outputs/revision_diff.md` in the newer round:

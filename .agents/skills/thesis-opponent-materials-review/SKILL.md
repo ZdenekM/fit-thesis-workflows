@@ -44,6 +44,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 17. Keep grading calibration as intervals and rationale, not false precision.
 18. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
 19. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
+20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Output
 
@@ -53,6 +54,7 @@ Before closeout, validate it with:
 
 ```bash
 scripts/check-opponent-materials <case-id> [round-id]
+scripts/check-review-manifest --require-complete <case-id> [round-id]
 ```
 
 Use this structure:

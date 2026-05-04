@@ -221,6 +221,8 @@ Nejběžnější výstupy jsou:
   a formální stránky podle jazyka práce,
 - `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
   vizuálních prvků a jejich popisů,
+- `work/review_manifest.json` - interní manifest vstupů, výstupů, helper checků,
+  skillů, rolí agentů, review stavu, hashů výstupů a omezení,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
 - `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
@@ -236,6 +238,14 @@ finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdik
 zapsaný. Pokud je použita jen jako podklad pro studentský feedback nebo
 oponentské podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu
 použitých zjištění.
+
+Po vytvoření nebo úpravě výstupů má agent obnovit `work/review_manifest.json`.
+Manifest je uložený v ignorovaném round workspace, protože obsahuje case-specific
+názvy souborů a workflow omezení. Review verdikt je svázaný s hashem výstupu;
+když se Markdown po review změní, validátor to označí jako stale review. Strict
+closeout nebere finální nebo odesílatelný výstup jako hotový, dokud manifest
+neobsahuje review status, reviewer roli, čas review a hash přesně té verze
+souboru, která má být použita.
 
 ## Role a review smyčky
 
@@ -308,6 +318,8 @@ scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/check-typography-formal <case-id>
+scripts/init-review-manifest --run-checks <case-id>
+scripts/check-review-manifest --require-complete <case-id>
 ```
 
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:

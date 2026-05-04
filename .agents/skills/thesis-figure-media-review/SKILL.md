@@ -63,6 +63,7 @@ thesis claim depends on them.
 14. Do not run graph/table quality checks such as axis-label, unit, legend, scale, or readability audits as part of this iteration. If those concerns are obvious, record them as manual checks or route result claims to evaluation-claim review.
 15. Summarize only actionable findings into supervisor feedback or opponent materials. Keep the reusable inventory, context table, and cache details internal.
 16. After writing `outputs/figure_media_review.md` and `work/figure_media/visual_inventory.jsonl`, run `scripts/check-figure-media-review <case-id> [round-id]`. Fix hard failures before relying on the artifact. Treat warnings as operator prompts and either address them or record the limitation.
+17. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the figure/media evidence is standalone final evidence or only covered by downstream supervisor/opponent synthesis. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Inventory JSONL
 

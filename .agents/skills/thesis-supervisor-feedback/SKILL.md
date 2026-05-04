@@ -63,6 +63,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 17. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
 18. Prioritize issues by impact on current phase. Do not list every possible improvement.
 19. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+20. After the final output and checks exist, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles and any unavailable evidence in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. For every internal evidence artifact marked `covered_by_synthesis`, record a compact `used_findings` summary and evidence hash. If the final Markdown changes after review, refresh the manifest and rerun the independent review as needed.
 
 ## Supervisor Notes Handling
 
@@ -270,4 +271,6 @@ Before finishing, verify:
 - review-scope wording excludes internal workflow mechanics unless they are actionable for the student,
 - `scripts/check-feedback-language <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; this validates heading structure, not the whole prose,
 - `scripts/check-feedback-output <case-id> [round-id]` passes after final `outputs/feedback_student.md` is written; warnings are non-blocking but should be read,
+- `work/review_manifest.json` records the final artifact hash, contributing skills/checks, generator/reviewer roles, and explicit limitations,
+- `scripts/check-review-manifest --require-complete <case-id> [round-id]` passes after the manifest is updated,
 - the document is usable by the student.

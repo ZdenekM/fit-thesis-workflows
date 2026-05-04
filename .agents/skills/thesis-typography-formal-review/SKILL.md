@@ -59,6 +59,10 @@ language`.
    `scripts/check-typography-formal --require-output <case-id> [round-id]`
    again and make sure the artifact reflects either the warnings or an explicit
    limitation.
+10. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether
+   the typography/formal evidence is standalone final evidence or only covered by
+   downstream supervisor/opponent synthesis. Before relying on it, run
+   `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## When To Use
 

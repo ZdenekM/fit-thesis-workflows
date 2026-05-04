@@ -47,6 +47,8 @@ Do not soften the report automatically. The goal is accuracy, fairness, evidence
 
 This skill is the independent review pass for a human-drafted opponent report. If agent authorization is missing, ask before writing final sendable review feedback or rewriting the report. If an agent later rewrites the report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
+After writing or revising `outputs/feedback_k_posudku.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+
 ## Output
 
 Write `outputs/feedback_k_posudku.md`:

@@ -157,6 +157,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/visual_inventory.jsonl"
 
+make_untracked_file "tmp-feedback-smoke/review_manifest.json"
+expect_failure_contains \
+  "review manifest outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/review_manifest.json"
+
 expect_success "privacy check recovers after cleanup" "$repo_root/scripts/check-private"
 
 echo "Private smoke passed"

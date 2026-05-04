@@ -14,6 +14,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - When a concrete case reveals a likely recurring review pattern, finish the case artifact first, then proactively suggest whether that pattern should be promoted into workflow docs, skills, templates, or TODO. If the user approves, update the workflow at the right level instead of leaving the lesson as an ad hoc memory.
 - Keep `TODO.md` as an unnumbered list of open work only; delete completed items instead of leaving checked-off historical entries.
 - Do not pretend to have checked anything that was not available in the inputs. Mark indirect conclusions as estimates, risks, or items for manual verification.
+- When the user asks about a detail of a concrete student, case, thesis, or submitted codebase, verify that detail in the active case artifacts before answering: rendered PDF/extracted text first, then source zips, notes, outputs, and submitted code where relevant. State whether the detail is explicit, inferred from code/config, or absent, and turn missing facts into precise follow-up questions or evidence requests.
 - Important negative claims must cite evidence: a chapter/section/page, a file/path/function, a README/config/test, a missing artifact, or a concrete mismatch.
 - Quantitative, evaluation, experiment, metric, performance, and result claims require semantic sanity review: check unit/scale, baseline, practical magnitude, reproducibility, and whether the thesis interpretation is proportionate to the values.
 - Treat the submitted thesis PDF as the authoritative rendered thesis artifact. Do not run LaTeX/Overleaf builds by default; use source zips for diff/search/evidence. Compile only when the user explicitly asks, or when no rendered PDF is available and the limitation is stated.
@@ -101,6 +102,8 @@ Dedicated review loops:
 
 Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
 
+Keep generated-artifact provenance in the ignored round workspace at `work/review_manifest.json`. The manifest records contributing inputs, checks, skills, generator/reviewer roles, review scope, limitations, and the reviewed artifact hash so material edits after review are visible as stale.
+
 ## Output Conventions
 
 Default outputs go into the active round:
@@ -115,6 +118,7 @@ Default outputs go into the active round:
 - figure/media review: `outputs/figure_media_review.md`
 - typography/formal review: `outputs/typography_formal_review.md`
 - reusable visual inventory: `work/figure_media/visual_inventory.jsonl`
+- review evidence/provenance manifest: `work/review_manifest.json`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
 - opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
@@ -125,4 +129,4 @@ Standalone GitHub intake, code consistency, code quality, literature/citation, f
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 `Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. When changing deterministic checkers, run their smoke scripts too. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. When changing deterministic checkers, run their smoke scripts too. After generating or revising round outputs, update and validate provenance with `scripts/init-review-manifest --run-checks <case-id> [round-id]` and `scripts/check-review-manifest --require-complete <case-id> [round-id]`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`.

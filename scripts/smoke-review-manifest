@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__review_manifest_smoke_$$"
+created_cases=()
+
+cleanup() {
+  local case_id
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/notes"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  echo "Synthetic assignment note." >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md"
+}
+
+write_output() {
+  local case_id="$1"
+  local round_id="$2"
+  local name="$3"
+  local text="${4:-Synthetic output for review manifest smoke.}"
+  printf '%s\n' "$text" >"$repo_root/cases/$case_id/rounds/$round_id/outputs/$name"
+}
+
+mark_reviewed() {
+  local manifest="$1"
+  python3 - "$manifest" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+for check in manifest["helper_checks"]:
+    check["status"] = "passed"
+    check["checked_at"] = "2026-05-04T00:00:00Z"
+    check["exit_code"] = 0
+for artifact in manifest["artifacts"]:
+    artifact["generated_by"] = [
+        {
+            "role": "synthesis",
+            "agent": "generator-agent",
+            "contribution": "generation",
+            "notes": "Smoke generator.",
+        }
+    ]
+    artifact["independent_review"] = {
+        "status": "reviewed",
+        "reviewer_role": "independent reviewer",
+        "reviewer_agent": "reviewer-agent",
+        "reviewed_at": "2026-05-04T00:01:00Z",
+        "reviewed_hash": artifact["artifact_sha256"],
+        "covered_by_artifact": "",
+        "used_findings": "",
+        "exception": "",
+        "notes": "Smoke review passed.",
+    }
+    artifact["limitations"] = ["None."]
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+mark_artifacts_reviewed_only() {
+  local manifest="$1"
+  python3 - "$manifest" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+for artifact in manifest["artifacts"]:
+    artifact["generated_by"] = [
+        {
+            "role": "synthesis",
+            "agent": "generator-agent",
+            "contribution": "generation",
+            "notes": "Smoke generator.",
+        }
+    ]
+    artifact["independent_review"] = {
+        "status": "reviewed",
+        "reviewer_role": "independent reviewer",
+        "reviewer_agent": "reviewer-agent",
+        "reviewed_at": "2026-05-04T00:01:00Z",
+        "reviewed_hash": artifact["artifact_sha256"],
+        "covered_by_artifact": "",
+        "used_findings": "",
+        "exception": "",
+        "notes": "Smoke review passed.",
+    }
+    artifact["limitations"] = ["None."]
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+mutate_manifest() {
+  local manifest="$1"
+  local code="$2"
+  python3 - "$manifest" "$code" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+code = sys.argv[2]
+manifest = json.loads(path.read_text(encoding="utf-8"))
+exec(code, {"manifest": manifest})
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >/tmp/check-review-manifest.out 2>/tmp/check-review-manifest.err; then
+    echo "Expected success but failed: $name" >&2
+    cat /tmp/check-review-manifest.err >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >/tmp/check-review-manifest.out 2>/tmp/check-review-manifest.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/check-review-manifest.out >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_missing"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+expect_failure "missing manifest" "$repo_root/scripts/check-review-manifest" "$case_id" round-a
+
+case_id="${case_prefix}_valid"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+expect_success "valid reviewed final artifact" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_unreviewed_final"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_failure "initialized final artifact without review fails closeout" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_unrecorded_checks"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_artifacts_reviewed_only "$manifest"
+expect_failure "required helper checks must be recorded as passed" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_internal"
+make_case "$case_id"
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+expect_success "internal evidence without standalone final review" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_run_checks"
+make_case "$case_id"
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" --run-checks "$case_id" round-a >/dev/null
+expect_success "run-checks records self validation" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_source_code"
+make_case "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs/code"
+printf 'print("smoke")\n' >"$repo_root/cases/$case_id/rounds/round-a/inputs/code/main.py"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+expect_failure "source code input requires code evidence for final feedback" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_covered_findings"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+write_output "$case_id" round-a code_quality_review.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+mutate_manifest "$manifest" 'manifest["artifacts"][0]["review_scope"] = "covered_by_synthesis"; manifest["artifacts"][0]["independent_review"] = {"status": "not_required", "reviewer_role": "", "reviewer_agent": "", "reviewed_at": "", "reviewed_hash": "", "covered_by_artifact": "outputs/feedback_student.md", "used_findings": "not_recorded", "evidence_hash": manifest["artifacts"][0]["artifact_sha256"], "exception": "Covered by synthesis.", "notes": ""}'
+expect_failure "covered_by_synthesis needs used findings" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_missing_record"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+write_output "$case_id" round-a revision_diff.md "Later output not in manifest."
+expect_failure "outputs file missing under require-complete" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_digest"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+write_output "$case_id" round-a feedback_student.md "Edited after review."
+expect_failure "digest mismatch after edit" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_pending"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mutate_manifest "$manifest" 'manifest["artifacts"][0]["independent_review"]["status"] = "not_reviewed"; manifest["artifacts"][0]["independent_review"]["exception"] = ""; manifest["artifacts"][0]["limitations"] = []'
+expect_failure "final artifact pending review without exception" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_same_agent"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+mutate_manifest "$manifest" 'manifest["artifacts"][0]["independent_review"]["reviewer_agent"] = "generator-agent"'
+expect_failure "same generator and reviewer" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_absolute"
+make_case "$case_id"
+write_output "$case_id" round-a feedback_student.md
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+mark_reviewed "$manifest"
+mutate_manifest "$manifest" 'manifest["inputs"].append({"path": "/home/example/private.pdf", "kind": "pdf"})'
+expect_failure "absolute path in evidence" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+echo "Review manifest smoke passed"

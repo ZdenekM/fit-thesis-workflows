@@ -50,8 +50,9 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 23. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
 24. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
 25. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
-26. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
-27. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
+26. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this independent review pass in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. The reviewed hash must match the final `outputs/feedback_student.md`; each `covered_by_synthesis` evidence artifact needs a compact `used_findings` summary for the findings actually used in the final feedback.
+27. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+28. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
 ## Priority Calibration
 
