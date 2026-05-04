@@ -169,6 +169,24 @@ pomocná vrstva pro hledání, diff a přesnou evidenci. Agent nemá LaTeX běž
 kompilovat, pokud výslovně nechcete build diagnostiku nebo nemáte k dispozici
 renderované PDF.
 
+### Volitelná PDF detail vrstva
+
+Pro běžné textové review stačí `pdftotext -layout`. Pokud chcete používat
+cílenou analýzu obrázků, tabulek, layoutu nebo nejasných PDF míst, hodí se
+volitelný `pdf-reader-mcp`. Není to hard dependency celého workflow; bez něj má
+agent použít dostupný textový extract, source assety svázané s renderovaným PDF
+a zapsat omezení.
+
+`pdf-reader-mcp` vyžaduje Node.js 22 nebo novější. Instalace pro Codex:
+
+```bash
+codex mcp add pdf-reader -- npx @sylphx/pdf-reader-mcp
+```
+
+Po instalaci stačí v chatu říct, že má agent udělat figure/media review nebo
+zkontrolovat konkrétní stránky/obrázky. Podrobnější pravidla jsou v
+`docs/pdf-detail-layer.md`.
+
 ## Výstupy
 
 Nejběžnější výstupy jsou:
