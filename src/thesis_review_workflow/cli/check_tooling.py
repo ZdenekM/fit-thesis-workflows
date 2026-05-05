@@ -138,6 +138,8 @@ def run(args: list[str], *, timeout: float = 5.0) -> tuple[int, str]:
         completed = subprocess.run(
             args,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,
@@ -347,6 +349,8 @@ def check_git(root: Path) -> ToolCheck:
     inside = subprocess.run(
         ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
         text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

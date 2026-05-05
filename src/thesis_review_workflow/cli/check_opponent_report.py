@@ -120,7 +120,12 @@ GENERIC_UNCERTAINTY_TOKENS = {
 
 
 def repo_root() -> Path:
-    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
+    output = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     return Path(output.strip())
 
 

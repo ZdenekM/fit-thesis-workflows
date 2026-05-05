@@ -167,7 +167,12 @@ class ImportContext:
 
 
 def repo_root() -> Path:
-    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
+    output = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     return Path(output.strip())
 
 
@@ -251,6 +256,8 @@ def run(args: list[str], *, cwd: Path | None = None, allow_failure: bool = False
         args,
         cwd=str(cwd) if cwd else None,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

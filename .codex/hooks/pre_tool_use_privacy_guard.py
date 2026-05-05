@@ -57,6 +57,8 @@ def _repo_root() -> Path:
             ["git", "rev-parse", "--show-toplevel"],
             stderr=subprocess.DEVNULL,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except (OSError, subprocess.CalledProcessError):
         return Path.cwd().resolve()
