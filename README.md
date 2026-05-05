@@ -327,6 +327,7 @@ Základní diagnostika:
 scripts/case-doctor <case-id>
 scripts/check-supervisor-ready <case-id>
 scripts/check-round-ready <case-id>
+scripts/opponent-preflight <case-id>
 scripts/check-private
 ```
 
@@ -355,6 +356,7 @@ Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 ```bash
 scripts/bootstrap-case supervisor <case-id> current-review --work-type BP --academic-year 2025/2026 --thesis-pdf /path/to/thesis.pdf --assignment-pdf /path/to/assignment.pdf --code /path/to/code.zip
 scripts/bootstrap-case opponent <case-id> opponent-review --work-type DP --thesis-pdf /path/to/thesis.pdf --assignment-pdf /path/to/assignment.pdf --code /path/to/code.zip
+scripts/opponent-preflight <case-id>
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 scripts/prepare-code-workspace <case-id>

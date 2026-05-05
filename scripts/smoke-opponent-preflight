@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__opponent_preflight_smoke_$$"
+created_cases=()
+out_file="/tmp/opponent-preflight-smoke.$$.out"
+err_file="/tmp/opponent-preflight-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/extracted" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work" \
+    "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+}
+
+make_code_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+import zipfile
+
+target = Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic project\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    archive.writestr("project/src/main.py", "print('synthetic')\n")
+PY
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_ready"
+make_case "$case_id"
+expect_success "ready opponent preflight passes" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "Round readiness: PASS"
+expect_output "Case doctor: PASS"
+expect_output "Code evidence detected: no"
+
+case_id="${case_prefix}_missing_assignment"
+created_cases+=("$case_id")
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/notes" \
+  "$repo_root/cases/$case_id/rounds/round-a/inputs" \
+  "$repo_root/cases/$case_id/rounds/round-a/extracted" \
+  "$repo_root/cases/$case_id/rounds/round-a/work"
+echo "Reviewer profile: default" >"$repo_root/cases/$case_id/case.md"
+echo "round-a" >"$repo_root/cases/$case_id/current-round.txt"
+expect_failure "missing assignment blocks preflight" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "Round readiness: FAIL"
+expect_output "Missing required assignment context"
+
+case_id="${case_prefix}_code"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/code.zip"
+expect_success "code archive preflight prepares workspace" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "Code workspace preparation: PASS"
+expect_output "Likely code roots: 1"
+test -f "$round_dir/work/code_workspace.md"
+test -f "$round_dir/work/serena_roots.json"
+
+case_id="${case_prefix}_github_note"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' 'GitHub repo / PR URL / student login: https://github.com/example/project/pull/1' \
+  >"$round_dir/notes/opponent-intake.md"
+expect_failure "github note without intake blocks preflight" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "GitHub intake: FAIL"
+expect_output "GitHub URL evidence appears in notes"
+expect_output "outputs/github_code_intake.md"
+
+case_id="${case_prefix}_github_out_of_scope"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+{
+  printf '%s\n' 'GitHub repo / PR URL / student login: https://github.com/example/project/pull/1'
+  printf '%s\n' 'GitHub intake out of scope: submitted archive is authoritative for this review.'
+} >"$round_dir/notes/opponent-intake.md"
+expect_success "github note with explicit out-of-scope limitation passes" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "GitHub URL evidence appears in notes"
+
+case_id="${case_prefix}_github_intake_present"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' 'GitHub repo / PR URL / student login: https://github.com/example/project/pull/1' \
+  >"$round_dir/notes/opponent-intake.md"
+mkdir -p "$round_dir/work/github-intake"
+expect_success "github note with intake workspace passes" "$repo_root/scripts/opponent-preflight" "$case_id"
+
+echo "Opponent preflight smoke passed"
