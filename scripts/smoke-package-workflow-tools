@@ -12,14 +12,31 @@ trap 'rm -f "$tmp_output"; rm -rf "$tmp_dir" "$tmp_repo" "$repo_root/cases/${cas
 
 scripts/package-workflow-tools >/dev/null
 
-mapfile -t tool_names < <(find "$repo_root/dist/workflow-tools/bin" -maxdepth 1 -mindepth 1 -type f -printf '%f\n' | sort)
+mapfile -t tool_names < <(find "$repo_root/dist/workflow-tools/pex" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort)
 
 for tool_name in "${tool_names[@]}"; do
   launcher="$repo_root/dist/workflow-tools/bin/$tool_name"
+  cmd_launcher="$repo_root/dist/workflow-tools/bin/$tool_name.cmd"
+  ps_launcher="$repo_root/dist/workflow-tools/bin/$tool_name.ps1"
   if [[ ! -x "$launcher" ]]; then
     echo "Missing executable launcher: dist/workflow-tools/bin/$tool_name" >&2
     exit 1
   fi
+  if [[ ! -f "$cmd_launcher" ]]; then
+    echo "Missing Windows cmd launcher: dist/workflow-tools/bin/$tool_name.cmd" >&2
+    exit 1
+  fi
+  if [[ ! -f "$ps_launcher" ]]; then
+    echo "Missing Windows PowerShell launcher: dist/workflow-tools/bin/$tool_name.ps1" >&2
+    exit 1
+  fi
+  grep -Fq "WORKFLOW_TOOLS_PYTHON" "$cmd_launcher"
+  grep -Fq "PEX_ROOT" "$cmd_launcher"
+  grep -Fq "..\\pex\\$tool_name" "$cmd_launcher"
+  grep -Fq "WORKFLOW_TOOLS_PYTHON" "$ps_launcher"
+  grep -Fq "PEX_ROOT" "$ps_launcher"
+  grep -Fq "..\\pex\\$tool_name" "$ps_launcher"
+  grep -Fq "Get-Command" "$ps_launcher"
   "$launcher" --help >/dev/null 2>&1
 done
 
