@@ -20,9 +20,6 @@ python_sources(
         "draft-opponent-report",
         "import-github-code",
         "init-review-manifest",
-        "opponent-closeout",
-        "opponent-preflight",
-        "prepare-code-workspace",
         "supervisor-deadline",
     ],
     dependencies=[
@@ -51,6 +48,9 @@ shell_sources(
         "package-workflow-tools",
         "import-round",
         "new-case",
+        "opponent-closeout",
+        "opponent-preflight",
+        "prepare-code-workspace",
         "smoke-agent-coverage",
         "smoke-bootstrap-case",
         "smoke-case-doctor",
@@ -215,8 +215,8 @@ pex_binary(
 
 pex_binary(
     name="opponent_closeout_tool",
-    executable="opponent-closeout",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.opponent_closeout:console_main",
+    dependencies=["src/thesis_review_workflow/cli:opponent_closeout"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/opponent-closeout",
@@ -225,8 +225,8 @@ pex_binary(
 
 pex_binary(
     name="opponent_preflight_tool",
-    executable="opponent-preflight",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.opponent_preflight:console_main",
+    dependencies=["src/thesis_review_workflow/cli:opponent_preflight"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/opponent-preflight",
@@ -235,8 +235,8 @@ pex_binary(
 
 pex_binary(
     name="prepare_code_workspace_tool",
-    executable="prepare-code-workspace",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.prepare_code_workspace:console_main",
+    dependencies=["src/thesis_review_workflow/cli:prepare_code_workspace"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-code-workspace",
