@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-
 COVERAGE_REL = Path("work/agent_coverage.json")
 SCHEMA_VERSION = "agent-coverage-v1"
 ROLE_STATUSES = {"required", "blocked", "not_applicable"}
@@ -347,8 +346,8 @@ def literature_trigger_present(round_dir: Path, manifest: dict[str, Any]) -> boo
         for item in records:
             if not isinstance(item, dict):
                 continue
-            path = folded(str(item.get("path", "")))
-            if any(pattern in path for pattern in trigger_patterns):
+            rel_path = folded(str(item.get("path", "")))
+            if any(pattern in rel_path for pattern in trigger_patterns):
                 return True
     for base_name in ("notes", "inputs", "work"):
         base = round_dir / base_name
@@ -411,7 +410,9 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             final_paths,
         )
 
-    if final_paths and ("outputs/literature_citation_review.md" in paths or literature_trigger_present(round_dir, manifest)):
+    if final_paths and (
+        "outputs/literature_citation_review.md" in paths or literature_trigger_present(round_dir, manifest)
+    ):
         specs["literature_citation"] = RoleSpec(
             "literature_citation",
             "literature/citation evidence is used by a final/synthesis artifact",
@@ -578,13 +579,11 @@ def build_coverage(
     existing: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     specs = inferred_role_specs(round_dir, manifest)
-    previous_roles = {}
+    previous_roles: dict[str, dict[str, Any]] = {}
     if existing and isinstance(existing.get("roles"), list):
-        previous_roles = {
-            item.get("role"): item
-            for item in existing["roles"]
-            if isinstance(item, dict) and isinstance(item.get("role"), str)
-        }
+        for item in existing["roles"]:
+            if isinstance(item, dict) and isinstance(item.get("role"), str):
+                previous_roles[item["role"]] = item
 
     if not specs and not previous_roles:
         return None
@@ -713,10 +712,15 @@ def validate_coverage(
                 if str(limitation.get("trigger", "")).strip() != spec.trigger:
                     errors.append(f"{role}: typed_limitation.trigger must match the current trigger")
                 limitation_for = limitation.get("required_for")
-                if not isinstance(limitation_for, list) or sorted(str(item) for item in limitation_for) != sorted(spec.required_for):
+                if not isinstance(limitation_for, list) or sorted(str(item) for item in limitation_for) != sorted(
+                    spec.required_for
+                ):
                     errors.append(f"{role}: typed_limitation.required_for must match current required_for outputs")
                 if artifact and limitation.get("evidence_unusable") is not True:
-                    errors.append(f"{role}: blocked role has evidence output; set typed_limitation.evidence_unusable=true with rationale or mark the role required")
+                    errors.append(
+                        f"{role}: blocked role has evidence output; set typed_limitation.evidence_unusable=true "
+                        "with rationale or mark the role required"
+                    )
             continue
 
         if record.get("skill") != spec.skill:

@@ -1,0 +1,41 @@
+[GLOBAL]
+pants_version = "2.30.0"
+local_store_dir = ".pants.d/lmdb_store"
+named_caches_dir = ".pants.d/named_caches"
+pants_ignore = [
+  ".*/",
+  "/dist/",
+  "__pycache__",
+  "!.semgrep/",
+  "!.github/",
+  "!.codex/",
+]
+backend_packages = [
+  "pants.backend.python",
+  "pants.backend.python.lint.black",
+  "pants.backend.python.lint.flake8",
+  "pants.backend.python.lint.isort",
+  "pants.backend.python.typecheck.mypy",
+]
+
+[source]
+root_patterns = [".codex/hooks", "scripts", "tests"]
+
+[python]
+interpreter_constraints = ["==3.12.*"]
+
+[black]
+config = "pants/pyproject.toml"
+
+[isort]
+config = "pants/pyproject.toml"
+
+[mypy]
+config = "pants/mypy.ini"
+
+[flake8]
+config = "pants/flake8.cfg"
+
+[pytest]
+args = ["-q"]
+config = "pants/pytest.ini"

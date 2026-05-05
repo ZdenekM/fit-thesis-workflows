@@ -17,8 +17,7 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO
-
+from typing import IO
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MAX_WALK_FILES = 5000
@@ -154,9 +153,7 @@ class DirectoryInventory:
     @property
     def code_like(self) -> bool:
         return bool(
-            self.code_files
-            or self.tests
-            or any(Path(item).name in CODE_DEPENDENCY_NAMES for item in self.dependencies)
+            self.code_files or self.tests or any(Path(item).name in CODE_DEPENDENCY_NAMES for item in self.dependencies)
         )
 
 
@@ -352,7 +349,9 @@ def safe_member_path(target: Path, member_name: str) -> Path | None:
     return destination
 
 
-def copy_stream_limited(source: BinaryIO, destination: Path, expected_size: int, budget: CopyBudget, label: str) -> int:
+def copy_stream_limited(
+    source: IO[bytes], destination: Path, expected_size: int, budget: CopyBudget, label: str
+) -> int:
     skipped = budget.reserve(label, expected_size)
     if skipped is not None:
         raise ValueError(skipped)
@@ -468,9 +467,7 @@ def fingerprint_source(path: Path) -> str:
     total_bytes = 0
     for dirpath, dirnames, filenames in os.walk(path):
         dirnames[:] = sorted(
-            name
-            for name in dirnames
-            if name not in SAFE_SKIP_DIRS and not (Path(dirpath) / name).is_symlink()
+            name for name in dirnames if name not in SAFE_SKIP_DIRS and not (Path(dirpath) / name).is_symlink()
         )
         for filename in sorted(filenames):
             file_path = Path(dirpath) / filename
@@ -580,8 +577,7 @@ def inventory_directory(path: Path) -> DirectoryInventory:
             if lower.startswith(".github/workflows/") and len(inventory.ci) < MAX_LIST:
                 inventory.ci.append(rel)
             if (
-                re.search(r"(^|/)(test|tests|spec|specs)(/|$)", lower)
-                or re.search(r"(test|spec)\.", filename.lower())
+                re.search(r"(^|/)(test|tests|spec|specs)(/|$)", lower) or re.search(r"(test|spec)\.", filename.lower())
             ) and len(inventory.tests) < MAX_LIST:
                 inventory.tests.append(rel)
             if suffix in CODE_SUFFIX_LANGUAGES:
@@ -721,7 +717,9 @@ def suggest_commands(inventory: DirectoryInventory) -> list[str]:
 
 
 def serena_suitable(inventory: DirectoryInventory) -> bool:
-    return bool(inventory.languages & {"python", "typescript", "javascript", "java", "kotlin", "cpp", "csharp", "go", "rust"})
+    return bool(
+        inventory.languages & {"python", "typescript", "javascript", "java", "kotlin", "cpp", "csharp", "go", "rust"}
+    )
 
 
 def format_list(items: list[str]) -> list[str]:
@@ -742,14 +740,17 @@ def write_report(
         "# Code Workspace Preparation",
         "",
         f"- Generated at: {now_utc()}",
-        f"- Workspace: `work/code/`",
+        "- Workspace: `work/code/`",
         "- Scope: ignored case-local workspace; original submitted inputs remain under `inputs/`.",
         "",
         "## Prepared Sources",
     ]
     if prepared:
         for item in prepared:
-            lines.append(f"- `{rel_round(round_dir, item.source)}` -> `{rel_round(round_dir, item.target)}` ({item.action}; {item.note})")
+            lines.append(
+                f"- `{rel_round(round_dir, item.source)}` -> `{rel_round(round_dir, item.target)}` "
+                f"({item.action}; {item.note})"
+            )
             lines.append(f"  - Source fingerprint: `{item.source_fingerprint}`")
     else:
         lines.append("- none")
@@ -808,7 +809,8 @@ def write_report(
             "## Serena Usage",
             "",
             "- Activate Serena on one likely code root at a time, not on `cases/` or a whole round.",
-            "- The repository `.serena/project.yml` is only for the workflow repo and intentionally ignores `cases/**`; case code roots are separate Serena projects.",
+            "- The repository `.serena/project.yml` is only for the workflow repo and intentionally ignores "
+            "`cases/**`; case code roots are separate Serena projects.",
             "- Treat Serena as navigation support; findings still need concrete file/function/config/test evidence.",
             "- Do not run untrusted code just because a smoke command was inferred.",
             "",
@@ -849,7 +851,10 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
             skipped.append(f"`{rel_round(round_dir, archive)}`: symlink input skipped")
             continue
         if is_unsupported_archive(archive):
-            skipped.append(f"`{rel_round(round_dir, archive)}`: unsupported archive format; inspect or unpack manually if it contains code")
+            skipped.append(
+                f"`{rel_round(round_dir, archive)}`: unsupported archive format; "
+                "inspect or unpack manually if it contains code"
+            )
             continue
         if not is_archive(archive):
             continue
@@ -867,7 +872,9 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
         existing = sources.get(rel)
         if target.exists():
             if existing and existing.get("target") == rel_target and existing.get("fingerprint") == fingerprint:
-                prepared.append(PreparedSource(archive, target, "already current", "source fingerprint unchanged", fingerprint))
+                prepared.append(
+                    PreparedSource(archive, target, "already current", "source fingerprint unchanged", fingerprint)
+                )
                 continue
             if existing and existing.get("target") == rel_target:
                 shutil.rmtree(target)
@@ -895,7 +902,9 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
         existing = sources.get(rel)
         if target.exists():
             if existing and existing.get("target") == rel_target and existing.get("fingerprint") == fingerprint:
-                prepared.append(PreparedSource(source, target, "already current", "source fingerprint unchanged", fingerprint))
+                prepared.append(
+                    PreparedSource(source, target, "already current", "source fingerprint unchanged", fingerprint)
+                )
                 continue
             if existing and existing.get("target") == rel_target:
                 shutil.rmtree(target)
