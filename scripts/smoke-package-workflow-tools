@@ -80,6 +80,15 @@ sourceless_round="$(<"$sourceless_case/current-round.txt")"
 sourceless_round_dir="$sourceless_case/rounds/$sourceless_round"
 test -f "$sourceless_case/current-round.txt"
 
+printf '%s\n' 'relative input outside repo' >"$tmp_dir/relative-input.md"
+(
+  cd "$tmp_dir"
+  "$tmp_repo/dist/workflow-tools/bin/import-round" "${case_prefix}_sourceless" relative-import relative-input.md >/dev/null
+)
+relative_round="$(<"$sourceless_case/current-round.txt")"
+test -f "$sourceless_case/rounds/$relative_round/inputs/relative-input.md"
+echo "$sourceless_round" >"$sourceless_case/current-round.txt"
+
 python3 - "$sourceless_case/case.md" <<'PY'
 import pathlib
 import sys

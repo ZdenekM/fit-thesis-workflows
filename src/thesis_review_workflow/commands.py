@@ -22,6 +22,7 @@ WORKFLOW_COMMAND_MODULES = {
     "check-review-manifest": "thesis_review_workflow.cli.check_review_manifest",
     "check-reviewer-profile": "thesis_review_workflow.cli.check_reviewer_profile",
     "check-round-ready": "thesis_review_workflow.cli.check_round_ready",
+    "check-scripts": "thesis_review_workflow.cli.check_scripts",
     "check-supervisor-ready": "thesis_review_workflow.cli.check_supervisor_ready",
     "check-tooling": "thesis_review_workflow.cli.check_tooling",
     "check-typography-formal": "thesis_review_workflow.cli.check_typography_formal",

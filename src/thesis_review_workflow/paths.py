@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 
@@ -21,6 +22,17 @@ def rel_round(round_dir: Path, path: Path) -> str:
 
 def strict_rel_round(round_dir: Path, path: Path) -> str:
     return path.relative_to(round_dir).as_posix()
+
+
+def caller_cwd() -> Path:
+    return Path(os.environ.get("THESIS_REVIEW_CALLER_CWD", Path.cwd())).expanduser()
+
+
+def resolve_caller_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return caller_cwd() / path
 
 
 def is_safe_round_relative_path(value: str) -> bool:

@@ -13,6 +13,7 @@ from pathlib import Path
 from thesis_review_workflow.cases import repo_root
 from thesis_review_workflow.commands import run_step
 from thesis_review_workflow.ids import validate_id
+from thesis_review_workflow.paths import resolve_caller_path
 
 
 def usage() -> str:
@@ -100,7 +101,7 @@ def main(argv: list[str]) -> int:
     input_paths: list[Path] = []
     target_basenames: dict[str, Path] = {}
     for raw in args.inputs:
-        path = Path(raw).expanduser()
+        path = resolve_caller_path(raw)
         if not path.exists():
             print(f"Input path does not exist: {raw}", file=sys.stderr)
             return 1

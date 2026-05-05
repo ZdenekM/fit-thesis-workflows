@@ -1,53 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage() {
-  cat <<'EOF'
-Usage: scripts/extract-pdf-text INPUT.pdf OUTPUT.txt
-
-Extracts text with pdftotext. Install poppler-utils if pdftotext is missing.
-EOF
-}
-
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
-
-if [[ $# -ne 2 ]]; then
-  usage >&2
-  exit 2
-fi
-
-if ! command -v pdftotext >/dev/null 2>&1; then
-  echo "Missing required command: pdftotext" >&2
-  exit 1
-fi
-
-input_pdf="$1"
-output_txt="$2"
-repo_root="$(git rev-parse --show-toplevel)"
-
-if [[ ! -f "$input_pdf" ]]; then
-  echo "Input PDF does not exist: $input_pdf" >&2
-  exit 1
-fi
-
-mkdir -p "$(dirname "$output_txt")"
-output_abs="$(cd "$(dirname "$output_txt")" && pwd -P)/$(basename "$output_txt")"
-case "$output_abs" in
-  "$repo_root"/cases/*/rounds/*/extracted/*) ;;
-  *)
-    echo "Refusing to write extracted thesis text outside cases/<case>/rounds/<round>/extracted/." >&2
-    exit 1
-    ;;
-esac
-
-output_rel="${output_abs#"$repo_root"/}"
-if ! git -C "$repo_root" check-ignore -q "$output_rel"; then
-  echo "Refusing to write extracted thesis text to a non-ignored path: $output_rel" >&2
-  exit 1
-fi
-
-pdftotext -layout "$input_pdf" "$output_txt"
-echo "Extracted text: $output_txt"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "$script_dir/.." && pwd -P)"
+export THESIS_REVIEW_CALLER_CWD="${THESIS_REVIEW_CALLER_CWD:-$PWD}"
+export PYTHONPATH="$repo_root/src"
+cd "$repo_root"
+exec python3 -m thesis_review_workflow.cli.extract_pdf_text "$@"

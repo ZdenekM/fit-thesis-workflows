@@ -1,25 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage() {
-  cat <<'EOF'
-Usage: scripts/check-supervisor-ready CASE_ID [ROUND_ID]
-
-Checks readiness for supervisor feedback: assignment context must be present and
-deadline context must be known for the case academic year/work type.
-EOF
-}
-
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
-
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  usage >&2
-  exit 2
-fi
-
-repo_root="$(git rev-parse --show-toplevel)"
-"$repo_root/scripts/check-round-ready" "$@"
-"$repo_root/scripts/supervisor-deadline" "$@"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "$script_dir/.." && pwd -P)"
+export THESIS_REVIEW_CALLER_CWD="${THESIS_REVIEW_CALLER_CWD:-$PWD}"
+export PYTHONPATH="$repo_root/src"
+cd "$repo_root"
+exec python3 -m thesis_review_workflow.cli.check_supervisor_ready "$@"

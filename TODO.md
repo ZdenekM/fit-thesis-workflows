@@ -4,7 +4,7 @@
 
 - [ ] Finish native Windows workflow compatibility.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
-   - Replace remaining shell-only public gates and hygiene helpers with Python implementations, then update documentation to stop presenting POSIX commands as the only operator path.
+   - Move packaging and smoke maintenance helpers that operators may need on Windows off POSIX-only shell entrypoints.
    - Normalize generated Markdown/evidence paths through POSIX display helpers and use explicit UTF-8 decoding for subprocess output.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.

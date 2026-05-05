@@ -65,6 +65,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_review_manifest",
     "src/thesis_review_workflow/cli:check_reviewer_profile",
     "src/thesis_review_workflow/cli:check_round_ready",
+    "src/thesis_review_workflow/cli:check_scripts",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
@@ -207,6 +208,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-round-ready",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_scripts_tool",
+    entry_point="thesis_review_workflow.cli.check_scripts:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-scripts",
     tags=["workflow-tool"],
 )
 

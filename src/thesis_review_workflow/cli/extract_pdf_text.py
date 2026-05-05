@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from thesis_review_workflow.cases import repo_root
+from thesis_review_workflow.paths import resolve_caller_path
 
 
 def usage() -> str:
@@ -61,8 +62,8 @@ def main(argv: list[str]) -> int:
         return 1
 
     root = repo_root()
-    input_pdf = Path(args.input_pdf).expanduser()
-    output_txt = Path(args.output_txt).expanduser()
+    input_pdf = resolve_caller_path(args.input_pdf)
+    output_txt = resolve_caller_path(args.output_txt)
     if not input_pdf.is_file():
         print(f"Input PDF does not exist: {args.input_pdf}", file=sys.stderr)
         return 1

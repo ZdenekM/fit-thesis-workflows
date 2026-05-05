@@ -13,7 +13,7 @@ from thesis_review_workflow.commands import (
 )
 from thesis_review_workflow.ids import invalid_id_message, is_valid_id, validate_id
 from thesis_review_workflow.metadata import read_fields
-from thesis_review_workflow.paths import rel_repo, rel_round, strict_rel_round
+from thesis_review_workflow.paths import caller_cwd, rel_repo, rel_round, resolve_caller_path, strict_rel_round
 
 
 def test_workflow_ids_accept_safe_case_and_round_names() -> None:
@@ -113,6 +113,19 @@ def test_rel_helpers_preserve_relative_and_fallback_behavior(tmp_path: Path) -> 
         pass
     else:
         raise AssertionError("Expected strict round-relative path failure")
+
+
+def test_resolve_caller_path_uses_recorded_invocation_cwd(tmp_path: Path, monkeypatch) -> None:
+    caller = tmp_path / "caller"
+    repo = tmp_path / "repo"
+    caller.mkdir()
+    repo.mkdir()
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("THESIS_REVIEW_CALLER_CWD", str(caller))
+
+    assert caller_cwd() == caller
+    assert resolve_caller_path("input.pdf") == caller / "input.pdf"
+    assert resolve_caller_path(str(tmp_path / "absolute.pdf")) == tmp_path / "absolute.pdf"
 
 
 def test_step_status_distinguishes_required_and_optional_failures() -> None:
