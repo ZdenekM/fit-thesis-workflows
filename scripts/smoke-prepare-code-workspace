@@ -227,19 +227,16 @@ echo "..." >"$repo_root/cases/$case_id/current-round.txt"
 expect_failure "dot-only current round fails" "$repo_root/scripts/prepare-code-workspace" "$case_id"
 expect_output "dot-only ids are not allowed"
 
-python3 - "$repo_root/scripts/thesis_code_workspace.py" <<'PY'
-import importlib.util
+python3 - "$repo_root" <<'PY'
 import pathlib
 import sys
 import tempfile
 import zipfile
 
-module_path = pathlib.Path(sys.argv[1])
-spec = importlib.util.spec_from_file_location("thesis_code_workspace", module_path)
-module = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
+repo_root = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(repo_root / "src"))
+from thesis_review_workflow import code_workspace as module
+
 module.MAX_EXTRACTED_FILE_BYTES = 8
 module.MAX_EXTRACTED_BYTES = 16
 with tempfile.TemporaryDirectory() as tmp:

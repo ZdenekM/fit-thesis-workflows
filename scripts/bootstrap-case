@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-import re
 
-from thesis_code_workspace import (
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir():
+    sys.path.insert(0, str(_REPO_SRC))
+
+from thesis_review_workflow.code_workspace import (  # noqa: E402
     collapse_duplicate_top_level,
     extract_archive,
     is_archive,

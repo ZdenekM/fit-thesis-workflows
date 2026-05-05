@@ -8,9 +8,14 @@ import re
 import sys
 from pathlib import Path
 
-from thesis_code_workspace import direct_input_code_dirs, is_archive, is_unsupported_archive, probe_archive
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root
 from thesis_review_workflow.cases import resolve_round as resolve_round_core
+from thesis_review_workflow.code_workspace import (
+    direct_input_code_dirs,
+    is_archive,
+    is_unsupported_archive,
+    probe_archive,
+)
 from thesis_review_workflow.commands import Step, print_step, run_step
 from thesis_review_workflow.ids import validate_id as validate_id_core
 

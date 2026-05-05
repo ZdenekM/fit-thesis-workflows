@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Prepare an ignored, inspectable code workspace for a thesis round."""
 
 from __future__ import annotations
@@ -18,20 +17,10 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import IO
 
-# isort: off
-_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
-if _REPO_SRC.is_dir():
-    sys.path.insert(0, str(_REPO_SRC))
-
-from thesis_review_workflow.cases import (  # noqa: E402
-    MissingCurrentRound,
-    repo_root,
-    resolve_round as resolve_round_core,
-)
-from thesis_review_workflow.ids import validate_id as validate_id_core  # noqa: E402
-from thesis_review_workflow.paths import strict_rel_round as rel_round  # noqa: E402
-
-# isort: on
+from thesis_review_workflow.cases import MissingCurrentRound, repo_root
+from thesis_review_workflow.cases import resolve_round as resolve_round_core
+from thesis_review_workflow.ids import validate_id as validate_id_core
+from thesis_review_workflow.paths import strict_rel_round as rel_round
 
 MAX_WALK_FILES = 5000
 MAX_EXTRACTED_FILES = 20000

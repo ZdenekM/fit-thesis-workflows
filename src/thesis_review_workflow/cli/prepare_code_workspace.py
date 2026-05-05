@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from thesis_code_workspace import main as prepare_code_workspace_main
+from thesis_review_workflow.code_workspace import main as prepare_code_workspace_main
 
 
 def console_main() -> int:

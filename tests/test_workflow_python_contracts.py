@@ -2,7 +2,7 @@ import zipfile
 from pathlib import Path
 
 import agent_coverage_lib
-import thesis_code_workspace
+from thesis_review_workflow import code_workspace
 
 
 def test_safe_relative_rejects_absolute_and_parent_paths() -> None:
@@ -13,9 +13,9 @@ def test_safe_relative_rejects_absolute_and_parent_paths() -> None:
 
 
 def test_archive_suffix_handles_compound_tar_suffixes() -> None:
-    assert thesis_code_workspace.archive_suffix(Path("code.tar.gz")) == ".tar.gz"
-    assert thesis_code_workspace.archive_suffix(Path("code.zip")) == ".zip"
-    assert thesis_code_workspace.archive_suffix(Path("code.7z")) == ".7z"
+    assert code_workspace.archive_suffix(Path("code.tar.gz")) == ".tar.gz"
+    assert code_workspace.archive_suffix(Path("code.zip")) == ".zip"
+    assert code_workspace.archive_suffix(Path("code.7z")) == ".7z"
 
 
 def test_probe_archive_detects_python_project_zip(tmp_path: Path) -> None:
@@ -24,7 +24,7 @@ def test_probe_archive_detects_python_project_zip(tmp_path: Path) -> None:
         handle.writestr("project/pyproject.toml", "[project]\nname = 'demo'\n")
         handle.writestr("project/src/main.py", "print('demo')\n")
 
-    probe = thesis_code_workspace.probe_archive(archive)
+    probe = code_workspace.probe_archive(archive)
 
     assert probe.code_like
     assert probe.possible_code
