@@ -16,10 +16,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir():
+    sys.path.insert(0, str(_REPO_SRC))
+
 from agent_coverage_lib import COVERAGE_REL, coverage_required, inferred_coverage_required, inferred_role_specs, load_json_object
+from thesis_review_workflow.cases import read_current_round, repo_root
+from thesis_review_workflow.ids import is_valid_id, validate_id as validate_id_core
+from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.paths import rel_repo, rel_round
 
 
-ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
 LARGE_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_LIST = 12
@@ -190,50 +197,15 @@ class DirectoryInventory:
         )
 
 
-def repo_root() -> Path:
-    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
-    return Path(output.strip())
-
-
 def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
+    try:
+        validate_id_core(label, value)
+    except ValueError as exc:
         print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
+            str(exc),
             file=sys.stderr,
         )
-        raise SystemExit(2)
-
-
-def read_fields(path: Path) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    if not path.is_file():
-        return fields
-    for line in path.read_text(encoding="utf-8").splitlines():
-        key, sep, value = line.partition(":")
-        if sep:
-            fields[key.strip().lower()] = value.strip()
-    return fields
-
-
-def rel_repo(root: Path, path: Path) -> str:
-    try:
-        return path.relative_to(root).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
-def rel_round(round_dir: Path, path: Path) -> str:
-    try:
-        return path.relative_to(round_dir).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
-def read_current_round(case_dir: Path) -> str | None:
-    current = case_dir / "current-round.txt"
-    if not current.is_file():
-        return None
-    return current.read_text(encoding="utf-8").strip()
+        raise SystemExit(2) from exc
 
 
 def file_size_label(size: int) -> str:
@@ -816,7 +788,7 @@ def main(argv: list[str]) -> int:
     current_round_label = "(missing)"
     if current_round_raw:
         current_round_label = current_round_raw
-        if ID_RE.fullmatch(current_round_raw) and set(current_round_raw) != {"."}:
+        if is_valid_id(current_round_raw):
             current_round = current_round_raw
         elif args.round_id:
             add_issue(

@@ -9,7 +9,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import unicodedata
@@ -19,7 +18,21 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import IO
 
-ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+# isort: off
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir():
+    sys.path.insert(0, str(_REPO_SRC))
+
+from thesis_review_workflow.cases import (  # noqa: E402
+    MissingCurrentRound,
+    repo_root,
+    resolve_round as resolve_round_core,
+)
+from thesis_review_workflow.ids import validate_id as validate_id_core  # noqa: E402
+from thesis_review_workflow.paths import strict_rel_round as rel_round  # noqa: E402
+
+# isort: on
+
 MAX_WALK_FILES = 5000
 MAX_EXTRACTED_FILES = 20000
 MAX_EXTRACTED_FILE_BYTES = 250 * 1024 * 1024
@@ -190,35 +203,26 @@ class CopyBudget:
         return None
 
 
-def repo_root() -> Path:
-    output = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True)
-    return Path(output.strip())
-
-
 def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
+    try:
+        validate_id_core(label, value)
+    except ValueError as exc:
         print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
+            str(exc),
             file=sys.stderr,
         )
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
 
 def resolve_round(case_dir: Path, round_id: str | None) -> str:
-    if round_id:
-        validate_id("ROUND_ID", round_id)
-        return round_id
-    current_round = case_dir / "current-round.txt"
-    if not current_round.is_file():
-        print(f"Missing current round: {case_dir}/current-round.txt", file=sys.stderr)
-        raise SystemExit(1)
-    resolved = current_round.read_text(encoding="utf-8").strip()
-    validate_id("ROUND_ID", resolved)
-    return resolved
-
-
-def rel_round(round_dir: Path, path: Path) -> str:
-    return path.relative_to(round_dir).as_posix()
+    try:
+        return resolve_round_core(case_dir, round_id)
+    except MissingCurrentRound as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from exc
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2) from exc
 
 
 def now_utc() -> str:

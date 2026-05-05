@@ -3,10 +3,9 @@
 ## P0 - Workflow Reliability
 
 - [ ] Move reusable Python helper logic into an importable workflow package.
-   - Create a tracked package such as `src/thesis_review_workflow/` for shared validation, path, manifest, Markdown, code-workspace, and command-reporting helpers.
+   - Continue migrating shared validation, manifest, Markdown, code-workspace, and command-reporting helpers into `src/thesis_review_workflow/`.
    - Keep executable `scripts/*` files as thin wrappers so existing chat-first commands remain stable.
    - Migrate one module at a time, with focused tests before each move; do not combine a broad import refactor with behavior changes.
-   - Start with case/round id validation, repo/case/round path helpers, `case.md` field parsing, and small command-result helpers used by `case-doctor`, `check-tooling`, and code workspace scripts.
    - Keep packaged workflow-tool launchers working after each migration; the packaged tools should depend on the importable package, not on duplicated script-local helpers.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.

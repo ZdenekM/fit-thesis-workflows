@@ -22,7 +22,7 @@ backend_packages = [
 ]
 
 [source]
-root_patterns = [".codex/hooks", "scripts", "tests"]
+root_patterns = [".codex/hooks", "scripts", "src", "tests"]
 
 [python]
 interpreter_constraints = ["==3.12.*"]
