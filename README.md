@@ -241,6 +241,12 @@ otevřené; `scripts/check-opponent-report` projde až po lidské kalibraci
 konkrétních bodů a známky a po ověření, že draft odpovídá aktuálním
 `outputs/oponent_podklady_revidovane.md`.
 
+`scripts/opponent-closeout <case-id> [round-id]` je finální oponentský gate
+pro aktuální stav roundu. Zavře revidované podklady, manifest, agent coverage a
+repo hygienu; pokud už existuje `work/oponent_posudek_draft.md`, zahrne do
+closeoutu i `scripts/check-opponent-report`, takže pracovní draft musí být
+nejdřív lidsky zkalibrovaný v bodech, známce a formulacích.
+
 Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consistency.md`,
 `code_quality_review.md`, `literature_citation_review.md`,
 `figure_media_review.md` nebo `typography_formal_review.md` je samostatně
@@ -344,6 +350,7 @@ scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
 scripts/check-opponent-report <case-id>
+scripts/opponent-closeout <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/check-typography-formal <case-id>
 scripts/init-review-manifest --run-checks <case-id>
@@ -475,6 +482,7 @@ scripts/smoke-typography-formal
 scripts/smoke-github-code-intake
 scripts/smoke-agent-coverage
 scripts/smoke-opponent-report
+scripts/smoke-opponent-closeout
 scripts/smoke-tooling
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace

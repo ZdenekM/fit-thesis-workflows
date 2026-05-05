@@ -1,0 +1,339 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__opponent_closeout_smoke_$$"
+created_cases=()
+out_file="/tmp/opponent-closeout-smoke.$$.out"
+err_file="/tmp/opponent-closeout-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/extracted" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work" \
+    "$repo_root/cases/$case_id/rounds/$round_id/outputs"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+}
+
+write_valid_materials() {
+  local output="$1"
+  cat >"$output" <<'EOF'
+# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+
+Kontrola zahrnula renderovane PDF, extrahovany text, assignment summary, README,
+zdrojovy kod v `work/code/src/`, vysledkovou tabulku a interni evidence review.
+Kod nebyl spusten nad plnymi daty a video nebylo prehrano; to jsou hlavni
+omezeni kontroly. Bez dalsich omezeni byly overeny struktura prace, zadani,
+zakladni artefakty a konkretni tvrzeni v hlavnim textu.
+
+## 2. Strucna mapa prace
+
+Prace navrhuje a implementuje prototyp pro zpracovani obrazovych dat. Text
+obsahuje uvod, navrh, realizaci, experimenty a zaver. Kod a README dokladaji
+existenci hlavni implementacni casti.
+
+## 3. Splneni zadani
+
+| Bod zadani | Stav | Evidence | Kalibrace |
+|---|---|---|---|
+| 1. Study relevant methods | Splneno | Kapitola 2 a bibliography prace. | Bez zasadni vyhrady. |
+| 2. Implement prototype | Splneno s vyhradou | README, `main.py` a zadani bod 2. | Dulezite pro realizacni vystup. |
+| 3. Evaluate solution | Castecne splneno | Kapitola 5, tabulka 2 a vysledky experimentu. | Slabsi reprodukovatelnost. |
+
+## 4. Technicke jadro prace vysvetlene oponentovi
+
+Technicke jadro tvori klasicka pipeline s vlastni orchestrace zpracovani dat.
+Pro BP jde o smysluplny implementacni rozsah, ale cast vyhodnoceni zustava
+prototypova a neni plne automatizovana.
+
+## 5. Mapa textu, kodu a artefaktu
+
+| Oblast | Evidence | Stav |
+|---|---|---|
+| Text prace | `extracted/thesis.txt` a kapitola 2 | Dostupne. |
+| Kod | `work/code/src/main.py` a README | Inspektovatelne. |
+| Vysledky | Tabulka 2 a vysledkove obrazky | Castecne overeno. |
+
+## 6. Evidence ledger: hlavni tvrzeni a opora
+
+| Tvrzeni | Znacka jistoty | Opora | Dopad na posudek | Pouzit do posudku? |
+|---|---|---|---|---|
+| Student implementoval vlastni prototyp. | [FAKT] | README, `main.py` a kapitola 4. | Pozitivni realizacni bod. | Ano. |
+| Vyhodnoceni je vecne relevantni, ale omezene reprodukovatelne. | [INTERPRETACE] | Kapitola 5, tabulka 2 a chybejici metricke skripty. | Stredni vyhrada. | Ano. |
+| Plny runtime nebyl overen. | [NEOVERENO] | Scope section a chybejici smoke dataset. | Nutna opatrnost ve formulaci. | Ano. |
+
+## 7. Silne stranky
+
+- Prace ma konkretni implementacni vystup dolozeny README a zdrojovym kodem.
+- Text obsahuje smysluplnou strukturu od metod po vysledky.
+- Student uvadi omezeni experimentu a neprezentuje vysledky jako univerzalni.
+
+## 8. Hlavni rizika a nedostatky
+
+| Priorita | Tvrzeni | Evidence | Dopad | Mozna formulace do posudku |
+|---|---|---|---|---|
+| P1 | Reprodukovatelnost vysledku neni primo pripravena. | README, kapitola 5 a chybejici metricke skripty. | Snizuje overitelnost. | "Vysledky nejsou z dodanych zdroju snadno reprodukovatelne." |
+| P2 | Kod ma prototypova omezeni. | `main.py`, chybove stavy a README. | Snizuje obecnost reseni. | "Kod pusobi jako funkcni prototyp." |
+
+## 9. Pokryti polozek IS a navrhy formulaci
+
+| Polozka IS | Stav | Evidence | Dopad | Mozna formulace |
+|---|---|---|---|---|
+| Narocnost zadani | Stredni | Zadani a technicke metody. | Korekcni faktor. | "Zadani hodnotim jako stredne narocne." |
+| Rozsah splneni zadani | Splneno s vyhradou | Zadani bod 2 a kapitola 4. | Vyssi. | "Zadani bylo naplneno s vyhradami." |
+| Rozsah technicke zpravy | Dostatecny | Kapitoly 2 az 5. | Stredni. | "Zprava pokryva hlavni principy." |
+| Prezentacni uroven | Dobra | Struktura textu a tabulka 2. | Stredni. | "Text je prevazne citelny." |
+| Formalni uprava | Bez zasadniho nalezu | PDF a tabulky. | Nizky. | "Formalni stranka neni hlavni slabina." |
+| Prace s literaturou | Relevantni s rezervou | Bibliography a kapitola 2. | Stredni. | "Literatura je relevantni, ale mohla byt vice vyuzita." |
+| Realizacni vystup | Funkcni prototyp | README, `main.py` a vysledky. | Vyssi. | "Realizace je funkcni prototyp." |
+| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |
+| Celkove hodnoceni | Dobre az velmi dobre | Kombinace zadani, kodu a vysledku. | Synteticke. | "Celkove jde o obhajitelny BP vystup." |
+
+## 10. Technicka spravnost a realizacni vystup
+
+Text-code consistency je v zakladnich tvrzenich dobra. Kod podporuje popis
+implementacni pipeline, ale chybi samostatny reprodukcni postup pro metriky a
+runtime chovani zustalo v teto kontrole neoverene.
+
+## 11. Experimenty, vysledky a reprodukovatelnost
+
+Experimenty jsou tematicky vhodne a maji konkretni tabulkove vysledky. Slabsi je
+absence baseline a chybejici skript, ktery by ciselne vysledky znovu vytvoril.
+
+## 12. Text, struktura, formalni stranka a literatura
+
+Text je strukturovany a obhajitelny. Literatura je relevantni, ale cast
+srovnani s existujicimi resenimi by mela byt podrobnejsi. Formalni stranka
+nebyla detailne jazykove kontrolovana.
+
+## 13. Orientacni kalibrace hodnoceni
+
+- Konzervativni interval: 70-76 bodu, pokud bude hlavni vaha na reprodukovatelnosti.
+- Standardni interval: 76-82 bodu, pokud se oceni funkcni prototyp a priznana omezeni.
+- Mirnejsi interval: 82-86 bodu, pokud se prototypova omezeni budou brat jako BP uroven.
+
+Nejlepe obhajitelny interval je 76-82 bodu.
+
+## 14. Navrhy otazek k obhajobe
+
+1. Jak presne lze reprodukovat vysledky z tabulky 2?
+2. Co by bylo potreba doplnit, aby byl prototyp robustnejsi?
+3. Ktere casti reseni jsou vase vlastni a ktere primo zavisi na knihovnich metodach?
+
+## 15. Rucni kontroly pred napsanim posudku
+
+- Spustit maly smoke test nad pripravenym datasetem a zaznamenat vysledek.
+- Otevrit vysledkove obrazky a porovnat je s tabulkou 2.
+- Zkontrolovat video nebo poster, pokud maji ovlivnit hodnoceni prezentace.
+EOF
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+calibrate_draft() {
+  local draft="$1"
+  python3 - "$draft" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+lines = []
+for line in path.read_text(encoding="utf-8").splitlines():
+    if line.startswith("Stav:"):
+        lines.append("Stav: pripraveno pro nezavislou kontrolu oponentem.")
+    elif line.startswith("Bodov"):
+        lines.append(line.split(":", 1)[0] + ": 80")
+    elif line.startswith("Navr"):
+        lines.append(line.split(":", 1)[0] + ": B")
+    else:
+        lines.append(line)
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+}
+
+mark_opponent_reviewed() {
+  local round_dir="$1"
+  python3 - "$round_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+manifest_path = round_dir / "work" / "review_manifest.json"
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+for artifact in manifest["artifacts"]:
+    if artifact["path"] != "outputs/oponent_podklady_revidovane.md":
+        continue
+    digest = artifact["artifact_sha256"]
+    artifact["generated_by"] = [
+        {
+            "role": "thesis-opponent-materials",
+            "agent": "generator-agent",
+            "contribution": "generation",
+            "notes": "Smoke generator.",
+        }
+    ]
+    artifact["independent_review"] = {
+        "status": "reviewed",
+        "reviewer_role": "thesis-opponent-materials-review",
+        "reviewer_agent": "reviewer-agent",
+        "reviewed_at": "2026-05-05T00:01:00Z",
+        "reviewed_hash": digest,
+        "covered_by_artifact": "",
+        "used_findings": "",
+        "exception": "",
+        "notes": "Smoke review passed.",
+    }
+    artifact["limitations"] = ["None."]
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+block_typography_role() {
+  local round_dir="$1"
+  python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+coverage_path = round_dir / "work" / "agent_coverage.json"
+coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+for role in coverage["roles"]:
+    if role["role"] != "typography_formal":
+        continue
+    role.update(
+        {
+            "status": "blocked",
+            "typed_limitation": {
+                "type": "not_material_to_final",
+                "role": role["role"],
+                "trigger": role["trigger"],
+                "required_for": role["required_for"],
+                "description": "Typography/formal review is not material in this smoke fixture.",
+            },
+            "output_evidence": [],
+        }
+    )
+coverage_path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+prepare_reviewed_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  make_case "$case_id" "$round_id"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
+  mark_opponent_reviewed "$round_dir"
+  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
+  block_typography_role "$round_dir"
+}
+
+case_id="${case_prefix}_missing_output"
+make_case "$case_id"
+expect_failure "missing reviewed materials fails closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Reviewed opponent materials: FAIL"
+
+case_id="${case_prefix}_unreviewed"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_failure "unreviewed final materials fail manifest closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Review manifest completeness: FAIL"
+
+case_id="${case_prefix}_valid"
+prepare_reviewed_case "$case_id"
+expect_success "reviewed opponent materials close out" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Reviewed opponent materials: PASS"
+expect_output "Agent role coverage: PASS"
+expect_output "Review manifest completeness: PASS"
+
+case_id="${case_prefix}_draft_uncalibrated"
+prepare_reviewed_case "$case_id"
+expect_success "draft helper writes uncalibrated report draft" "$repo_root/scripts/draft-opponent-report" "$case_id"
+expect_failure "uncalibrated report draft blocks full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Opponent report draft: FAIL"
+
+case_id="${case_prefix}_draft_calibrated"
+prepare_reviewed_case "$case_id"
+expect_success "draft helper writes report draft for calibration" "$repo_root/scripts/draft-opponent-report" "$case_id"
+calibrate_draft "$repo_root/cases/$case_id/rounds/round-a/work/oponent_posudek_draft.md"
+expect_success "calibrated report draft passes full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Opponent report draft: PASS"
+expect_output "Review manifest completeness: PASS"
+
+case_id="${case_prefix}_valid_with_hygiene"
+prepare_reviewed_case "$case_id"
+expect_success "reviewed opponent materials close out with repo hygiene" "$repo_root/scripts/opponent-closeout" "$case_id"
+expect_output "Private workspace hygiene: PASS"
+expect_output "Script syntax: PASS"
+expect_output "Whitespace/diff hygiene: PASS"
+
+echo "Opponent closeout smoke passed"
