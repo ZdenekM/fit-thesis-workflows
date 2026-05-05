@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.paths import rel_repo
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
@@ -251,7 +252,7 @@ def main(argv: list[str]) -> int:
         build_report(materials_path.read_text(encoding="utf-8"), sha256_file(materials_path)),
         encoding="utf-8",
     )
-    print(f"Wrote {draft_path.relative_to(root)}")
+    print(f"Wrote {rel_repo(root, draft_path)}")
     return 0
 
 

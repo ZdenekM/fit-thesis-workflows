@@ -8,12 +8,13 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present
 from thesis_review_workflow.agent_coverage import coverage_required
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.paths import is_safe_round_relative_path
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -92,12 +93,7 @@ def load_manifest(path: Path, errors: list[str]) -> dict[str, Any] | None:
 
 
 def is_safe_relative(value: str) -> bool:
-    if not value or "\\" in value:
-        return False
-    path = PurePosixPath(value)
-    if path.is_absolute():
-        return False
-    return ".." not in path.parts
+    return is_safe_round_relative_path(value)
 
 
 def validate_rel_path(

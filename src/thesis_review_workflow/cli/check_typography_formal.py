@@ -14,6 +14,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.paths import rel_repo
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 FIELD_RE = re.compile(r"^\s*([^:\n]+):\s*(.*?)\s*$")
 CZECH_SHORT_LINE_RE = re.compile(r"(?i)(?:^|\s)([aikosuvz])\s*$")
@@ -133,10 +135,7 @@ def resolve_round(root: Path, case_id: str, round_id: str | None) -> Path:
 
 
 def rel(path: Path, root: Path) -> str:
-    try:
-        return str(path.relative_to(root))
-    except ValueError:
-        return str(path)
+    return rel_repo(root, path)
 
 
 def read_text(path: Path) -> str:

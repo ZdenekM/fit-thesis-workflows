@@ -10,8 +10,10 @@ import unicodedata
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
+
+from thesis_review_workflow.paths import is_safe_round_relative_path
 
 COVERAGE_REL = Path("work/agent_coverage.json")
 SCHEMA_VERSION = "agent-coverage-v1"
@@ -140,10 +142,7 @@ def sha256_file(path: Path) -> str:
 
 
 def is_safe_relative(value: str) -> bool:
-    if not value or "\\" in value:
-        return False
-    path = PurePosixPath(value)
-    return not path.is_absolute() and ".." not in path.parts
+    return is_safe_round_relative_path(value)
 
 
 def load_json_object(path: Path) -> dict[str, Any] | None:

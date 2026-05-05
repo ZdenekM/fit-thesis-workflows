@@ -14,6 +14,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.paths import rel_repo
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 METRIC_RE = re.compile(
     r"\b("
@@ -517,10 +519,7 @@ def has_nearby_practical_context(lines: list[SourceLine], path: Path, number: in
 
 
 def rel(path: Path, root: Path) -> str:
-    try:
-        return str(path.relative_to(root))
-    except ValueError:
-        return str(path)
+    return rel_repo(root, path)
 
 
 def print_warning(warnings: list[str], message: str) -> None:

@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
+from thesis_review_workflow.paths import rel_round as format_rel_round
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 GITHUB_LOGIN_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 GITHUB_REPO_RE = re.compile(
@@ -161,10 +163,7 @@ class ImportContext:
         self.evidence.append(EvidenceFile(path=path, purpose=purpose))
 
     def rel_round(self, path: Path) -> str:
-        try:
-            return str(path.relative_to(self.round_dir))
-        except ValueError:
-            return str(path)
+        return format_rel_round(self.round_dir, path)
 
 
 def repo_root() -> Path:

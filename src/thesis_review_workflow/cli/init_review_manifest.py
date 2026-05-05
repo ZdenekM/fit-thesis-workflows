@@ -20,6 +20,7 @@ from thesis_review_workflow.agent_coverage import (
     write_coverage,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.paths import rel_repo
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -594,7 +595,7 @@ def main() -> int:
     if args.run_checks:
         run_helper_checks(root, manifest_path, manifest)
         write_manifest(manifest_path, manifest)
-    print(f"Wrote {manifest_path.relative_to(root)}")
+    print(f"Wrote {rel_repo(root, manifest_path)}")
     return 0
 
 

@@ -7,9 +7,10 @@ import hashlib
 import re
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.paths import is_safe_round_relative_path
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 DEFAULT_DRAFT = Path("work/oponent_posudek_draft.md")
@@ -143,10 +144,7 @@ def resolve_round(case_dir: Path, round_id: str | None) -> str:
 
 
 def is_safe_relative(value: str) -> bool:
-    if not value or "\\" in value:
-        return False
-    path = PurePosixPath(value)
-    return not path.is_absolute() and ".." not in path.parts
+    return is_safe_round_relative_path(value)
 
 
 def section_body(lines: list[str], heading: str) -> list[str] | None:
