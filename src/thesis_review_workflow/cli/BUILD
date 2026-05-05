@@ -1,23 +1,19 @@
-python_source(
-    name="opponent_closeout",
-    source="opponent_closeout.py",
-    dependencies=[
-        "src/thesis_review_workflow:workflow_core",
-    ],
-)
-
-python_source(
-    name="opponent_preflight",
-    source="opponent_preflight.py",
-    dependencies=[
-        "src/thesis_review_workflow:workflow_core",
-    ],
-)
-
-python_source(
-    name="prepare_code_workspace",
-    source="prepare_code_workspace.py",
-    dependencies=[
-        "src/thesis_review_workflow:workflow_core",
-    ],
-)
+python_source(name="package", source="__init__.py")
+python_source(name="bootstrap_case", source="bootstrap_case.py")
+python_source(name="case_doctor", source="case_doctor.py")
+python_source(name="check_agent_coverage", source="check_agent_coverage.py")
+python_source(name="check_evaluation_claims", source="check_evaluation_claims.py")
+python_source(name="check_feedback_output", source="check_feedback_output.py")
+python_source(name="check_figure_media_review", source="check_figure_media_review.py")
+python_source(name="check_opponent_materials", source="check_opponent_materials.py")
+python_source(name="check_opponent_report", source="check_opponent_report.py")
+python_source(name="check_review_manifest", source="check_review_manifest.py")
+python_source(name="check_tooling", source="check_tooling.py")
+python_source(name="check_typography_formal", source="check_typography_formal.py")
+python_source(name="draft_opponent_report", source="draft_opponent_report.py")
+python_source(name="import_github_code", source="import_github_code.py")
+python_source(name="init_review_manifest", source="init_review_manifest.py")
+python_source(name="opponent_closeout", source="opponent_closeout.py")
+python_source(name="opponent_preflight", source="opponent_preflight.py")
+python_source(name="prepare_code_workspace", source="prepare_code_workspace.py")
+python_source(name="supervisor_deadline", source="supervisor_deadline.py")

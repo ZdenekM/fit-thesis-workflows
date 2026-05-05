@@ -1,47 +1,32 @@
-python_sources(
-    name="workflow_cli_package_sources",
+shell_sources(
+    name="workflow_shell",
     sources=[
         "bootstrap-case",
         "case-doctor",
         "check-agent-coverage",
         "check-evaluation-claims",
+        "check-feedback-language",
         "check-feedback-output",
         "check-figure-media-review",
         "check-opponent-materials",
         "check-opponent-report",
-        "check-review-manifest",
-        "check-tooling",
-        "check-typography-formal",
-        "draft-opponent-report",
-        "import-github-code",
-        "init-review-manifest",
-        "supervisor-deadline",
-    ],
-    dependencies=["src/thesis_review_workflow:workflow_core"],
-    # These executable scripts remain covered by scripts/check-scripts. They
-    # will move into importable modules incrementally; until then this target is
-    # package-only so Pants hygiene does not force a broad CLI refactor.
-    skip_black=True,
-    skip_flake8=True,
-    skip_isort=True,
-    skip_mypy=True,
-)
-
-shell_sources(
-    name="workflow_shell",
-    sources=[
-        "check-feedback-language",
         "check-private",
+        "check-review-manifest",
         "check-reviewer-profile",
         "check-round-ready",
         "check-scripts",
         "check-supervisor-ready",
+        "check-tooling",
+        "check-typography-formal",
+        "draft-opponent-report",
         "extract-pdf-text",
-        "package-workflow-tools",
+        "import-github-code",
         "import-round",
+        "init-review-manifest",
         "new-case",
         "opponent-closeout",
         "opponent-preflight",
+        "package-workflow-tools",
         "prepare-code-workspace",
         "smoke-agent-coverage",
         "smoke-bootstrap-case",
@@ -62,13 +47,14 @@ shell_sources(
         "smoke-reviewer-profile",
         "smoke-tooling",
         "smoke-typography-formal",
+        "supervisor-deadline",
     ],
 )
 
 pex_binary(
     name="bootstrap_case_tool",
-    executable="bootstrap-case",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.bootstrap_case:console_main",
+    dependencies=["src/thesis_review_workflow/cli:bootstrap_case"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/bootstrap-case",
@@ -77,8 +63,8 @@ pex_binary(
 
 pex_binary(
     name="case_doctor_tool",
-    executable="case-doctor",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.case_doctor:console_main",
+    dependencies=["src/thesis_review_workflow/cli:case_doctor"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/case-doctor",
@@ -87,8 +73,8 @@ pex_binary(
 
 pex_binary(
     name="check_agent_coverage_tool",
-    executable="check-agent-coverage",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_agent_coverage:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_agent_coverage"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-agent-coverage",
@@ -97,8 +83,8 @@ pex_binary(
 
 pex_binary(
     name="check_evaluation_claims_tool",
-    executable="check-evaluation-claims",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_evaluation_claims:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_evaluation_claims"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-evaluation-claims",
@@ -107,8 +93,8 @@ pex_binary(
 
 pex_binary(
     name="check_feedback_output_tool",
-    executable="check-feedback-output",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_feedback_output:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_feedback_output"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-feedback-output",
@@ -117,8 +103,8 @@ pex_binary(
 
 pex_binary(
     name="check_figure_media_review_tool",
-    executable="check-figure-media-review",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_figure_media_review:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_figure_media_review"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-figure-media-review",
@@ -127,8 +113,8 @@ pex_binary(
 
 pex_binary(
     name="check_opponent_materials_tool",
-    executable="check-opponent-materials",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_opponent_materials:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_opponent_materials"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-opponent-materials",
@@ -137,8 +123,8 @@ pex_binary(
 
 pex_binary(
     name="check_opponent_report_tool",
-    executable="check-opponent-report",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_opponent_report:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_opponent_report"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-opponent-report",
@@ -147,8 +133,8 @@ pex_binary(
 
 pex_binary(
     name="check_review_manifest_tool",
-    executable="check-review-manifest",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_review_manifest:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_review_manifest"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-review-manifest",
@@ -157,8 +143,8 @@ pex_binary(
 
 pex_binary(
     name="check_tooling_tool",
-    executable="check-tooling",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_tooling:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_tooling"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-tooling",
@@ -167,8 +153,8 @@ pex_binary(
 
 pex_binary(
     name="check_typography_formal_tool",
-    executable="check-typography-formal",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.check_typography_formal:console_main",
+    dependencies=["src/thesis_review_workflow/cli:check_typography_formal"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-typography-formal",
@@ -177,8 +163,8 @@ pex_binary(
 
 pex_binary(
     name="draft_opponent_report_tool",
-    executable="draft-opponent-report",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.draft_opponent_report:console_main",
+    dependencies=["src/thesis_review_workflow/cli:draft_opponent_report"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/draft-opponent-report",
@@ -187,8 +173,8 @@ pex_binary(
 
 pex_binary(
     name="import_github_code_tool",
-    executable="import-github-code",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.import_github_code:console_main",
+    dependencies=["src/thesis_review_workflow/cli:import_github_code"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/import-github-code",
@@ -197,8 +183,8 @@ pex_binary(
 
 pex_binary(
     name="init_review_manifest_tool",
-    executable="init-review-manifest",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.init_review_manifest:console_main",
+    dependencies=["src/thesis_review_workflow/cli:init_review_manifest"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/init-review-manifest",
@@ -237,8 +223,8 @@ pex_binary(
 
 pex_binary(
     name="supervisor_deadline_tool",
-    executable="supervisor-deadline",
-    dependencies=[":workflow_cli_package_sources"],
+    entry_point="thesis_review_workflow.cli.supervisor_deadline:console_main",
+    dependencies=["src/thesis_review_workflow/cli:supervisor_deadline"],
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/supervisor-deadline",

@@ -58,6 +58,8 @@ for tool_name in "${expected_tools[@]}"; do
 set -euo pipefail
 script_dir="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="\$(cd "\$script_dir/../../.." && pwd -P)"
+export THESIS_REVIEW_CALLER_CWD="\${THESIS_REVIEW_CALLER_CWD:-\$PWD}"
+export PYTHONPATH=
 export PEX_ROOT="\${PEX_ROOT:-\$repo_root/.pants.d/pex_root}"
 python_bin="\${WORKFLOW_TOOLS_PYTHON:-}"
 if [[ -z "\$python_bin" ]]; then

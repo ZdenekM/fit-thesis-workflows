@@ -143,6 +143,12 @@ make_text_zip "$tmp_dir/overleaf.zip"
 printf '%s\n' 'Synthetic operator note.' >"$tmp_dir/operator-notes.md"
 printf '%s\n' '# Historical feedback' >"$tmp_dir/previous-feedback.md"
 
+mkdir -p "$tmp_dir/shadow-pythonpath"
+printf '%s\n' 'raise RuntimeError("shadowed subprocess imported")' >"$tmp_dir/shadow-pythonpath/subprocess.py"
+expect_success \
+  "workflow wrappers ignore polluted caller PYTHONPATH" \
+  env PYTHONPATH="$tmp_dir/shadow-pythonpath" "$repo_root/scripts/case-doctor" --help
+
 case_id="${case_prefix}_supervisor"
 created_cases+=("$case_id")
 expect_success \
@@ -184,6 +190,25 @@ expect_file_contains "$round_dir/notes/assignment.md" "Synthetic private notes."
 expect_file_contains "$round_dir/notes/previous-feedback-index.md" "Imported Historical Feedback"
 expect_file_contains "$round_dir/notes/round-notes.md" "Bootstrap Import Summary"
 expect_file_contains "$round_dir/notes/supervisor-intake.md" "Imported Operator Notes"
+
+case_id="${case_prefix}_relative_cwd"
+created_cases+=("$case_id")
+(
+  cd "$tmp_dir"
+  expect_success \
+    "bootstrap resolves relative input paths against caller cwd" \
+    "$repo_root/scripts/bootstrap-case" supervisor "$case_id" relative-review \
+    --work-type BP \
+    --academic-year 2025/2026 \
+    --thesis-pdf thesis.pdf \
+    --assignment-pdf assignment.pdf \
+    --assignment-summary "Synthetic assignment summary." \
+    --private-assignment-notes "Synthetic private notes."
+)
+round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+test -f "$round_dir/inputs/thesis.pdf"
+test -f "$round_dir/inputs/assignment.pdf"
 
 case_id="${case_prefix}_opponent"
 created_cases+=("$case_id")

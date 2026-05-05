@@ -1,0 +1,1043 @@
+"""Print a read-only case/round readiness and artifact status report."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tarfile
+import unicodedata
+import zipfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from thesis_review_workflow.agent_coverage import (
+    COVERAGE_REL,
+    coverage_required,
+    inferred_coverage_required,
+    inferred_role_specs,
+    load_json_object,
+)
+from thesis_review_workflow.cases import read_current_round, repo_root
+from thesis_review_workflow.ids import is_valid_id
+from thesis_review_workflow.ids import validate_id as validate_id_core
+from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.paths import rel_repo, rel_round
+
+MANIFEST_REL = Path("work/review_manifest.json")
+LARGE_ARCHIVE_BYTES = 100 * 1024 * 1024
+MAX_LIST = 12
+MAX_WALK_FILES = 5000
+SAFE_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    "target",
+    ".venv",
+    "venv",
+}
+DEPENDENCY_NAMES = {
+    "requirements.txt",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "pom.xml",
+    "build.gradle",
+    "settings.gradle",
+    "Cargo.toml",
+    "Cargo.lock",
+    "go.mod",
+    "go.sum",
+    "CMakeLists.txt",
+    "Makefile",
+    "Dockerfile",
+    "docker-compose.yml",
+    "compose.yml",
+}
+CODE_DEPENDENCY_NAMES = DEPENDENCY_NAMES - {"Makefile", "CMakeLists.txt"}
+CODE_SUFFIXES = {
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".java",
+    ".kt",
+    ".cs",
+    ".cpp",
+    ".c",
+    ".h",
+    ".hpp",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".ipynb",
+    ".sql",
+    ".r",
+    ".m",
+    ".jl",
+}
+ARCHIVE_SUFFIXES = {
+    ".zip",
+    ".tar",
+    ".tgz",
+    ".tbz",
+    ".tbz2",
+    ".txz",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".7z",
+    ".rar",
+}
+MEDIA_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".webm",
+    ".ppt",
+    ".pptx",
+    ".odp",
+    ".key",
+    ".ipynb",
+}
+KNOWN_OUTPUTS = {
+    "feedback_student.md": "supervisor feedback",
+    "revision_diff.md": "revision diff",
+    "github_code_intake.md": "GitHub code intake",
+    "code_consistency.md": "text-code consistency",
+    "code_quality_review.md": "code quality/design review",
+    "literature_citation_review.md": "literature/citation review",
+    "figure_media_review.md": "figure/media review",
+    "typography_formal_review.md": "typography/formal review",
+    "oponent_podklady.md": "opponent materials draft",
+    "oponent_podklady_revidovane.md": "reviewed opponent materials",
+    "feedback_k_posudku.md": "opponent report review",
+    "reference_report_comparison.md": "reference report comparison",
+    "demo_artifacts_review.md": "demo artifact review",
+    "pr_contribution_review.md": "PR contribution review",
+}
+FINAL_OUTPUTS = {
+    "feedback_student.md",
+    "oponent_podklady_revidovane.md",
+    "feedback_k_posudku.md",
+}
+
+
+@dataclass(frozen=True)
+class Issue:
+    severity: str
+    message: str
+
+
+@dataclass(frozen=True)
+class GateResult:
+    name: str
+    command: str
+    returncode: int
+    output: str
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+
+@dataclass(frozen=True)
+class ArchiveInfo:
+    path: Path
+    size: int
+    entry_count: int | None
+    top_entries: list[str]
+    code_like: bool
+    code_unknown: bool
+    note: str
+
+
+@dataclass(frozen=True)
+class DirectoryInventory:
+    path: Path
+    files_seen: int
+    truncated: bool
+    readmes: list[str]
+    dependencies: list[str]
+    tests: list[str]
+    ci: list[str]
+    large: list[str]
+    code_files: list[str]
+
+    @property
+    def code_like(self) -> bool:
+        return bool(
+            self.code_files or self.tests or any(Path(item).name in CODE_DEPENDENCY_NAMES for item in self.dependencies)
+        )
+
+
+def validate_id(label: str, value: str) -> None:
+    try:
+        validate_id_core(label, value)
+    except ValueError as exc:
+        print(
+            str(exc),
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
+
+
+def file_size_label(size: int) -> str:
+    if size >= 1024 * 1024 * 1024:
+        return f"{size / (1024 * 1024 * 1024):.1f} GiB"
+    if size >= 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MiB"
+    if size >= 1024:
+        return f"{size / 1024:.1f} KiB"
+    return f"{size} B"
+
+
+def nonempty_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def one_line(text: str) -> str:
+    lines = nonempty_lines(text)
+    if lines:
+        return lines[0]
+    return "(no output)"
+
+
+def compact_output(text: str, *, max_lines: int = 3) -> str:
+    lines = nonempty_lines(text)
+    if not lines:
+        return "(no output)"
+    selected = lines[:max_lines]
+    if len(lines) > max_lines:
+        selected.append("...")
+    return " | ".join(selected)
+
+
+def run_gate(root: Path, name: str, args: list[str], timeout: int = 45) -> GateResult:
+    display = " ".join(args)
+    command = [str(root / arg) if arg.startswith("scripts/") else arg for arg in args]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return GateResult(name, display, 1, f"Timed out after {timeout}s")
+    if result.returncode == 0:
+        parts = (result.stdout.strip(), result.stderr.strip())
+    else:
+        parts = (result.stderr.strip(), result.stdout.strip())
+    output = "\n".join(part for part in parts if part)
+    return GateResult(name, display, result.returncode, output)
+
+
+def find_files(base: Path, predicate: Any, *, max_seen: int = MAX_WALK_FILES) -> list[Path]:
+    if not base.is_dir():
+        return []
+    matches: list[Path] = []
+    files_seen = 0
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [name for name in dirnames if name not in SAFE_SKIP_DIRS]
+        for filename in filenames:
+            path = Path(dirpath) / filename
+            files_seen += 1
+            if predicate(path):
+                matches.append(path)
+            if files_seen >= max_seen:
+                return sorted(matches)
+    return sorted(matches)
+
+
+def archive_may_be_code_from_name(path: Path) -> bool:
+    name = folded(path.name)
+    clear_text_source = (
+        "thesis",
+        "latex",
+        "overleaf",
+        "zadani",
+        "assignment",
+        "prace",
+        "bakalar",
+        "diplom",
+        "report",
+    )
+    if any(token in name for token in clear_text_source):
+        return False
+    code_tokens = (
+        "code",
+        "src",
+        "source",
+        "repo",
+        "project",
+        "app",
+        "software",
+        "implementation",
+        "submission",
+    )
+    if any(token in name for token in code_tokens):
+        return True
+    return True
+
+
+def archive_suffix(path: Path) -> str:
+    suffixes = [suffix.lower() for suffix in path.suffixes]
+    if len(suffixes) >= 2 and suffixes[-2:] in (
+        [".tar", ".gz"],
+        [".tar", ".bz2"],
+        [".tar", ".xz"],
+    ):
+        return "".join(suffixes[-2:])
+    return suffixes[-1] if suffixes else ""
+
+
+def is_archive(path: Path) -> bool:
+    suffix = archive_suffix(path)
+    return suffix in ARCHIVE_SUFFIXES or any(
+        str(path).lower().endswith(item) for item in (".tar.gz", ".tar.bz2", ".tar.xz")
+    )
+
+
+def archive_entry_code_like(name: str) -> bool:
+    pure_name = Path(name).name
+    lower = name.lower()
+    return (
+        pure_name in CODE_DEPENDENCY_NAMES
+        or Path(pure_name).suffix.lower() in CODE_SUFFIXES
+        or "/test/" in lower
+        or "/tests/" in lower
+        or lower.startswith("test/")
+        or lower.startswith("tests/")
+    )
+
+
+def archive_top_entries(names: list[str]) -> list[str]:
+    entries: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        first = name.split("/", 1)[0].strip()
+        if not first or first in seen:
+            continue
+        seen.add(first)
+        entries.append(first)
+        if len(entries) >= MAX_LIST:
+            break
+    return entries
+
+
+def inspect_archive(path: Path) -> ArchiveInfo:
+    size = path.stat().st_size
+    if size > LARGE_ARCHIVE_BYTES:
+        return ArchiveInfo(
+            path,
+            size,
+            None,
+            [],
+            False,
+            archive_may_be_code_from_name(path),
+            "large archive; metadata only, entries not listed",
+        )
+
+    suffix = archive_suffix(path)
+    names: list[str] = []
+    note = "metadata listed"
+    try:
+        if suffix == ".zip":
+            with zipfile.ZipFile(path) as handle:
+                for index, item in enumerate(handle.infolist()):
+                    if index >= MAX_WALK_FILES:
+                        note = f"metadata truncated at {MAX_WALK_FILES} entries"
+                        break
+                    names.append(item.filename)
+        elif suffix in {".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".tbz", ".tbz2", ".txz"}:
+            with tarfile.open(path, mode="r:*") as handle:
+                for index, member in enumerate(handle):
+                    if index >= MAX_WALK_FILES:
+                        note = f"metadata truncated at {MAX_WALK_FILES} entries"
+                        break
+                    names.append(member.name)
+        else:
+            note = "archive format not inspected"
+    except (OSError, tarfile.TarError, zipfile.BadZipFile) as exc:
+        note = f"archive metadata unreadable: {exc}"
+
+    code_like = any(archive_entry_code_like(name) for name in names)
+    code_unknown = not names and archive_may_be_code_from_name(path)
+    return ArchiveInfo(
+        path,
+        size,
+        len(names) if names or note == "metadata listed" else None,
+        archive_top_entries(names),
+        code_like,
+        code_unknown,
+        note,
+    )
+
+
+def walk_inventory(root: Path) -> DirectoryInventory:
+    files_seen = 0
+    truncated = False
+    readmes: list[str] = []
+    dependencies: list[str] = []
+    tests: list[str] = []
+    ci: list[str] = []
+    large: list[str] = []
+    code_files: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in SAFE_SKIP_DIRS]
+        for filename in filenames:
+            path = Path(dirpath) / filename
+            files_seen += 1
+            rel = path.relative_to(root).as_posix()
+            lower = rel.lower()
+            name = path.name
+            if name.lower().startswith("readme") and len(readmes) < MAX_LIST:
+                readmes.append(rel)
+            if name in DEPENDENCY_NAMES and len(dependencies) < MAX_LIST:
+                dependencies.append(rel)
+            if lower.startswith(".github/workflows/") and len(ci) < MAX_LIST:
+                ci.append(rel)
+            if (
+                re.search(r"(^|/)(test|tests|spec|specs)(/|$)", lower) or re.search(r"(test|spec)\.", name.lower())
+            ) and len(tests) < MAX_LIST:
+                tests.append(rel)
+            if Path(name).suffix.lower() in CODE_SUFFIXES and len(code_files) < MAX_LIST:
+                code_files.append(rel)
+            try:
+                if path.stat().st_size >= 10 * 1024 * 1024 and len(large) < MAX_LIST:
+                    large.append(rel)
+            except OSError:
+                pass
+            if files_seen >= MAX_WALK_FILES:
+                truncated = True
+                return DirectoryInventory(
+                    root, files_seen, truncated, readmes, dependencies, tests, ci, large, code_files
+                )
+    return DirectoryInventory(root, files_seen, truncated, readmes, dependencies, tests, ci, large, code_files)
+
+
+def candidate_code_dirs(round_dir: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for rel in (
+        "work/code",
+        "work/github-intake",
+        "inputs/code",
+        "inputs/src",
+        "inputs/source",
+        "inputs/submission",
+        "inputs/github",
+    ):
+        path = round_dir / rel
+        if path.is_dir():
+            candidates.append(path)
+
+    for base in (round_dir / "inputs", round_dir / "work"):
+        if not base.is_dir():
+            continue
+        for path in base.iterdir():
+            if not path.is_dir() or path in candidates or path.name in SAFE_SKIP_DIRS:
+                continue
+            if path.name in {"thesis-source", "figure_media"}:
+                continue
+            lower = path.name.lower()
+            if any(token in lower for token in ("code", "src", "source", "repo", "app", "project", "github")):
+                candidates.append(path)
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        if path not in seen:
+            seen.add(path)
+            unique.append(path)
+    return unique
+
+
+def path_list(round_dir: Path, paths: list[Path], *, max_items: int = MAX_LIST) -> list[str]:
+    items = [rel_round(round_dir, path) for path in sorted(paths)]
+    if len(items) > max_items:
+        return items[:max_items] + [f"... {len(items) - max_items} more"]
+    return items
+
+
+def output_section(title: str, lines: list[str]) -> None:
+    print()
+    print(f"## {title}")
+    if lines:
+        for line in lines:
+            print(line)
+    else:
+        print("- none")
+
+
+def add_issue(issues: list[Issue], severity: str, message: str) -> None:
+    issues.append(Issue(severity, message))
+
+
+def folded(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
+    return ascii_text.lower()
+
+
+def is_thesis_pdf_name(value: str) -> bool:
+    tokens = ("thesis", "prace", "bakalar", "diplom")
+    if any(token in value for token in tokens):
+        return True
+    return bool(re.search(r"(^|[_ .-])(bp|dp)([_ .-]|$)", value))
+
+
+def matching_extract(
+    pdf: Path,
+    extracted: list[Path],
+    *,
+    pdf_count: int,
+    used_extracts: set[Path],
+) -> tuple[Path | None, str]:
+    by_stem = {path.stem: path for path in extracted}
+    exact = by_stem.get(pdf.stem)
+    if exact is not None and exact not in used_extracts:
+        return exact, "same-stem"
+
+    pdf_name = folded(pdf.stem)
+    assignment_tokens = ("zadani", "assignment")
+    if any(token in pdf_name for token in assignment_tokens):
+        for path in extracted:
+            if path in used_extracts:
+                continue
+            extract_name = folded(path.stem)
+            if any(token in extract_name for token in assignment_tokens):
+                return path, "assignment heuristic"
+    elif is_thesis_pdf_name(pdf_name):
+        for path in extracted:
+            if path in used_extracts:
+                continue
+            extract_name = folded(path.stem)
+            if extract_name in {"thesis", "prace", "bp", "dp"} or "thesis" in extract_name:
+                return path, "thesis heuristic"
+
+    if pdf_count == 1 and len(extracted) == 1 and extracted[0] not in used_extracts:
+        return extracted[0], "single-extract heuristic"
+    return None, ""
+
+
+def pdf_extract_status(round_dir: Path, issues: list[Issue]) -> tuple[list[Path], list[Path], list[str]]:
+    pdfs = find_files(round_dir / "inputs", lambda path: path.suffix.lower() == ".pdf")
+    extracted = find_files(round_dir / "extracted", lambda path: path.suffix.lower() == ".txt")
+    lines: list[str] = []
+    used_extracts: set[Path] = set()
+    for pdf in pdfs:
+        extract, match_kind = matching_extract(
+            pdf,
+            extracted,
+            pdf_count=len(pdfs),
+            used_extracts=used_extracts,
+        )
+        if extract is None:
+            lines.append(f"- {rel_round(round_dir, pdf)} -> missing matching extracted text")
+            add_issue(issues, "WARNING", f"Missing matching text extract for {rel_round(round_dir, pdf)}.")
+            continue
+        used_extracts.add(extract)
+        status = "present"
+        try:
+            if extract.stat().st_mtime < pdf.stat().st_mtime:
+                status = "older than PDF"
+                add_issue(issues, "WARNING", f"Text extract is older than PDF: {rel_round(round_dir, extract)}.")
+        except OSError:
+            status = "mtime unavailable"
+        qualifier = f", {match_kind}" if match_kind != "same-stem" else ""
+        lines.append(f"- {rel_round(round_dir, pdf)} -> {rel_round(round_dir, extract)} ({status}{qualifier})")
+    if not pdfs:
+        lines.append("- no PDFs under inputs/")
+    if extracted:
+        lines.append(
+            f"- Extracted text files: {len(extracted)} ({', '.join(path_list(round_dir, extracted, max_items=6))})"
+        )
+    else:
+        lines.append("- Extracted text files: none")
+    return pdfs, extracted, lines
+
+
+def collect_feedback_rounds(case_dir: Path, current_round_id: str) -> tuple[list[Path], list[Path]]:
+    rounds_dir = case_dir / "rounds"
+    if not rounds_dir.is_dir():
+        return [], []
+    previous: list[Path] = []
+    other: list[Path] = []
+    for round_path in sorted(rounds_dir.iterdir()):
+        if not round_path.is_dir() or round_path.name == current_round_id:
+            continue
+        feedback = round_path / "outputs" / "feedback_student.md"
+        if feedback.is_file():
+            if round_path.name < current_round_id:
+                previous.append(feedback)
+            else:
+                other.append(feedback)
+    return previous, other
+
+
+def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) -> list[str]:
+    lines: list[str] = []
+    manifest_path = round_dir / MANIFEST_REL
+    if not manifest_path.is_file():
+        if outputs:
+            add_issue(issues, "ERROR", "Generated outputs exist but work/review_manifest.json is missing.")
+        lines.append("- review manifest: missing")
+        return lines
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        add_issue(issues, "ERROR", f"Review manifest JSON is invalid: {exc.msg}.")
+        lines.append(f"- review manifest: invalid JSON ({exc.msg})")
+        return lines
+
+    artifacts = manifest.get("artifacts", [])
+    checks = manifest.get("helper_checks", [])
+    lines.append(f"- review manifest: present ({MANIFEST_REL.as_posix()})")
+    coverage_path = round_dir / COVERAGE_REL
+    if inferred_coverage_required(round_dir, manifest):
+        if coverage_path.is_file():
+            lines.append(f"- agent coverage: present ({COVERAGE_REL.as_posix()})")
+        else:
+            add_issue(issues, "ERROR", f"Required agent coverage is missing: {COVERAGE_REL.as_posix()}.")
+            lines.append(f"- agent coverage: missing ({COVERAGE_REL.as_posix()})")
+    elif coverage_path.is_file():
+        lines.append(f"- agent coverage: present but no default role trigger is active ({COVERAGE_REL.as_posix()})")
+    else:
+        lines.append("- agent coverage: not required")
+    if isinstance(artifacts, list):
+        lines.append(f"- manifest artifacts: {len(artifacts)}")
+    else:
+        add_issue(issues, "ERROR", "Review manifest artifacts field is not a list.")
+        lines.append("- manifest artifacts: invalid")
+    if isinstance(checks, list):
+        lines.append(f"- manifest helper checks: {len(checks)}")
+    else:
+        add_issue(issues, "ERROR", "Review manifest helper_checks field is not a list.")
+        lines.append("- manifest helper checks: invalid")
+    return lines
+
+
+def agent_coverage_summary(round_dir: Path, issues: list[Issue]) -> list[str]:
+    manifest_path = round_dir / MANIFEST_REL
+    if not manifest_path.is_file():
+        return ["- unavailable: review manifest is missing"]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ["- unavailable: review manifest JSON is invalid"]
+    if not isinstance(manifest, dict):
+        return ["- unavailable: review manifest is not an object"]
+
+    specs = inferred_role_specs(round_dir, manifest)
+    try:
+        coverage = load_json_object(round_dir / COVERAGE_REL)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        add_issue(issues, "ERROR", f"Agent coverage JSON is invalid: {exc}.")
+        coverage = None
+    records: dict[str, dict[str, Any]] = {}
+    if coverage and isinstance(coverage.get("roles"), list):
+        for item in coverage["roles"]:
+            if isinstance(item, dict) and isinstance(item.get("role"), str):
+                records[item["role"]] = item
+
+    if not specs and not records:
+        return ["- no required role coverage for current round state"]
+
+    lines: list[str] = []
+    for role, spec in sorted(specs.items()):
+        record = records.get(role)
+        if not record:
+            lines.append(f"- MISSING {role}: needs {spec.skill} -> {spec.evidence_path}")
+            continue
+        status = str(record.get("status", ""))
+        evidence = ", ".join(str(item) for item in record.get("output_evidence", [])) or spec.evidence_path
+        missing: list[str] = []
+        if status == "required":
+            if spec.evidence_path not in record.get("output_evidence", []):
+                missing.append("output_evidence")
+            elif not (round_dir / spec.evidence_path).is_file():
+                missing.append("output_file")
+            if str(record.get("generator_agent", "")).strip() in {"", "not_recorded"}:
+                missing.append("generator_agent")
+            if str(record.get("generator_role", "")).strip() in {"", "not_recorded"}:
+                missing.append("generator_role")
+            if spec.requires_review:
+                if str(record.get("reviewer_agent", "")).strip() in {"", "not_recorded"}:
+                    missing.append("reviewer_agent")
+                if str(record.get("reviewer_role", "")).strip() in {"", "not_recorded"}:
+                    missing.append("reviewer_role")
+                if not str(record.get("reviewed_hash", "")).strip():
+                    missing.append("reviewed_hash")
+        elif status == "blocked":
+            limitation = record.get("typed_limitation")
+            limitation_type = limitation.get("type") if isinstance(limitation, dict) else "(missing limitation)"
+            missing.append(f"blocked:{limitation_type}")
+        detail = f"; missing {', '.join(missing)}" if missing else ""
+        lines.append(f"- {status.upper()} {role}: {spec.skill}; evidence {evidence}{detail}")
+
+    for role in sorted(set(records) - set(specs)):
+        record = records[role]
+        lines.append(f"- STALE {role}: status {record.get('status', '(missing)')}; no current default trigger")
+    return lines
+
+
+def output_expectations(round_dir: Path, outputs: list[Path], code_present: bool, issues: list[Issue]) -> list[str]:
+    names = {path.name for path in outputs}
+    lines: list[str] = []
+    for name in sorted(KNOWN_OUTPUTS):
+        marker = "present" if name in names else "missing"
+        if name in names or name in {"feedback_student.md", "oponent_podklady_revidovane.md"}:
+            lines.append(f"- {name}: {marker} ({KNOWN_OUTPUTS[name]})")
+
+    if (round_dir / "work" / "feedback_student_draft.md").is_file() and "feedback_student.md" not in names:
+        add_issue(issues, "WARNING", "Supervisor feedback draft exists but outputs/feedback_student.md is missing.")
+    if (round_dir / "work" / "oponent_podklady_draft.md").is_file() and "oponent_podklady_revidovane.md" not in names:
+        add_issue(issues, "WARNING", "Opponent materials draft exists but reviewed output is missing.")
+    if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file() and not (
+        round_dir / "work" / "oponent_posudek_draft.md"
+    ).is_file():
+        add_issue(issues, "WARNING", "Reviewed opponent materials exist but work/oponent_posudek_draft.md is missing.")
+        lines.append("- work/oponent_posudek_draft.md: missing (opponent report draft)")
+    elif (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        lines.append("- work/oponent_posudek_draft.md: present (opponent report draft)")
+        if "feedback_k_posudku.md" not in names:
+            add_issue(
+                issues, "WARNING", "Opponent report draft exists but outputs/feedback_k_posudku.md review is missing."
+            )
+
+    if code_present and names & FINAL_OUTPUTS:
+        missing = [name for name in ("code_consistency.md", "code_quality_review.md") if name not in names]
+        if missing:
+            add_issue(
+                issues,
+                "ERROR",
+                "Final synthesis exists with code evidence but missing code review outputs: "
+                + ", ".join(f"outputs/{name}" for name in missing)
+                + ".",
+            )
+    return lines
+
+
+def gate_failure_severity(gate: GateResult, output_names: set[str], round_dir: Path) -> str:
+    supervisor_feedback_surface = (
+        "feedback_student.md" in output_names or (round_dir / "work" / "feedback_student_draft.md").is_file()
+    )
+    if gate.name in {"supervisor deadline", "supervisor readiness"} and not supervisor_feedback_surface:
+        return "WARNING"
+    return "ERROR"
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="scripts/case-doctor",
+        description="Print a read-only readiness/status report for a thesis case round.",
+    )
+    parser.add_argument("case_id")
+    parser.add_argument("round_id", nargs="?")
+    args = parser.parse_args(argv[1:])
+
+    validate_id("CASE_ID", args.case_id)
+    if args.round_id:
+        validate_id("ROUND_ID", args.round_id)
+
+    root = repo_root()
+    case_dir = root / "cases" / args.case_id
+    issues: list[Issue] = []
+
+    if not case_dir.is_dir():
+        print(f"Case Doctor: cases/{args.case_id}")
+        print(f"ERROR: Case does not exist: cases/{args.case_id}")
+        return 1
+
+    case_md = case_dir / "case.md"
+    if not case_md.is_file():
+        print(f"Case Doctor: cases/{args.case_id}")
+        print(f"ERROR: Missing case metadata: cases/{args.case_id}/case.md")
+        return 1
+
+    current_round_raw = read_current_round(case_dir)
+    current_round: str | None = None
+    current_round_label = "(missing)"
+    if current_round_raw:
+        current_round_label = current_round_raw
+        if is_valid_id(current_round_raw):
+            current_round = current_round_raw
+        elif args.round_id:
+            add_issue(
+                issues,
+                "WARNING",
+                f"current-round.txt contains invalid round id: {current_round_raw}.",
+            )
+        else:
+            print(f"Case Doctor: cases/{args.case_id}")
+            print("ERROR: Invalid ROUND_ID in current-round.txt. Use only letters, numbers, dot, underscore, and dash.")
+            return 2
+    elif args.round_id:
+        add_issue(issues, "WARNING", f"Missing current round: cases/{args.case_id}/current-round.txt.")
+    else:
+        print(f"Case Doctor: cases/{args.case_id}")
+        print(f"ERROR: Missing current round: cases/{args.case_id}/current-round.txt")
+        return 1
+
+    round_id = args.round_id or current_round
+    if round_id is None:
+        print(f"Case Doctor: cases/{args.case_id}")
+        print(f"ERROR: Missing current round: cases/{args.case_id}/current-round.txt")
+        return 1
+    round_dir = case_dir / "rounds" / round_id
+    if not round_dir.is_dir():
+        print(f"Case Doctor: cases/{args.case_id}")
+        print(f"Round: {round_id}")
+        print(f"ERROR: Round does not exist: cases/{args.case_id}/rounds/{round_id}")
+        return 1
+
+    if args.round_id and current_round and args.round_id != current_round:
+        add_issue(
+            issues,
+            "WARNING",
+            f"Requested round {args.round_id} differs from current-round.txt ({current_round}).",
+        )
+
+    case_fields = read_fields(case_md)
+    rounds_dir = case_dir / "rounds"
+    rounds = sorted(path.name for path in rounds_dir.iterdir() if path.is_dir()) if rounds_dir.is_dir() else []
+    previous_feedback, other_feedback = collect_feedback_rounds(case_dir, round_id)
+
+    gates = [
+        run_gate(root, "reviewer profile", ["scripts/check-reviewer-profile", args.case_id]),
+        run_gate(root, "round readiness", ["scripts/check-round-ready", args.case_id, round_id]),
+        run_gate(root, "tooling preflight", ["scripts/check-tooling", "--fast", args.case_id, round_id]),
+        run_gate(root, "supervisor deadline", ["scripts/supervisor-deadline", args.case_id, round_id]),
+        run_gate(root, "supervisor readiness", ["scripts/check-supervisor-ready", args.case_id, round_id]),
+        run_gate(
+            root,
+            "feedback language config",
+            ["scripts/check-feedback-language", "--config-only", args.case_id, round_id],
+        ),
+    ]
+
+    pdfs, extracted, pdf_lines = pdf_extract_status(round_dir, issues)
+    outputs = sorted((round_dir / "outputs").glob("*.md")) if (round_dir / "outputs").is_dir() else []
+    archive_paths = find_files(round_dir / "inputs", is_archive)
+    archives = [inspect_archive(path) for path in archive_paths]
+    for info in archives:
+        if info.size > LARGE_ARCHIVE_BYTES:
+            add_issue(issues, "WARNING", f"Large archive was not entry-listed: {rel_round(round_dir, info.path)}.")
+        if info.code_unknown:
+            add_issue(
+                issues,
+                "WARNING",
+                f"Archive may contain code but was not classifiable from metadata: {rel_round(round_dir, info.path)}.",
+            )
+    code_dirs = candidate_code_dirs(round_dir)
+    inventories = [walk_inventory(path) for path in code_dirs]
+    code_present = bool(
+        any(info.code_like or info.code_unknown for info in archives)
+        or any(inventory.code_like for inventory in inventories)
+        or (round_dir / "inputs" / "github").is_dir()
+        or (round_dir / "work" / "github-intake").is_dir()
+    )
+    work_code = round_dir / "work" / "code"
+    if code_present and not work_code.is_dir() and not (round_dir / "work" / "github-intake").is_dir():
+        add_issue(
+            issues,
+            "WARNING",
+            "Code evidence is present but no inspectable work/code or work/github-intake workspace exists.",
+        )
+
+    media = find_files(round_dir, lambda path: path.suffix.lower() in MEDIA_SUFFIXES)
+    output_lines = output_expectations(round_dir, outputs, code_present, issues)
+    manifest_lines = manifest_summary(round_dir, outputs, issues)
+
+    if outputs or (round_dir / MANIFEST_REL).is_file():
+        if (round_dir / MANIFEST_REL).is_file():
+            try:
+                manifest = json.loads((round_dir / MANIFEST_REL).read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                manifest = {}
+            if isinstance(manifest, dict) and coverage_required(round_dir, manifest):
+                gates.append(run_gate(root, "agent coverage", ["scripts/check-agent-coverage", args.case_id, round_id]))
+        gates.append(
+            run_gate(
+                root, "review manifest", ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id]
+            )
+        )
+    if (round_dir / "outputs" / "feedback_student.md").is_file():
+        gates.append(
+            run_gate(root, "feedback language output", ["scripts/check-feedback-language", args.case_id, round_id])
+        )
+        gates.append(run_gate(root, "feedback output", ["scripts/check-feedback-output", args.case_id, round_id]))
+    if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():
+        gates.append(run_gate(root, "opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id]))
+    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        gates.append(run_gate(root, "opponent report draft", ["scripts/check-opponent-report", args.case_id, round_id]))
+    if (round_dir / "outputs" / "figure_media_review.md").is_file():
+        gates.append(
+            run_gate(root, "figure/media review", ["scripts/check-figure-media-review", args.case_id, round_id])
+        )
+    if (round_dir / "outputs" / "typography_formal_review.md").is_file():
+        gates.append(
+            run_gate(
+                root,
+                "typography/formal review",
+                ["scripts/check-typography-formal", "--require-output", args.case_id, round_id],
+            )
+        )
+
+    for gate in gates:
+        if not gate.ok:
+            severity = gate_failure_severity(gate, {path.name for path in outputs}, round_dir)
+            suffix = (
+                " (blocks supervisor feedback)" if severity == "WARNING" and gate.name.startswith("supervisor") else ""
+            )
+            add_issue(issues, severity, f"{gate.name} failed{suffix}: {compact_output(gate.output)}")
+
+    status = "ERROR" if any(issue.severity == "ERROR" for issue in issues) else "WARNING" if issues else "OK"
+    print("Case Doctor")
+    print(f"Case: cases/{args.case_id}")
+    print(f"Round: cases/{args.case_id}/rounds/{round_id}")
+    error_count = sum(1 for issue in issues if issue.severity == "ERROR")
+    warning_count = sum(1 for issue in issues if issue.severity == "WARNING")
+    previous_rounds = ", ".join(rel_repo(root, path.parent.parent) for path in previous_feedback)
+    other_rounds = ", ".join(rel_repo(root, path.parent.parent) for path in other_feedback)
+    print(f"Status: {status} ({error_count} errors, {warning_count} warnings)")
+
+    output_section(
+        "Case / Round",
+        [
+            f"- Current round: {current_round_label}",
+            f"- Requested round: {args.round_id or '(current)'}",
+            f"- Available rounds: {', '.join(rounds) if rounds else 'none'}",
+            f"- Previous feedback rounds: {previous_rounds if previous_feedback else 'none'}",
+            f"- Other feedback rounds: {other_rounds if other_feedback else 'none'}",
+        ],
+    )
+
+    output_section(
+        "Metadata",
+        [
+            f"- Work type: {case_fields.get('work type', '(missing)')}",
+            f"- Academic year: {case_fields.get('academic year', '(missing)')}",
+            f"- Deadline mode: {case_fields.get('deadline mode', 'standard') or 'standard'}",
+            f"- Deadline override: {case_fields.get('deadline override', '(none)') or '(none)'}",
+            f"- Reviewer profile: {case_fields.get('reviewer profile', 'default') or 'default'}",
+            f"- Student feedback language: {case_fields.get('student feedback language', 'cs') or 'cs'}",
+            f"- Thesis language: {case_fields.get('thesis language', 'auto') or 'auto'}",
+        ],
+    )
+
+    gate_lines = []
+    for gate in gates:
+        label = "PASS" if gate.ok else "FAIL"
+        output = one_line(gate.output) if gate.ok else compact_output(gate.output)
+        gate_lines.append(f"- {label} {gate.name}: `{gate.command}` -> {output}")
+    output_section("Workflow Gates", gate_lines)
+
+    tooling_gate = next((gate for gate in gates if gate.name == "tooling preflight"), None)
+    output_section(
+        "Tooling Preflight",
+        nonempty_lines(tooling_gate.output) if tooling_gate else ["- not run"],
+    )
+
+    note_files = sorted((round_dir / "notes").glob("*.md")) if (round_dir / "notes").is_dir() else []
+    thesis_source = round_dir / "work" / "thesis-source"
+    input_lines = [
+        f"- Notes: {', '.join(path_list(round_dir, note_files)) if note_files else 'none'}",
+        f"- PDFs: {len(pdfs)}",
+        f"- Archives: {len(archives)}",
+        f"- Extracted text files: {len(extracted)}",
+        f"- Thesis source workspace: {'present' if thesis_source.is_dir() else 'missing'}",
+    ]
+    output_section("Inputs And Extracts", input_lines + pdf_lines)
+
+    archive_lines: list[str] = []
+    for info in archives:
+        bits = [
+            rel_round(round_dir, info.path),
+            file_size_label(info.size),
+            f"entries: {info.entry_count if info.entry_count is not None else 'not listed'}",
+            "code-like" if info.code_like else "possible-code" if info.code_unknown else "not code-classified",
+            info.note,
+        ]
+        archive_lines.append("- " + "; ".join(bits))
+    if not archive_lines:
+        archive_lines.append("- none")
+    output_section("Archives", archive_lines)
+
+    code_lines: list[str] = [f"- Code evidence detected: {'yes' if code_present else 'no'}"]
+    code_workspace_report = round_dir / "work" / "code_workspace.md"
+    serena_roots = round_dir / "work" / "serena_roots.json"
+    code_lines.append(f"- Code workspace report: {'present' if code_workspace_report.is_file() else 'missing'}")
+    code_lines.append(f"- Serena roots: {'present' if serena_roots.is_file() else 'missing'}")
+    for inventory in inventories:
+        code_lines.append(
+            f"- {rel_round(round_dir, inventory.path)}: {inventory.files_seen} files"
+            + (" (truncated)" if inventory.truncated else "")
+        )
+        for label, values in (
+            ("README", inventory.readmes),
+            ("dependency/build manifests", inventory.dependencies),
+            ("tests", inventory.tests),
+            ("CI", inventory.ci),
+            ("large files", inventory.large),
+            ("code files", inventory.code_files),
+        ):
+            if values:
+                code_lines.append(f"  - {label}: {', '.join(values)}")
+    output_section("Code Evidence", code_lines)
+
+    media_lines = [f"- {item}" for item in path_list(round_dir, media)]
+    if media:
+        media_lines.insert(
+            0, "- Media/demo artifacts are inventoried only; visual/video content was not inspected by this command."
+        )
+    output_section("Demo And Media", media_lines)
+
+    output_section("Generated Outputs", output_lines + manifest_lines)
+
+    output_section("Agent Role Coverage", agent_coverage_summary(round_dir, issues))
+
+    issue_lines = [f"- {issue.severity}: {issue.message}" for issue in issues]
+    output_section(
+        "Issues / Next Actions",
+        issue_lines if issue_lines else ["- OK: no blocking findings or warnings from this read-only diagnostic."],
+    )
+
+    return 1 if any(issue.severity == "ERROR" for issue in issues) else 0
+
+
+def console_main() -> int:
+    return main(sys.argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(console_main())

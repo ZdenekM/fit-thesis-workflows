@@ -2,11 +2,6 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Move reusable Python helper logic into an importable workflow package.
-   - Continue migrating shared validation, manifest, Markdown, code-workspace, and command-reporting helpers into `src/thesis_review_workflow/`.
-   - Keep executable `scripts/*` files as thin wrappers so existing chat-first commands remain stable.
-   - Migrate one module at a time, with focused tests before each move; do not combine a broad import refactor with behavior changes.
-   - Keep packaged workflow-tool launchers working after each migration; the packaged tools should depend on the importable package, not on duplicated script-local helpers.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.

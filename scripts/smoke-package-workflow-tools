@@ -5,23 +5,39 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
 tmp_output="$(mktemp)"
-trap 'rm -f "$tmp_output"' EXIT
+tmp_dir="$(mktemp -d)"
+case_prefix="__package_workflow_tools_smoke_$$"
+trap 'rm -f "$tmp_output"; rm -rf "$tmp_dir" "$repo_root/cases/${case_prefix}_relative"' EXIT
 
 scripts/package-workflow-tools >/dev/null
 
-for tool_name in check-tooling opponent-preflight opponent-closeout prepare-code-workspace case-doctor; do
+mapfile -t tool_names < <(find "$repo_root/dist/workflow-tools/bin" -maxdepth 1 -mindepth 1 -type f -printf '%f\n' | sort)
+
+for tool_name in "${tool_names[@]}"; do
   launcher="$repo_root/dist/workflow-tools/bin/$tool_name"
   if [[ ! -x "$launcher" ]]; then
     echo "Missing executable launcher: dist/workflow-tools/bin/$tool_name" >&2
     exit 1
   fi
-  "$launcher" --help >/dev/null
+  "$launcher" --help >/dev/null 2>&1
 done
 
 (
   cd /tmp
-  "$repo_root/dist/workflow-tools/bin/case-doctor" --help >/dev/null
+  "$repo_root/dist/workflow-tools/bin/case-doctor" --help >/dev/null 2>&1
 )
+
+mkdir -p "$tmp_dir/shadow-pythonpath"
+printf '%s\n' 'raise RuntimeError("shadowed subprocess imported")' >"$tmp_dir/shadow-pythonpath/subprocess.py"
+env PYTHONPATH="$tmp_dir/shadow-pythonpath" "$repo_root/dist/workflow-tools/bin/case-doctor" --help >/dev/null 2>&1
+
+printf '%s\n' 'Synthetic assignment summary.' >"$tmp_dir/assignment.txt"
+(
+  cd "$tmp_dir"
+  "$repo_root/dist/workflow-tools/bin/bootstrap-case" opponent "${case_prefix}_relative" relative-round \
+    --assignment-summary-file assignment.txt >/dev/null
+)
+test -f "$repo_root/cases/${case_prefix}_relative/current-round.txt"
 
 if WORKFLOW_TOOLS_PYTHON=/bin/false "$repo_root/dist/workflow-tools/bin/check-tooling" --help >"$tmp_output" 2>&1; then
   echo "Python version guard unexpectedly passed with WORKFLOW_TOOLS_PYTHON=/bin/false" >&2
