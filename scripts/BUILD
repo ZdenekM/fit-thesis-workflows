@@ -1,9 +1,4 @@
 python_sources(
-    name="workflow_lib",
-    sources=["*.py"],
-)
-
-python_sources(
     name="workflow_cli_package_sources",
     sources=[
         "bootstrap-case",
@@ -22,10 +17,7 @@ python_sources(
         "init-review-manifest",
         "supervisor-deadline",
     ],
-    dependencies=[
-        ":workflow_lib",
-        "src/thesis_review_workflow:workflow_core",
-    ],
+    dependencies=["src/thesis_review_workflow:workflow_core"],
     # These executable scripts remain covered by scripts/check-scripts. They
     # will move into importable modules incrementally; until then this target is
     # package-only so Pants hygiene does not force a broad CLI refactor.

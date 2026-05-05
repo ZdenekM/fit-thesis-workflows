@@ -9,7 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agent_coverage_lib import COVERAGE_REL, load_json_object, validate_coverage
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir():
+    sys.path.insert(0, str(_REPO_SRC))
+
+from thesis_review_workflow.agent_coverage import COVERAGE_REL, load_json_object, validate_coverage  # noqa: E402
 
 
 ID_RE = __import__("re").compile(r"^[A-Za-z0-9_.-]+$")

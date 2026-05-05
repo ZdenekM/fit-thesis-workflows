@@ -20,7 +20,13 @@ _REPO_SRC = Path(__file__).resolve().parents[1] / "src"
 if _REPO_SRC.is_dir():
     sys.path.insert(0, str(_REPO_SRC))
 
-from agent_coverage_lib import COVERAGE_REL, coverage_required, inferred_coverage_required, inferred_role_specs, load_json_object
+from thesis_review_workflow.agent_coverage import (  # noqa: E402
+    COVERAGE_REL,
+    coverage_required,
+    inferred_coverage_required,
+    inferred_role_specs,
+    load_json_object,
+)
 from thesis_review_workflow.cases import read_current_round, repo_root
 from thesis_review_workflow.ids import is_valid_id, validate_id as validate_id_core
 from thesis_review_workflow.metadata import read_fields

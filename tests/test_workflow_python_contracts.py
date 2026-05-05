@@ -1,15 +1,14 @@
 import zipfile
 from pathlib import Path
 
-import agent_coverage_lib
-from thesis_review_workflow import code_workspace
+from thesis_review_workflow import agent_coverage, code_workspace
 
 
 def test_safe_relative_rejects_absolute_and_parent_paths() -> None:
-    assert agent_coverage_lib.is_safe_relative("outputs/oponent_podklady_revidovane.md")
-    assert not agent_coverage_lib.is_safe_relative("/tmp/oponent_podklady_revidovane.md")
-    assert not agent_coverage_lib.is_safe_relative("../outputs/oponent_podklady_revidovane.md")
-    assert not agent_coverage_lib.is_safe_relative("outputs\\oponent_podklady_revidovane.md")
+    assert agent_coverage.is_safe_relative("outputs/oponent_podklady_revidovane.md")
+    assert not agent_coverage.is_safe_relative("/tmp/oponent_podklady_revidovane.md")
+    assert not agent_coverage.is_safe_relative("../outputs/oponent_podklady_revidovane.md")
+    assert not agent_coverage.is_safe_relative("outputs\\oponent_podklady_revidovane.md")
 
 
 def test_archive_suffix_handles_compound_tar_suffixes() -> None:

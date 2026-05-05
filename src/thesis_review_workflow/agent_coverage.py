@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Shared role-coverage inference for thesis review rounds."""
 
 from __future__ import annotations

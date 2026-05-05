@@ -12,8 +12,12 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from agent_coverage_lib import code_evidence_present as inferred_code_evidence_present
-from agent_coverage_lib import coverage_required
+_REPO_SRC = Path(__file__).resolve().parents[1] / "src"
+if _REPO_SRC.is_dir():
+    sys.path.insert(0, str(_REPO_SRC))
+
+from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present  # noqa: E402
+from thesis_review_workflow.agent_coverage import coverage_required  # noqa: E402
 
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
