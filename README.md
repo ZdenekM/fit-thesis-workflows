@@ -353,6 +353,8 @@ scripts/check-review-manifest --require-complete <case-id>
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 
 ```bash
+scripts/bootstrap-case supervisor <case-id> current-review --work-type BP --academic-year 2025/2026 --thesis-pdf /path/to/thesis.pdf --assignment-pdf /path/to/assignment.pdf --code /path/to/code.zip
+scripts/bootstrap-case opponent <case-id> opponent-review --work-type DP --thesis-pdf /path/to/thesis.pdf --assignment-pdf /path/to/assignment.pdf --code /path/to/code.zip
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 scripts/prepare-code-workspace <case-id>
@@ -360,6 +362,15 @@ scripts/draft-opponent-report <case-id>
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 ```
+
+`bootstrap-case` je konverzační importní/preflight helper pro nový nebo
+existující case. Přijme PDF práce, PDF zadání, LaTeX/Overleaf zdroje, kód nebo
+lokální repo snapshot, starší feedback a operátorské poznámky; uloží je pod
+ignorovaný round workspace, extrahuje PDF text, rozbalí zdroje do
+`work/source/`, připraví kód přes `prepare-code-workspace`, vyplní draft
+`case.md`/`notes/*` a na konci spustí příslušný readiness check plus
+`case-doctor`. Automaticky extrahovaný text bere jen jako vodítko: zadání,
+private notes a metadata musí před review potvrdit hodnotitel.
 
 `prepare-code-workspace` rozbalí nebo zkopíruje pravděpodobné zdrojové archivy a
 adresáře do ignorovaného `work/code/`, zapíše `work/code_workspace.md` a
@@ -465,6 +476,7 @@ scripts/smoke-opponent-report
 scripts/smoke-tooling
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace
+scripts/smoke-bootstrap-case
 scripts/smoke-private
 ```
 

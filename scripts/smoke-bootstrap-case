@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__bootstrap_case_smoke_$$"
+created_cases=()
+tmp_dir="$(mktemp -d)"
+out_file="/tmp/bootstrap-case-smoke.$$.out"
+err_file="/tmp/bootstrap-case-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  rm -rf "$tmp_dir"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_file_contains() {
+  local path="$1"
+  local needle="$2"
+  if ! grep -Fq "$needle" "$path"; then
+    echo "Expected $path to contain: $needle" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+make_pdf() {
+  local target="$1"
+  local text="$2"
+  python3 - "$target" "$text" <<'PY'
+from pathlib import Path
+import sys
+
+target = Path(sys.argv[1])
+text = sys.argv[2].replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+target.write_text(
+    f"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 44 >>
+stream
+BT /F1 12 Tf 72 720 Td ({text}) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000241 00000 n
+0000000311 00000 n
+trailer
+<< /Root 1 0 R /Size 6 >>
+startxref
+405
+%%EOF
+""",
+    encoding="utf-8",
+)
+PY
+}
+
+make_code_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+import zipfile
+
+target = Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic project\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    archive.writestr("project/src/main.py", "print('synthetic')\n")
+    archive.writestr("project/tests/test_smoke.py", "def test_smoke():\n    assert True\n")
+PY
+}
+
+make_text_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+import zipfile
+
+target = Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("latex/thesis.tex", "Synthetic thesis source.\n")
+PY
+}
+
+make_pdf "$tmp_dir/thesis.pdf" "Synthetic thesis text"
+make_pdf "$tmp_dir/assignment.pdf" "Synthetic assignment text"
+make_code_zip "$tmp_dir/code.zip"
+make_text_zip "$tmp_dir/overleaf.zip"
+printf '%s\n' 'Synthetic operator note.' >"$tmp_dir/operator-notes.md"
+printf '%s\n' '# Historical feedback' >"$tmp_dir/previous-feedback.md"
+
+case_id="${case_prefix}_supervisor"
+created_cases+=("$case_id")
+expect_success \
+  "supervisor bootstrap imports evidence and prepares code" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" first-review \
+    --work-type BP \
+    --academic-year 2025/2026 \
+    --thesis-pdf "$tmp_dir/thesis.pdf" \
+    --assignment-pdf "$tmp_dir/assignment.pdf" \
+    --source-archive "$tmp_dir/overleaf.zip" \
+    --code "$tmp_dir/code.zip" \
+    --previous-feedback "$tmp_dir/previous-feedback.md" \
+    --operator-notes "$tmp_dir/operator-notes.md" \
+    --assignment-summary "Synthetic assignment summary." \
+    --private-assignment-notes "Synthetic private notes." \
+    --topic "Synthetic topic" \
+    --purpose "finalni kontrola" \
+    --explicit-check "assignment coverage"
+expect_output "Readiness check: PASS"
+expect_output "Case doctor: PASS"
+round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+test -f "$round_dir/inputs/thesis.pdf"
+test -f "$round_dir/inputs/assignment.pdf"
+test -f "$round_dir/inputs/source/overleaf.zip"
+test -f "$round_dir/inputs/code.zip"
+test -f "$round_dir/inputs/previous-feedback/previous-feedback.md"
+test -f "$round_dir/inputs/operator-notes/operator-notes.md"
+test -f "$round_dir/extracted/thesis.txt"
+test -f "$round_dir/extracted/assignment.txt"
+test -f "$round_dir/work/source_workspace.md"
+test -f "$round_dir/work/source/overleaf/latex/thesis.tex"
+test -f "$round_dir/work/code_workspace.md"
+expect_file_contains "$repo_root/cases/$case_id/case.md" "Work type: BP"
+expect_file_contains "$repo_root/cases/$case_id/case.md" "Academic year: 2025/2026"
+expect_file_contains "$round_dir/notes/assignment.md" "Bootstrap advisory"
+expect_file_contains "$round_dir/notes/assignment.md" "Synthetic assignment summary."
+expect_file_contains "$round_dir/notes/assignment.md" "Synthetic private notes."
+expect_file_contains "$round_dir/notes/previous-feedback-index.md" "Imported Historical Feedback"
+expect_file_contains "$round_dir/notes/round-notes.md" "Bootstrap Import Summary"
+expect_file_contains "$round_dir/notes/supervisor-intake.md" "Imported Operator Notes"
+
+case_id="${case_prefix}_opponent"
+created_cases+=("$case_id")
+expect_success \
+  "opponent bootstrap runs round readiness without supervisor deadline gate" \
+  "$repo_root/scripts/bootstrap-case" opponent "$case_id" opponent-review \
+    --work-type unknown \
+    --thesis-pdf "$tmp_dir/thesis.pdf" \
+    --assignment-pdf "$tmp_dir/assignment.pdf" \
+    --assignment-summary "Synthetic assignment summary." \
+    --private-assignment-notes "None" \
+    --topic "Synthetic opponent topic"
+expect_output 'Readiness check: PASS'
+expect_output '$ scripts/check-round-ready'
+round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+expect_file_contains "$round_dir/notes/opponent-intake.md" "Synthetic opponent topic"
+
+case_id="${case_prefix}_duplicate"
+created_cases+=("$case_id")
+mkdir -p "$tmp_dir/a" "$tmp_dir/b"
+make_pdf "$tmp_dir/a/same.pdf" "A"
+make_pdf "$tmp_dir/b/same.pdf" "B"
+expect_failure \
+  "duplicate destination basenames fail before copying" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" duplicate-review \
+    --thesis-pdf "$tmp_dir/a/same.pdf" \
+    --assignment-pdf "$tmp_dir/b/same.pdf"
+expect_output "Multiple inputs would copy to the same case path"
+test ! -e "$repo_root/cases/$case_id"
+
+case_id="${case_prefix}_corrupt_source"
+created_cases+=("$case_id")
+printf '%s\n' 'not a zip' >"$tmp_dir/corrupt.zip"
+expect_failure \
+  "post-create source extraction failure rolls back new case" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" corrupt-source \
+    --source-archive "$tmp_dir/corrupt.zip"
+test ! -e "$repo_root/cases/$case_id"
+
+case_id="${case_prefix}_existing_rollback"
+created_cases+=("$case_id")
+"$repo_root/scripts/new-case" "$case_id" BP original >/dev/null
+old_round="$(<"$repo_root/cases/$case_id/current-round.txt")"
+old_case_md="$(cat "$repo_root/cases/$case_id/case.md")"
+expect_failure \
+  "post-create failure restores existing case current round and metadata" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" corrupt-source \
+    --academic-year 2025/2026 \
+    --source-archive "$tmp_dir/corrupt.zip"
+test "$(<"$repo_root/cases/$case_id/current-round.txt")" = "$old_round"
+test "$(cat "$repo_root/cases/$case_id/case.md")" = "$old_case_md"
+if find "$repo_root/cases/$case_id/rounds" -maxdepth 1 -type d -name '*corrupt-source' | grep -q .; then
+  echo "Expected failed imported round to be removed" >&2
+  exit 1
+fi
+
+case_id="${case_prefix}_symlink_dir"
+created_cases+=("$case_id")
+mkdir -p "$tmp_dir/symlink-code"
+printf '%s\n' 'outside' >"$tmp_dir/outside.txt"
+ln -s "$tmp_dir/outside.txt" "$tmp_dir/symlink-code/outside-link.txt"
+expect_failure \
+  "directory input with symlink is rejected before case creation" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" symlink \
+    --code "$tmp_dir/symlink-code"
+expect_output "Directory input contains a symlink"
+test ! -e "$repo_root/cases/$case_id"
+
+case_id="${case_prefix}_top_symlink_dir"
+created_cases+=("$case_id")
+mkdir -p "$tmp_dir/real-code"
+printf '%s\n' 'print("synthetic")' >"$tmp_dir/real-code/main.py"
+ln -s "$tmp_dir/real-code" "$tmp_dir/top-code-link"
+expect_failure \
+  "top-level symlink directory input is rejected before case creation" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" top-symlink \
+    --code "$tmp_dir/top-code-link"
+expect_output "Directory input contains a symlink"
+test ! -e "$repo_root/cases/$case_id"
+
+case_id="${case_prefix}_strict_missing_assignment"
+created_cases+=("$case_id")
+expect_failure \
+  "strict bootstrap returns non-zero when readiness fails" \
+  "$repo_root/scripts/bootstrap-case" opponent "$case_id" strict-missing --strict
+expect_output "Readiness check: NEEDS ATTENTION"
+test -e "$repo_root/cases/$case_id/current-round.txt"
+
+expect_success "privacy check after bootstrap smoke" "$repo_root/scripts/check-private"
+
+echo "Bootstrap case smoke passed"
