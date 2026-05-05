@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 REQUIRED_HEADINGS = (
@@ -230,8 +232,12 @@ def resolve_round(case_dir: Path, round_id: str | None) -> str:
 
 def run_round_ready(root: Path, case_id: str, round_id: str, errors: list[str]) -> None:
     result = subprocess.run(
-        [str(root / "scripts/check-round-ready"), case_id, round_id],
+        resolve_repo_command(root, ["scripts/check-round-ready", case_id, round_id]),
+        cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

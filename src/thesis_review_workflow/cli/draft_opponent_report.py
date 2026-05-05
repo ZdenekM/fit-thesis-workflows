@@ -10,6 +10,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 DRAFT_REL = Path("work/oponent_posudek_draft.md")
@@ -53,9 +55,12 @@ def resolve_round(case_dir: Path, round_id: str | None) -> str:
 
 def run_required(root: Path, command: list[str]) -> None:
     result = subprocess.run(
-        [str(root / item) if item.startswith("scripts/") else item for item in command],
+        resolve_repo_command(root, command),
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

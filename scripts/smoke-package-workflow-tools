@@ -6,8 +6,9 @@ cd "$repo_root"
 
 tmp_output="$(mktemp)"
 tmp_dir="$(mktemp -d)"
+tmp_repo="$(mktemp -d)"
 case_prefix="__package_workflow_tools_smoke_$$"
-trap 'rm -f "$tmp_output"; rm -rf "$tmp_dir" "$repo_root/cases/${case_prefix}_relative"' EXIT
+trap 'rm -f "$tmp_output"; rm -rf "$tmp_dir" "$tmp_repo" "$repo_root/cases/${case_prefix}_relative"' EXIT
 
 scripts/package-workflow-tools >/dev/null
 
@@ -31,6 +32,17 @@ mkdir -p "$tmp_dir/shadow-pythonpath"
 printf '%s\n' 'raise RuntimeError("shadowed subprocess imported")' >"$tmp_dir/shadow-pythonpath/subprocess.py"
 env PYTHONPATH="$tmp_dir/shadow-pythonpath" "$repo_root/dist/workflow-tools/bin/case-doctor" --help >/dev/null 2>&1
 
+expect_no_missing_cli_module() {
+  if "$@" >"$tmp_output" 2>&1; then
+    return
+  fi
+  if grep -Fq "No module named thesis_review_workflow.cli" "$tmp_output"; then
+    echo "Packaged tool is missing a nested CLI module: $*" >&2
+    cat "$tmp_output" >&2
+    exit 1
+  fi
+}
+
 printf '%s\n' 'Synthetic assignment summary.' >"$tmp_dir/assignment.txt"
 (
   cd "$tmp_dir"
@@ -38,6 +50,149 @@ printf '%s\n' 'Synthetic assignment summary.' >"$tmp_dir/assignment.txt"
     --assignment-summary-file assignment.txt >/dev/null
 )
 test -f "$repo_root/cases/${case_prefix}_relative/current-round.txt"
+
+mkdir -p "$tmp_repo"/{dist,profiles}
+cp -R "$repo_root/dist/workflow-tools" "$tmp_repo/dist/"
+cp "$repo_root/profiles/default.md" "$tmp_repo/profiles/default.md"
+cp -R "$repo_root/config" "$tmp_repo/config"
+cp -R "$repo_root/templates" "$tmp_repo/templates"
+git -C "$tmp_repo" init -q
+"$tmp_repo/dist/workflow-tools/bin/new-case" "${case_prefix}_sourceless" BP first-review >/dev/null
+sourceless_case="$tmp_repo/cases/${case_prefix}_sourceless"
+sourceless_round="$(<"$sourceless_case/current-round.txt")"
+sourceless_round_dir="$sourceless_case/rounds/$sourceless_round"
+test -f "$sourceless_case/current-round.txt"
+
+python3 - "$sourceless_case/case.md" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace("Academic year:", "Academic year: 2025/2026")
+path.write_text(text, encoding="utf-8")
+PY
+cat >"$sourceless_round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+## Formal Assignment Artifacts
+
+- present
+
+## Formal Assignment Text Or Summary
+
+- 2025/2026 assignment summary present
+
+## Private Assignment Notes For Student
+
+- None
+EOF
+mkdir -p "$sourceless_round_dir/outputs"
+cat >"$sourceless_round_dir/outputs/feedback_student.md" <<'EOF'
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 2026-05-05
+
+## Krátké celkové shrnutí
+
+Text má českou diakritiku a konkrétní obsah.
+
+## Rozsah kontroly
+
+- Bez omezení.
+
+## Odhad fáze práce a doporučené zaměření
+
+Text.
+
+## Co se od minulé verze posunulo
+
+Text.
+
+## Co je na práci už dobré
+
+Text.
+
+## Nejvyšší priority pro aktuální iteraci
+
+| priorita | kde se to projevuje | co udělat |
+| --- | --- | --- |
+| P1 | zadání | doplnit konkrétní kontrolu |
+
+## Splnění zadání
+
+Text.
+
+## Připomínky k textu práce
+
+Text.
+
+## Soulad textu s kódem
+
+Text.
+
+## Co z minulé zpětné vazby zůstává
+
+Text.
+
+## Doporučený plán dalších úprav
+
+Text.
+
+## Checklist pro aktuální fázi
+
+- [ ] Zkontrolovat zadání.
+EOF
+cat >"$sourceless_round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+## 2. Strucna mapa prace
+## 3. Splneni zadani
+## 4. Technicke jadro prace vysvetlene oponentovi
+## 5. Mapa textu, kodu a artefaktu
+## 6. Evidence ledger: hlavni tvrzeni a opora
+## 7. Silne stranky
+## 8. Hlavni rizika a nedostatky
+## 9. Pokryti polozek IS a navrhy formulaci
+## 10. Technicka spravnost a realizacni vystup
+## 11. Experimenty, vysledky a reprodukovatelnost
+## 12. Text, struktura, formalni stranka a literatura
+## 13. Orientacni kalibrace hodnoceni
+## 14. Navrhy otazek k obhajobe
+## 15. Rucni kontroly pred napsanim posudku
+EOF
+mkdir -p "$sourceless_round_dir/work"
+cat >"$sourceless_round_dir/work/oponent_posudek_draft.md" <<'EOF'
+# Návrh oponentského posudku
+
+<!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->
+<!-- source_materials_sha256: placeholder -->
+
+## 1. Náročnost zadání
+## 2. Rozsah splnění požadavků zadání
+## 3. Rozsah technické zprávy
+## 4. Prezentační úroveň technické zprávy
+## 5. Formální úprava technické zprávy
+## 6. Práce s literaturou
+## 7. Realizační výstup
+## 8. Využitelnost výsledku
+## 9. Celkové hodnocení
+## 10. Otázky k obhajobě
+## 11. Body a známka
+## 12. Před odevzdáním
+EOF
+
+"$tmp_repo/dist/workflow-tools/bin/check-round-ready" "${case_prefix}_sourceless" >/dev/null
+"$tmp_repo/dist/workflow-tools/bin/check-supervisor-ready" "${case_prefix}_sourceless" >/dev/null
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/case-doctor" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-feedback-output" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-opponent-materials" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-opponent-report" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/draft-opponent-report" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/init-review-manifest" --run-checks "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-review-manifest" --require-complete "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/opponent-closeout" "${case_prefix}_sourceless"
 
 if WORKFLOW_TOOLS_PYTHON=/bin/false "$repo_root/dist/workflow-tools/bin/check-tooling" --help >"$tmp_output" 2>&1; then
   echo "Python version guard unexpectedly passed with WORKFLOW_TOOLS_PYTHON=/bin/false" >&2

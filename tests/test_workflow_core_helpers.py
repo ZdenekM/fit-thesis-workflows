@@ -1,7 +1,16 @@
+import os
+import sys
 from pathlib import Path
 
 from thesis_review_workflow.cases import MissingCurrentRound, read_current_round, resolve_round
-from thesis_review_workflow.commands import Step, command_display, compact_output, resolve_repo_command
+from thesis_review_workflow.cli import check_reviewer_profile
+from thesis_review_workflow.commands import (
+    Step,
+    command_display,
+    compact_output,
+    repo_command_environment,
+    resolve_repo_command,
+)
 from thesis_review_workflow.ids import invalid_id_message, is_valid_id, validate_id
 from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.paths import rel_repo, rel_round, strict_rel_round
@@ -122,11 +131,37 @@ def test_compact_output_drops_blank_lines_and_truncates() -> None:
     assert compact_output("abcdef", limit=5) == "ab..."
 
 
-def test_resolve_repo_command_prefers_existing_repo_script_and_preserves_external_commands(tmp_path: Path) -> None:
+def test_resolve_repo_command_uses_python_modules_for_workflow_commands(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     script = root / "scripts" / "check-private"
     script.parent.mkdir(parents=True)
     script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
 
-    assert resolve_repo_command(root, ["scripts/check-private"]) == [str(script)]
+    assert resolve_repo_command(root, ["scripts/check-private"]) == [
+        sys.executable,
+        "-m",
+        "thesis_review_workflow.cli.check_private",
+    ]
     assert resolve_repo_command(root, ["git", "diff", "--check"]) == ["git", "diff", "--check"]
+
+
+def test_repo_command_environment_prepends_repo_src(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    env = repo_command_environment(root)
+
+    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(root / "src")
+
+
+def test_python_reviewer_profile_rejects_parent_marker_in_local_profile(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "repo"
+    case = root / "cases" / "case-a"
+    profile = root / "profiles" / "local" / "a..b.md"
+    case.mkdir(parents=True)
+    profile.parent.mkdir(parents=True)
+    (root / "profiles" / "default.md").write_text("# Default\n", encoding="utf-8")
+    profile.write_text("# Local\n", encoding="utf-8")
+    (case / "case.md").write_text("Reviewer profile: local/a..b\n", encoding="utf-8")
+
+    monkeypatch.setattr(check_reviewer_profile, "repo_root", lambda: root)
+
+    assert check_reviewer_profile.main(["scripts/check-reviewer-profile", "case-a"]) == 1

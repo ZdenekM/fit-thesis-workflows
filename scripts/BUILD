@@ -51,10 +51,39 @@ shell_sources(
     ],
 )
 
+WORKFLOW_CLI_RUNTIME_DEPS = [
+    "src/thesis_review_workflow/cli:bootstrap_case",
+    "src/thesis_review_workflow/cli:case_doctor",
+    "src/thesis_review_workflow/cli:check_agent_coverage",
+    "src/thesis_review_workflow/cli:check_evaluation_claims",
+    "src/thesis_review_workflow/cli:check_feedback_language",
+    "src/thesis_review_workflow/cli:check_feedback_output",
+    "src/thesis_review_workflow/cli:check_figure_media_review",
+    "src/thesis_review_workflow/cli:check_opponent_materials",
+    "src/thesis_review_workflow/cli:check_opponent_report",
+    "src/thesis_review_workflow/cli:check_private",
+    "src/thesis_review_workflow/cli:check_review_manifest",
+    "src/thesis_review_workflow/cli:check_reviewer_profile",
+    "src/thesis_review_workflow/cli:check_round_ready",
+    "src/thesis_review_workflow/cli:check_supervisor_ready",
+    "src/thesis_review_workflow/cli:check_tooling",
+    "src/thesis_review_workflow/cli:check_typography_formal",
+    "src/thesis_review_workflow/cli:draft_opponent_report",
+    "src/thesis_review_workflow/cli:extract_pdf_text",
+    "src/thesis_review_workflow/cli:import_github_code",
+    "src/thesis_review_workflow/cli:import_round",
+    "src/thesis_review_workflow/cli:init_review_manifest",
+    "src/thesis_review_workflow/cli:new_case",
+    "src/thesis_review_workflow/cli:opponent_closeout",
+    "src/thesis_review_workflow/cli:opponent_preflight",
+    "src/thesis_review_workflow/cli:prepare_code_workspace",
+    "src/thesis_review_workflow/cli:supervisor_deadline",
+]
+
 pex_binary(
     name="bootstrap_case_tool",
     entry_point="thesis_review_workflow.cli.bootstrap_case:console_main",
-    dependencies=["src/thesis_review_workflow/cli:bootstrap_case"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/bootstrap-case",
@@ -64,7 +93,7 @@ pex_binary(
 pex_binary(
     name="case_doctor_tool",
     entry_point="thesis_review_workflow.cli.case_doctor:console_main",
-    dependencies=["src/thesis_review_workflow/cli:case_doctor"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/case-doctor",
@@ -74,7 +103,7 @@ pex_binary(
 pex_binary(
     name="check_agent_coverage_tool",
     entry_point="thesis_review_workflow.cli.check_agent_coverage:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_agent_coverage"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-agent-coverage",
@@ -84,7 +113,7 @@ pex_binary(
 pex_binary(
     name="check_evaluation_claims_tool",
     entry_point="thesis_review_workflow.cli.check_evaluation_claims:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_evaluation_claims"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-evaluation-claims",
@@ -92,9 +121,19 @@ pex_binary(
 )
 
 pex_binary(
+    name="check_feedback_language_tool",
+    entry_point="thesis_review_workflow.cli.check_feedback_language:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-feedback-language",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="check_feedback_output_tool",
     entry_point="thesis_review_workflow.cli.check_feedback_output:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_feedback_output"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-feedback-output",
@@ -104,7 +143,7 @@ pex_binary(
 pex_binary(
     name="check_figure_media_review_tool",
     entry_point="thesis_review_workflow.cli.check_figure_media_review:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_figure_media_review"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-figure-media-review",
@@ -114,7 +153,7 @@ pex_binary(
 pex_binary(
     name="check_opponent_materials_tool",
     entry_point="thesis_review_workflow.cli.check_opponent_materials:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_opponent_materials"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-opponent-materials",
@@ -124,7 +163,7 @@ pex_binary(
 pex_binary(
     name="check_opponent_report_tool",
     entry_point="thesis_review_workflow.cli.check_opponent_report:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_opponent_report"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-opponent-report",
@@ -132,9 +171,19 @@ pex_binary(
 )
 
 pex_binary(
+    name="check_private_tool",
+    entry_point="thesis_review_workflow.cli.check_private:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-private",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="check_review_manifest_tool",
     entry_point="thesis_review_workflow.cli.check_review_manifest:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_review_manifest"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-review-manifest",
@@ -142,9 +191,39 @@ pex_binary(
 )
 
 pex_binary(
+    name="check_reviewer_profile_tool",
+    entry_point="thesis_review_workflow.cli.check_reviewer_profile:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-reviewer-profile",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_round_ready_tool",
+    entry_point="thesis_review_workflow.cli.check_round_ready:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-round-ready",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_supervisor_ready_tool",
+    entry_point="thesis_review_workflow.cli.check_supervisor_ready:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-supervisor-ready",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="check_tooling_tool",
     entry_point="thesis_review_workflow.cli.check_tooling:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_tooling"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-tooling",
@@ -154,7 +233,7 @@ pex_binary(
 pex_binary(
     name="check_typography_formal_tool",
     entry_point="thesis_review_workflow.cli.check_typography_formal:console_main",
-    dependencies=["src/thesis_review_workflow/cli:check_typography_formal"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-typography-formal",
@@ -164,7 +243,7 @@ pex_binary(
 pex_binary(
     name="draft_opponent_report_tool",
     entry_point="thesis_review_workflow.cli.draft_opponent_report:console_main",
-    dependencies=["src/thesis_review_workflow/cli:draft_opponent_report"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/draft-opponent-report",
@@ -172,9 +251,19 @@ pex_binary(
 )
 
 pex_binary(
+    name="extract_pdf_text_tool",
+    entry_point="thesis_review_workflow.cli.extract_pdf_text:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/extract-pdf-text",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="import_github_code_tool",
     entry_point="thesis_review_workflow.cli.import_github_code:console_main",
-    dependencies=["src/thesis_review_workflow/cli:import_github_code"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/import-github-code",
@@ -182,9 +271,19 @@ pex_binary(
 )
 
 pex_binary(
+    name="import_round_tool",
+    entry_point="thesis_review_workflow.cli.import_round:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/import-round",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="init_review_manifest_tool",
     entry_point="thesis_review_workflow.cli.init_review_manifest:console_main",
-    dependencies=["src/thesis_review_workflow/cli:init_review_manifest"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/init-review-manifest",
@@ -192,9 +291,19 @@ pex_binary(
 )
 
 pex_binary(
+    name="new_case_tool",
+    entry_point="thesis_review_workflow.cli.new_case:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/new-case",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="opponent_closeout_tool",
     entry_point="thesis_review_workflow.cli.opponent_closeout:console_main",
-    dependencies=["src/thesis_review_workflow/cli:opponent_closeout"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/opponent-closeout",
@@ -204,7 +313,7 @@ pex_binary(
 pex_binary(
     name="opponent_preflight_tool",
     entry_point="thesis_review_workflow.cli.opponent_preflight:console_main",
-    dependencies=["src/thesis_review_workflow/cli:opponent_preflight"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/opponent-preflight",
@@ -214,7 +323,7 @@ pex_binary(
 pex_binary(
     name="prepare_code_workspace_tool",
     entry_point="thesis_review_workflow.cli.prepare_code_workspace:console_main",
-    dependencies=["src/thesis_review_workflow/cli:prepare_code_workspace"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-code-workspace",
@@ -224,7 +333,7 @@ pex_binary(
 pex_binary(
     name="supervisor_deadline_tool",
     entry_point="thesis_review_workflow.cli.supervisor_deadline:console_main",
-    dependencies=["src/thesis_review_workflow/cli:supervisor_deadline"],
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/supervisor-deadline",

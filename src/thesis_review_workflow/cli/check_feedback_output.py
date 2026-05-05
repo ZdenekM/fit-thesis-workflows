@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
@@ -223,8 +225,12 @@ def read_language(case_md: Path) -> str:
 
 def run_language_check(root: Path, case_id: str, round_id: str, errors: list[str]) -> None:
     result = subprocess.run(
-        [str(root / "scripts/check-feedback-language"), case_id, round_id],
+        resolve_repo_command(root, ["scripts/check-feedback-language", case_id, round_id]),
+        cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -236,8 +242,12 @@ def run_language_check(root: Path, case_id: str, round_id: str, errors: list[str
 
 def run_supervisor_ready(root: Path, case_id: str, round_id: str, errors: list[str]) -> None:
     result = subprocess.run(
-        [str(root / "scripts/check-supervisor-ready"), case_id, round_id],
+        resolve_repo_command(root, ["scripts/check-supervisor-ready", case_id, round_id]),
+        cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

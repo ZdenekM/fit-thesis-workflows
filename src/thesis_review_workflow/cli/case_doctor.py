@@ -23,6 +23,7 @@ from thesis_review_workflow.agent_coverage import (
     load_json_object,
 )
 from thesis_review_workflow.cases import read_current_round, repo_root
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.ids import validate_id as validate_id_core
 from thesis_review_workflow.metadata import read_fields
@@ -240,12 +241,14 @@ def compact_output(text: str, *, max_lines: int = 3) -> str:
 
 def run_gate(root: Path, name: str, args: list[str], timeout: int = 45) -> GateResult:
     display = " ".join(args)
-    command = [str(root / arg) if arg.startswith("scripts/") else arg for arg in args]
     try:
         result = subprocess.run(
-            command,
+            resolve_repo_command(root, args),
             cwd=root,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=repo_command_environment(root),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,

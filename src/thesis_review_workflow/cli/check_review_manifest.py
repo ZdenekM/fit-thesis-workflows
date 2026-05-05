@@ -13,6 +13,7 @@ from typing import Any
 
 from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present
 from thesis_review_workflow.agent_coverage import coverage_required
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -258,9 +259,12 @@ def check_agent_coverage_gate(
     if not require_complete or not coverage_required(round_dir, manifest):
         return
     result = subprocess.run(
-        [str(root / "scripts" / "check-agent-coverage"), case_id, round_id],
+        resolve_repo_command(root, ["scripts/check-agent-coverage", case_id, round_id]),
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

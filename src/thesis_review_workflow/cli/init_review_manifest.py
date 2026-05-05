@@ -19,6 +19,7 @@ from thesis_review_workflow.agent_coverage import (
     load_json_object,
     write_coverage,
 )
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -479,9 +480,12 @@ def run_check_record(root: Path, round_dir: Path, check: dict[str, Any]) -> None
         check["exit_code"] = None
         return
     result = subprocess.run(
-        shlex.split(command),
+        resolve_repo_command(root, shlex.split(command)),
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,

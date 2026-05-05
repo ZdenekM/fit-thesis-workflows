@@ -20,6 +20,7 @@ from thesis_review_workflow.code_workspace import (
     safe_copy_input_dir,
     safe_name,
 )
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -139,9 +140,12 @@ def check_ignored(root: Path, destination: Path) -> None:
 
 def run_command(root: Path, args: list[str], *, check: bool) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
-        [str(root / args[0]), *args[1:]],
+        resolve_repo_command(root, args),
         cwd=root,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,

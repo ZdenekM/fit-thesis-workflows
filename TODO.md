@@ -2,6 +2,13 @@
 
 ## P0 - Workflow Reliability
 
+- [ ] Finish native Windows workflow compatibility.
+   - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
+   - Generate and test native Windows launchers for packaged workflow tools, not only Bash launchers in `dist/workflow-tools/bin/`.
+   - Replace remaining shell-only public gates and hygiene helpers with Python implementations, then update documentation to stop presenting POSIX commands as the only operator path.
+   - Add shared Windows-safe round-relative path validation and use it in manifest, coverage, and opponent-report checks.
+   - Detect case-insensitive filename collisions while extracting/copying submitted code into `work/code/` and report them as manual review items.
+   - Normalize generated Markdown/evidence paths through POSIX display helpers and use explicit UTF-8 decoding for subprocess output.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
