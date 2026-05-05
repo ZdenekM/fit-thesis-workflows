@@ -12,10 +12,10 @@ if [[ -n "$bad_tracked" ]]; then
 fi
 
 bad_profile_tracked="$(
-  git ls-files profiles \
-    | grep -v '^profiles/README.md$' \
-    | grep -v '^profiles/default.md$' \
-    || true
+  git ls-files profiles |
+    grep -v '^profiles/README.md$' |
+    grep -v '^profiles/default.md$' ||
+    true
 )"
 if [[ -n "$bad_profile_tracked" ]]; then
   echo "Private reviewer profiles are tracked by git:" >&2
@@ -29,12 +29,12 @@ private_manifest_pattern='(^|/)(review_manifest|agent_coverage|serena_roots|\.pr
 private_markdown_pattern='(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|code_consistency|code_quality_review|literature_citation_review|figure_media_review|typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|reference_report_comparison|oponent_podklady|oponent_podklady_draft|oponent_podklady_revidovane|oponent_posudek_draft)\.md$'
 private_github_pattern='(^|/)(code-manifest\.generated\.ya?ml|changed-files\.tsv|contribution-map\.md|[^/]+\.inventory\.md|[^/]+__author-[^/]+__(open|closed)\.json|pr\.(url\.txt|meta\.json|diff|patch|files\.(txt|json)|issue-comments\.(json|md)|reviews\.(json|md)|review-comments\.(json|md)|checks\.(txt|json|md)|summary\.md)|repo\.(url\.txt|meta\.json|refs\.json|readme\.md|license\.txt|default-branch\.txt|snapshot\.txt))$'
 sensitive_tracked="$(
-  git ls-files \
-    | grep -E "$sensitive_pattern|$private_jsonl_pattern|$private_manifest_pattern|$private_github_pattern" \
-    | grep -v '^cases/README.md$' \
-    | grep -v '^templates/' \
-    | grep -v '^config/supervisor-deadlines.tsv$' \
-    || true
+  git ls-files |
+    grep -E "$sensitive_pattern|$private_jsonl_pattern|$private_manifest_pattern|$private_github_pattern" |
+    grep -v '^cases/README.md$' |
+    grep -v '^templates/' |
+    grep -v '^config/supervisor-deadlines.tsv$' ||
+    true
 )"
 if [[ -n "$sensitive_tracked" ]]; then
   echo "Potential private thesis artifacts are tracked outside ignored cases/:" >&2
@@ -43,10 +43,10 @@ if [[ -n "$sensitive_tracked" ]]; then
 fi
 
 private_markdown_tracked="$(
-  git ls-files \
-    | grep -E "$private_markdown_pattern" \
-    | grep -v '^cases/' \
-    || true
+  git ls-files |
+    grep -E "$private_markdown_pattern" |
+    grep -v '^cases/' ||
+    true
 )"
 if [[ -n "$private_markdown_tracked" ]]; then
   echo "Potential private generated Markdown artifacts are tracked outside ignored cases/:" >&2
@@ -55,13 +55,13 @@ if [[ -n "$private_markdown_tracked" ]]; then
 fi
 
 sensitive_untracked="$(
-  git status --porcelain --untracked-files=all \
-    | sed -n 's/^?? //p' \
-    | grep -E "$sensitive_pattern|$private_jsonl_pattern|$private_manifest_pattern|$private_github_pattern" \
-    | grep -v '^cases/' \
-    | grep -v '^templates/' \
-    | grep -v '^config/supervisor-deadlines.tsv$' \
-    || true
+  git status --porcelain --untracked-files=all |
+    sed -n 's/^?? //p' |
+    grep -E "$sensitive_pattern|$private_jsonl_pattern|$private_manifest_pattern|$private_github_pattern" |
+    grep -v '^cases/' |
+    grep -v '^templates/' |
+    grep -v '^config/supervisor-deadlines.tsv$' ||
+    true
 )"
 if [[ -n "$sensitive_untracked" ]]; then
   echo "Potential private thesis artifacts are present outside ignored cases/:" >&2
@@ -70,11 +70,11 @@ if [[ -n "$sensitive_untracked" ]]; then
 fi
 
 private_markdown_untracked="$(
-  git status --porcelain --untracked-files=all \
-    | sed -n 's/^?? //p' \
-    | grep -E "$private_markdown_pattern" \
-    | grep -v '^cases/' \
-    || true
+  git status --porcelain --untracked-files=all |
+    sed -n 's/^?? //p' |
+    grep -E "$private_markdown_pattern" |
+    grep -v '^cases/' ||
+    true
 )"
 if [[ -n "$private_markdown_untracked" ]]; then
   echo "Potential private generated Markdown artifacts are present outside ignored cases/:" >&2

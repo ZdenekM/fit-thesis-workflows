@@ -45,7 +45,7 @@ replace_field() {
   awk -v field="$field" -v value="$value" '
     index($0, field ":") == 1 { print field ": " value; next }
     { print }
-  ' "$file" > "$tmp"
+  ' "$file" >"$tmp"
   mv "$tmp" "$file"
 }
 
@@ -129,15 +129,15 @@ previous_index="$tmp_round_dir/notes/previous-feedback-index.md"
   echo
   echo "Use these artifacts when preparing iterative supervisor feedback."
   echo
-  find "$case_dir/rounds" -path "$round_dir" -prune -o -path "*/outputs/feedback_student.md" -type f -print \
-    | sort \
-    | sed "s#^$repo_root/##" \
-    | sed 's#^#- #'
-} > "$previous_index"
+  find "$case_dir/rounds" -path "$round_dir" -prune -o -path "*/outputs/feedback_student.md" -type f -print |
+    sort |
+    sed "s#^$repo_root/##" |
+    sed 's#^#- #'
+} >"$previous_index"
 
 mv "$tmp_round_dir" "$round_dir"
 trap - EXIT
-printf '%s\n' "$round_id" > "$case_dir/current-round.txt"
+printf '%s\n' "$round_id" >"$case_dir/current-round.txt"
 
 echo "Created round: cases/$case_id/rounds/$round_id"
 if [[ $# -gt 0 ]]; then

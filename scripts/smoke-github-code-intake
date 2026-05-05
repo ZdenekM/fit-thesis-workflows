@@ -335,6 +335,7 @@ expect_success \
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
 expect_file_contains "discovery output" "$round_dir/outputs/github_code_intake.md" "owner/project#123"
 expect_file_contains "discovery evidence" "$round_dir/inputs/github/discovery/owner__project__author-student__open.json" "Smoke PR"
+# shellcheck disable=SC2016
 expect_file_contains "discovery attribution" "$round_dir/outputs/github_code_intake.md" 'Student GitHub login: `student`'
 expect_failure_contains \
   "discovery rerun without refresh refuses to mutate existing intake" \

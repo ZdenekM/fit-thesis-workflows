@@ -16,6 +16,9 @@ backend_packages = [
   "pants.backend.python.lint.flake8",
   "pants.backend.python.lint.isort",
   "pants.backend.python.typecheck.mypy",
+  "pants.backend.shell",
+  "pants.backend.shell.lint.shfmt",
+  "pants.backend.shell.lint.shellcheck",
 ]
 
 [source]
@@ -39,3 +42,6 @@ config = "pants/flake8.cfg"
 [pytest]
 args = ["-q"]
 config = "pants/pytest.ini"
+
+[shfmt]
+args = ["-i", "2", "-ci"]

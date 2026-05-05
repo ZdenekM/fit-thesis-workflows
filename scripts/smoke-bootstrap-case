@@ -148,19 +148,19 @@ created_cases+=("$case_id")
 expect_success \
   "supervisor bootstrap imports evidence and prepares code" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" first-review \
-    --work-type BP \
-    --academic-year 2025/2026 \
-    --thesis-pdf "$tmp_dir/thesis.pdf" \
-    --assignment-pdf "$tmp_dir/assignment.pdf" \
-    --source-archive "$tmp_dir/overleaf.zip" \
-    --code "$tmp_dir/code.zip" \
-    --previous-feedback "$tmp_dir/previous-feedback.md" \
-    --operator-notes "$tmp_dir/operator-notes.md" \
-    --assignment-summary "Synthetic assignment summary." \
-    --private-assignment-notes "Synthetic private notes." \
-    --topic "Synthetic topic" \
-    --purpose "finalni kontrola" \
-    --explicit-check "assignment coverage"
+  --work-type BP \
+  --academic-year 2025/2026 \
+  --thesis-pdf "$tmp_dir/thesis.pdf" \
+  --assignment-pdf "$tmp_dir/assignment.pdf" \
+  --source-archive "$tmp_dir/overleaf.zip" \
+  --code "$tmp_dir/code.zip" \
+  --previous-feedback "$tmp_dir/previous-feedback.md" \
+  --operator-notes "$tmp_dir/operator-notes.md" \
+  --assignment-summary "Synthetic assignment summary." \
+  --private-assignment-notes "Synthetic private notes." \
+  --topic "Synthetic topic" \
+  --purpose "finalni kontrola" \
+  --explicit-check "assignment coverage"
 expect_output "Readiness check: PASS"
 expect_output "Case doctor: PASS"
 round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
@@ -190,12 +190,12 @@ created_cases+=("$case_id")
 expect_success \
   "opponent bootstrap runs round readiness without supervisor deadline gate" \
   "$repo_root/scripts/bootstrap-case" opponent "$case_id" opponent-review \
-    --work-type unknown \
-    --thesis-pdf "$tmp_dir/thesis.pdf" \
-    --assignment-pdf "$tmp_dir/assignment.pdf" \
-    --assignment-summary "Synthetic assignment summary." \
-    --private-assignment-notes "None" \
-    --topic "Synthetic opponent topic"
+  --work-type unknown \
+  --thesis-pdf "$tmp_dir/thesis.pdf" \
+  --assignment-pdf "$tmp_dir/assignment.pdf" \
+  --assignment-summary "Synthetic assignment summary." \
+  --private-assignment-notes "None" \
+  --topic "Synthetic opponent topic"
 expect_output 'Readiness check: PASS'
 expect_output '$ scripts/check-round-ready'
 round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
@@ -210,8 +210,8 @@ make_pdf "$tmp_dir/b/same.pdf" "B"
 expect_failure \
   "duplicate destination basenames fail before copying" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" duplicate-review \
-    --thesis-pdf "$tmp_dir/a/same.pdf" \
-    --assignment-pdf "$tmp_dir/b/same.pdf"
+  --thesis-pdf "$tmp_dir/a/same.pdf" \
+  --assignment-pdf "$tmp_dir/b/same.pdf"
 expect_output "Multiple inputs would copy to the same case path"
 test ! -e "$repo_root/cases/$case_id"
 
@@ -221,7 +221,7 @@ printf '%s\n' 'not a zip' >"$tmp_dir/corrupt.zip"
 expect_failure \
   "post-create source extraction failure rolls back new case" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" corrupt-source \
-    --source-archive "$tmp_dir/corrupt.zip"
+  --source-archive "$tmp_dir/corrupt.zip"
 test ! -e "$repo_root/cases/$case_id"
 
 case_id="${case_prefix}_existing_rollback"
@@ -232,8 +232,8 @@ old_case_md="$(cat "$repo_root/cases/$case_id/case.md")"
 expect_failure \
   "post-create failure restores existing case current round and metadata" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" corrupt-source \
-    --academic-year 2025/2026 \
-    --source-archive "$tmp_dir/corrupt.zip"
+  --academic-year 2025/2026 \
+  --source-archive "$tmp_dir/corrupt.zip"
 test "$(<"$repo_root/cases/$case_id/current-round.txt")" = "$old_round"
 test "$(cat "$repo_root/cases/$case_id/case.md")" = "$old_case_md"
 if find "$repo_root/cases/$case_id/rounds" -maxdepth 1 -type d -name '*corrupt-source' | grep -q .; then
@@ -249,7 +249,7 @@ ln -s "$tmp_dir/outside.txt" "$tmp_dir/symlink-code/outside-link.txt"
 expect_failure \
   "directory input with symlink is rejected before case creation" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" symlink \
-    --code "$tmp_dir/symlink-code"
+  --code "$tmp_dir/symlink-code"
 expect_output "Directory input contains a symlink"
 test ! -e "$repo_root/cases/$case_id"
 
@@ -261,7 +261,7 @@ ln -s "$tmp_dir/real-code" "$tmp_dir/top-code-link"
 expect_failure \
   "top-level symlink directory input is rejected before case creation" \
   "$repo_root/scripts/bootstrap-case" supervisor "$case_id" top-symlink \
-    --code "$tmp_dir/top-code-link"
+  --code "$tmp_dir/top-code-link"
 expect_output "Directory input contains a symlink"
 test ! -e "$repo_root/cases/$case_id"
 

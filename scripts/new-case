@@ -44,7 +44,7 @@ replace_field() {
   awk -v field="$field" -v value="$value" '
     index($0, field ":") == 1 { print field ": " value; next }
     { print }
-  ' "$file" > "$tmp"
+  ' "$file" >"$tmp"
   mv "$tmp" "$file"
 }
 

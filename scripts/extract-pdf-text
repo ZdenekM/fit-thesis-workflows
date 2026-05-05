@@ -36,8 +36,7 @@ fi
 mkdir -p "$(dirname "$output_txt")"
 output_abs="$(cd "$(dirname "$output_txt")" && pwd -P)/$(basename "$output_txt")"
 case "$output_abs" in
-  "$repo_root"/cases/*/rounds/*/extracted/*)
-    ;;
+  "$repo_root"/cases/*/rounds/*/extracted/*) ;;
   *)
     echo "Refusing to write extracted thesis text outside cases/<case>/rounds/<round>/extracted/." >&2
     exit 1
