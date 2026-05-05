@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from thesis_review_workflow.code_workspace import (
+    CaseInsensitivePathRegistry,
     collapse_duplicate_top_level,
     extract_archive,
     is_archive,
@@ -328,10 +329,18 @@ def prepare_source_workspace(round_dir: Path, copied: list[CopiedInput]) -> tupl
     workspace.mkdir(parents=True, exist_ok=True)
     prepared: list[PreparedSource] = []
     skipped: list[str] = []
+    target_registry = CaseInsensitivePathRegistry(workspace)
 
     for source_item in sources:
         target_name = safe_name(source_item.path.stem if source_item.path.is_file() else source_item.path.name)
         target = workspace / target_name
+        collision = target_registry.register(target, label=source_item.rel_round, kind="directory")
+        if collision is not None:
+            skipped.append(
+                f"`{source_item.rel_round}`: Windows/case-insensitive source workspace target collision "
+                f"({collision}); inspect the original source input manually before review"
+            )
+            continue
         if target.exists():
             skipped.append(
                 f"`{source_item.rel_round}`: target `{target.relative_to(round_dir).as_posix()}` already exists"
@@ -348,7 +357,7 @@ def prepare_source_workspace(round_dir: Path, copied: list[CopiedInput]) -> tupl
             if collapse_duplicate_top_level(target):
                 detail += "; collapsed duplicate top-level directory"
             if unsafe:
-                detail += f"; skipped {len(unsafe)} unsafe/unsupported/over-limit entries"
+                detail += f"; skipped {len(unsafe)} unsafe/unsupported/over-limit/case-collision entries"
             prepared.append(
                 PreparedSource(
                     source_rel=source_item.rel_round,
@@ -362,7 +371,7 @@ def prepare_source_workspace(round_dir: Path, copied: list[CopiedInput]) -> tupl
             copied_count, unsafe = safe_copy_input_dir(source_item.path, target)
             detail = f"{copied_count} files copied"
             if unsafe:
-                detail += f"; skipped {len(unsafe)} symlink/unsafe/unsupported/over-limit entries"
+                detail += f"; skipped {len(unsafe)} symlink/unsafe/unsupported/over-limit/case-collision entries"
             prepared.append(
                 PreparedSource(
                     source_rel=source_item.rel_round,

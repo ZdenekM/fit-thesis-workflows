@@ -118,6 +118,21 @@ with zipfile.ZipFile(target, "w") as archive:
 PY
 }
 
+make_case_collision_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'case-collision'\n")
+    archive.writestr("project/src/Foo.py", "print('upper')\n")
+    archive.writestr("project/src/foo.py", "print('lower')\n")
+PY
+}
+
 make_duplicate_root_zip() {
   local target="$1"
   python3 - "$target" <<'PY'
@@ -181,7 +196,7 @@ expect_success "prepare directory workspace" "$repo_root/scripts/prepare-code-wo
 test -f "$round_dir/work/code/frontend/package.json"
 test ! -e "$round_dir/work/code/frontend/src/secret-link.txt"
 expect_file_contains "$round_dir/work/code_workspace.md" "npm test"
-expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 symlink/unsafe/unsupported/over-limit entries"
+expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 symlink/unsafe/unsupported/over-limit/case-collision entries"
 expect_file_contains "$round_dir/work/serena_roots.json" "typescript"
 
 case_id="${case_prefix}_zip_slip"
@@ -193,7 +208,27 @@ test -f "$round_dir/work/code/code/project/pyproject.toml"
 test ! -e "$round_dir/work/code/escaped.py"
 test ! -e "$round_dir/work/escaped.py"
 test ! -e "$round_dir/escaped.py"
-expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 unsafe/unsupported/over-limit entries"
+expect_file_contains "$round_dir/work/code_workspace.md" "skipped 1 unsafe/unsupported/over-limit/case-collision entries"
+
+case_id="${case_prefix}_case_collision"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_case_collision_zip "$round_dir/inputs/code.zip"
+expect_success "case-insensitive archive collisions are reported" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test -f "$round_dir/work/code/code/project/src/Foo.py"
+test ! -e "$round_dir/work/code/code/project/src/foo.py"
+expect_file_contains "$round_dir/work/code_workspace.md" "Windows/case-insensitive path collision"
+expect_file_contains "$round_dir/work/code_workspace.md" "case-insensitive path collision with project/src/Foo.py"
+
+case_id="${case_prefix}_target_collision"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/Code.zip"
+make_code_zip "$round_dir/inputs/code.zip"
+expect_success "case-insensitive workspace target collisions are reported" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+test -d "$round_dir/work/code/Code"
+test ! -e "$round_dir/work/code/code"
+expect_file_contains "$round_dir/work/code_workspace.md" "Windows/case-insensitive workspace target collision"
 
 case_id="${case_prefix}_duplicate_root"
 make_case "$case_id"

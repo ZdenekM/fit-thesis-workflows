@@ -15,7 +15,7 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import IO
+from typing import IO, Iterable
 
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root
 from thesis_review_workflow.cases import resolve_round as resolve_round_core
@@ -192,6 +192,84 @@ class CopyBudget:
         return None
 
 
+@dataclass(frozen=True)
+class PathRecord:
+    display: str
+    kind: str
+
+
+def portable_path_key(parts: Iterable[str]) -> tuple[str, ...]:
+    return tuple(unicodedata.normalize("NFC", part).casefold() for part in parts)
+
+
+class CaseInsensitivePathRegistry:
+    """Track paths that cannot coexist on a case-insensitive filesystem."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = Path(os.path.abspath(root))
+        self._records: dict[tuple[str, ...], PathRecord] = {}
+
+    def register(self, destination: Path, *, label: str, kind: str) -> str | None:
+        try:
+            relative = Path(os.path.abspath(destination)).relative_to(self.root)
+        except ValueError:
+            return f"{label} (target outside workspace)"
+
+        parts = relative.parts
+        if not parts:
+            return None
+
+        pending: list[tuple[tuple[str, ...], PathRecord]] = []
+        for index in range(1, len(parts) + 1):
+            prefix = parts[:index]
+            key = portable_path_key(prefix)
+            prefix_kind = kind if index == len(parts) else "directory"
+            record = PathRecord(PurePosixPath(*prefix).as_posix(), prefix_kind)
+            existing = self._records.get(key)
+            if existing is not None:
+                if existing.display != record.display:
+                    return f"{label} (case-insensitive path collision with {existing.display})"
+                if existing.kind != record.kind:
+                    return f"{label} (path type collision with {existing.kind} {existing.display})"
+            pending.append((key, record))
+
+        for key, record in pending:
+            self._records.setdefault(key, record)
+        return None
+
+
+def seed_existing_workspace_targets(registry: CaseInsensitivePathRegistry, workspace: Path) -> list[str]:
+    skipped: list[str] = []
+    if not workspace.is_dir():
+        return skipped
+    for child in sorted(workspace.iterdir(), key=lambda item: item.name.casefold()):
+        kind = "directory" if child.is_dir() else "file"
+        label = child.relative_to(workspace).as_posix()
+        collision = registry.register(child, label=label, kind=kind)
+        if collision is not None:
+            skipped.append(
+                f"`work/code/{label}`: existing workspace path has a Windows/case-insensitive collision "
+                f"({collision}); inspect `work/code/` manually before code review"
+            )
+    return skipped
+
+
+def case_collision_items(items: list[str]) -> list[str]:
+    return [item for item in items if "case-insensitive path collision" in item]
+
+
+def append_case_collision_summary(skipped: list[str], source_rel: str, items: list[str]) -> None:
+    collisions = case_collision_items(items)
+    if not collisions:
+        return
+    shown = "; ".join(collisions[:MAX_LIST])
+    suffix = "" if len(collisions) <= MAX_LIST else f"; plus {len(collisions) - MAX_LIST} more"
+    skipped.append(
+        f"`{source_rel}`: skipped {len(collisions)} Windows/case-insensitive path collision entries; "
+        f"inspect the original input manually before code review: {shown}{suffix}"
+    )
+
+
 def validate_id(label: str, value: str) -> None:
     try:
         validate_id_core(label, value)
@@ -364,6 +442,7 @@ def extract_zip(path: Path, target: Path) -> tuple[int, list[str]]:
     extracted = 0
     skipped: list[str] = []
     budget = CopyBudget()
+    registry = CaseInsensitivePathRegistry(target)
     with zipfile.ZipFile(path) as handle:
         for item in handle.infolist():
             if extracted >= MAX_EXTRACTED_FILES:
@@ -374,7 +453,15 @@ def extract_zip(path: Path, target: Path) -> tuple[int, list[str]]:
                 skipped.append(item.filename)
                 continue
             if item.is_dir():
+                collision = registry.register(destination, label=item.filename, kind="directory")
+                if collision is not None:
+                    skipped.append(collision)
+                    continue
                 destination.mkdir(parents=True, exist_ok=True)
+                continue
+            collision = registry.register(destination, label=item.filename, kind="file")
+            if collision is not None:
+                skipped.append(collision)
                 continue
             with handle.open(item) as source:
                 try:
@@ -390,6 +477,7 @@ def extract_tar(path: Path, target: Path) -> tuple[int, list[str]]:
     extracted = 0
     skipped: list[str] = []
     budget = CopyBudget()
+    registry = CaseInsensitivePathRegistry(target)
     with tarfile.open(path, mode="r:*") as handle:
         for member in handle:
             if extracted >= MAX_EXTRACTED_FILES:
@@ -400,10 +488,18 @@ def extract_tar(path: Path, target: Path) -> tuple[int, list[str]]:
                 skipped.append(member.name)
                 continue
             if member.isdir():
+                collision = registry.register(destination, label=member.name, kind="directory")
+                if collision is not None:
+                    skipped.append(collision)
+                    continue
                 destination.mkdir(parents=True, exist_ok=True)
                 continue
             if not member.isfile():
                 skipped.append(member.name)
+                continue
+            collision = registry.register(destination, label=member.name, kind="file")
+            if collision is not None:
+                skipped.append(collision)
                 continue
             source = handle.extractfile(member)
             if source is None:
@@ -639,23 +735,29 @@ def safe_copy_input_dir(source: Path, target: Path) -> tuple[int, list[str]]:
     copied = 0
     skipped: list[str] = []
     budget = CopyBudget()
+    registry = CaseInsensitivePathRegistry(target)
     source_root = source.resolve()
     for dirpath, dirnames, filenames in os.walk(source):
         current_dir = Path(dirpath)
         kept_dirs: list[str] = []
-        for dirname in dirnames:
+        for dirname in sorted(dirnames):
             child = current_dir / dirname
             if dirname in SAFE_SKIP_DIRS:
                 continue
             if child.is_symlink():
                 skipped.append(child.relative_to(source).as_posix())
                 continue
+            label = child.relative_to(source).as_posix()
+            collision = registry.register(target / child.relative_to(source), label=label, kind="directory")
+            if collision is not None:
+                skipped.append(collision)
+                continue
             kept_dirs.append(dirname)
         dirnames[:] = kept_dirs
 
         rel_dir = current_dir.relative_to(source)
         (target / rel_dir).mkdir(parents=True, exist_ok=True)
-        for filename in filenames:
+        for filename in sorted(filenames):
             source_file = current_dir / filename
             rel_file = source_file.relative_to(source)
             label = rel_file.as_posix()
@@ -672,6 +774,10 @@ def safe_copy_input_dir(source: Path, target: Path) -> tuple[int, list[str]]:
                 continue
             stat = source_file.stat()
             destination = target / rel_file
+            collision = registry.register(destination, label=label, kind="file")
+            if collision is not None:
+                skipped.append(collision)
+                continue
             try:
                 with source_file.open("rb") as handle:
                     copy_stream_limited(handle, destination, stat.st_size, budget, label)
@@ -835,9 +941,11 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
     workspace_manifest = load_workspace_manifest(workspace)
     sources = manifest_sources(workspace_manifest)
     current_keys = current_input_source_keys(inputs)
+    target_registry = CaseInsensitivePathRegistry(workspace)
 
     prepared: list[PreparedSource] = []
     skipped: list[str] = prune_stale_manifest_sources(round_dir, workspace, sources, current_keys)
+    skipped.extend(seed_existing_workspace_targets(target_registry, workspace))
 
     for archive in sorted(inputs.iterdir()) if inputs.is_dir() else []:
         if archive.is_symlink():
@@ -862,6 +970,13 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
             continue
         target = target_for_source(workspace, archive)
         rel_target = rel_round(round_dir, target)
+        collision = target_registry.register(target, label=rel, kind="directory")
+        if collision is not None:
+            skipped.append(
+                f"`{rel}`: Windows/case-insensitive workspace target collision ({collision}); "
+                "inspect the original input manually before code review"
+            )
+            continue
         existing = sources.get(rel)
         if target.exists():
             if existing and existing.get("target") == rel_target and existing.get("fingerprint") == fingerprint:
@@ -883,7 +998,8 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
         if collapse_duplicate_top_level(target):
             note += "; collapsed duplicate top-level directory"
         if unsafe:
-            note += f"; skipped {len(unsafe)} unsafe/unsupported/over-limit entries"
+            note += f"; skipped {len(unsafe)} unsafe/unsupported/over-limit/case-collision entries"
+            append_case_collision_summary(skipped, rel, unsafe)
         prepared.append(PreparedSource(archive, target, "extracted archive", note, fingerprint))
         sources[rel] = {"target": rel_target, "fingerprint": fingerprint, "prepared_at": now_utc()}
 
@@ -891,6 +1007,13 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
         target = target_for_source(workspace, source)
         rel = rel_round(round_dir, source)
         rel_target = rel_round(round_dir, target)
+        collision = target_registry.register(target, label=rel, kind="directory")
+        if collision is not None:
+            skipped.append(
+                f"`{rel}`: Windows/case-insensitive workspace target collision ({collision}); "
+                "inspect the original input manually before code review"
+            )
+            continue
         fingerprint = fingerprint_source(source)
         existing = sources.get(rel)
         if target.exists():
@@ -911,7 +1034,8 @@ def prepare(round_dir: Path, *, refresh: bool) -> tuple[list[PreparedSource], li
         copied, unsafe = safe_copy_input_dir(source, target)
         note = f"{copied} files copied"
         if unsafe:
-            note += f"; skipped {len(unsafe)} symlink/unsafe/unsupported/over-limit entries"
+            note += f"; skipped {len(unsafe)} symlink/unsafe/unsupported/over-limit/case-collision entries"
+            append_case_collision_summary(skipped, rel, unsafe)
         prepared.append(PreparedSource(source, target, "copied directory", note, fingerprint))
         sources[rel] = {"target": rel_target, "fingerprint": fingerprint, "prepared_at": now_utc()}
 

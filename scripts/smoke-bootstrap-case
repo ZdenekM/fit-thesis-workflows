@@ -191,6 +191,27 @@ expect_file_contains "$round_dir/notes/previous-feedback-index.md" "Imported His
 expect_file_contains "$round_dir/notes/round-notes.md" "Bootstrap Import Summary"
 expect_file_contains "$round_dir/notes/supervisor-intake.md" "Imported Operator Notes"
 
+make_text_zip "$tmp_dir/Code.zip"
+make_text_zip "$tmp_dir/code.zip"
+case_id="${case_prefix}_source_target_collision"
+created_cases+=("$case_id")
+expect_success \
+  "source workspace target collisions are reported" \
+  "$repo_root/scripts/bootstrap-case" supervisor "$case_id" source-target-collision \
+  --work-type BP \
+  --academic-year 2025/2026 \
+  --thesis-pdf "$tmp_dir/thesis.pdf" \
+  --assignment-pdf "$tmp_dir/assignment.pdf" \
+  --source-archive "$tmp_dir/Code.zip" \
+  --source-archive "$tmp_dir/code.zip" \
+  --assignment-summary "Synthetic assignment summary." \
+  --private-assignment-notes "Synthetic private notes."
+round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+test -d "$round_dir/work/source/Code"
+test ! -e "$round_dir/work/source/code"
+expect_file_contains "$round_dir/work/source_workspace.md" "Windows/case-insensitive source workspace target collision"
+
 case_id="${case_prefix}_relative_cwd"
 created_cases+=("$case_id")
 (
