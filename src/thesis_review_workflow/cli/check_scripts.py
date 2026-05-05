@@ -11,6 +11,33 @@ from pathlib import Path
 
 from thesis_review_workflow.cases import repo_root
 
+WINDOWS_RULE_SNIPPETS = (
+    "Windows is a supported operator platform",
+    "Do not introduce WSL-only assumptions",
+    "Python/Pants/PEX command surface",
+    "native `.cmd`/`.ps1` launchers",
+    "Windows-aware",
+)
+
+WINDOWS_CONTRACT_FILES = {
+    Path("scripts/package-workflow-tools.cmd"): (
+        "thesis_review_workflow.cli.package_workflow_tools",
+        "WORKFLOW_TOOLS_PYTHON",
+        "py -3.12",
+        "python",
+    ),
+    Path("scripts/package-workflow-tools.ps1"): (
+        "thesis_review_workflow.cli.package_workflow_tools",
+        "WORKFLOW_TOOLS_PYTHON",
+        "Get-Command",
+    ),
+    Path("src/thesis_review_workflow/cli/package_workflow_tools.py"): (
+        "CMD_LAUNCHER",
+        "PS_LAUNCHER",
+        "Windows launchers are generated as .cmd and .ps1",
+    ),
+}
+
 
 def script_files(root: Path) -> list[Path]:
     scripts_dir = root / "scripts"
@@ -63,6 +90,28 @@ def check_executable(path: Path, errors: list[str]) -> None:
         errors.append(f"{path}: script is not executable")
 
 
+def check_required_snippets(path: Path, snippets: tuple[str, ...], errors: list[str]) -> None:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"{path}: could not read required Windows compatibility contract file: {exc}")
+        return
+    except UnicodeDecodeError as exc:
+        errors.append(f"{path}: required Windows compatibility contract file is not UTF-8: {exc}")
+        return
+
+    missing = [snippet for snippet in snippets if snippet not in content]
+    if missing:
+        formatted = ", ".join(repr(snippet) for snippet in missing)
+        errors.append(f"{path}: missing Windows compatibility contract marker(s): {formatted}")
+
+
+def check_windows_operator_contract(root: Path, errors: list[str]) -> None:
+    check_required_snippets(root / "AGENTS.md", WINDOWS_RULE_SNIPPETS, errors)
+    for rel_path, snippets in WINDOWS_CONTRACT_FILES.items():
+        check_required_snippets(root / rel_path, snippets, errors)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scripts/check-scripts",
@@ -74,6 +123,8 @@ def main(argv: list[str] | None = None) -> int:
     bash = shutil.which("bash")
     errors: list[str] = []
     skipped_bash: list[Path] = []
+
+    check_windows_operator_contract(root, errors)
 
     for path in script_files(root):
         check_newlines(path, errors)

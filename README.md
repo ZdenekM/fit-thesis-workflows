@@ -520,6 +520,14 @@ scripts/check-private
 scripts/check-scripts
 ```
 
+Windows podpora je trvalý workflow kontrakt, ne jednorázový audit. Nové nebo
+měněné operátorské příkazy musí mít Python/Pants/PEX povrch nebo native
+`.cmd`/`.ps1` launcher, nepředpokládat WSL a používat Windows-aware cesty,
+subprocess volání, dočasné soubory a UTF-8 textové I/O. `scripts/check-scripts`
+kontroluje, že tento kontrakt zůstává v aktivních repo pravidlech a že balicí
+entrypointy pro Windows nezmizely; při změně command surface spusťte i
+`scripts/smoke-package-workflow-tools`.
+
 Při změně deterministických validatorů spusťte i odpovídající smoke testy,
 například:
 

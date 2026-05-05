@@ -142,3 +142,16 @@ surrounding text or role of the figure changes, keep the visual reuse but redo
 the claim-alignment pass.
 
 Promoted to: `thesis-figure-media-review`, figure/media checker, supervisor/opponent skills.
+
+### 2026-05-05: Windows Support Is A Standing Workflow Contract
+
+Status: promoted
+
+The repository must keep working for operators on native Windows without WSL-only
+assumptions. Operator-facing helpers need a Python/Pants/PEX command surface or
+native `.cmd`/`.ps1` launchers; POSIX shell may remain as convenience wrappers
+or smoke maintenance only. Path handling, subprocess calls, temporary files,
+text encoding, and operator documentation should be reviewed for Windows impact
+whenever workflow commands change.
+
+Promoted to: `AGENTS.md`, `README.md`, `scripts/check-scripts`, TODO.
