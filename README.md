@@ -419,20 +419,23 @@ dist/workflow-tools/bin/prepare-code-workspace <case-id>
 Na Windows použijte `.cmd` nebo PowerShell launcher:
 
 ```bat
+scripts\package-workflow-tools.cmd
 dist\workflow-tools\bin\check-tooling.cmd <case-id>
 dist\workflow-tools\bin\opponent-preflight.cmd <case-id>
 dist\workflow-tools\bin\prepare-code-workspace.cmd <case-id>
 ```
 
 ```powershell
+.\scripts\package-workflow-tools.ps1
 .\dist\workflow-tools\bin\check-tooling.ps1 <case-id>
 .\dist\workflow-tools\bin\opponent-preflight.ps1 <case-id>
 .\dist\workflow-tools\bin\prepare-code-workspace.ps1 <case-id>
 ```
 
-`scripts/package-workflow-tools` spustí jediné serializované balení přes Pants,
-zapíše rozbalené PEX adresáře do ignorovaného `dist/workflow-tools/pex/` a
-vygeneruje POSIX, `.cmd` a `.ps1` launchery do `dist/workflow-tools/bin/`.
+`scripts/package-workflow-tools` a jeho `.cmd`/`.ps1` varianty spustí jediné
+serializované balení přes Pants, zapíšou rozbalené PEX adresáře do ignorovaného
+`dist/workflow-tools/pex/` a vygenerují POSIX, `.cmd` a `.ps1` launchery do
+`dist/workflow-tools/bin/`.
 Launchery nastaví `PEX_ROOT` na repo-lokální `.pants.d/pex_root`, pokud už není
 explicitně nastavený v prostředí, vyčistí `PYTHONPATH`, zachovají původní
 caller cwd pro relativní importní cesty a vyžadují Python 3.12 stejně jako

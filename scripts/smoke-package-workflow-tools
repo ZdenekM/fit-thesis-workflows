@@ -11,6 +11,11 @@ case_prefix="__package_workflow_tools_smoke_$$"
 trap 'rm -f "$tmp_output"; rm -rf "$tmp_dir" "$tmp_repo" "$repo_root/cases/${case_prefix}_relative"' EXIT
 
 scripts/package-workflow-tools >/dev/null
+grep -Fq "thesis_review_workflow.cli.package_workflow_tools" "$repo_root/scripts/package-workflow-tools.cmd"
+grep -Fq "goto use_py_launcher" "$repo_root/scripts/package-workflow-tools.cmd"
+grep -Fq "goto use_python_launcher" "$repo_root/scripts/package-workflow-tools.cmd"
+grep -Fq "thesis_review_workflow.cli.package_workflow_tools" "$repo_root/scripts/package-workflow-tools.ps1"
+grep -Fq "Get-Command" "$repo_root/scripts/package-workflow-tools.ps1"
 
 mapfile -t tool_names < <(find "$repo_root/dist/workflow-tools/pex" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort)
 

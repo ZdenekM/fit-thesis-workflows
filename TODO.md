@@ -4,7 +4,7 @@
 
 - [ ] Finish native Windows workflow compatibility.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
-   - Move packaging and smoke maintenance helpers that operators may need on Windows off POSIX-only shell entrypoints.
+   - Move remaining smoke maintenance helpers that operators may need on Windows off POSIX-only shell entrypoints.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
