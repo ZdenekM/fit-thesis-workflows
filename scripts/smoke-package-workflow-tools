@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+tmp_output="$(mktemp)"
+trap 'rm -f "$tmp_output"' EXIT
+
+scripts/package-workflow-tools >/dev/null
+
+for tool_name in check-tooling opponent-preflight prepare-code-workspace case-doctor; do
+  launcher="$repo_root/dist/workflow-tools/bin/$tool_name"
+  if [[ ! -x "$launcher" ]]; then
+    echo "Missing executable launcher: dist/workflow-tools/bin/$tool_name" >&2
+    exit 1
+  fi
+  "$launcher" --help >/dev/null
+done
+
+(
+  cd /tmp
+  "$repo_root/dist/workflow-tools/bin/case-doctor" --help >/dev/null
+)
+
+if WORKFLOW_TOOLS_PYTHON=/bin/false "$repo_root/dist/workflow-tools/bin/check-tooling" --help >"$tmp_output" 2>&1; then
+  echo "Python version guard unexpectedly passed with WORKFLOW_TOOLS_PYTHON=/bin/false" >&2
+  exit 1
+fi
+
+if ! grep -Fq "Workflow tool launchers require Python 3.12" "$tmp_output"; then
+  echo "Python version guard did not print the expected diagnostic" >&2
+  cat "$tmp_output" >&2
+  exit 1
+fi
+
+echo "Workflow tool package smoke passed"

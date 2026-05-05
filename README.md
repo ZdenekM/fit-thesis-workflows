@@ -402,6 +402,31 @@ chybějící `pdftotext` u roundu s PDF bez extractu; GitHub CLI auth, Serena,
 `pdf-reader-mcp` a jazykové/literační nástroje hlásí jako explicitní stav nebo
 varování podle relevance pro daný round.
 
+### Rychlé opakované běhy helperů
+
+`pants run` nepoužívejte jako běžný runner workflow helperů; při opakovaném
+spouštění je zbytečně pomalý. Pro vývoj a ruční diagnostiku zůstávají kanonické
+přímé entrypointy `scripts/*`. Po změně Python helperů, nebo před delší sérií
+agentních kontrol, si připravte rozbalené PEX nástroje pro Python helpery:
+
+```bash
+scripts/package-workflow-tools
+dist/workflow-tools/bin/check-tooling <case-id>
+dist/workflow-tools/bin/opponent-preflight <case-id>
+dist/workflow-tools/bin/prepare-code-workspace <case-id>
+```
+
+`scripts/package-workflow-tools` spustí jediné serializované balení přes Pants,
+zapíše rozbalené PEX adresáře do ignorovaného `dist/workflow-tools/pex/` a
+vygeneruje launchery do `dist/workflow-tools/bin/`. Launchery nastaví `PEX_ROOT`
+na repo-lokální `.pants.d/pex_root`, pokud už není explicitně nastavený v
+prostředí, a vyžadují Python 3.12 stejně jako Pants konfigurace repozitáře.
+Pokud je potřeba použít konkrétní interpreter, nastavte `WORKFLOW_TOOLS_PYTHON`.
+Shellové gate skripty, např. `check-supervisor-ready`, `check-round-ready`,
+`check-private` a `check-feedback-language`, zůstávají přímé `scripts/*`
+entrypointy. `dist/` je cache/build výstup; po změně Python CLI nebo sdílených
+helper modulů balení spusťte znovu.
+
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
 zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
 oponentní a interní materiály bez supervisor deadline kalibrace.
@@ -489,6 +514,7 @@ scripts/smoke-agent-coverage
 scripts/smoke-opponent-report
 scripts/smoke-opponent-closeout
 scripts/smoke-tooling
+scripts/smoke-package-workflow-tools
 scripts/smoke-case-doctor
 scripts/smoke-prepare-code-workspace
 scripts/smoke-bootstrap-case
