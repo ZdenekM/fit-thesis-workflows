@@ -2,16 +2,12 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Adopt Pants for workflow-owned code in small, reviewable slices.
-   - Start with a minimal Pants baseline for tracked workflow code only: repo-local `.pants.d`, Python 3.12, `pants fmt ::`, `pants lint ::`, `pants check ::`, and targeted tests where they are cheap.
-   - Keep `cases/` and submitted student code outside Pants source roots; private case workspaces are evidence inputs, not part of the build graph.
-   - Add BUILD targets first for workflow Python modules and deterministic tests, then expand coverage to shell helpers once the baseline is understood.
-   - Preserve existing conversational CLI entrypoints under `scripts/`; Pants should improve hygiene and tests, not force operators to remember internal target names.
-   - Serialize Pants invocations in this repo and document the standard local closeout sequence after the first green slice.
 - [ ] Move reusable Python helper logic into an importable workflow package.
    - Create a tracked package such as `src/thesis_review_workflow/` for shared validation, path, manifest, Markdown, code-workspace, and command-reporting helpers.
    - Keep executable `scripts/*` files as thin wrappers so existing chat-first commands remain stable.
    - Migrate one module at a time, with focused tests before each move; do not combine a broad import refactor with behavior changes.
+   - Start with case/round id validation, repo/case/round path helpers, `case.md` field parsing, and small command-result helpers used by `case-doctor`, `check-tooling`, and code workspace scripts.
+   - Keep packaged workflow-tool launchers working after each migration; the packaged tools should depend on the importable package, not on duplicated script-local helpers.
 - [ ] Add deterministic tests for workflow validators and helper contracts.
    - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
