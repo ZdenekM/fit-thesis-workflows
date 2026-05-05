@@ -381,6 +381,11 @@ ignorovaný round workspace, extrahuje PDF text, rozbalí zdroje do
 `case-doctor`. Automaticky extrahovaný text bere jen jako vodítko: zadání,
 private notes a metadata musí před review potvrdit hodnotitel.
 
+`scripts/opponent-preflight <case-id> [round-id]` před oponentským workflow
+tvrdě hlídá opponent readiness, tooling, code workspace a GitHub intake. Výstup
+`case-doctor` v něm zůstává diagnostický snapshot: upozorní i na starší výstupy
+nebo supervisor-only gate, ale sám o sobě neblokuje start oponentských agentů.
+
 `prepare-code-workspace` rozbalí nebo zkopíruje pravděpodobné zdrojové archivy a
 adresáře do ignorovaného `work/code/`, zapíše `work/code_workspace.md` a
 `work/serena_roots.json` a navrhne levné smoke příkazy. Serena se má aktivovat

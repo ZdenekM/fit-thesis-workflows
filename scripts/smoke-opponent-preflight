@@ -94,6 +94,16 @@ expect_output() {
   fi
 }
 
+expect_no_output() {
+  local needle="$1"
+  if grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output not to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
 case_id="${case_prefix}_ready"
 make_case "$case_id"
 expect_success "ready opponent preflight passes" "$repo_root/scripts/opponent-preflight" "$case_id"
@@ -113,15 +123,33 @@ expect_failure "missing assignment blocks preflight" "$repo_root/scripts/opponen
 expect_output "Round readiness: FAIL"
 expect_output "Missing required assignment context"
 
+case_id="${case_prefix}_doctor_warning"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' '# Invalid reviewed opponent materials' >"$round_dir/outputs/oponent_podklady_revidovane.md"
+expect_success "case doctor failures stay diagnostic in preflight" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "Case doctor: WARN"
+expect_output "If it passes, start the role-split opponent workflow"
+
 case_id="${case_prefix}_code"
 make_case "$case_id"
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
 make_code_zip "$round_dir/inputs/code.zip"
 expect_success "code archive preflight prepares workspace" "$repo_root/scripts/opponent-preflight" "$case_id"
 expect_output "Code workspace preparation: PASS"
+expect_output "Code workspace inspectability: PASS"
 expect_output "Likely code roots: 1"
 test -f "$round_dir/work/code_workspace.md"
 test -f "$round_dir/work/serena_roots.json"
+
+case_id="${case_prefix}_unsupported_code_archive"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' 'synthetic unsupported archive' >"$round_dir/inputs/code.7z"
+expect_failure "unsupported code archive blocks inspectable code preflight" "$repo_root/scripts/opponent-preflight" "$case_id"
+expect_output "Code workspace preparation: PASS"
+expect_output "Code workspace inspectability: FAIL"
+expect_output "no likely code roots"
 
 case_id="${case_prefix}_github_note"
 make_case "$case_id"
@@ -142,6 +170,8 @@ round_dir="$repo_root/cases/$case_id/rounds/round-a"
 } >"$round_dir/notes/opponent-intake.md"
 expect_success "github note with explicit out-of-scope limitation passes" "$repo_root/scripts/opponent-preflight" "$case_id"
 expect_output "GitHub URL evidence appears in notes"
+expect_output "explicitly marked out of scope"
+expect_no_output "outputs/github_code_intake.md"
 
 case_id="${case_prefix}_github_intake_present"
 make_case "$case_id"

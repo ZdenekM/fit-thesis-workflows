@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -152,28 +153,56 @@ def github_out_of_scope(round_dir: Path) -> bool:
     return False
 
 
+def code_workspace_roots(round_dir: Path) -> tuple[int, str]:
+    roots_path = round_dir / "work" / "serena_roots.json"
+    if not roots_path.is_file():
+        return 0, "missing `work/serena_roots.json`; run `scripts/prepare-code-workspace` before code review"
+    try:
+        loaded = json.loads(roots_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return 0, f"`work/serena_roots.json` is not valid JSON: {exc}"
+    roots = loaded.get("roots")
+    if not isinstance(roots, list):
+        return 0, "`work/serena_roots.json` does not contain a roots list"
+    if not roots:
+        return 0, "no likely code roots found in `work/code/`; unpack unsupported/manual code inputs before code review"
+    return len(roots), f"likely code roots recorded: {len(roots)}"
+
+
 def output_next_actions(
     *,
     round_dir: Path,
     code_present: bool,
     code_evidence: list[str],
     github_hits: list[str],
+    github_scope_done: bool,
     prepared_code: bool,
+    code_root_count: int,
 ) -> None:
     print()
     print("## Opponent Preflight Summary")
     print("- Purpose: import/readiness/tooling check before authorized opponent-materials agents start.")
     if code_present:
         print(f"- Code evidence detected: yes ({', '.join(code_evidence)})")
-        if prepared_code:
-            print("- Code workspace preparation ran; inspect `work/code_workspace.md` before delegating code reviewers.")
+        if code_root_count:
+            print(
+                f"- Code workspace has {code_root_count} likely root(s); "
+                "inspect `work/code_workspace.md` before delegating code reviewers."
+            )
+        elif prepared_code:
+            print(
+                "- Code workspace preparation ran but no likely code root was found; "
+                "unpack unsupported/manual inputs into `work/code/` before delegating code reviewers."
+            )
         elif (round_dir / "work" / "code_workspace.md").is_file():
             print("- Code workspace report already exists: `work/code_workspace.md`.")
         else:
             print("- Code workspace was not prepared; run `scripts/prepare-code-workspace` before code review.")
     else:
         print("- Code evidence detected: no local code archive or code-like input directory.")
-    if github_hits and not github_intake_available(round_dir):
+    if github_hits and github_scope_done and not github_intake_available(round_dir):
+        print("- GitHub URL evidence appears in notes and is explicitly marked out of scope for this review.")
+    elif github_hits and not github_intake_available(round_dir):
         print(
             "- GitHub URL evidence appears in notes but `outputs/github_code_intake.md` is missing; "
             "run `scripts/import-github-code` or record `GitHub intake out of scope: <reason>` in round notes."
@@ -225,10 +254,12 @@ def main(argv: list[str]) -> int:
 
     code_present, code_evidence = code_inputs(round_dir)
     github_hits = github_notes(round_dir)
+    github_scope_done = github_out_of_scope(round_dir)
     github_missing_intake = bool(
-        github_hits and not github_intake_available(round_dir) and not github_out_of_scope(round_dir)
+        github_hits and not github_intake_available(round_dir) and not github_scope_done
     )
     prepared_code = False
+    code_root_count = 0
     if code_present and not args.no_prepare_code:
         step = run(
             root,
@@ -248,6 +279,17 @@ def main(argv: list[str]) -> int:
                 required=False,
             )
         )
+    if code_present:
+        code_root_count, root_message = code_workspace_roots(round_dir)
+        steps.append(
+            Step(
+                label="Code workspace inspectability",
+                command=None,
+                returncode=0 if code_root_count else 1,
+                output=root_message,
+                required=True,
+            )
+        )
 
     if github_missing_intake:
         steps.append(
@@ -265,7 +307,7 @@ def main(argv: list[str]) -> int:
         )
 
     steps.append(
-        run(root, "Case doctor", ["scripts/case-doctor", args.case_id, round_id], required=True)
+        run(root, "Case doctor", ["scripts/case-doctor", args.case_id, round_id], required=False)
     )
 
     for step in steps:
@@ -276,7 +318,9 @@ def main(argv: list[str]) -> int:
         code_present=code_present,
         code_evidence=code_evidence,
         github_hits=github_hits,
+        github_scope_done=github_scope_done,
         prepared_code=prepared_code,
+        code_root_count=code_root_count,
     )
 
     return 1 if any(not step.ok and step.required for step in steps) else 0
