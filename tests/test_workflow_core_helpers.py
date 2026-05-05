@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from thesis_review_workflow.cases import MissingCurrentRound, read_current_round, resolve_round
+from thesis_review_workflow.commands import Step, command_display, compact_output, resolve_repo_command
 from thesis_review_workflow.ids import invalid_id_message, is_valid_id, validate_id
 from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.paths import rel_repo, rel_round, strict_rel_round
@@ -103,3 +104,29 @@ def test_rel_helpers_preserve_relative_and_fallback_behavior(tmp_path: Path) -> 
         pass
     else:
         raise AssertionError("Expected strict round-relative path failure")
+
+
+def test_step_status_distinguishes_required_and_optional_failures() -> None:
+    assert Step(label="ok", command=None, returncode=0, output="done").status == "PASS"
+    assert Step(label="required", command=None, returncode=1, output="bad", required=True).status == "FAIL"
+    assert Step(label="optional", command=None, returncode=1, output="bad", required=False).status == "WARN"
+
+
+def test_command_display_allows_synthetic_steps_without_commands() -> None:
+    assert command_display(None) == ""
+    assert command_display(["scripts/check-private"]) == "scripts/check-private"
+
+
+def test_compact_output_drops_blank_lines_and_truncates() -> None:
+    assert compact_output(" first\n\nsecond \n", limit=100) == " first\nsecond"
+    assert compact_output("abcdef", limit=5) == "ab..."
+
+
+def test_resolve_repo_command_prefers_existing_repo_script_and_preserves_external_commands(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    script = root / "scripts" / "check-private"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+
+    assert resolve_repo_command(root, ["scripts/check-private"]) == [str(script)]
+    assert resolve_repo_command(root, ["git", "diff", "--check"]) == ["git", "diff", "--check"]

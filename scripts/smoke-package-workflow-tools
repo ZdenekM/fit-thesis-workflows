@@ -9,7 +9,7 @@ trap 'rm -f "$tmp_output"' EXIT
 
 scripts/package-workflow-tools >/dev/null
 
-for tool_name in check-tooling opponent-preflight prepare-code-workspace case-doctor; do
+for tool_name in check-tooling opponent-preflight opponent-closeout prepare-code-workspace case-doctor; do
   launcher="$repo_root/dist/workflow-tools/bin/$tool_name"
   if [[ ! -x "$launcher" ]]; then
     echo "Missing executable launcher: dist/workflow-tools/bin/$tool_name" >&2
