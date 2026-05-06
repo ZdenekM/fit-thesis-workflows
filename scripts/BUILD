@@ -6,6 +6,7 @@ shell_sources(
         "check-agent-coverage",
         "check-assignment-coverage",
         "check-code-reproducibility",
+        "check-evidence-presence",
         "check-evaluation-claims",
         "check-feedback-language",
         "check-feedback-output",
@@ -35,6 +36,7 @@ shell_sources(
         "smoke-bootstrap-case",
         "smoke-case-doctor",
         "smoke-code-reproducibility",
+        "smoke-evidence-presence",
         "smoke-evaluation-claims",
         "smoke-feedback-language",
         "smoke-feedback-output",
@@ -61,6 +63,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_agent_coverage",
     "src/thesis_review_workflow/cli:check_assignment_coverage",
     "src/thesis_review_workflow/cli:check_code_reproducibility",
+    "src/thesis_review_workflow/cli:check_evidence_presence",
     "src/thesis_review_workflow/cli:check_evaluation_claims",
     "src/thesis_review_workflow/cli:check_feedback_language",
     "src/thesis_review_workflow/cli:check_feedback_output",
@@ -134,6 +137,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-code-reproducibility",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_evidence_presence_tool",
+    entry_point="thesis_review_workflow.cli.check_evidence_presence:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-evidence-presence",
     tags=["workflow-tool"],
 )
 

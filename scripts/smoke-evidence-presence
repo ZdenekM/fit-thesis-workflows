@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__evidence_presence_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/evidence-presence-smoke.$$.out"
+err_file="/tmp/evidence-presence-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/extracted" "$round_dir/work" "$round_dir/inputs"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Text Or Summary
+
+- Provide a demo video and presentation.
+EOF
+cat >"$round_dir/extracted/thesis.txt" <<'EOF'
+The evaluation reports accuracy and F1 metrics but does not include calculation details.
+EOF
+cat >"$round_dir/work/code_reproducibility.json" <<'EOF'
+{
+  "schema_version": "code-reproducibility-v1",
+  "case_id": "__evidence_presence_smoke_PLACEHOLDER",
+  "round_id": "round-a",
+  "generated_at": "2026-05-06T00:00:00Z",
+  "classification": "missing_instructions"
+}
+EOF
+python3 - "$round_dir/work/code_reproducibility.json" "$case_id" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+loaded = json.loads(path.read_text(encoding="utf-8"))
+loaded["case_id"] = case_id
+path.write_text(json.dumps(loaded, indent=2) + "\n", encoding="utf-8")
+PY
+
+expect_success "evidence presence" "$repo_root/scripts/check-evidence-presence" "$case_id"
+expect_output "Evidence findings:"
+python3 - "$round_dir/work/evidence_presence.json" "$round_dir/work/media_presence_inventory.jsonl" <<'PY'
+import json
+import pathlib
+import sys
+
+evidence = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+states = {(item["category"], item["state"]) for item in evidence["findings"]}
+assert ("media", "missing") in states, states
+assert ("evaluation", "missing_data") in states, states
+assert ("code_reproducibility", "missing_instructions") in states, states
+inventory_lines = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+assert inventory_lines, "missing media inventory"
+assert any(json.loads(line)["state"] == "missing" for line in inventory_lines)
+PY
+
+echo "Evidence presence smoke passed"

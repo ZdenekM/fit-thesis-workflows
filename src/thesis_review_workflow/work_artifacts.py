@@ -34,6 +34,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/assignment_coverage_map.json",
     "work/evidence_presence.json",
     "work/code_reproducibility.json",
+    "work/media_presence_inventory.jsonl",
 )
 
 WORK_ARTIFACT_GLOBS = (

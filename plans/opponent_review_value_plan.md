@@ -574,7 +574,7 @@ parts actually completed.
 - Slice 2: done - work artifact and command surface contract
 - Slice 3: done - static code reproducibility classification
 - Slice 4: done - assignment coverage map
-- Slice 5: pending - evidence presence and media inventory
+- Slice 5: done - evidence presence and media inventory
 - Slice 6: pending - thin validators for opponent evidence inputs
 - Slice 7: pending - role-specific opponent agent packets
 - Slice 8: pending - incremental opponent provenance helper

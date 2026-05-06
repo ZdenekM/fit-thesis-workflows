@@ -120,6 +120,8 @@ def output_next_actions(
         print(f"- Code evidence detected: yes ({', '.join(code_evidence)})")
         if (round_dir / "work" / "code_reproducibility.json").is_file():
             print("- Code reproducibility classification: `work/code_reproducibility.json`.")
+        if (round_dir / "work" / "evidence_presence.json").is_file():
+            print("- Evidence presence findings: `work/evidence_presence.json`.")
         if code_root_count:
             print(
                 f"- Code workspace has {code_root_count} likely root(s); "
@@ -232,6 +234,15 @@ def main(argv: list[str]) -> int:
                 required=True,
             )
         )
+
+    steps.append(
+        run_step(
+            root,
+            "Evidence presence",
+            ["scripts/check-evidence-presence", args.case_id, round_id],
+            required=False,
+        )
+    )
 
     if github_missing_intake:
         steps.append(

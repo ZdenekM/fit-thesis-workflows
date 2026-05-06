@@ -26,6 +26,7 @@ from thesis_review_workflow.paths import rel_repo
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 DRAFT_REL = Path("work/oponent_posudek_draft.md")
 CODE_REPRO_REL = Path("work/code_reproducibility.json")
+EVIDENCE_PRESENCE_REL = Path("work/evidence_presence.json")
 
 IS_ITEMS = (
     ("Náročnost zadání", ("narocnost", "náročnost")),
@@ -139,6 +140,28 @@ def advisory_reproducibility_note(round_dir: Path) -> str | None:
     return f"Zohlednit statickou klasifikaci reprodukovatelnosti kódu: {classification}."
 
 
+def advisory_evidence_presence_note(round_dir: Path) -> str | None:
+    path = round_dir / EVIDENCE_PRESENCE_REL
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return "Zkontrolovat nevalidní advisory artefakt evidence-presence."
+    if not isinstance(loaded, dict):
+        return "Zkontrolovat nevalidní advisory artefakt evidence-presence."
+    findings = loaded.get("findings")
+    if not isinstance(findings, list) or not findings:
+        return None
+    categories = sorted(
+        item["category"]
+        for item in findings
+        if isinstance(item, dict) and isinstance(item.get("category"), str)
+    )
+    suffix = ", ".join(categories) if categories else "nezarazeno"
+    return f"Zohlednit advisory evidence-presence rizika: {suffix}."
+
+
 def build_report(materials: str, materials_hash: str, *, advisory_notes: list[str] | None = None) -> str:
     rows = is_rows(materials)
     strengths = bullets_from_section(section_by_number(materials, 7))
@@ -226,7 +249,9 @@ def main(argv: list[str]) -> int:
     if draft_path.exists() and not args.force:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")
     draft_path.parent.mkdir(parents=True, exist_ok=True)
-    advisory_notes = [note for note in [advisory_reproducibility_note(round_dir)] if note]
+    advisory_notes = [
+        note for note in [advisory_reproducibility_note(round_dir), advisory_evidence_presence_note(round_dir)] if note
+    ]
     draft_path.write_text(
         build_report(
             materials_path.read_text(encoding="utf-8"),
