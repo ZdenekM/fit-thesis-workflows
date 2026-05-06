@@ -255,6 +255,7 @@ PY
   "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
   python3 - "$manifest" "$coverage" <<'PY'
 import json
+import hashlib
 import pathlib
 import sys
 
@@ -286,6 +287,11 @@ for role in coverage["roles"]:
         }
         role["notes"] = "Blocked intentionally in smoke data."
 coverage_path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+coverage_hash = hashlib.sha256(coverage_path.read_bytes()).hexdigest()
+for item in manifest.get("supporting_work_artifacts", []):
+    if item.get("path") == "work/agent_coverage.json":
+        item["artifact_sha256"] = coverage_hash
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 }
 

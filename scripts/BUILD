@@ -4,6 +4,7 @@ shell_sources(
         "bootstrap-case",
         "case-doctor",
         "check-agent-coverage",
+        "check-assignment-coverage",
         "check-code-reproducibility",
         "check-evaluation-claims",
         "check-feedback-language",
@@ -30,6 +31,7 @@ shell_sources(
         "package-workflow-tools",
         "prepare-code-workspace",
         "smoke-agent-coverage",
+        "smoke-assignment-coverage",
         "smoke-bootstrap-case",
         "smoke-case-doctor",
         "smoke-code-reproducibility",
@@ -57,6 +59,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:bootstrap_case",
     "src/thesis_review_workflow/cli:case_doctor",
     "src/thesis_review_workflow/cli:check_agent_coverage",
+    "src/thesis_review_workflow/cli:check_assignment_coverage",
     "src/thesis_review_workflow/cli:check_code_reproducibility",
     "src/thesis_review_workflow/cli:check_evaluation_claims",
     "src/thesis_review_workflow/cli:check_feedback_language",
@@ -111,6 +114,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-agent-coverage",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_assignment_coverage_tool",
+    entry_point="thesis_review_workflow.cli.check_assignment_coverage:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-assignment-coverage",
     tags=["workflow-tool"],
 )
 

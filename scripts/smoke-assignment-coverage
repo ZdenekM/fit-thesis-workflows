@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__assignment_coverage_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/assignment-coverage-smoke.$$.out"
+err_file="/tmp/assignment-coverage-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/outputs" "$round_dir/work"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment is available.
+
+## Formal Assignment Text Or Summary
+
+- Implement prototype for import workflow.
+- Evaluate usability with students.
+
+## Private Assignment Notes For Student
+
+None.
+
+## Assignment Coverage Hints
+
+- Describe deployment limits.
+EOF
+cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+Import workflow prototype is supported by README evidence. Deployment limits are noted.
+EOF
+cat >"$round_dir/work/oponent_posudek_draft.md" <<'EOF'
+The usability evaluation remains partly evidenced.
+EOF
+
+expect_success "assignment coverage map" "$repo_root/scripts/check-assignment-coverage" "$case_id"
+expect_output "Assignment points: 3"
+python3 - "$round_dir/work/assignment_coverage_map.json" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+loaded = json.loads(path.read_text(encoding="utf-8"))
+assert loaded["schema_version"] == "assignment-coverage-map-v1", loaded
+assert loaded["case_id"].startswith("__assignment_coverage_smoke_"), loaded
+assert len(loaded["assignment_points"]) == 3, loaded["assignment_points"]
+assert loaded["assignment_points"][0]["opponent_materials"]["state"] == "mentioned"
+PY
+
+echo "Assignment coverage smoke passed"
