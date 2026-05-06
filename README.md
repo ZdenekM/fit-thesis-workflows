@@ -221,6 +221,13 @@ Nejběžnější výstupy jsou:
   a formální stránky podle jazyka práce,
 - `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
   vizuálních prvků a jejich popisů,
+- `work/assignment_coverage_map.json` - poradní mapa splnění bodů zadání,
+- `work/evidence_presence.json` - poradní přehled chybějící, přítomné
+  a zatím neinspektované evidence,
+- `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
+  kódového podkladu bez spouštění studentského kódu,
+- `work/opponent_packets/*.md` - stručné role-specific podklady pro agentní
+  review vlny,
 - `work/review_manifest.json` - interní manifest vstupů, výstupů, helper checků,
   skillů, rolí agentů, review stavu, hashů výstupů a omezení,
 - `work/agent_coverage.json` - interní role matrix pro povinné agentní role,
@@ -246,6 +253,9 @@ pro aktuální stav roundu. Zavře revidované podklady, manifest, agent coverag
 repo hygienu; pokud už existuje `work/oponent_posudek_draft.md`, zahrne do
 closeoutu i `scripts/check-opponent-report`, takže pracovní draft musí být
 nejdřív lidsky zkalibrovaný v bodech, známce a formulacích.
+Pokud existují interní evidence `outputs/code_consistency.md`,
+`outputs/code_quality_review.md` nebo `outputs/revision_diff.md`, manifest a
+oponentní closeout vyžadují i jejich strukturální validátory.
 
 Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consistency.md`,
 `code_quality_review.md`, `literature_citation_review.md`,
@@ -271,6 +281,10 @@ se ručně doplňují jen typované výjimky. `scripts/check-agent-coverage` hl�
 role-specific agenta a u review rolí také reviewer údaje a hash kontrolované
 verze. Chybějící roli je možné uzavřít jen konkrétní `typed_limitation`, ne
 tichým přeskočením.
+
+Detailní pořadí oponentských příprav, poradních helperů, role packetů,
+evidenčních validátorů a manifest closeoutu je v
+`docs/opponent-review-workflow.md`.
 
 ## Role a review smyčky
 
@@ -351,6 +365,17 @@ aktivní round, readiness checky, deadline kalibraci, vstupy, extracty, kód,
 výstupy, review manifest a předchozí feedback. Nenahrazuje finální gate checky,
 jen rychle ukáže, co chybí nebo je stale před začátkem review.
 
+Poradní příprava pro oponentské review:
+
+```bash
+scripts/check-assignment-coverage <case-id>
+scripts/check-code-reproducibility <case-id>
+scripts/check-evidence-presence <case-id>
+scripts/check-evaluation-claims <case-id>
+scripts/prepare-opponent-packets <case-id>
+scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
+```
+
 Časté finální kontroly:
 
 ```bash
@@ -360,7 +385,9 @@ scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
 scripts/check-opponent-report <case-id>
 scripts/opponent-closeout <case-id>
-scripts/check-evaluation-claims <case-id>
+scripts/check-code-consistency <case-id>
+scripts/check-code-quality-review <case-id>
+scripts/check-revision-diff <case-id>
 scripts/check-typography-formal <case-id>
 scripts/init-review-manifest --run-checks <case-id>
 scripts/check-agent-coverage <case-id>
@@ -391,9 +418,12 @@ ignorovaný round workspace, extrahuje PDF text, rozbalí zdroje do
 private notes a metadata musí před review potvrdit hodnotitel.
 
 `scripts/opponent-preflight <case-id> [round-id]` před oponentským workflow
-tvrdě hlídá opponent readiness, tooling, code workspace a GitHub intake. Výstup
-`case-doctor` v něm zůstává diagnostický snapshot: upozorní i na starší výstupy
-nebo supervisor-only gate, ale sám o sobě neblokuje start oponentských agentů.
+tvrdě hlídá opponent readiness, tooling, lokální code workspace a GitHub intake
+pro GitHub odkazy nalezené v round notes. Navíc spustí assignment coverage,
+statickou reprodukovatelnost kódu a evidence-presence kontrolu, aby review
+agenti dostali férové omezení ještě před syntézou. Výstup `case-doctor` v něm
+zůstává diagnostický snapshot: upozorní i na starší výstupy nebo supervisor-only
+gate, ale sám o sobě neblokuje start oponentských agentů.
 
 `prepare-code-workspace` rozbalí nebo zkopíruje pravděpodobné zdrojové archivy a
 adresáře do ignorovaného `work/code/`, zapíše `work/code_workspace.md` a

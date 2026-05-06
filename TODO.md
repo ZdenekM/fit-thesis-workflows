@@ -5,10 +5,10 @@
 - [ ] Finish native Windows workflow compatibility.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - Move remaining smoke maintenance helpers that operators may need on Windows off POSIX-only shell entrypoints.
-- [ ] Add deterministic tests for workflow validators and helper contracts.
-   - Put pytest-style tests under `tests/` for pure Python validators, manifest/coverage rules, code workspace classification, and Markdown shape checks.
+- [ ] Extend deterministic tests for remaining workflow validators and helper contracts.
+   - Prefer pytest-style tests for pure Python validators and manifest/coverage rules that are still covered only by shell smokes.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
-   - Add anonymized fixtures only under tracked fixture paths; never copy real `cases/` artifacts into test data.
+   - Every new helper must land with focused anonymized fixtures under tracked fixture paths; never copy real `cases/` artifacts into test data.
 - [ ] Add a case-data contract and migration workflow.
    - Treat `cases/<case-id>/` layout, `case.md` metadata fields, round layout, manifests, coverage files, and reusable JSONL evidence as operator data contracts used by more than one person.
    - Prefer explicit migrations over long-lived compatibility branches in workflow code: normal scripts should target the current case format, while old formats are handled by migration tools and clear "needs migration" diagnostics.
@@ -17,11 +17,6 @@
    - Migrations must be idempotent, preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
    - Before landing a breaking structure change, add or update an anonymized fixture case for the old format, a smoke test proving migration to the new format, and closeout checks proving existing current-format cases still pass.
    - Document the migration in `README.md` or a focused workflow doc when it affects operators; do not silently change required case structure in a way that breaks existing local cases.
-- [ ] Initialize and update review provenance incrementally during agent workflows.
-   - Add a helper such as `scripts/record-agent-output` or `scripts/register-review-artifact`.
-   - Record artifact path, generator role, reviewer role when available, agent identifier when available, evidence hash, scope, limitations, and whether a downstream synthesis used the findings.
-   - Support a bootstrap mode before agents start and a closeout mode that validates coverage after the final reviewed artifact exists.
-   - Avoid reconstructing `work/review_manifest.json` manually after all agents have finished.
 - [ ] Add a supervisor-feedback preflight and closeout bundle.
    - Preflight should run readiness checks, `scripts/case-doctor`, code workspace preparation when code exists, assignment/metadata sanity checks, and early evidence-presence checks.
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
@@ -30,23 +25,11 @@
    - `scripts/check-typography-formal` should prefer `Thesis language` from `case.md`, then explicit round thesis-language metadata, and should not infer thesis language from `Student feedback language` or free-form supervisor-intake field names.
    - When the configured thesis language is `sk`, report Slovak/Czech typography rules as language-compatible but keep the printed metadata as `sk`, so downstream reviewer agents do not think the thesis itself is Czech.
    - Add a smoke case with `Thesis language: sk` and `Student feedback language: cs` to prevent regression.
-- [ ] Add thin validators for core internal evidence artifacts.
-   - Add shape/evidence validators such as `scripts/check-revision-diff`, `scripts/check-code-consistency`, and `scripts/check-code-quality-review`.
-   - Keep them as structural/evidence checks, not judgment engines: required headings, concrete evidence references, limitations, no placeholders, no internal path leaks in downstream-facing summaries, and stale-manifest compatibility.
-   - Reuse shared Markdown validation helpers instead of duplicating section/table/path-leak logic across scripts.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
+
 ## P1 - Evidence Coverage
 
-- [ ] Add first-class evidence-presence checks for recurring thesis obligations and strong claims.
-   - Detect likely required demo/video/poster/presentation artifacts from assignment notes and submitted inputs, and distinguish missing, present-but-not-opened, and inspected states.
-   - Detect quantitative result claims that need raw data, calculation scripts, experiment logs, notebooks, screenshots, or a reproducible evaluation description.
-   - Detect code-bearing cases without a runnable development/test environment recipe, such as missing dependency manifests, CI config, or documented test commands.
-   - Surface the findings as review risks and precise evidence requests, not as proof that the thesis claim is false.
-- [ ] Add code workspace reproducibility classification.
-   - Record whether static checks, imports, tests, and example commands were runnable in the local review environment.
-   - When tests fail during collection because dependencies are missing, classify the result as "not locally reproducible from submitted instructions" rather than as a failing implementation test.
-   - Include detected missing packages, expected entry points, and available dependency files in the code-quality and code-consistency evidence.
 - [ ] Add a student-code sandbox workflow before running submitted code.
    - Keep the default code-review mode static/read-only; executing student code must be an explicit sandboxed step with recorded scope.
    - Add a helper such as `scripts/code-sandbox` with modes for environment inspection, case-local Python venv/uv setup, and rootless container runs.
@@ -60,15 +43,8 @@
    - Prefer concrete statements such as "the README mentions automated tests, but does not describe the dev/test setup" over instructions that make the student or supervisor re-check the source material.
    - Keep conditional wording only when the available evidence is genuinely missing, contradictory, or outside the provided inputs, and state that limitation explicitly.
    - Add a reviewer check that flags avoidable conditional wording in P0/P1 items and asks the synthesis/review agent to resolve it from evidence before finalizing.
-- [ ] Add an assignment coverage map helper.
-   - Parse `notes/assignment.md` into rough assignment points and record whether supervisor feedback, opponent materials, and report drafts cover, defer, or explicitly mark each point as unverifiable.
-   - Keep the helper advisory; final interpretation stays with the reviewer.
-- [ ] Generate role-specific agent packets from case metadata.
-   - Create concise per-role briefs for text structure, code consistency, code quality, figure/media, literature, typography, and final synthesis reviewers.
-   - Include authoritative inputs, current round paths, required outputs, known limitations, and privacy constraints.
-   - Keep prompts general and case-neutral; do not encode conclusions from a concrete thesis into reusable reviewer instructions.
-- [ ] Standardize visual/media intake before figure and demo review.
-   - Inventory PDF figures/tables, source image assets, screenshots, videos, notebooks, posters, and presentations in an operator-only work artifact.
+- [ ] Extend visual/media intake beyond the V1 evidence-presence inventory.
+   - Inventory PDF figures/tables, source image assets, screenshots, videos, notebooks, posters, and presentations in operator-only work artifacts.
    - Distinguish rendered-PDF evidence from source-asset evidence and record whether media content was actually inspected.
    - Route unresolved visual interpretation or result-graph quality issues to the figure/media and evaluation-claim review paths.
 - [ ] Add video/demo artifact intake and lightweight review workflow for supervisor and opponent cases.

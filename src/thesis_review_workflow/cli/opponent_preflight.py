@@ -138,6 +138,8 @@ def output_next_actions(
             print("- Code workspace was not prepared; run `scripts/prepare-code-workspace` before code review.")
     else:
         print("- Code evidence detected: no local code archive or code-like input directory.")
+    if (round_dir / "work" / "assignment_coverage_map.json").is_file():
+        print("- Assignment coverage map: `work/assignment_coverage_map.json`.")
     if github_hits and github_scope_done and not github_intake_available(round_dir):
         print("- GitHub URL evidence appears in notes and is explicitly marked out of scope for this review.")
     elif github_hits and not github_intake_available(round_dir):
@@ -188,6 +190,14 @@ def main(argv: list[str]) -> int:
     )
     steps.append(
         run_step(root, "Tooling preflight", ["scripts/check-tooling", "--fast", args.case_id, round_id], required=True)
+    )
+    steps.append(
+        run_step(
+            root,
+            "Assignment coverage",
+            ["scripts/check-assignment-coverage", args.case_id, round_id],
+            required=False,
+        )
     )
 
     code_present, code_evidence = code_inputs(round_dir)
