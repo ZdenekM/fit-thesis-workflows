@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__register_review_artifact_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/register-review-artifact-smoke.$$.out"
+err_file="/tmp/register-review-artifact-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/outputs" "$round_dir/work/opponent_packets"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+cat >"$round_dir/outputs/code_quality_review.md" <<'EOF'
+# Internal Code Quality Review
+EOF
+cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+# Revidovane podklady pro oponentsky posudek
+EOF
+cat >"$round_dir/work/oponent_podklady_draft.md" <<'EOF'
+# Podklady pro oponentsky posudek
+EOF
+cat >"$round_dir/work/opponent_packets/code_quality_findings.md" <<'EOF'
+# Code Quality Findings
+EOF
+
+expect_success "register final reviewed artifact" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/oponent_podklady_revidovane.md" \
+  --role thesis-opponent-materials \
+  --agent generator-agent \
+  --review-scope standalone_final \
+  --review-status reviewed \
+  --reviewer-role thesis-opponent-materials-review \
+  --reviewer-agent reviewer-agent \
+  --reviewed-at 2026-05-06T00:00:00Z \
+  --limitation "None." \
+  --review-basis-path work/oponent_podklady_draft.md
+
+expect_success "register output artifact" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/code_quality_review.md" \
+  --role thesis-code-quality-review \
+  --agent generator-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --limitation "Static review only." \
+  --feeds outputs/oponent_podklady_revidovane.md \
+  --used-findings "Used implementation risk summary." \
+  --input-ref notes/assignment.md \
+  --notes "Registered by smoke."
+
+expect_success "register work artifact" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "work/opponent_packets/code_quality_findings.md" \
+  --role code-quality-reviewer \
+  --agent packet-agent \
+  --review-scope internal_only \
+  --limitation "Feeds synthesis only." \
+  --feeds outputs/oponent_podklady_revidovane.md
+
+"$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
+
+python3 - "$round_dir/work/review_manifest.json" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+output = next(item for item in manifest["artifacts"] if item["path"] == "outputs/code_quality_review.md")
+assert output["independent_review"]["status"] == "not_required", output
+assert output["generated_by"][0]["agent"] == "generator-agent", output
+assert output["independent_review"]["evidence_hash"] == output["artifact_sha256"], output
+assert output["input_refs"] == ["notes/assignment.md"], output
+final = next(item for item in manifest["artifacts"] if item["path"] == "outputs/oponent_podklady_revidovane.md")
+assert final["independent_review"]["review_basis_path"] == "work/oponent_podklady_draft.md", final
+assert final["independent_review"]["review_basis_sha256"], final
+work = next(
+    item
+    for item in manifest["supporting_work_artifacts"]
+    if item["path"] == "work/opponent_packets/code_quality_findings.md"
+)
+assert work["role"] == "code-quality-reviewer", work
+assert work["agent"] == "packet-agent", work
+assert work["limitations"] == ["Feeds synthesis only."], work
+PY
+
+echo "Register review artifact smoke passed"

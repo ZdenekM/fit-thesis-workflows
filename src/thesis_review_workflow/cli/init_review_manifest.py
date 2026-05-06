@@ -27,6 +27,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.review_manifest import merge_supporting_work_artifacts
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -264,6 +265,9 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
             "limitations": limitations,
             "notes": previous.get("notes") or "",
         }
+        for field in ("input_refs", "evidence_refs", "check_refs"):
+            if field in previous:
+                entry[field] = previous[field]
         artifacts.append(entry)
     return artifacts
 
@@ -537,7 +541,10 @@ def main() -> int:
         round_dir / COVERAGE_REL,
         build_coverage(args.case_id, round_id, round_dir, manifest, existing_coverage),
     )
-    work_artifacts = collect_work_artifacts(round_dir)
+    work_artifacts = merge_supporting_work_artifacts(
+        existing.get("supporting_work_artifacts"),
+        collect_work_artifacts(round_dir),
+    )
     manifest["supporting_work_artifacts"] = work_artifacts
     checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths, round_dir, manifest))
     manifest["helper_checks"] = checks

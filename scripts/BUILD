@@ -35,6 +35,7 @@ shell_sources(
         "package-workflow-tools",
         "prepare-code-workspace",
         "prepare-opponent-packets",
+        "register-review-artifact",
         "smoke-agent-coverage",
         "smoke-assignment-coverage",
         "smoke-bootstrap-case",
@@ -55,6 +56,7 @@ shell_sources(
         "smoke-package-workflow-tools",
         "smoke-prepare-code-workspace",
         "smoke-private",
+        "smoke-register-review-artifact",
         "smoke-review-manifest",
         "smoke-reviewer-profile",
         "smoke-tooling",
@@ -97,6 +99,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:opponent_preflight",
     "src/thesis_review_workflow/cli:prepare_code_workspace",
     "src/thesis_review_workflow/cli:prepare_opponent_packets",
+    "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:supervisor_deadline",
 ]
 
@@ -427,6 +430,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-opponent-packets",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="register_review_artifact_tool",
+    entry_point="thesis_review_workflow.cli.register_review_artifact:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/register-review-artifact",
     tags=["workflow-tool"],
 )
 

@@ -42,6 +42,7 @@ WORKFLOW_COMMAND_MODULES = {
     "opponent-preflight": "thesis_review_workflow.cli.opponent_preflight",
     "prepare-opponent-packets": "thesis_review_workflow.cli.prepare_opponent_packets",
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
+    "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
     "supervisor-deadline": "thesis_review_workflow.cli.supervisor_deadline",
 }
 
