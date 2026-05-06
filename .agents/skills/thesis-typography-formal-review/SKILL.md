@@ -22,9 +22,10 @@ cases/<case-id>/rounds/<round-id>/
   outputs/
 ```
 
-`Thesis language: cs/en/auto` may be configured in `case.md` or round notes.
-It describes the thesis text language and does not control `Student feedback
-language`.
+`Thesis language: cs/sk/en/auto` may be configured in `case.md`, with
+`notes/round-notes.md` used only for round-local structured metadata when
+`case.md` is absent or set to `auto`. It describes the thesis text language and
+does not control `Student feedback language`.
 
 ## Process
 
@@ -41,9 +42,11 @@ language`.
 4. Run `scripts/check-typography-formal <case-id> [round-id]`. Treat warnings as
    reviewer prompts, not automatic findings.
 5. Calibrate by thesis language:
-   - `cs`: check short Czech/Slovak prepositions/conjunctions at rendered line
+   - `cs` or `sk`: check short Czech/Slovak prepositions/conjunctions at rendered line
      ends, LaTeX `~`/`vlna` hints, punctuation spacing, bracket spacing,
-     dash/hyphen usage, and leftover placeholders.
+     dash/hyphen usage, and leftover placeholders. Preserve Slovak metadata as
+     `sk`; do not relabel the thesis as Czech just because the rule family is
+     shared.
    - `en`: do not apply Czech `vlna` line-break rules; focus on punctuation,
      bracket spacing, dash/hyphen usage, quote consistency where visible, and
      leftover placeholders. Prefer normal editor/Overleaf spell and grammar

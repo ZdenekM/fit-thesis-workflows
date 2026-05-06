@@ -15,10 +15,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from thesis_review_workflow.markdown_utils import markdown_section
+from thesis_review_workflow.metadata import resolve_thesis_language, thesis_language_rule_family
 from thesis_review_workflow.paths import rel_repo
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
-FIELD_RE = re.compile(r"^\s*([^:\n]+):\s*(.*?)\s*$")
 CZECH_SHORT_LINE_RE = re.compile(r"(?i)(?:^|\s)([aikosuvz])\s*$")
 SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+[.,;:!?](?!\d)")
 MISSING_SPACE_AFTER_PUNCT_RE = re.compile(r"(?:[;:!?]|,(?!\d))(?=[^\s\])}\"'.,;:!?])")
@@ -61,7 +61,6 @@ ENGLISH_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 CZECH_DIACRITICS_RE = re.compile(r"[áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]")
-VALID_LANGUAGES = {"cs", "en", "auto"}
 NON_THESIS_EXTRACT_RE = re.compile(
     r"(zadani|zadání|assignment|reviewer|posudek|oponent|opponent|feedback|zpetna|zpětn[áa])",
     re.IGNORECASE,
@@ -243,90 +242,17 @@ def likely_build_files(round_dir: Path) -> list[Path]:
     )
 
 
-def normalize_language(raw: str) -> str | None:
-    value = raw.strip().lower()
-    value = value.strip(" .;")
-    aliases = {
-        "": "auto",
-        "auto": "auto",
-        "unknown": "auto",
-        "neznam": "auto",
-        "nevim": "auto",
-        "cs": "cs",
-        "cz": "cs",
-        "czech": "cs",
-        "cesky": "cs",
-        "česky": "cs",
-        "cestina": "cs",
-        "čeština": "cs",
-        "slovak": "cs",
-        "sk": "cs",
-        "slovensky": "cs",
-        "slovenština": "cs",
-        "en": "en",
-        "eng": "en",
-        "english": "en",
-        "anglicky": "en",
-        "angličtina": "en",
-    }
-    return aliases.get(value)
-
-
-def normalized_field_label(label: str) -> str:
-    label = re.sub(r"\s*\(.*$", "", label.strip().lower()).strip()
-    return label
-
-
-def configured_language(root: Path, case_dir: Path, round_dir: Path) -> tuple[str, str, list[str]]:
-    candidates = [
-        round_dir / "notes" / "round-notes.md",
-        round_dir / "notes" / "supervisor-intake.md",
-        round_dir / "notes" / "opponent-intake.md",
-        case_dir / "case.md",
-    ]
-    accepted_labels = {
-        "thesis language",
-        "jazyk prace",
-        "jazyk práce",
-    }
-    auto_source: str | None = None
-    metadata_warnings: list[str] = []
-    for path in candidates:
-        if not path.is_file():
-            continue
-        for number, line in enumerate(read_text(path).splitlines(), start=1):
-            match = FIELD_RE.match(line)
-            if not match:
-                continue
-            label = normalized_field_label(match.group(1))
-            if label not in accepted_labels:
-                continue
-            language = normalize_language(match.group(2))
-            if language in {"cs", "en"}:
-                return language, rel(path, root), metadata_warnings
-            if language == "auto":
-                if auto_source is None:
-                    auto_source = rel(path, root)
-                continue
-            metadata_warnings.append(
-                "WARNING [language-metadata]: Unsupported thesis language value "
-                f"`{match.group(2).strip()}` in {rel(path, root)}:{number}; "
-                "expected `cs`, `en`, or `auto`, so auto detection was used."
-            )
-    return "auto", auto_source or "default", metadata_warnings
-
-
-def detect_language(text: str, configured: str) -> tuple[str, str]:
-    if configured in {"cs", "en"}:
-        return configured, "metadata"
+def detect_language(text: str, configured: str) -> tuple[str, str, str]:
+    if configured in {"cs", "sk", "en"}:
+        return configured, thesis_language_rule_family(configured), "metadata"
 
     czech_score = len(CZECH_HINT_RE.findall(text)) + len(CZECH_DIACRITICS_RE.findall(text)) * 3
     english_score = len(ENGLISH_HINT_RE.findall(text))
     if czech_score >= max(6, english_score * 2):
-        return "cs", "auto"
+        return "cs", "cs_sk", "auto"
     if english_score >= max(6, czech_score * 2):
-        return "en", "auto"
-    return "cs", "auto-default"
+        return "en", "en", "auto"
+    return "cs", "cs_sk", "auto-default"
 
 
 def should_skip_line(text: str) -> bool:
@@ -514,12 +440,22 @@ def main(argv: list[str]) -> int:
 
     lines = read_lines(source_paths)
     all_text = "\n".join(item.text for item in lines)
-    configured, configured_source, metadata_warnings = configured_language(root, case_dir, round_dir)
-    language, language_source = detect_language(all_text, configured)
-    print(f"Thesis language: {language} ({language_source}; configured={configured} from {configured_source})")
+    configured = resolve_thesis_language(case_dir, round_dir)
+    display_language, rule_family, language_source = detect_language(all_text, configured.display_language)
+    if configured.source_path is None:
+        configured_source = "default"
+    else:
+        configured_source = rel(configured.source_path, root)
+        if configured.source_line is not None:
+            configured_source += f":{configured.source_line}"
+    print(
+        f"Thesis language: {display_language} "
+        f"({language_source}; configured={configured.display_language} from {configured_source}; "
+        f"rules={rule_family})"
+    )
 
-    warnings: list[str] = list(metadata_warnings)
-    if language == "cs":
+    warnings: list[str] = [f"WARNING [language-metadata]: {warning}" for warning in configured.warnings]
+    if rule_family == "cs_sk":
         short_line_matches = collect_line_pattern(lines, CZECH_SHORT_LINE_RE)
         if short_line_matches:
             print_warning(
@@ -610,7 +546,7 @@ def main(argv: list[str]) -> int:
         )
 
     latex_paths = effective_latex_source_paths(round_dir)
-    if latex_paths and language == "cs":
+    if latex_paths and rule_family == "cs_sk":
         latex_lines = read_lines(latex_paths)
         source_short_matches = collect_latex_short_space(latex_lines)
         if source_short_matches:
@@ -649,7 +585,7 @@ def main(argv: list[str]) -> int:
                 "LaTeX source hint: found `vlna` reference in " + ", ".join(rel(path, root) for path in vlna_files[:5])
             )
 
-    if language == "en":
+    if rule_family == "en":
         print(
             "English typography mode: Czech `vlna` line-break rules are not applied; "
             "use editor/Overleaf spell and grammar tooling plus manual final proofread."

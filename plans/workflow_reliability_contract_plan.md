@@ -420,7 +420,8 @@ These TODO items are intentionally outside this reliability-contract plan:
   packaging smoke boundary reviewed
 - Slice 3: completed - deterministic tests added for structural/advisory
   heuristics and duplicate PDF/extract matching removed
-- Slice 4: pending - typography thesis-language resolution
+- Slice 4: completed - typography language resolver now separates displayed
+  thesis language from rule family and ignores free-form intake metadata
 - Slice 5: pending - documentation, follow-up plans, TODO reconciliation, and
   archive
 
@@ -443,6 +444,24 @@ Whole-plan final audit not run yet. Slice evidence so far:
 
 Plan-preparation checks:
 
+- 2026-05-06: `git diff --check` passed
+
+Slice 4 checks:
+
+- 2026-05-06: agent review found one edge case where invalid `case.md` language
+  could be overridden by `round-notes.md`; resolver and regression test were
+  updated
+- 2026-05-06: agent re-review confirmed the invalid-case metadata edge case was
+  fixed
+- 2026-05-06: `pants fmt ::` passed after formatting
+- 2026-05-06: `pants lint src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants check src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants test tests/test_workflow_core_helpers.py` passed
+- 2026-05-06: `scripts/smoke-typography-formal` passed
+- 2026-05-06: `scripts/check-private` passed
+- 2026-05-06: `scripts/check-scripts` passed
 - 2026-05-06: `git diff --check` passed
 
 Slice 3 checks:

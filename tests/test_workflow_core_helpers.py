@@ -12,7 +12,7 @@ from thesis_review_workflow.commands import (
     resolve_repo_command,
 )
 from thesis_review_workflow.ids import invalid_id_message, is_valid_id, validate_id
-from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.metadata import read_fields, resolve_thesis_language
 from thesis_review_workflow.paths import caller_cwd, rel_repo, rel_round, resolve_caller_path, strict_rel_round
 
 
@@ -94,6 +94,69 @@ def test_read_fields_preserves_simple_case_metadata_contract(tmp_path: Path) -> 
         "student feedback language": "cs",
         "reviewer profile": "default:extended",
     }
+
+
+def test_resolve_thesis_language_preserves_slovak_display_and_ignores_feedback_language(tmp_path: Path) -> None:
+    case_dir = tmp_path / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    (case_dir / "case.md").write_text(
+        "Thesis language: sk\nStudent feedback language: cs\n",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_thesis_language(case_dir, round_dir)
+
+    assert resolved.display_language == "sk"
+    assert resolved.rule_family == "cs_sk"
+    assert resolved.source_path == case_dir / "case.md"
+
+
+def test_resolve_thesis_language_uses_round_notes_only_after_case_auto(tmp_path: Path) -> None:
+    case_dir = tmp_path / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    notes = round_dir / "notes"
+    notes.mkdir(parents=True)
+    (case_dir / "case.md").write_text("Thesis language: auto\n", encoding="utf-8")
+    (notes / "round-notes.md").write_text("Thesis language: en\n", encoding="utf-8")
+    (notes / "supervisor-intake.md").write_text("Thesis language: cs\n", encoding="utf-8")
+
+    resolved = resolve_thesis_language(case_dir, round_dir)
+
+    assert resolved.display_language == "en"
+    assert resolved.rule_family == "en"
+    assert resolved.source_path == notes / "round-notes.md"
+
+
+def test_resolve_thesis_language_ignores_free_form_intake_metadata(tmp_path: Path) -> None:
+    case_dir = tmp_path / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    notes = round_dir / "notes"
+    notes.mkdir(parents=True)
+    (case_dir / "case.md").write_text("Thesis language: auto\n", encoding="utf-8")
+    (notes / "supervisor-intake.md").write_text("Thesis language: en\n", encoding="utf-8")
+
+    resolved = resolve_thesis_language(case_dir, round_dir)
+
+    assert resolved.display_language == "auto"
+    assert resolved.rule_family == "auto"
+    assert resolved.source_path == case_dir / "case.md"
+
+
+def test_resolve_thesis_language_does_not_override_invalid_case_metadata(tmp_path: Path) -> None:
+    case_dir = tmp_path / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    notes = round_dir / "notes"
+    notes.mkdir(parents=True)
+    (case_dir / "case.md").write_text("Thesis language: klingon\n", encoding="utf-8")
+    (notes / "round-notes.md").write_text("Thesis language: en\n", encoding="utf-8")
+
+    resolved = resolve_thesis_language(case_dir, round_dir)
+
+    assert resolved.display_language == "auto"
+    assert resolved.rule_family == "auto"
+    assert resolved.source_path == case_dir / "case.md"
+    assert resolved.warnings
 
 
 def test_rel_helpers_preserve_relative_and_fallback_behavior(tmp_path: Path) -> None:

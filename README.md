@@ -149,7 +149,7 @@ zmrazenou evidenci v case workspace.
 - oficiální zadání nebo jeho věrné shrnutí,
 - vaše neveřejné poznámky ke kontextu práce,
 - zda jde o BP nebo DP,
-- jazyk práce (`cs`, `en`, nebo `auto`), pokud ho nelze spolehlivě poznat z PDF,
+- jazyk práce (`cs`, `sk`, `en`, nebo `auto`), pokud ho nelze spolehlivě poznat z PDF,
 - akademický rok a případný posunutý termín,
 - fáze práce: raná kostra, pracovní verze, předfinální verze, finální kontrola,
 - co chcete explicitně ověřit,
@@ -335,11 +335,11 @@ sobě stačí pouze na inventář, caption claims a `not_verifiable` alignment.
 
 U předfinálních a finálních roundů může agent udělat samostatnou typografickou
 a formální kontrolu. Pravidla se kalibrují podle jazyka práce, ne podle jazyka
-feedbacku: u českých prací se hlídají mimo jiné jednoznakové předložky/spojky
-na koncích řádků a LaTeX/`vlna` hinty, u anglických prací se česká pravidla
-nepoužívají a důraz je spíš na běžné editor/Overleaf kontroly a ruční final
-proofread. Studentovi se neposílá auditní seznam všech výskytů; do feedbacku
-patří shrnutý vzorec problému a doporučený postup opravy.
+feedbacku: u českých a slovenských prací se hlídají mimo jiné jednoznakové
+předložky/spojky na koncích řádků a LaTeX/`vlna` hinty, u anglických prací se
+česko-slovenská pravidla nepoužívají a důraz je spíš na běžné editor/Overleaf
+kontroly a ruční final proofread. Studentovi se neposílá auditní seznam všech
+výskytů; do feedbacku patří shrnutý vzorec problému a doporučený postup opravy.
 
 ## Kdy požádat o diagnostiku
 
@@ -534,8 +534,10 @@ Student feedback language: cs
 Reviewer profile: default
 ```
 
-Chybějící jazyk feedbacku znamená `cs`. `Thesis language` může být `cs`, `en`
-nebo `auto` a řídí jen kontroly textu práce, ne jazyk studentského feedbacku.
+Chybějící jazyk feedbacku znamená `cs`. `Thesis language` může být `cs`, `sk`,
+`en` nebo `auto` a řídí jen kontroly textu práce, ne jazyk studentského
+feedbacku. Slovenská práce se ve výstupu dál hlásí jako `sk`, ale typografická
+pravidla sdílí česko-slovenskou rodinu kontrol.
 Jazyk práce v intake poznámkách neřídí jazyk feedbacku.
 
 Veřejný repozitář obsahuje jen `profiles/default.md`. Osobní preference patří

@@ -135,9 +135,15 @@ make_case "$case_id" "auto"
 mkdir -p "$repo_root/cases/$case_id/rounds/round-a/notes"
 echo "Jazyk prace (neridi jazyk feedbacku; preferovane nastaveni je Thesis language v case.md): en" \
   >"$repo_root/cases/$case_id/rounds/round-a/notes/supervisor-intake.md"
-write_text "$case_id" $'This thesis presents a design and\na\nfollowing chapter evaluates results.'
-expect_success_not_contains "supervisor-intake language label is honored" "cs-line-breaks" "$repo_root/scripts/check-typography-formal" "$case_id"
-grep -E "Thesis language: en" /tmp/check-typography-formal.out >/dev/null
+write_text "$case_id" $'Tato práce popisuje návrh systému a\nv\nnásledující kapitole ukazuje výsledky.'
+expect_success_contains "supervisor-intake language label is ignored" "cs-line-breaks.*vlna" "$repo_root/scripts/check-typography-formal" "$case_id"
+grep -E "Thesis language: cs .*auto" /tmp/check-typography-formal.out >/dev/null
+
+case_id="${case_prefix}_sk_language"
+make_case "$case_id" "sk"
+write_text "$case_id" $'Táto práca opisuje návrh systému a\nv\nďalšej kapitole ukazuje výsledky.'
+expect_success_contains "Slovak displayed language uses Czech Slovak rules" "Thesis language: sk .*rules=cs_sk" "$repo_root/scripts/check-typography-formal" "$case_id"
+grep -E "cs-line-breaks.*vlna" /tmp/check-typography-formal.out >/dev/null
 
 case_id="${case_prefix}_invalid_language"
 make_case "$case_id" "klingon"
