@@ -34,6 +34,7 @@ shell_sources(
         "opponent-preflight",
         "package-workflow-tools",
         "prepare-code-workspace",
+        "prepare-opponent-packets",
         "smoke-agent-coverage",
         "smoke-assignment-coverage",
         "smoke-bootstrap-case",
@@ -48,6 +49,7 @@ shell_sources(
         "smoke-internal-evidence-validators",
         "smoke-opponent-closeout",
         "smoke-opponent-materials",
+        "smoke-opponent-packets",
         "smoke-opponent-preflight",
         "smoke-opponent-report",
         "smoke-package-workflow-tools",
@@ -94,6 +96,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:opponent_closeout",
     "src/thesis_review_workflow/cli:opponent_preflight",
     "src/thesis_review_workflow/cli:prepare_code_workspace",
+    "src/thesis_review_workflow/cli:prepare_opponent_packets",
     "src/thesis_review_workflow/cli:supervisor_deadline",
 ]
 
@@ -414,6 +417,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-code-workspace",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="prepare_opponent_packets_tool",
+    entry_point="thesis_review_workflow.cli.prepare_opponent_packets:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/prepare-opponent-packets",
     tags=["workflow-tool"],
 )
 

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__opponent_packets_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/opponent-packets-smoke.$$.out"
+err_file="/tmp/opponent-packets-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/inputs" "$round_dir/extracted" "$round_dir/work"
+mkdir -p "$round_dir/inputs/submitted-src"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+- Implement and evaluate a synthetic thesis-review helper.
+
+## Private Assignment Notes For Student
+
+- Synthetic private note.
+EOF
+printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
+printf '{}\n' >"$round_dir/work/assignment_coverage_map.json"
+printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
+
+expect_success "prepare opponent packets" "$repo_root/scripts/prepare-opponent-packets" "$case_id"
+expect_output "Opponent packets: 8"
+
+packet_dir="$round_dir/work/opponent_packets"
+test -f "$packet_dir/text_structure_assignment.md"
+test -f "$packet_dir/code_consistency.md"
+test -f "$packet_dir/synthesis.md"
+
+grep -Fq "Schema version: \`opponent-review-packet-v1\`" "$packet_dir/synthesis.md"
+grep -Fq "\`case.md\` (present)" "$packet_dir/synthesis.md"
+grep -Fq "\`profiles/default.md\` (present)" "$packet_dir/synthesis.md"
+grep -Fq "\`work/assignment_coverage_map.json\` (present)" "$packet_dir/text_structure_assignment.md"
+grep -Fq "\`inputs/submitted-src/\`" "$packet_dir/code_quality.md"
+grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
+
+echo "Opponent packets smoke passed"

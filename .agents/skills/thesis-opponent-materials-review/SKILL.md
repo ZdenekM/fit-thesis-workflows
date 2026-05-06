@@ -14,6 +14,7 @@ Use the active round:
 ```text
 cases/<case-id>/rounds/<round-id>/
   notes/assignment.md
+  work/opponent_packets/
   work/oponent_podklady_draft.md
   outputs/oponent_podklady.md
   inputs/
@@ -28,23 +29,24 @@ If both draft and output files exist, review the draft unless the user explicitl
 1. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop and ask for assignment/profile context instead of reviewing/generating the final output.
 2. Confirm that the user explicitly authorized agent use in the current request. This review is the required independent agent pass for opponent materials. If explicit authorization is missing, stop before writing reviewed materials and ask the user to authorize agents.
 3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
-4. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
-5. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
-6. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, licensing, and grade impact.
-7. Verify that assignment fulfillment is assessed point by point.
-8. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
-9. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
-10. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, or CI links into opponent-facing prose unless they are necessary and access-safe; summarize them as evidence patterns.
-11. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
-12. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
-13. If figure/media review was used or visual evidence is grade-impacting, verify that claims are backed by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status and suitable claim alignment. Do not turn an `inventoried_only` item into a visual-content claim, and do not expose cache hashes or reuse metadata in opponent-facing prose.
-14. If typography/formal review was used or formal presentation affects report quality, verify that claims are backed by `outputs/typography_formal_review.md` or `scripts/check-typography-formal` output, calibrated by thesis language, and summarized as repeated patterns rather than a line-by-line typo list.
-15. Keep strengths concrete and evidence-backed.
-16. Check that proposed defense questions are fair, answerable, and tied to important issues.
-17. Keep grading calibration as intervals and rationale, not false precision.
-18. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
-19. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
-20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+4. If `work/opponent_packets/` exists, use the role packets as a scope checklist for missing role evidence and limitations. Do not treat packets as findings by themselves.
+5. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
+6. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
+7. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, and grade impact.
+8. Verify that assignment fulfillment is assessed point by point.
+9. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
+10. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
+11. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, or CI links into opponent-facing prose unless they are necessary and access-safe; summarize them as evidence patterns.
+12. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
+13. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
+14. If figure/media review was used or visual evidence is grade-impacting, verify that claims are backed by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status and suitable claim alignment. Do not turn an `inventoried_only` item into a visual-content claim, and do not expose cache hashes or reuse metadata in opponent-facing prose.
+15. If typography/formal review was used or formal presentation affects report quality, verify that claims are backed by `outputs/typography_formal_review.md` or `scripts/check-typography-formal` output, calibrated by thesis language, and summarized as repeated patterns rather than a line-by-line typo list.
+16. Keep strengths concrete and evidence-backed.
+17. Check that proposed defense questions are fair, answerable, and tied to important issues.
+18. Keep grading calibration as intervals and rationale, not false precision.
+19. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
+20. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
+21. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Output
 

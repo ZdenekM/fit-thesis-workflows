@@ -40,6 +40,7 @@ WORKFLOW_COMMAND_MODULES = {
     "new-case": "thesis_review_workflow.cli.new_case",
     "opponent-closeout": "thesis_review_workflow.cli.opponent_closeout",
     "opponent-preflight": "thesis_review_workflow.cli.opponent_preflight",
+    "prepare-opponent-packets": "thesis_review_workflow.cli.prepare_opponent_packets",
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
     "supervisor-deadline": "thesis_review_workflow.cli.supervisor_deadline",
 }
