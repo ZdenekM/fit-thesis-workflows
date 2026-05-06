@@ -211,7 +211,7 @@ Out of scope:
 
 ### Slice 5 - Evaluation Claims Hotspot Decomposition
 
-- Status: pending
+- Status: done
 - Proposed commit message: `refactor(workflow): split evaluation claim helpers`
 - Why: Omen flags `check_evaluation_claims.py` as a critical hotspot and jscpd
   reports overlap with typography/formal checks. The refactor should isolate
@@ -227,6 +227,8 @@ Out of scope:
   - Keep placeholder regexes, severity wording, and thesis-specific evidence
     policy checker-owned unless a helper accepts checker-supplied patterns.
   - Preserve current validator output and exit-code behavior.
+  - Intentional hardening exception: when removing local CLI boilerplate, use the
+    shared ID validator, including its dot-only ID rejection.
 - Verification:
   - `pants fmt src/thesis_review_workflow:: tests::`
   - `pants lint src/thesis_review_workflow:: tests::`
@@ -276,7 +278,7 @@ Out of scope:
 - Slice 2: done - shared Markdown validator primitives
 - Slice 3: done - case doctor hotspot decomposition
 - Slice 4: done - GitHub intake hotspot decomposition
-- Slice 5: pending - evaluation claims hotspot decomposition
+- Slice 5: done - evaluation claims hotspot decomposition
 - Slice 6: pending - hygiene baseline closeout
 
 ## Decision Log
@@ -293,6 +295,9 @@ Out of scope:
   `import_github_code.py` as remaining orchestration complexity, not a behavior
   regression; the extracted helper stays pure and the CLI keeps GitHub and
   filesystem side effects.
+- 2026-05-06: Slice 5 adopted shared ID validation for
+  `check-evaluation-claims`; the dot-only ID rejection is intentional hardening
+  and is covered by the evaluation-claims smoke.
 
 ## Final Audit
 

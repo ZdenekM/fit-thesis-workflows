@@ -123,6 +123,10 @@ make_case "$case_id"
 rm -f "$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
 expect_failure_contains "missing source fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
+case_id="${case_prefix}_dot_round"
+make_case "$case_id"
+expect_failure_contains "dot-only round id fails" "Invalid round id" "$repo_root/scripts/check-evaluation-claims" "$case_id" ".."
+
 case_id="${case_prefix}_tex_without_extract"
 make_case "$case_id"
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
