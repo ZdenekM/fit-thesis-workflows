@@ -1,4 +1,5 @@
 python_source(name="package", source="__init__.py")
+files(name="workflow_contract_metadata", sources=["BUILD"])
 python_source(name="bootstrap_case", source="bootstrap_case.py")
 python_source(name="case_doctor", source="case_doctor.py")
 python_source(name="check_agent_coverage", source="check_agent_coverage.py")

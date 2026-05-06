@@ -142,10 +142,10 @@ def run_text(args: list[str], *, cwd: Path) -> str:
     return completed.stdout
 
 
-def workflow_tool_names(root: Path) -> list[str]:
-    payload = run_text(["pants", "--tag=workflow-tool", "peek", "::"], cwd=root)
+def workflow_tool_names_from_peek_payload(payload: str) -> list[str]:
     targets: Any = json.loads(payload)
     tools: list[str] = []
+    seen: set[str] = set()
     for target in targets:
         if not isinstance(target, dict) or target.get("target_type") != "pex_binary":
             continue
@@ -158,10 +158,18 @@ def workflow_tool_names(root: Path) -> list[str]:
             raise RuntimeError(
                 f"workflow-tool target {address} must output under workflow-tools/pex/, got {output_path}"
             )
+        if path.name in seen:
+            raise RuntimeError(f"Duplicate workflow-tool output path for {path.name}")
+        seen.add(path.name)
         tools.append(path.name)
     if not tools:
         raise RuntimeError("No workflow-tool pex_binary targets found.")
     return sorted(tools)
+
+
+def workflow_tool_names(root: Path) -> list[str]:
+    payload = run_text(["pants", "--tag=workflow-tool", "peek", "::"], cwd=root)
+    return workflow_tool_names_from_peek_payload(payload)
 
 
 def write_launchers(root: Path, tool_name: str) -> None:

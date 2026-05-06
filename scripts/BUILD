@@ -65,6 +65,14 @@ shell_sources(
     ],
 )
 
+files(
+    name="workflow_contract_metadata",
+    sources=[
+        "BUILD",
+        "smoke-package-workflow-tools",
+    ],
+)
+
 WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:bootstrap_case",
     "src/thesis_review_workflow/cli:case_doctor",

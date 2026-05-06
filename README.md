@@ -488,6 +488,8 @@ POSIX `scripts/*` wrappery zůstávají vývojářská zkratka v tomto checkoutu
 operátorské a agentní opakované běhy mají používat zabalené launchery. `dist/`
 je cache/build výstup; po změně Python CLI nebo sdílených helper modulů balení
 spusťte znovu.
+Kategorie příkazů a hranice Windows důkazů jsou rozepsané v
+`docs/workflow-command-surface.md`.
 
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
 zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
@@ -600,6 +602,8 @@ modul pod `src/thesis_review_workflow/cli/`, položku do
 `WORKFLOW_COMMAND_MODULES`, `python_source` v `src/.../cli/BUILD`, shell source,
 runtime dependency a `pex_binary(tags=["workflow-tool"])` v `scripts/BUILD`,
 cílený smoke skript a balicí smoke pro `.cmd`/`.ps1` launchery.
+Podrobnější kategorizace command surface je v
+`docs/workflow-command-surface.md`.
 
 Při změně deterministických validatorů spusťte i odpovídající smoke testy,
 například:

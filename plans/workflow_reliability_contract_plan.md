@@ -416,7 +416,8 @@ These TODO items are intentionally outside this reliability-contract plan:
 
 - Slice 1: completed - plan reviewed with three agents, review findings folded
   back into scope and follow-up requirements
-- Slice 2: pending - command surface inventory and Windows contract
+- Slice 2: completed - command surface documented, registry contract tests added,
+  packaging smoke boundary reviewed
 - Slice 3: pending - deterministic helper-test backlog
 - Slice 4: pending - typography thesis-language resolution
 - Slice 5: pending - documentation, follow-up plans, TODO reconciliation, and
@@ -437,10 +438,28 @@ These TODO items are intentionally outside this reliability-contract plan:
 
 ## Final Audit
 
-Not run yet. This plan is prepared but not implemented.
+Whole-plan final audit not run yet. Slice evidence so far:
 
 Plan-preparation checks:
 
 - 2026-05-06: `git diff --check` passed
 - 2026-05-06: `scripts/check-private` passed
 - 2026-05-06: `scripts/check-scripts` passed
+
+Slice 2 checks:
+
+- 2026-05-06: agent review of command-surface/Windows contract found no
+  blocking findings
+- 2026-05-06: agent review of docs/test maintainability found two findings;
+  plan evidence and package-smoke coverage test were updated before commit
+- 2026-05-06: `pants fmt ::` passed after formatting
+- 2026-05-06: `pants lint src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants check src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants test tests/test_check_scripts_contracts.py
+  tests/test_workflow_python_contracts.py` passed
+- 2026-05-06: `scripts/smoke-package-workflow-tools` passed
+- 2026-05-06: `scripts/check-private` passed
+- 2026-05-06: `scripts/check-scripts` passed
+- 2026-05-06: `git diff --check` passed
