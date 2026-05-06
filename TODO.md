@@ -2,29 +2,30 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Finish native Windows workflow compatibility.
+- [ ] Add native Windows runtime proof for packaged workflow launchers.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
-   - Move remaining smoke maintenance helpers that operators may need on Windows off POSIX-only shell entrypoints.
-- [ ] Extend deterministic tests for remaining workflow validators and helper contracts.
-   - Prefer pytest-style tests for pure Python validators and manifest/coverage rules that are still covered only by shell smokes.
+   - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.
+   - New or changed operator workflow commands must keep the command-surface contract in `docs/workflow-command-surface.md`: Python CLI, Pants/PEX target, generated `.cmd`/`.ps1` launchers, and targeted test or smoke coverage.
+- [ ] Continue deterministic tests as workflow validators and helper contracts grow.
+   - The highest-risk reliability helpers now have focused pytest coverage; keep adding pure tests for new validators, manifest/coverage rules, and planned case-format or supervisor-closeout helpers.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
    - Every new helper must land with focused anonymized fixtures under tracked fixture paths; never copy real `cases/` artifacts into test data.
-- [ ] Add a case-data contract and migration workflow.
+- [ ] Implement the read-only case-data contract and migration dry-run from `plans/case_format_migration_contract_plan.md`.
    - Treat `cases/<case-id>/` layout, `case.md` metadata fields, round layout, manifests, coverage files, and reusable JSONL evidence as operator data contracts used by more than one person.
+   - Start with `layout_current`, `review_ready`, and `provenance_ready` diagnostics before any write or bulk migration mode.
    - Prefer explicit migrations over long-lived compatibility branches in workflow code: normal scripts should target the current case format, while old formats are handled by migration tools and clear "needs migration" diagnostics.
    - Add a case format/version marker, or a deterministic format detector if explicit versioning is not yet present, and make `scripts/case-doctor` report current format, target format, and required migrations.
-   - Add migration commands such as `scripts/check-case-format`, `scripts/migrate-case`, and `scripts/migrate-cases` with `--dry-run`, `--backup`, `--case`, `--all`, and `--from/--to` style controls.
-   - Migrations must be idempotent, preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
+   - Add read-only diagnostics first: `scripts/check-case-format` and `scripts/migrate-case --dry-run`; defer write or bulk migration until dry-run behavior is reviewed.
    - Before landing a breaking structure change, add or update an anonymized fixture case for the old format, a smoke test proving migration to the new format, and closeout checks proving existing current-format cases still pass.
    - Document the migration in `README.md` or a focused workflow doc when it affects operators; do not silently change required case structure in a way that breaks existing local cases.
-- [ ] Add a supervisor-feedback preflight and closeout bundle.
+- [ ] Add reviewed write and bulk case migration controls after dry-run behavior is stable.
+   - Add write-mode `scripts/migrate-case` and bulk `scripts/migrate-cases` only after the dry-run contract is reviewed against real operator needs.
+   - Include `--backup`, `--case`, `--all`, and `--from/--to` style controls with explicit idempotence tests.
+   - Preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
+- [ ] Implement the supervisor-feedback preflight and closeout bundle from `plans/supervisor_workflow_closeout_plan.md`.
    - Preflight should run readiness checks, `scripts/case-doctor`, code workspace preparation when code exists, assignment/metadata sanity checks, and early evidence-presence checks.
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
    - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
-- [ ] Fix thesis-language resolution in typography/formal checks.
-   - `scripts/check-typography-formal` should prefer `Thesis language` from `case.md`, then explicit round thesis-language metadata, and should not infer thesis language from `Student feedback language` or free-form supervisor-intake field names.
-   - When the configured thesis language is `sk`, report Slovak/Czech typography rules as language-compatible but keep the printed metadata as `sk`, so downstream reviewer agents do not think the thesis itself is Czech.
-   - Add a smoke case with `Thesis language: sk` and `Student feedback language: cs` to prevent regression.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 

@@ -1,6 +1,6 @@
 # Workflow Reliability Contract Plan
 
-Status: active
+Status: done
 Created: 2026-05-06
 
 ## Goal
@@ -379,6 +379,7 @@ The Slice 1 audit must start with at least these known matchers:
   - `scripts/smoke-typography-formal`
   - `scripts/check-private`
   - `scripts/check-scripts`
+  - `git status --short --untracked-files=all`
   - `pants run :omen`
   - `git diff --check`
 
@@ -422,8 +423,8 @@ These TODO items are intentionally outside this reliability-contract plan:
   heuristics and duplicate PDF/extract matching removed
 - Slice 4: completed - typography language resolver now separates displayed
   thesis language from rule family and ignores free-form intake metadata
-- Slice 5: pending - documentation, follow-up plans, TODO reconciliation, and
-  archive
+- Slice 5: completed - follow-up plans created, TODO reconciled, final hygiene
+  run, and archive prepared
 
 ## Decision Log
 
@@ -440,7 +441,42 @@ These TODO items are intentionally outside this reliability-contract plan:
 
 ## Final Audit
 
-Whole-plan final audit not run yet. Slice evidence so far:
+Completed on 2026-05-06 and archived under `plans/archive/`.
+
+Slice 5 final checks passed:
+
+- 2026-05-06: agent review found missing explicit supervisor assignment/evidence
+  diagnostics and migration dry-run/source-format boundaries; follow-up plans
+  and TODO were updated
+- 2026-05-06: agent re-review found only missing `git status` and
+  `WORKFLOW_MEMORY.md` intake entries; plans were updated
+- 2026-05-06: `pants fmt ::` passed
+- 2026-05-06: `pants lint ::` passed
+- 2026-05-06: `pants check ::` passed
+- 2026-05-06: `pants test tests::` passed
+- 2026-05-06: `scripts/smoke-package-workflow-tools` passed
+- 2026-05-06: `scripts/smoke-typography-formal` passed
+- 2026-05-06: `scripts/check-private` passed
+- 2026-05-06: `scripts/check-scripts` passed
+- 2026-05-06: `git status --short --untracked-files=all` showed only planned
+  tracked plan/TODO changes
+- 2026-05-06: `pants run :omen` passed with grade A, score 92.09, 6 critical
+  hotspots, and 6 high hotspots
+- 2026-05-06: `git diff --check` passed
+
+Residual work after archive:
+
+- native Windows runtime proof for packaged launchers remains open in `TODO.md`;
+- case-format/migration implementation is planned in
+  `plans/case_format_migration_contract_plan.md`;
+- write/bulk migration remains a separate TODO after dry-run behavior is stable;
+- supervisor preflight/closeout implementation is planned in
+  `plans/supervisor_workflow_closeout_plan.md`;
+- recurring supervisor deadline maintenance remains open;
+- Omen hotspots remain developer-hygiene backlog, not thesis case-pipeline
+  gates.
+
+Prior slice evidence:
 
 Plan-preparation checks:
 
