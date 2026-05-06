@@ -47,6 +47,9 @@ def test_windows_operator_contract_accepts_required_rule_and_launchers(tmp_path:
             "Python/Pants/PEX command surface",
             "native `.cmd`/`.ps1` launchers",
             "Windows-aware",
+            "Treat `scripts/<tool>` references",
+            "logical workflow tool names",
+            "platform-native packaging entrypoint",
         ),
     )
 

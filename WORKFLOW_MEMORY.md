@@ -152,6 +152,9 @@ assumptions. Operator-facing helpers need a Python/Pants/PEX command surface or
 native `.cmd`/`.ps1` launchers; POSIX shell may remain as convenience wrappers
 or smoke maintenance only. Path handling, subprocess calls, temporary files,
 text encoding, and operator documentation should be reviewed for Windows impact
-whenever workflow commands change.
+whenever workflow commands change. In chat-first use, agents should treat
+`scripts/<tool>` references as logical workflow tool names and route them to the
+platform-appropriate launcher instead of asking Windows operators to use Bash or
+WSL.
 
 Promoted to: `AGENTS.md`, `README.md`, `scripts/check-scripts`, TODO.

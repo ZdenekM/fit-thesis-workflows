@@ -24,6 +24,10 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Use `scripts/case-doctor <case-id> [round-id]` as a read-only operator snapshot when orienting in a case or checking what is missing; it summarizes state but does not replace required workflow gates.
 - Supervisor feedback, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
 
+## Command Routing
+
+Treat `scripts/<tool>` references in these instructions and skills as logical workflow tool names. On Linux development checkouts, POSIX `scripts/<tool>` wrappers are acceptable. On native Windows operator checkouts, first package tools with `scripts\package-workflow-tools.cmd` or `.\scripts\package-workflow-tools.ps1`, then run `dist\workflow-tools\bin\<tool>.cmd` or `.\dist\workflow-tools\bin\<tool>.ps1`; do not ask operators to install Bash or WSL just to run this workflow. If a packaged launcher is missing or stale, rebuild it with the platform-native packaging entrypoint.
+
 ## Skill Routing
 
 Use these repo-local skills as the primary workflow definitions:

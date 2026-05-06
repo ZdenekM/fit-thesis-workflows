@@ -17,6 +17,9 @@ WINDOWS_RULE_SNIPPETS = (
     "Python/Pants/PEX command surface",
     "native `.cmd`/`.ps1` launchers",
     "Windows-aware",
+    "Treat `scripts/<tool>` references",
+    "logical workflow tool names",
+    "platform-native packaging entrypoint",
 )
 
 WINDOWS_CONTRACT_FILES = {
