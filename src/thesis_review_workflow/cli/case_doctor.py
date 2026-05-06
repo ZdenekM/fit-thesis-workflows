@@ -9,9 +9,7 @@ import re
 import subprocess
 import sys
 import tarfile
-import unicodedata
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +19,29 @@ from thesis_review_workflow.agent_coverage import (
     inferred_coverage_required,
     inferred_role_specs,
     load_json_object,
+)
+from thesis_review_workflow.case_doctor_summary import (
+    CODE_SUFFIXES,
+    ArchiveInfo,
+    DirectoryInventory,
+    GateResult,
+    Issue,
+    add_issue,
+    agent_coverage_summary_lines,
+    archive_entry_code_like,
+    archive_may_be_code_from_name,
+    archive_suffix,
+    archive_top_entries,
+    compact_output,
+    file_size_label,
+    gate_failure_severity,
+    is_archive,
+    manifest_summary_lines,
+    matching_extract,
+    nonempty_lines,
+    one_line,
+    output_expectations,
+    path_list,
 )
 from thesis_review_workflow.cases import read_current_round, repo_root
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
@@ -70,44 +91,6 @@ DEPENDENCY_NAMES = {
     "docker-compose.yml",
     "compose.yml",
 }
-CODE_DEPENDENCY_NAMES = DEPENDENCY_NAMES - {"Makefile", "CMakeLists.txt"}
-CODE_SUFFIXES = {
-    ".py",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".java",
-    ".kt",
-    ".cs",
-    ".cpp",
-    ".c",
-    ".h",
-    ".hpp",
-    ".go",
-    ".rs",
-    ".rb",
-    ".php",
-    ".swift",
-    ".ipynb",
-    ".sql",
-    ".r",
-    ".m",
-    ".jl",
-}
-ARCHIVE_SUFFIXES = {
-    ".zip",
-    ".tar",
-    ".tgz",
-    ".tbz",
-    ".tbz2",
-    ".txz",
-    ".gz",
-    ".bz2",
-    ".xz",
-    ".7z",
-    ".rar",
-}
 MEDIA_SUFFIXES = {
     ".png",
     ".jpg",
@@ -126,75 +109,6 @@ MEDIA_SUFFIXES = {
     ".key",
     ".ipynb",
 }
-KNOWN_OUTPUTS = {
-    "feedback_student.md": "supervisor feedback",
-    "revision_diff.md": "revision diff",
-    "github_code_intake.md": "GitHub code intake",
-    "code_consistency.md": "text-code consistency",
-    "code_quality_review.md": "code quality/design review",
-    "literature_citation_review.md": "literature/citation review",
-    "figure_media_review.md": "figure/media review",
-    "typography_formal_review.md": "typography/formal review",
-    "oponent_podklady.md": "opponent materials draft",
-    "oponent_podklady_revidovane.md": "reviewed opponent materials",
-    "feedback_k_posudku.md": "opponent report review",
-    "reference_report_comparison.md": "reference report comparison",
-    "demo_artifacts_review.md": "demo artifact review",
-    "pr_contribution_review.md": "PR contribution review",
-}
-FINAL_OUTPUTS = {
-    "feedback_student.md",
-    "oponent_podklady_revidovane.md",
-    "feedback_k_posudku.md",
-}
-
-
-@dataclass(frozen=True)
-class Issue:
-    severity: str
-    message: str
-
-
-@dataclass(frozen=True)
-class GateResult:
-    name: str
-    command: str
-    returncode: int
-    output: str
-
-    @property
-    def ok(self) -> bool:
-        return self.returncode == 0
-
-
-@dataclass(frozen=True)
-class ArchiveInfo:
-    path: Path
-    size: int
-    entry_count: int | None
-    top_entries: list[str]
-    code_like: bool
-    code_unknown: bool
-    note: str
-
-
-@dataclass(frozen=True)
-class DirectoryInventory:
-    path: Path
-    files_seen: int
-    truncated: bool
-    readmes: list[str]
-    dependencies: list[str]
-    tests: list[str]
-    ci: list[str]
-    large: list[str]
-    code_files: list[str]
-
-    @property
-    def code_like(self) -> bool:
-        return bool(
-            self.code_files or self.tests or any(Path(item).name in CODE_DEPENDENCY_NAMES for item in self.dependencies)
-        )
 
 
 def validate_id(label: str, value: str) -> None:
@@ -206,37 +120,6 @@ def validate_id(label: str, value: str) -> None:
             file=sys.stderr,
         )
         raise SystemExit(2) from exc
-
-
-def file_size_label(size: int) -> str:
-    if size >= 1024 * 1024 * 1024:
-        return f"{size / (1024 * 1024 * 1024):.1f} GiB"
-    if size >= 1024 * 1024:
-        return f"{size / (1024 * 1024):.1f} MiB"
-    if size >= 1024:
-        return f"{size / 1024:.1f} KiB"
-    return f"{size} B"
-
-
-def nonempty_lines(text: str) -> list[str]:
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
-def one_line(text: str) -> str:
-    lines = nonempty_lines(text)
-    if lines:
-        return lines[0]
-    return "(no output)"
-
-
-def compact_output(text: str, *, max_lines: int = 3) -> str:
-    lines = nonempty_lines(text)
-    if not lines:
-        return "(no output)"
-    selected = lines[:max_lines]
-    if len(lines) > max_lines:
-        selected.append("...")
-    return " | ".join(selected)
 
 
 def run_gate(root: Path, name: str, args: list[str], timeout: int = 45) -> GateResult:
@@ -278,82 +161,6 @@ def find_files(base: Path, predicate: Any, *, max_seen: int = MAX_WALK_FILES) ->
             if files_seen >= max_seen:
                 return sorted(matches)
     return sorted(matches)
-
-
-def archive_may_be_code_from_name(path: Path) -> bool:
-    name = folded(path.name)
-    clear_text_source = (
-        "thesis",
-        "latex",
-        "overleaf",
-        "zadani",
-        "assignment",
-        "prace",
-        "bakalar",
-        "diplom",
-        "report",
-    )
-    if any(token in name for token in clear_text_source):
-        return False
-    code_tokens = (
-        "code",
-        "src",
-        "source",
-        "repo",
-        "project",
-        "app",
-        "software",
-        "implementation",
-        "submission",
-    )
-    if any(token in name for token in code_tokens):
-        return True
-    return True
-
-
-def archive_suffix(path: Path) -> str:
-    suffixes = [suffix.lower() for suffix in path.suffixes]
-    if len(suffixes) >= 2 and suffixes[-2:] in (
-        [".tar", ".gz"],
-        [".tar", ".bz2"],
-        [".tar", ".xz"],
-    ):
-        return "".join(suffixes[-2:])
-    return suffixes[-1] if suffixes else ""
-
-
-def is_archive(path: Path) -> bool:
-    suffix = archive_suffix(path)
-    return suffix in ARCHIVE_SUFFIXES or any(
-        str(path).lower().endswith(item) for item in (".tar.gz", ".tar.bz2", ".tar.xz")
-    )
-
-
-def archive_entry_code_like(name: str) -> bool:
-    pure_name = Path(name).name
-    lower = name.lower()
-    return (
-        pure_name in CODE_DEPENDENCY_NAMES
-        or Path(pure_name).suffix.lower() in CODE_SUFFIXES
-        or "/test/" in lower
-        or "/tests/" in lower
-        or lower.startswith("test/")
-        or lower.startswith("tests/")
-    )
-
-
-def archive_top_entries(names: list[str]) -> list[str]:
-    entries: list[str] = []
-    seen: set[str] = set()
-    for name in names:
-        first = name.split("/", 1)[0].strip()
-        if not first or first in seen:
-            continue
-        seen.add(first)
-        entries.append(first)
-        if len(entries) >= MAX_LIST:
-            break
-    return entries
 
 
 def inspect_archive(path: Path) -> ArchiveInfo:
@@ -483,13 +290,6 @@ def candidate_code_dirs(round_dir: Path) -> list[Path]:
     return unique
 
 
-def path_list(round_dir: Path, paths: list[Path], *, max_items: int = MAX_LIST) -> list[str]:
-    items = [rel_round(round_dir, path) for path in sorted(paths)]
-    if len(items) > max_items:
-        return items[:max_items] + [f"... {len(items) - max_items} more"]
-    return items
-
-
 def output_section(title: str, lines: list[str]) -> None:
     print()
     print(f"## {title}")
@@ -498,57 +298,6 @@ def output_section(title: str, lines: list[str]) -> None:
             print(line)
     else:
         print("- none")
-
-
-def add_issue(issues: list[Issue], severity: str, message: str) -> None:
-    issues.append(Issue(severity, message))
-
-
-def folded(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
-    return ascii_text.lower()
-
-
-def is_thesis_pdf_name(value: str) -> bool:
-    tokens = ("thesis", "prace", "bakalar", "diplom")
-    if any(token in value for token in tokens):
-        return True
-    return bool(re.search(r"(^|[_ .-])(bp|dp)([_ .-]|$)", value))
-
-
-def matching_extract(
-    pdf: Path,
-    extracted: list[Path],
-    *,
-    pdf_count: int,
-    used_extracts: set[Path],
-) -> tuple[Path | None, str]:
-    by_stem = {path.stem: path for path in extracted}
-    exact = by_stem.get(pdf.stem)
-    if exact is not None and exact not in used_extracts:
-        return exact, "same-stem"
-
-    pdf_name = folded(pdf.stem)
-    assignment_tokens = ("zadani", "assignment")
-    if any(token in pdf_name for token in assignment_tokens):
-        for path in extracted:
-            if path in used_extracts:
-                continue
-            extract_name = folded(path.stem)
-            if any(token in extract_name for token in assignment_tokens):
-                return path, "assignment heuristic"
-    elif is_thesis_pdf_name(pdf_name):
-        for path in extracted:
-            if path in used_extracts:
-                continue
-            extract_name = folded(path.stem)
-            if extract_name in {"thesis", "prace", "bp", "dp"} or "thesis" in extract_name:
-                return path, "thesis heuristic"
-
-    if pdf_count == 1 and len(extracted) == 1 and extracted[0] not in used_extracts:
-        return extracted[0], "single-extract heuristic"
-    return None, ""
 
 
 def pdf_extract_status(round_dir: Path, issues: list[Issue]) -> tuple[list[Path], list[Path], list[str]]:
@@ -607,46 +356,42 @@ def collect_feedback_rounds(case_dir: Path, current_round_id: str) -> tuple[list
 
 
 def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) -> list[str]:
-    lines: list[str] = []
     manifest_path = round_dir / MANIFEST_REL
     if not manifest_path.is_file():
-        if outputs:
-            add_issue(issues, "ERROR", "Generated outputs exist but work/review_manifest.json is missing.")
-        lines.append("- review manifest: missing")
-        return lines
+        return manifest_summary_lines(
+            manifest_present=False,
+            outputs_present=bool(outputs),
+            manifest_error=None,
+            artifacts=[],
+            helper_checks=[],
+            coverage_needed=False,
+            coverage_present=False,
+            manifest_rel=MANIFEST_REL.as_posix(),
+            coverage_rel=COVERAGE_REL.as_posix(),
+            issues=issues,
+        )
 
+    manifest: dict[str, Any] | None = None
+    manifest_error = None
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        add_issue(issues, "ERROR", f"Review manifest JSON is invalid: {exc.msg}.")
-        lines.append(f"- review manifest: invalid JSON ({exc.msg})")
-        return lines
+        manifest_error = exc.msg
 
-    artifacts = manifest.get("artifacts", [])
-    checks = manifest.get("helper_checks", [])
-    lines.append(f"- review manifest: present ({MANIFEST_REL.as_posix()})")
-    coverage_path = round_dir / COVERAGE_REL
-    if inferred_coverage_required(round_dir, manifest):
-        if coverage_path.is_file():
-            lines.append(f"- agent coverage: present ({COVERAGE_REL.as_posix()})")
-        else:
-            add_issue(issues, "ERROR", f"Required agent coverage is missing: {COVERAGE_REL.as_posix()}.")
-            lines.append(f"- agent coverage: missing ({COVERAGE_REL.as_posix()})")
-    elif coverage_path.is_file():
-        lines.append(f"- agent coverage: present but no default role trigger is active ({COVERAGE_REL.as_posix()})")
-    else:
-        lines.append("- agent coverage: not required")
-    if isinstance(artifacts, list):
-        lines.append(f"- manifest artifacts: {len(artifacts)}")
-    else:
-        add_issue(issues, "ERROR", "Review manifest artifacts field is not a list.")
-        lines.append("- manifest artifacts: invalid")
-    if isinstance(checks, list):
-        lines.append(f"- manifest helper checks: {len(checks)}")
-    else:
-        add_issue(issues, "ERROR", "Review manifest helper_checks field is not a list.")
-        lines.append("- manifest helper checks: invalid")
-    return lines
+    artifacts = manifest.get("artifacts", []) if isinstance(manifest, dict) else []
+    checks = manifest.get("helper_checks", []) if isinstance(manifest, dict) else []
+    return manifest_summary_lines(
+        manifest_present=True,
+        outputs_present=bool(outputs),
+        manifest_error=manifest_error,
+        artifacts=artifacts,
+        helper_checks=checks,
+        coverage_needed=isinstance(manifest, dict) and inferred_coverage_required(round_dir, manifest),
+        coverage_present=(round_dir / COVERAGE_REL).is_file(),
+        manifest_rel=MANIFEST_REL.as_posix(),
+        coverage_rel=COVERAGE_REL.as_posix(),
+        issues=issues,
+    )
 
 
 def agent_coverage_summary(round_dir: Path, issues: list[Issue]) -> list[str]:
@@ -661,102 +406,19 @@ def agent_coverage_summary(round_dir: Path, issues: list[Issue]) -> list[str]:
         return ["- unavailable: review manifest is not an object"]
 
     specs = inferred_role_specs(round_dir, manifest)
+    coverage = None
+    coverage_error = None
     try:
         coverage = load_json_object(round_dir / COVERAGE_REL)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        add_issue(issues, "ERROR", f"Agent coverage JSON is invalid: {exc}.")
-        coverage = None
-    records: dict[str, dict[str, Any]] = {}
-    if coverage and isinstance(coverage.get("roles"), list):
-        for item in coverage["roles"]:
-            if isinstance(item, dict) and isinstance(item.get("role"), str):
-                records[item["role"]] = item
-
-    if not specs and not records:
-        return ["- no required role coverage for current round state"]
-
-    lines: list[str] = []
-    for role, spec in sorted(specs.items()):
-        record = records.get(role)
-        if not record:
-            lines.append(f"- MISSING {role}: needs {spec.skill} -> {spec.evidence_path}")
-            continue
-        status = str(record.get("status", ""))
-        evidence = ", ".join(str(item) for item in record.get("output_evidence", [])) or spec.evidence_path
-        missing: list[str] = []
-        if status == "required":
-            if spec.evidence_path not in record.get("output_evidence", []):
-                missing.append("output_evidence")
-            elif not (round_dir / spec.evidence_path).is_file():
-                missing.append("output_file")
-            if str(record.get("generator_agent", "")).strip() in {"", "not_recorded"}:
-                missing.append("generator_agent")
-            if str(record.get("generator_role", "")).strip() in {"", "not_recorded"}:
-                missing.append("generator_role")
-            if spec.requires_review:
-                if str(record.get("reviewer_agent", "")).strip() in {"", "not_recorded"}:
-                    missing.append("reviewer_agent")
-                if str(record.get("reviewer_role", "")).strip() in {"", "not_recorded"}:
-                    missing.append("reviewer_role")
-                if not str(record.get("reviewed_hash", "")).strip():
-                    missing.append("reviewed_hash")
-        elif status == "blocked":
-            limitation = record.get("typed_limitation")
-            limitation_type = limitation.get("type") if isinstance(limitation, dict) else "(missing limitation)"
-            missing.append(f"blocked:{limitation_type}")
-        detail = f"; missing {', '.join(missing)}" if missing else ""
-        lines.append(f"- {status.upper()} {role}: {spec.skill}; evidence {evidence}{detail}")
-
-    for role in sorted(set(records) - set(specs)):
-        record = records[role]
-        lines.append(f"- STALE {role}: status {record.get('status', '(missing)')}; no current default trigger")
-    return lines
-
-
-def output_expectations(round_dir: Path, outputs: list[Path], code_present: bool, issues: list[Issue]) -> list[str]:
-    names = {path.name for path in outputs}
-    lines: list[str] = []
-    for name in sorted(KNOWN_OUTPUTS):
-        marker = "present" if name in names else "missing"
-        if name in names or name in {"feedback_student.md", "oponent_podklady_revidovane.md"}:
-            lines.append(f"- {name}: {marker} ({KNOWN_OUTPUTS[name]})")
-
-    if (round_dir / "work" / "feedback_student_draft.md").is_file() and "feedback_student.md" not in names:
-        add_issue(issues, "WARNING", "Supervisor feedback draft exists but outputs/feedback_student.md is missing.")
-    if (round_dir / "work" / "oponent_podklady_draft.md").is_file() and "oponent_podklady_revidovane.md" not in names:
-        add_issue(issues, "WARNING", "Opponent materials draft exists but reviewed output is missing.")
-    if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file() and not (
-        round_dir / "work" / "oponent_posudek_draft.md"
-    ).is_file():
-        add_issue(issues, "WARNING", "Reviewed opponent materials exist but work/oponent_posudek_draft.md is missing.")
-        lines.append("- work/oponent_posudek_draft.md: missing (opponent report draft)")
-    elif (round_dir / "work" / "oponent_posudek_draft.md").is_file():
-        lines.append("- work/oponent_posudek_draft.md: present (opponent report draft)")
-        if "feedback_k_posudku.md" not in names:
-            add_issue(
-                issues, "WARNING", "Opponent report draft exists but outputs/feedback_k_posudku.md review is missing."
-            )
-
-    if code_present and names & FINAL_OUTPUTS:
-        missing = [name for name in ("code_consistency.md", "code_quality_review.md") if name not in names]
-        if missing:
-            add_issue(
-                issues,
-                "ERROR",
-                "Final synthesis exists with code evidence but missing code review outputs: "
-                + ", ".join(f"outputs/{name}" for name in missing)
-                + ".",
-            )
-    return lines
-
-
-def gate_failure_severity(gate: GateResult, output_names: set[str], round_dir: Path) -> str:
-    supervisor_feedback_surface = (
-        "feedback_student.md" in output_names or (round_dir / "work" / "feedback_student_draft.md").is_file()
+        coverage_error = str(exc)
+    return agent_coverage_summary_lines(
+        specs=specs,
+        coverage=coverage,
+        coverage_error=coverage_error,
+        evidence_exists=lambda path: (round_dir / path).is_file(),
+        issues=issues,
     )
-    if gate.name in {"supervisor deadline", "supervisor readiness"} and not supervisor_feedback_surface:
-        return "WARNING"
-    return "ERROR"
 
 
 def main(argv: list[str]) -> int:
@@ -878,7 +540,18 @@ def main(argv: list[str]) -> int:
         )
 
     media = find_files(round_dir, lambda path: path.suffix.lower() in MEDIA_SUFFIXES)
-    output_lines = output_expectations(round_dir, outputs, code_present, issues)
+    output_names = {path.name for path in outputs}
+    feedback_draft_present = (round_dir / "work" / "feedback_student_draft.md").is_file()
+    output_lines = output_expectations(
+        output_names,
+        feedback_draft_present=feedback_draft_present,
+        opponent_materials_draft_present=(round_dir / "work" / "oponent_podklady_draft.md").is_file(),
+        reviewed_opponent_materials_present=(round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file(),
+        opponent_report_draft_present=(round_dir / "work" / "oponent_posudek_draft.md").is_file(),
+        opponent_report_review_present="feedback_k_posudku.md" in output_names,
+        code_present=code_present,
+        issues=issues,
+    )
     manifest_lines = manifest_summary(round_dir, outputs, issues)
 
     if outputs or (round_dir / MANIFEST_REL).is_file():
@@ -918,7 +591,9 @@ def main(argv: list[str]) -> int:
 
     for gate in gates:
         if not gate.ok:
-            severity = gate_failure_severity(gate, {path.name for path in outputs}, round_dir)
+            severity = gate_failure_severity(
+                gate, {path.name for path in outputs}, feedback_draft_present=feedback_draft_present
+            )
             suffix = (
                 " (blocks supervisor feedback)" if severity == "WARNING" and gate.name.startswith("supervisor") else ""
             )

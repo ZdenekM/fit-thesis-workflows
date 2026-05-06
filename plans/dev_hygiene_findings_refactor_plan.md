@@ -161,7 +161,7 @@ Out of scope:
 
 ### Slice 3 - Case Doctor Hotspot Decomposition
 
-- Status: pending
+- Status: done
 - Proposed commit message: `refactor(workflow): split case doctor rendering logic`
 - Why: Omen flags `case_doctor.py` as a critical hotspot. Its output is a common
   orientation surface, so pure classification/rendering logic should be testable
@@ -274,7 +274,7 @@ Out of scope:
 
 - Slice 1: done - shared CLI and round resolution helpers
 - Slice 2: done - shared Markdown validator primitives
-- Slice 3: pending - case doctor hotspot decomposition
+- Slice 3: done - case doctor hotspot decomposition
 - Slice 4: pending - GitHub intake hotspot decomposition
 - Slice 5: pending - evaluation claims hotspot decomposition
 - Slice 6: pending - hygiene baseline closeout
