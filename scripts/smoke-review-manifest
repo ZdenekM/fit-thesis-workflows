@@ -37,6 +37,120 @@ write_output() {
   printf '%s\n' "$text" >"$repo_root/cases/$case_id/rounds/$round_id/outputs/$name"
 }
 
+write_valid_code_quality_review() {
+  local case_id="$1"
+  local round_id="$2"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/outputs/code_quality_review.md" <<'EOF'
+# Internal Code Quality Review
+
+## Rozsah kontroly
+
+Reviewed `work/code/project/src/app.py`, `work/code/project/tests/test_app.py`, and `work/code/project/README.md`.
+
+## Technicky prehled implementace
+
+The submitted code is a small Python prototype.
+
+## Hlavni technicka rizika
+
+| Priorita | Oblast | Evidence v kodu | Dopad | Doporuceni |
+|---|---|---|---|---|
+| P1 | validation | `work/code/project/src/app.py` | invalid input can fail late | add boundary tests |
+
+## Testy, smoke testy a reprodukovatelnost
+
+The README mentions `pytest`, but no submitted code was executed by this validator.
+
+## README, build a vyvojarska dokumentace
+
+`work/code/project/README.md` contains basic setup steps.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Rucni kontroly
+
+- Confirm whether the missing validation affects the final evaluation scenario.
+EOF
+}
+
+write_valid_code_consistency_review() {
+  local case_id="$1"
+  local round_id="$2"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/outputs/code_consistency.md" <<'EOF'
+# Soulad textu s kodem
+
+## Rozsah kontroly
+
+Checked `extracted/thesis.txt`, `work/code/project/README.md`, and `work/code/project/src/app.py`.
+
+## Podporena tvrzeni
+
+- The README describes the import workflow in `work/code/project/README.md`.
+
+## Nejasna nebo neoverena tvrzeni
+
+| Tvrzeni v textu | Opora v textu | Opora v kodu | Problem |
+|---|---|---|---|
+| Evaluation accuracy | chapter 4 | `work/code/project/results.csv` | missing calculation path |
+
+## Reprodukovatelnost
+
+Static review only; no submitted code was executed.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Rucni kontroly
+
+- Verify page 42 in the rendered PDF if the exact metric is needed.
+EOF
+}
+
+write_valid_revision_diff() {
+  local case_id="$1"
+  local round_id="$2"
+  cat >"$repo_root/cases/$case_id/rounds/$round_id/outputs/revision_diff.md" <<'EOF'
+# Revision Diff
+
+## Compared Rounds
+
+Compared previous `outputs/feedback_student.md` with current `extracted/thesis.txt`.
+
+## High-Level Progress
+
+The current version adds chapter 4 and README updates.
+
+## Previous Feedback Status
+
+| Prior feedback | Status | Evidence | Follow-up |
+|---|---|---|---|
+| Add reproducibility notes | partially addressed | `work/code/project/README.md` | verify data path |
+
+## Thesis Text Changes
+
+Chapter 4 now describes evaluation limits.
+
+## Code / Artifact Changes
+
+`inputs/code.zip` changed and now includes `requirements.txt`.
+
+## New Risks
+
+The new metric claim on page 42 still needs calculation evidence.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Items Requiring Manual Check
+
+- Confirm the exact metric source in the rendered PDF.
+EOF
+}
+
 mark_reviewed() {
   local manifest="$1"
   python3 - "$manifest" <<'PY'
@@ -195,13 +309,15 @@ expect_failure "required helper checks must be recorded as passed" "$repo_root/s
 
 case_id="${case_prefix}_internal"
 make_case "$case_id"
-write_output "$case_id" round-a code_quality_review.md
+write_valid_code_quality_review "$case_id" round-a
 "$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
-expect_success "internal evidence without standalone final review" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+expect_failure "internal evidence requires its validator check" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
 
 case_id="${case_prefix}_run_checks"
 make_case "$case_id"
-write_output "$case_id" round-a code_quality_review.md
+write_valid_code_quality_review "$case_id" round-a
+write_valid_code_consistency_review "$case_id" round-a
+write_valid_revision_diff "$case_id" round-a
 "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" round-a >/dev/null
 expect_success "run-checks records self validation" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
 
@@ -218,7 +334,7 @@ expect_failure "source code input requires code evidence for final feedback" "$r
 case_id="${case_prefix}_covered_findings"
 make_case "$case_id"
 write_output "$case_id" round-a feedback_student.md
-write_output "$case_id" round-a code_quality_review.md
+write_valid_code_quality_review "$case_id" round-a
 "$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
 manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
 mark_reviewed "$manifest"
@@ -269,7 +385,7 @@ expect_failure "absolute path in evidence" "$repo_root/scripts/check-review-mani
 
 case_id="${case_prefix}_code_workspace_supporting"
 make_case "$case_id"
-write_output "$case_id" round-a code_quality_review.md
+write_valid_code_quality_review "$case_id" round-a
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
 mkdir -p "$round_dir/work/code"
 printf '%s\n' '# Code Workspace Preparation' >"$round_dir/work/code_workspace.md"

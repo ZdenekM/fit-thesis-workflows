@@ -461,7 +461,7 @@ Out of scope:
 
 ### Slice 9 - Wire Evidence Validators Into Opponent Closeout
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): include evidence validators in opponent closeout`
 - Why: New validators only help if opponent closeout and manifest refresh record
   their status when the corresponding evidence artifacts exist.
@@ -578,7 +578,7 @@ parts actually completed.
 - Slice 6: done - thin validators for opponent evidence inputs
 - Slice 7: done - role-specific opponent agent packets
 - Slice 8: done - incremental opponent provenance helper
-- Slice 9: pending - wire evidence validators into opponent closeout
+- Slice 9: done - wire evidence validators into opponent closeout
 - Slice 10: pending - closeout documentation and TODO reconciliation
 
 ## Decision Log

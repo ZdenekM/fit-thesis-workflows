@@ -334,6 +334,24 @@ def required_checks(
             f"scripts/check-typography-formal --require-output {case_id} {round_id}",
             ["outputs/typography_formal_review.md"],
         )
+    if "outputs/code_consistency.md" in artifact_paths:
+        add(
+            "check-code-consistency",
+            f"scripts/check-code-consistency {case_id} {round_id}",
+            ["outputs/code_consistency.md"],
+        )
+    if "outputs/code_quality_review.md" in artifact_paths:
+        add(
+            "check-code-quality-review",
+            f"scripts/check-code-quality-review {case_id} {round_id}",
+            ["outputs/code_quality_review.md"],
+        )
+    if "outputs/revision_diff.md" in artifact_paths:
+        add(
+            "check-revision-diff",
+            f"scripts/check-revision-diff {case_id} {round_id}",
+            ["outputs/revision_diff.md"],
+        )
     if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
         targets = ["work/oponent_posudek_draft.md"]
         if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():

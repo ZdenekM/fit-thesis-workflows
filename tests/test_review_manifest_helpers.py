@@ -121,6 +121,28 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
     assert any("check_refs item 1 is not a manifest helper check" in error for error in errors)
 
 
+def test_review_manifest_requires_internal_evidence_validators_when_artifacts_exist(tmp_path: Path) -> None:
+    from thesis_review_workflow.cli.check_review_manifest import required_checks as check_required_checks
+    from thesis_review_workflow.cli.init_review_manifest import required_checks as init_required_checks
+
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    paths = {
+        "outputs/code_consistency.md",
+        "outputs/code_quality_review.md",
+        "outputs/revision_diff.md",
+    }
+
+    init_names = {item["check"] for item in init_required_checks("case-a", "round-a", paths, round_dir, {})}
+    check_names = check_required_checks(paths, round_dir, {})
+
+    assert "check-code-consistency" in init_names
+    assert "check-code-quality-review" in init_names
+    assert "check-revision-diff" in init_names
+    assert "check-code-consistency" in check_names
+    assert "check-code-quality-review" in check_names
+    assert "check-revision-diff" in check_names
+
+
 def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     artifact = round_dir / "outputs" / "code_quality_review.md"

@@ -259,6 +259,12 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-figure-media-review")
     if "outputs/typography_formal_review.md" in paths:
         required.add("check-typography-formal")
+    if "outputs/code_consistency.md" in paths:
+        required.add("check-code-consistency")
+    if "outputs/code_quality_review.md" in paths:
+        required.add("check-code-quality-review")
+    if "outputs/revision_diff.md" in paths:
+        required.add("check-revision-diff")
     if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
         required.add("check-opponent-report")
     if coverage_required(round_dir, manifest):
