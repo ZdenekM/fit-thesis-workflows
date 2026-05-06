@@ -286,6 +286,15 @@ Pro větší práci má agent rozdělit role, typicky:
 - kalibrace evidence a tvrzení,
 - syntéza do finálního Markdownu.
 
+Paralelní review znamená pokrytí rolí, ne neomezený počet živých agentů.
+Výchozí limit jsou nejvýš 2 současně běžící spawnutí workflow agenti; na stroji
+s omezenou RAM má agent použít 1. Vyšší souběh vyžaduje nejdřív vědomou změnu
+projektového Codex configu, ne jen rozhodnutí během běhu. Role se mohou běžet po
+vlnách: příprava, text/code consistency, code quality plus
+figure/literature/typography podle triggerů, kalibrace, syntéza a nakonec
+nezávislé review jiným agentem. Přesná procedura je v
+`docs/agent-scheduling.md`.
+
 Když je v roundu kód, supervisor feedback a oponentské podklady mají použít
 kontrolu souladu textu s kódem i kontrolu kvality implementace, nebo výslovně
 říct, proč to z dostupných vstupů nešlo.
@@ -395,6 +404,10 @@ workflow repozitář a záměrně ignoruje `cases/**`; kód studenta je samostat
 Serena projekt podle konkrétního rootu z `work/serena_roots.json`. Pokud je
 potřeba přegenerovat celý `work/code/`, použijte `--refresh` jen po ověření, že
 v něm nejsou ručně importované GitHub/code rooty, které by se tím smazaly.
+Pro netriviální práci s kódem používejte Serena MCP jako výchozí symbolovou
+navigaci, zejména u Pythonu. Pro jiné jazyky ji použijte tehdy, když má Serena
+dostupný language server pro konkrétní bezpečně scopovaný root. Podrobnosti jsou
+v `docs/serena-code-navigation.md`.
 
 `scripts/check-tooling <case-id> [round-id]` je read-only preflight pro lokální
 nástroje a konektory. Tvrdě selže jen na blokerech v aktuálním kontextu, např.
@@ -519,6 +532,30 @@ git diff --check
 scripts/check-private
 scripts/check-scripts
 ```
+
+Při větších úpravách samotného repo toolingu jsou k dispozici i volitelné
+vývojářské kontroly:
+
+```bash
+pants run :vulture
+pants run :jscpd
+pants run :omen
+```
+
+Tyto cíle hlídají mrtvý kód, duplicity a obecné codebase health signály. Nejsou
+součástí thesis case pipeline ani operátorských closeout gate; jejich scope a
+lokální požadavky jsou v `docs/dev-hygiene.md`.
+
+## Plánování větších změn
+
+Větší workflow nebo tooling změny se mají plánovat v tracked souborech pod
+`plans/`. Aktivní plán patří do `plans/*_plan.md`, hotový nebo nahrazený plán do
+`plans/archive/`. `TODO.md` zůstává jen dlouhodobý seznam otevřené práce; detail
+slice-by-slice postupu patří do plánu.
+
+Plán má obsahovat cíl, auditní základ, scope, non-goals, malé implementační
+slices, přesné ověřovací příkazy, průběžný stav a final audit. Kontrakt je v
+`plans/README.md`.
 
 Windows podpora je trvalý workflow kontrakt, ne jednorázový audit. Nové nebo
 měněné operátorské příkazy musí mít Python/Pants/PEX povrch nebo native

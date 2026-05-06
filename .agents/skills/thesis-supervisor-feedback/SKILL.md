@@ -128,6 +128,11 @@ For a large round, split reviewer agents by role:
 - evidence and priority calibration,
 - synthesis into draft `work/feedback_student_draft.md`, followed by review into `outputs/feedback_student.md`.
 
+Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
+workflow agents, use 1 on memory-constrained machines, and run roles in waves
+instead of spawning every role at once. The concurrency limit must not remove
+required role coverage or the independent review pass.
+
 The synthesis step must integrate findings into the student-facing artifact. Do not leave the user with separate reviewer notes only.
 
 ## Iteration Rules

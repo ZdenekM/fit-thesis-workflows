@@ -1,7 +1,7 @@
+description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
 model = "gpt-5.4"
 sandbox_mode = "read-only"
 approval_policy = "never"
-include_plan_tool = false
 
 developer_instructions = """
 Role: Thesis Evidence Calibrator

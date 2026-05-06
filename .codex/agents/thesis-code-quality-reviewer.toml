@@ -1,7 +1,7 @@
+description = "Reviews implementation architecture, maintainability, runtime risks, tests, and developer evidence."
 model = "gpt-5.4"
 sandbox_mode = "read-only"
 approval_policy = "never"
-include_plan_tool = false
 
 developer_instructions = """
 Role: Thesis Code Quality Reviewer

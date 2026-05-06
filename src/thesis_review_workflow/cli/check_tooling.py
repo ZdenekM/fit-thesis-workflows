@@ -131,7 +131,7 @@ def command_path(name: str) -> str | None:
     return shutil.which(name)
 
 
-def run(args: list[str], *, timeout: float = 5.0) -> tuple[int, str]:
+def run(args: list[str], *, timeout: float = 5.0, compact_limit: int | None = 300) -> tuple[int, str]:
     if args and args[0] in forced_missing():
         return 127, f"{args[0]} forced missing by THESIS_TOOLING_FORCE_MISSING"
     try:
@@ -150,7 +150,9 @@ def run(args: list[str], *, timeout: float = 5.0) -> tuple[int, str]:
     except subprocess.TimeoutExpired:
         return 124, f"{' '.join(args)} timed out after {timeout:g}s"
     output = "\n".join(part for part in [completed.stdout.strip(), completed.stderr.strip()] if part)
-    return completed.returncode, compact(output)
+    if compact_limit is None:
+        return completed.returncode, output
+    return completed.returncode, compact(output, limit=compact_limit)
 
 
 def codex_mcp_list() -> tuple[int, str] | None:
@@ -158,7 +160,7 @@ def codex_mcp_list() -> tuple[int, str] | None:
     if not command_path("codex"):
         return None
     if CODEX_MCP_LIST is None:
-        CODEX_MCP_LIST = run(["codex", "mcp", "list"], timeout=3 if FAST_MODE else 8)
+        CODEX_MCP_LIST = run(["codex", "mcp", "list"], timeout=3 if FAST_MODE else 8, compact_limit=None)
     return CODEX_MCP_LIST
 
 
@@ -473,7 +475,7 @@ def check_node_pdf_reader(ctx: Context) -> list[ToolCheck]:
         )
     else:
         status = "WARN" if pdf_detail_relevant else "INFO"
-        detail = "pdf-reader not listed by codex mcp list" if code == 0 else f"codex mcp list failed: {output}"
+        detail = "pdf-reader not listed by codex mcp list" if code == 0 else f"codex mcp list failed: {compact(output)}"
         checks.append(
             ToolCheck(
                 "pdf_reader_mcp",

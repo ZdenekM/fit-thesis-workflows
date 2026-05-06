@@ -209,6 +209,9 @@ tempCodeRunnerFile.py
 # Pants
 .pants.d/
 
+# Omen local analysis cache.
+.omen/
+
 # PyPI configuration file
 .pypirc
 

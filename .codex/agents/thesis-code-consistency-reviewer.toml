@@ -1,7 +1,7 @@
+description = "Checks whether thesis claims are supported by submitted code, configs, tests, and reproducibility artifacts."
 model = "gpt-5.4"
 sandbox_mode = "read-only"
 approval_policy = "never"
-include_plan_tool = false
 
 developer_instructions = """
 Role: Thesis Code Consistency Reviewer

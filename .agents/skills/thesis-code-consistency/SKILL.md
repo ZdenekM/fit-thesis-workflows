@@ -24,7 +24,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - experiments and metrics,
    - performance and accuracy,
    - deployment, reproducibility, and user-facing behavior.
-6. If code is present only as an archive or source directory in `inputs/`, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids; activate Serena only on one listed code root at a time. If you are in a read-only reviewer agent and the prepared workspace is missing, report that limitation instead of silently skipping code checks.
+6. If code is present only as an archive or source directory in `inputs/`, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids; activate Serena only on one listed code root at a time. For Python and other supported language roots, prefer Serena symbol overview, definition, and reference tools for non-trivial code inspection before falling back to broad file reads. If you are in a read-only reviewer agent and the prepared workspace is missing, report that limitation instead of silently skipping code checks.
 7. Inspect code artifacts:
    - `outputs/github_code_intake.md`, `inputs/github/`, and `work/github-intake/` when GitHub repo/PR intake was used,
    - `work/code_workspace.md`, `work/serena_roots.json`, and `work/code/` when submitted archives or source directories were prepared with `scripts/prepare-code-workspace`,

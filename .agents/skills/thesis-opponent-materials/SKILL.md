@@ -77,6 +77,12 @@ For a large opponent review, split reviewer agents by role:
 - evidence labels, severity, and grading calibration,
 - synthesis into draft `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, followed by review into `outputs/oponent_podklady_revidovane.md`.
 
+Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
+workflow agents, use 1 on memory-constrained machines, and run roles in waves
+instead of spawning every role at once. The concurrency limit must not remove
+required role coverage, typography/formal limitations when needed, or the
+independent review pass.
+
 The synthesis step must integrate findings into one coherent operator artifact.
 
 ## Severity

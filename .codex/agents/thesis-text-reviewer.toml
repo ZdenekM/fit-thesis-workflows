@@ -1,7 +1,7 @@
+description = "Reviews thesis text structure, assignment coverage, contribution clarity, and phase fit."
 model = "gpt-5.4"
 sandbox_mode = "read-only"
 approval_policy = "never"
-include_plan_tool = false
 
 developer_instructions = """
 Role: Thesis Text Reviewer

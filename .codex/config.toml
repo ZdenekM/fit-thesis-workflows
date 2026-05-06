@@ -1,0 +1,29 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+# Repository-level Codex profile.
+# Inherit global model/reasoning defaults, but keep thesis workflow delegation
+# bounded so role-split reviews do not exhaust RAM.
+
+[features]
+multi_agent = true
+codex_hooks = true
+
+[agents]
+max_threads = 2
+max_depth = 1
+job_max_runtime_seconds = 3600
+
+[agents.thesis_text_reviewer]
+description = "Reviews thesis text structure, assignment coverage, contribution clarity, and phase fit."
+config_file = "agents/thesis-text-reviewer.toml"
+
+[agents.thesis_code_consistency_reviewer]
+description = "Checks whether thesis claims are supported by submitted code, configs, tests, and reproducibility artifacts."
+config_file = "agents/thesis-code-consistency-reviewer.toml"
+
+[agents.thesis_code_quality_reviewer]
+description = "Reviews implementation architecture, maintainability, runtime risks, tests, and developer evidence."
+config_file = "agents/thesis-code-quality-reviewer.toml"
+
+[agents.thesis_evidence_calibrator]
+description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
+config_file = "agents/thesis-evidence-calibrator.toml"
