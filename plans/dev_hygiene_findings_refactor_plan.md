@@ -121,7 +121,7 @@ Out of scope:
 
 ### Slice 2 - Shared Markdown Validator Primitives
 
-- Status: pending
+- Status: done
 - Proposed commit message: `refactor(workflow): share markdown validator primitives`
 - Why: The largest clone family is repeated Markdown section/table/placeholder
   parsing in output validators.
@@ -134,7 +134,6 @@ Out of scope:
   - `src/thesis_review_workflow/cli/check_opponent_report.py`
   - `src/thesis_review_workflow/cli/draft_opponent_report.py`
   - `src/thesis_review_workflow/cli/check_typography_formal.py`
-  - `src/thesis_review_workflow/cli/check_evaluation_claims.py`
   - `tests/test_markdown_utils.py`
 - Tasks:
   - Introduce one small shared module for mechanical Markdown section
@@ -144,6 +143,8 @@ Out of scope:
   - Keep normalization, placeholder regexes, wording, and severity policy owned
     by each checker. If a helper is useful for placeholder matching, it must
     accept checker-supplied patterns and return raw match data only.
+  - Leave `check_evaluation_claims.py` placeholder policy checker-owned unless
+    a purely mechanical Markdown helper is actually useful there.
   - Add tests for the shared parsing edge cases before moving multiple checkers.
 - Verification:
   - `pants fmt src/thesis_review_workflow:: tests::`
@@ -272,7 +273,7 @@ Out of scope:
 ## Progress
 
 - Slice 1: done - shared CLI and round resolution helpers
-- Slice 2: pending - shared Markdown validator primitives
+- Slice 2: done - shared Markdown validator primitives
 - Slice 3: pending - case doctor hotspot decomposition
 - Slice 4: pending - GitHub intake hotspot decomposition
 - Slice 5: pending - evaluation claims hotspot decomposition

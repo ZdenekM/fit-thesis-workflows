@@ -14,6 +14,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.markdown_utils import markdown_section
 from thesis_review_workflow.paths import rel_repo
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -416,14 +417,6 @@ def print_warning(
     if examples:
         suffix = f" Examples: {sample(examples, root)}"
     warnings.append(f"WARNING [{category}]: {message}{suffix}")
-
-
-def markdown_section(text: str, heading: str) -> str:
-    pattern = re.compile(rf"(?ms)^##\s+{re.escape(heading)}\s*$" r"(.*?)(?=^##\s+|\Z)")
-    match = pattern.search(text)
-    if not match:
-        return ""
-    return match.group(1)
 
 
 def artifact_warnings(round_dir: Path, require_output: bool) -> tuple[list[str], bool]:

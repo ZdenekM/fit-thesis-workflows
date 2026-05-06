@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.markdown_utils import is_delimiter_row, section_body, split_table_row
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -262,23 +263,6 @@ def run_supervisor_ready(root: Path, case_id: str, round_id: str, errors: list[s
         errors.append("supervisor readiness check failed" + (f":\n{detail}" if detail else ""))
 
 
-def section_body(lines: list[str], heading: str) -> list[str] | None:
-    start = None
-    for index, line in enumerate(lines):
-        if line.strip() == heading:
-            start = index + 1
-            break
-    if start is None:
-        return None
-
-    end = len(lines)
-    for index in range(start, len(lines)):
-        if re.match(r"^#{1,2}\s+", lines[index]):
-            end = index
-            break
-    return lines[start:end]
-
-
 def body_text(lines: list[str]) -> str:
     return "\n".join(line for line in lines if not re.match(r"^\s*#{1,6}\s+", line))
 
@@ -346,39 +330,6 @@ def check_scope(lines: list[str], lang: str, errors: list[str]) -> None:
     lowered = compact.lower()
     if not any(term in lowered for term in LANGUAGE[lang]["scope_terms"]):
         errors.append(f"scope section must state limitations or explicitly say none: {heading}")
-
-
-def split_table_row(line: str) -> list[str]:
-    stripped = line.strip()
-    cells: list[str] = []
-    current: list[str] = []
-    escaped = False
-    in_code = False
-
-    for char in stripped:
-        if char == "\\" and not escaped:
-            current.append(char)
-            escaped = True
-            continue
-        if char == "`" and not escaped:
-            in_code = not in_code
-        if char == "|" and not escaped and not in_code:
-            cells.append("".join(current).strip())
-            current = []
-        else:
-            current.append(char)
-        escaped = False
-
-    cells.append("".join(current).strip())
-    if cells and cells[0] == "":
-        cells = cells[1:]
-    if cells and cells[-1] == "":
-        cells = cells[:-1]
-    return cells
-
-
-def is_delimiter_row(cells: list[str]) -> bool:
-    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
 
 
 def is_concrete_anchor(value: str) -> bool:

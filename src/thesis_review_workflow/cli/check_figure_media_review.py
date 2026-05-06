@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.markdown_utils import extract_table, section_body, section_text
+
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SHA256_RE = re.compile(r"^[A-Fa-f0-9]{64}$")
 KNOWN_STATUSES = {
@@ -144,82 +146,6 @@ def normalized(value: str) -> str:
     value = value.replace("ť", "t").replace("ď", "d")
     value = re.sub(r"\s+", " ", value.strip().lower())
     return value.strip(" .;:-")
-
-
-def section_body(lines: list[str], heading: str) -> list[str] | None:
-    start = None
-    for index, line in enumerate(lines):
-        if line.strip() == heading:
-            start = index + 1
-            break
-    if start is None:
-        return None
-
-    end = len(lines)
-    for index in range(start, len(lines)):
-        if re.match(r"^#{1,2}\s+", lines[index]):
-            end = index
-            break
-    return lines[start:end]
-
-
-def section_text(lines: list[str], heading: str) -> str:
-    body = section_body(lines, heading)
-    if body is None:
-        return ""
-    return "\n".join(body).strip()
-
-
-def split_table_row(line: str) -> list[str]:
-    stripped = line.strip()
-    cells: list[str] = []
-    current: list[str] = []
-    escaped = False
-    in_code = False
-
-    for char in stripped:
-        if char == "\\" and not escaped:
-            current.append(char)
-            escaped = True
-            continue
-        if char == "`" and not escaped:
-            in_code = not in_code
-        if char == "|" and not escaped and not in_code:
-            cells.append("".join(current).strip())
-            current = []
-        else:
-            current.append(char)
-        escaped = False
-
-    cells.append("".join(current).strip())
-    if cells and cells[0] == "":
-        cells = cells[1:]
-    if cells and cells[-1] == "":
-        cells = cells[:-1]
-    return cells
-
-
-def is_delimiter_row(cells: list[str]) -> bool:
-    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
-
-
-def extract_table(body: list[str]) -> tuple[list[str], list[list[str]], str | None]:
-    table_lines = [line for line in body if line.strip().startswith("|")]
-    if len(table_lines) < 2:
-        return [], [], "missing Markdown table"
-
-    rows = [split_table_row(line) for line in table_lines]
-    header_index = None
-    for index, cells in enumerate(rows):
-        if index + 1 < len(rows) and is_delimiter_row(rows[index + 1]):
-            header_index = index
-            break
-    if header_index is None:
-        return [], [], "missing Markdown delimiter row"
-
-    headers = [normalized(cell) for cell in rows[header_index]]
-    data_rows = [row for row in rows[header_index + 2 :] if row and not is_delimiter_row(row)]
-    return headers, data_rows, None
 
 
 def scalar(value: Any) -> str:
@@ -575,7 +501,7 @@ def check_required_table(
     body = section_body(lines, heading)
     if body is None:
         return [], []
-    headers, rows, table_error = extract_table(body)
+    headers, rows, table_error = extract_table(body, normalize_header=normalized, min_table_lines=2)
     if table_error:
         errors.append(f"{heading}: {table_error}")
         return [], []

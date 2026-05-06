@@ -18,6 +18,8 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.markdown_utils import numbered_section_text as section_by_number
+from thesis_review_workflow.markdown_utils import simple_table_rows as parse_markdown_rows
 from thesis_review_workflow.paths import rel_repo
 
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
@@ -57,28 +59,6 @@ def normalized(value: str) -> str:
     replacements = str.maketrans("ěščřžýáíéúůňťďóĚŠČŘŽÝÁÍÉÚŮŇŤĎÓ", "escrzyaieuuntdoESCRZYAIEUUNTDO")
     value = value.translate(replacements).lower()
     return re.sub(r"\s+", " ", value).strip()
-
-
-def section_by_number(text: str, number: int) -> str:
-    pattern = re.compile(rf"^##\s+{number}\.\s+.*$", re.MULTILINE)
-    match = pattern.search(text)
-    if not match:
-        return ""
-    next_match = re.search(r"^##\s+\d+\.\s+.*$", text[match.end() :], re.MULTILINE)
-    end = match.end() + next_match.start() if next_match else len(text)
-    return text[match.end() : end].strip()
-
-
-def parse_markdown_rows(section: str) -> list[list[str]]:
-    rows: list[list[str]] = []
-    for line in section.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|") or "---" in stripped:
-            continue
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-        if len(cells) >= 2:
-            rows.append(cells)
-    return rows
 
 
 def is_rows(materials: str) -> dict[str, str]:
