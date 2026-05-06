@@ -202,6 +202,36 @@ def test_workspace_target_registry_reports_case_insensitive_collisions(tmp_path:
     assert "case-insensitive path collision with Code" in collision
 
 
+def test_agent_coverage_code_trigger_uses_archive_entries_before_filename(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    inputs = round_dir / "inputs"
+    inputs.mkdir(parents=True)
+
+    code_named_thesis_archive = inputs / "code.zip"
+    with zipfile.ZipFile(code_named_thesis_archive, "w") as handle:
+        handle.writestr("thesis/main.tex", "\\section{Synthetic}\n")
+    manifest = {"inputs": [{"path": "inputs/code.zip", "kind": "archive"}], "artifacts": []}
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert "code_consistency" not in specs
+    assert "code_quality" not in specs
+
+    actual_code_archive = inputs / "thesis-overleaf.zip"
+    with zipfile.ZipFile(actual_code_archive, "w") as handle:
+        handle.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+        handle.writestr("project/src/main.py", "print('synthetic')\n")
+    manifest["inputs"] = [{"path": "inputs/thesis-overleaf.zip", "kind": "archive"}]
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert specs["code_consistency"].trigger == "code evidence is available and feeds a final/synthesis artifact"
+    assert specs["code_quality"].trigger == "code evidence is available and feeds a final/synthesis artifact"
+
+
 def test_workflow_tool_pex_targets_match_command_module_map() -> None:
     pex_targets = workflow_pex_targets()
 

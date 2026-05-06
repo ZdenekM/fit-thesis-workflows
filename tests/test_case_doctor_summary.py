@@ -61,6 +61,30 @@ def test_matching_extract_prefers_exact_assignment_and_single_extract_matches() 
     ) == (fallback, "single-extract heuristic")
 
 
+def test_matching_extract_does_not_reuse_or_guess_ambiguous_extracts() -> None:
+    exact = Path("extracted/thesis.txt")
+    assert matching_extract(
+        Path("inputs/thesis.pdf"),
+        [exact],
+        pdf_count=1,
+        used_extracts={exact},
+    ) == (None, "")
+
+    assert matching_extract(
+        Path("inputs/report.pdf"),
+        [Path("extracted/appendix.txt")],
+        pdf_count=2,
+        used_extracts=set(),
+    ) == (None, "")
+
+    assert matching_extract(
+        Path("inputs/thesis.pdf"),
+        [Path("extracted/appendix.txt"), Path("extracted/slides.txt")],
+        pdf_count=2,
+        used_extracts=set(),
+    ) == (None, "")
+
+
 def test_output_expectations_records_missing_review_surfaces() -> None:
     issues: list[Issue] = []
     lines = output_expectations(

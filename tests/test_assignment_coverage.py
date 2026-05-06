@@ -1,7 +1,12 @@
 from pathlib import Path
 from typing import Any, cast
 
-from thesis_review_workflow.assignment_coverage import build_map, parse_assignment_points
+from thesis_review_workflow.assignment_coverage import (
+    AssignmentPoint,
+    build_map,
+    coverage_state,
+    parse_assignment_points,
+)
 
 
 def test_parse_assignment_points_prefers_assignment_sections() -> None:
@@ -73,6 +78,7 @@ def test_build_map_marks_materials_and_draft_mentions(tmp_path: Path) -> None:
     assert rows[0]["opponent_materials"]["state"] == "mentioned"
     assert rows[0]["opponent_report_draft"]["state"] in {"partial", "not_found"}
     assert rows[1]["opponent_report_draft"]["state"] == "partial"
+    assert artifact["advisory"] is True
 
 
 def test_build_map_records_missing_assignment_limitation(tmp_path: Path) -> None:
@@ -81,3 +87,21 @@ def test_build_map_records_missing_assignment_limitation(tmp_path: Path) -> None
     assert artifact["assignment_source_present"] is False
     assert artifact["assignment_points"] == []
     assert artifact["parser_limitations"]
+
+
+def test_coverage_state_matches_tokens_not_substrings_and_stays_advisory() -> None:
+    point = AssignmentPoint(
+        "A1",
+        "Implement authentication authorization module.",
+        "Formal Assignment Text Or Summary",
+    )
+
+    assert coverage_state(point, "reauthentication disauthorization submodule implementation") == (
+        "not_found",
+        [],
+    )
+    assert coverage_state(point, "authentication authorization module") == (
+        "mentioned",
+        ["authentication", "authorization", "module"],
+    )
+    assert coverage_state(point, "authentication only") == ("partial", ["authentication"])

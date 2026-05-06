@@ -418,7 +418,8 @@ These TODO items are intentionally outside this reliability-contract plan:
   back into scope and follow-up requirements
 - Slice 2: completed - command surface documented, registry contract tests added,
   packaging smoke boundary reviewed
-- Slice 3: pending - deterministic helper-test backlog
+- Slice 3: completed - deterministic tests added for structural/advisory
+  heuristics and duplicate PDF/extract matching removed
 - Slice 4: pending - typography thesis-language resolution
 - Slice 5: pending - documentation, follow-up plans, TODO reconciliation, and
   archive
@@ -442,6 +443,29 @@ Whole-plan final audit not run yet. Slice evidence so far:
 
 Plan-preparation checks:
 
+- 2026-05-06: `git diff --check` passed
+
+Slice 3 checks:
+
+- 2026-05-06: explorer audit recommended deterministic tests for
+  `matching_extract`, assignment coverage token matching, evidence-presence
+  artifact routing, and agent coverage archive triggers
+- 2026-05-06: agent review found no blocking findings; non-blocking duplicate
+  `check_tooling` PDF/extract matcher was removed by reusing the case-doctor
+  matcher
+- 2026-05-06: `pants fmt ::` passed
+- 2026-05-06: `pants lint src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants check src/thesis_review_workflow:: tests:: scripts::`
+  passed
+- 2026-05-06: `pants test tests::` passed
+- 2026-05-06: `scripts/smoke-assignment-coverage` passed
+- 2026-05-06: `scripts/smoke-evidence-presence` passed
+- 2026-05-06: `scripts/smoke-case-doctor` passed
+- 2026-05-06: `scripts/smoke-agent-coverage` passed
+- 2026-05-06: `scripts/smoke-tooling` passed
+- 2026-05-06: `scripts/check-private` passed
+- 2026-05-06: `scripts/check-scripts` passed
 - 2026-05-06: `git diff --check` passed
 - 2026-05-06: `scripts/check-private` passed
 - 2026-05-06: `scripts/check-scripts` passed

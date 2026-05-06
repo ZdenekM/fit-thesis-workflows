@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from thesis_review_workflow.cases import MissingCurrentRound, read_current_round, resolve_round
-from thesis_review_workflow.cli import check_reviewer_profile
+from thesis_review_workflow.cli import check_reviewer_profile, check_tooling
 from thesis_review_workflow.commands import (
     Step,
     command_display,
@@ -178,3 +178,27 @@ def test_python_reviewer_profile_rejects_parent_marker_in_local_profile(tmp_path
     monkeypatch.setattr(check_reviewer_profile, "repo_root", lambda: root)
 
     assert check_reviewer_profile.main(["scripts/check-reviewer-profile", "case-a"]) == 1
+
+
+def test_tooling_pdf_extract_count_uses_shared_non_guessing_matcher() -> None:
+    assert (
+        check_tooling.count_missing_pdf_extracts(
+            [Path("inputs/report.pdf")],
+            [Path("extracted/report.txt")],
+        )
+        == 0
+    )
+    assert (
+        check_tooling.count_missing_pdf_extracts(
+            [Path("inputs/report.pdf"), Path("inputs/appendix.pdf")],
+            [Path("extracted/report.txt")],
+        )
+        == 1
+    )
+    assert (
+        check_tooling.count_missing_pdf_extracts(
+            [Path("inputs/report.pdf"), Path("inputs/appendix.pdf")],
+            [Path("extracted/only-extract.txt")],
+        )
+        == 2
+    )

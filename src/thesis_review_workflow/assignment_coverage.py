@@ -89,9 +89,10 @@ def coverage_state(point: AssignmentPoint, text: str) -> tuple[str, list[str]]:
     if not text.strip():
         return "not_available", []
     norm_text = normalized(text)
+    text_tokens = set(re.findall(r"[a-zA-Z0-9_]+", norm_text))
     tokens = [token for token in re.findall(r"[a-zA-Z0-9_]+", normalized(point.text)) if len(token) >= 4]
     unique = sorted(set(tokens))
-    hits = [token for token in unique if token in norm_text]
+    hits = [token for token in unique if token in text_tokens]
     if len(hits) >= min(3, max(1, len(unique))):
         return "mentioned", hits[:8]
     if hits:

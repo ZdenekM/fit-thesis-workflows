@@ -26,14 +26,55 @@ def test_evidence_presence_flags_missing_required_media_and_metric_inputs(tmp_pa
     artifact, media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     findings = cast(list[dict[str, Any]], artifact["findings"])
     states = {(item["category"], item["state"]) for item in findings}
+    by_state = {item["state"]: item for item in findings if item["category"] == "evaluation"}
 
     assert artifact["schema_version"] == "evidence-presence-v1"
     assert ("media", "missing") in states
     assert ("evaluation", "missing_data") in states
     assert ("evaluation", "missing_script") in states
+    assert "Request raw data" in by_state["missing_data"]["request"]
+    assert "Request or cite calculation scripts" in by_state["missing_script"]["request"]
     assert ("code_reproducibility", "missing_instructions") in states
     assert media[0]["category"] == "video"
     assert media[0]["state"] == "missing"
+
+
+def test_evidence_presence_uses_structural_eval_artifacts_to_suppress_metric_requests(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "extracted").mkdir(parents=True)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "work").mkdir()
+    (round_dir / "extracted" / "thesis.txt").write_text(
+        "Evaluation reports accuracy and F1 metrics.\n",
+        encoding="utf-8",
+    )
+    (round_dir / "inputs" / "eval_results.csv").write_text("metric,value\naccuracy,0.98\n", encoding="utf-8")
+    (round_dir / "work" / "eval_metrics.py").write_text("print('synthetic')\n", encoding="utf-8")
+
+    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    findings = cast(list[dict[str, Any]], artifact["findings"])
+
+    assert not any(item["category"] == "evaluation" for item in findings)
+
+
+def test_evidence_presence_does_not_treat_generic_json_or_app_script_as_eval_evidence(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "extracted").mkdir(parents=True)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "work").mkdir()
+    (round_dir / "extracted" / "thesis.txt").write_text(
+        "Evaluation reports accuracy and F1 metrics.\n",
+        encoding="utf-8",
+    )
+    (round_dir / "inputs" / "config.json").write_text("{}\n", encoding="utf-8")
+    (round_dir / "work" / "app.py").write_text("print('synthetic')\n", encoding="utf-8")
+
+    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    findings = cast(list[dict[str, Any]], artifact["findings"])
+    states = {(item["category"], item["state"]) for item in findings}
+
+    assert ("evaluation", "missing_data") in states
+    assert ("evaluation", "missing_script") in states
 
 
 def test_evidence_presence_records_present_media_as_uninspected(tmp_path: Path) -> None:

@@ -9,11 +9,11 @@ import re
 import shutil
 import subprocess
 import sys
-import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.case_doctor_summary import folded, matching_extract
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root
 from thesis_review_workflow.cases import resolve_round as resolve_round_core
 from thesis_review_workflow.ids import validate_id as validate_id_core
@@ -191,52 +191,11 @@ def small_text_contains(path: Path, needle: str) -> bool:
         return False
 
 
-def folded(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
-    return ascii_text.lower()
-
-
-def is_thesis_pdf_name(value: str) -> bool:
-    tokens = ("thesis", "prace", "bakalar", "diplom")
-    if any(token in value for token in tokens):
-        return True
-    return bool(re.search(r"(^|[_ .-])(bp|dp)([_ .-]|$)", value))
-
-
-def matching_extract(pdf: Path, extracted: list[Path], *, pdf_count: int, used_extracts: set[Path]) -> Path | None:
-    by_stem = {path.stem: path for path in extracted}
-    exact = by_stem.get(pdf.stem)
-    if exact is not None and exact not in used_extracts:
-        return exact
-
-    pdf_name = folded(pdf.stem)
-    assignment_tokens = ("zadani", "assignment")
-    if any(token in pdf_name for token in assignment_tokens):
-        for path in extracted:
-            if path in used_extracts:
-                continue
-            extract_name = folded(path.stem)
-            if any(token in extract_name for token in assignment_tokens):
-                return path
-    elif is_thesis_pdf_name(pdf_name):
-        for path in extracted:
-            if path in used_extracts:
-                continue
-            extract_name = folded(path.stem)
-            if extract_name in {"thesis", "prace", "bp", "dp"} or "thesis" in extract_name:
-                return path
-
-    if pdf_count == 1 and len(extracted) == 1 and extracted[0] not in used_extracts:
-        return extracted[0]
-    return None
-
-
 def count_missing_pdf_extracts(pdfs: list[Path], extracted: list[Path]) -> int:
     used: set[Path] = set()
     missing = 0
     for pdf in pdfs:
-        extract = matching_extract(pdf, extracted, pdf_count=len(pdfs), used_extracts=used)
+        extract, _reason = matching_extract(pdf, extracted, pdf_count=len(pdfs), used_extracts=used)
         if extract is None:
             missing += 1
         else:
@@ -306,7 +265,7 @@ def build_context(root: Path, case_id: str | None, round_id_arg: str | None) -> 
     github_relevant = (
         (round_dir / "inputs" / "github").is_dir()
         or (round_dir / "work" / "github-intake").is_dir()
-        or any("github" in folded(path.name) for path in input_files)
+        or any("github" in path.name.lower() for path in input_files)
         or any(small_text_contains(path, "github.com") for path in (round_dir / "notes").glob("*.md"))
     )
     code_relevant = bool(code_archives) or any(
