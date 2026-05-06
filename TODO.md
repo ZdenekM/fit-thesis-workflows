@@ -36,10 +36,6 @@
    - Reuse shared Markdown validation helpers instead of duplicating section/table/path-leak logic across scripts.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
-- [ ] Execute the active dev-hygiene refactoring plan in `plans/dev_hygiene_findings_refactor_plan.md`.
-   - Use `vulture`, `jscpd`, and `omen` as development signals for repeated validator/helper code, not as thesis case pipeline gates.
-   - Keep the work slice-based and behavior-preserving unless a planned slice explicitly changes a validator contract.
-
 ## P1 - Evidence Coverage
 
 - [ ] Add first-class evidence-presence checks for recurring thesis obligations and strong claims.

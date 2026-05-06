@@ -41,6 +41,20 @@ Výstupy jsou vývojářský signál. Pokud nástroj najde problém, opravte sd�
 design nebo zaznamenejte vědomou baseline; nepřidávejte výjimky jen proto, aby
 kontrola ztichla.
 
+## Aktuální baseline
+
+Po refaktoringovém plánu z 2026-05-06 platí tato výchozí baseline:
+
+- `pants run :vulture`: bez hlášení.
+- `pants run :jscpd`: 4 klony, 94 duplicitních řádků, 0.74 % celkově.
+- `pants run :omen`: grade A, score 93.50, 3 critical hotspoty a 7 high
+  hotspotů.
+
+Zbývající jscpd klony jsou opakované validační patterny mezi feedback,
+figure/media, opponent-materials a typography/formal checkery. Nejsou zapojené
+do case pipeline gates; řešit je má další konkrétní refaktoringový plán, ne
+plošné ztišení nástroje.
+
 ## Lokální instalace Omenu
 
 Omen není vendorizovaný ani automaticky instalovaný repozitářem. Upstream CLI se

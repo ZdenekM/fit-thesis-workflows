@@ -1,6 +1,6 @@
 # Dev Hygiene Findings Refactor Plan
 
-Status: active
+Status: done
 Created: 2026-05-06
 
 ## Goal
@@ -240,7 +240,7 @@ Out of scope:
 
 ### Slice 6 - Hygiene Baseline Closeout
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): record dev hygiene refactor baseline`
 - Why: The hygiene tools should produce an actionable baseline, not a one-off
   report. Closeout should show whether the duplicated-line and hotspot signals
@@ -279,7 +279,7 @@ Out of scope:
 - Slice 3: done - case doctor hotspot decomposition
 - Slice 4: done - GitHub intake hotspot decomposition
 - Slice 5: done - evaluation claims hotspot decomposition
-- Slice 6: pending - hygiene baseline closeout
+- Slice 6: done - hygiene baseline closeout
 
 ## Decision Log
 
@@ -301,4 +301,81 @@ Out of scope:
 
 ## Final Audit
 
-Not run yet. This plan is active.
+Completed on 2026-05-06.
+
+### Dev Hygiene Results
+
+| Tool | Before | After | Result |
+|---|---:|---:|---|
+| `vulture` | no reported unused-code items | no reported unused-code items | unchanged clean |
+| `jscpd` clones | 14 | 4 | improved |
+| `jscpd` duplicated lines | 429 | 94 | improved |
+| `jscpd` duplicated percentage | 3.91 % total / 3.92 % Python | 0.74 % total / 0.74 % Python | improved |
+| `omen` score | 91.14 | 93.50 | improved |
+| `omen` critical hotspots | 3 | 3 | count unchanged |
+| `omen` high hotspots | 5 | 7 | count increased by severity reshuffle |
+
+Final `jscpd` clone families are deliberately deferred validator patterns:
+
+- `check_opponent_materials.py` with `check_typography_formal.py`,
+- `check_figure_media_review.py` with `check_typography_formal.py`,
+- `check_figure_media_review.py` with `check_opponent_materials.py`,
+- `check_feedback_output.py` with `check_typography_formal.py`.
+
+Final Omen critical hotspots:
+
+- `src/thesis_review_workflow/cli/import_github_code.py`
+- `src/thesis_review_workflow/cli/case_doctor.py`
+- `src/thesis_review_workflow/cli/check_figure_media_review.py`
+
+Final Omen high hotspots:
+
+- `src/thesis_review_workflow/cli/bootstrap_case.py`
+- `src/thesis_review_workflow/cli/check_review_manifest.py`
+- `src/thesis_review_workflow/cli/check_evaluation_claims.py`
+- `src/thesis_review_workflow/cli/check_opponent_materials.py`
+- `src/thesis_review_workflow/cli/check_tooling.py`
+- `src/thesis_review_workflow/cli/check_typography_formal.py`
+- `src/thesis_review_workflow/cli/init_review_manifest.py`
+
+Omen hotspot interpretation:
+
+- `check_evaluation_claims.py` moved from critical to high after extracting
+  pure table/unit/artifact helpers and removing one jscpd clone.
+- `case_doctor.py` and `import_github_code.py` remain hotspot surfaces because
+  they still own orchestration and changed in this refactor series; the pure
+  classification/rendering code now lives in tested helper modules.
+- `check_evaluation_claims.py` and `check_tooling.py` are accepted residuals
+  after this slice because the duplicated mechanics were removed while the
+  remaining checker policy stayed local.
+- `check_figure_media_review.py`, `bootstrap_case.py`, `check_review_manifest.py`,
+  `check_opponent_materials.py`, `check_typography_formal.py`, and
+  `init_review_manifest.py` remain explicit follow-up candidates. Their
+  remaining complexity is not part of this completed plan because it would
+  require separate behavior review and validator-specific tests.
+
+### Closeout Commands
+
+```bash
+pants run :vulture
+pants run :jscpd
+pants run :omen
+pants fmt src/thesis_review_workflow:: tests::
+pants lint src/thesis_review_workflow:: tests::
+pants check src/thesis_review_workflow:: tests::
+pants test tests::
+scripts/smoke-evaluation-claims
+scripts/smoke-typography-formal
+scripts/smoke-package-workflow-tools
+git diff --check
+```
+
+Additional final repository hygiene:
+
+```bash
+scripts/check-private
+scripts/check-scripts
+```
+
+The active `TODO.md` item for this plan was removed. Current reusable baseline
+is recorded in `docs/dev-hygiene.md`.
