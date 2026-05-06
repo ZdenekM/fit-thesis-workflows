@@ -4,58 +4,29 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 from thesis_review_workflow.agent_coverage import COVERAGE_REL, load_json_object, validate_coverage
+from thesis_review_workflow.cli.context import (
+    load_json_manifest,
+    repo_root,
+    require_case_dir,
+    require_round_dir,
+    resolve_round,
+    validate_id,
+)
 
-ID_RE = __import__("re").compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
 
 
-def repo_root() -> Path:
-    output = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return Path(output.strip())
-
-
-def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
-        print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
-
-
-def resolve_round(case_dir: Path, round_id: str | None) -> str:
-    if round_id:
-        validate_id("ROUND_ID", round_id)
-        return round_id
-    current_round = case_dir / "current-round.txt"
-    if not current_round.is_file():
-        print(f"Missing current round: {case_dir}/current-round.txt", file=sys.stderr)
-        raise SystemExit(2)
-    resolved = current_round.read_text(encoding="utf-8").strip()
-    validate_id("ROUND_ID", resolved)
-    return resolved
-
-
 def load_manifest(path: Path) -> dict:
-    if not path.is_file():
-        raise SystemExit(f"ERROR: Missing review manifest: {MANIFEST_REL.as_posix()}")
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"ERROR: Invalid JSON in {MANIFEST_REL.as_posix()}: {exc.msg}") from exc
-    if not isinstance(loaded, dict):
-        raise SystemExit(f"ERROR: Review manifest must be a JSON object: {MANIFEST_REL.as_posix()}")
-    return loaded
+    return load_json_manifest(
+        path,
+        label=MANIFEST_REL.as_posix(),
+        missing_message=f"ERROR: Missing review manifest: {MANIFEST_REL.as_posix()}",
+        not_object_message=f"ERROR: Review manifest must be a JSON object: {MANIFEST_REL.as_posix()}",
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -64,17 +35,16 @@ def main(argv: list[str]) -> int:
     parser.add_argument("round_id", nargs="?")
     args = parser.parse_args(argv[1:])
 
-    validate_id("CASE_ID", args.case_id)
+    validate_id("CASE_ID", args.case_id, stderr=True)
     root = repo_root()
-    case_dir = root / "cases" / args.case_id
-    if not case_dir.is_dir():
-        print(f"ERROR: Case does not exist: cases/{args.case_id}", file=sys.stderr)
-        return 2
-    round_id = resolve_round(case_dir, args.round_id)
-    round_dir = case_dir / "rounds" / round_id
-    if not round_dir.is_dir():
-        print(f"ERROR: Round does not exist: cases/{args.case_id}/rounds/{round_id}", file=sys.stderr)
-        return 2
+    try:
+        case_dir = require_case_dir(root, args.case_id, error_prefix="ERROR: ", stderr=True)
+        round_id = resolve_round(case_dir, args.round_id, stderr=True)
+        round_dir = require_round_dir(case_dir, args.case_id, round_id, error_prefix="ERROR: ", stderr=True)
+    except SystemExit as exc:
+        if exc.code == 2:
+            return 2
+        raise
 
     manifest = load_manifest(round_dir / MANIFEST_REL)
     try:

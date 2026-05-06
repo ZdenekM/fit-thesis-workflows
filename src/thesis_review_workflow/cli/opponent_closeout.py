@@ -3,46 +3,21 @@
 from __future__ import annotations
 
 import argparse
-import re
-import subprocess
 import sys
 from pathlib import Path
 
+from thesis_review_workflow.cli.context import (
+    repo_root,
+    require_case_dir,
+    require_round_dir,
+    resolve_round,
+    validate_id,
+)
 from thesis_review_workflow.commands import Step, print_step, run_step
 
-ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 COVERAGE_REL = Path("work/agent_coverage.json")
 OPPONENT_MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 OPPONENT_REPORT_DRAFT_REL = Path("work/oponent_posudek_draft.md")
-
-
-def repo_root() -> Path:
-    output = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return Path(output.strip())
-
-
-def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
-        raise SystemExit(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed."
-        )
-
-
-def resolve_round(case_dir: Path, round_id: str | None) -> str:
-    if round_id:
-        validate_id("ROUND_ID", round_id)
-        return round_id
-    current = case_dir / "current-round.txt"
-    if not current.is_file():
-        raise SystemExit(f"Missing current round: {case_dir}/current-round.txt")
-    resolved = current.read_text(encoding="utf-8").strip()
-    validate_id("ROUND_ID", resolved)
-    return resolved
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,13 +42,9 @@ def main(argv: list[str]) -> int:
     args = build_parser().parse_args(argv[1:])
     validate_id("CASE_ID", args.case_id)
     root = repo_root()
-    case_dir = root / "cases" / args.case_id
-    if not case_dir.is_dir():
-        raise SystemExit(f"Case does not exist: cases/{args.case_id}")
+    case_dir = require_case_dir(root, args.case_id)
     round_id = resolve_round(case_dir, args.round_id)
-    round_dir = case_dir / "rounds" / round_id
-    if not round_dir.is_dir():
-        raise SystemExit(f"Round does not exist: cases/{args.case_id}/rounds/{round_id}")
+    round_dir = require_round_dir(case_dir, args.case_id, round_id)
 
     print("Opponent Closeout")
     print(f"Case: cases/{args.case_id}")

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import shlex
 import subprocess
 from datetime import datetime, timezone
@@ -19,10 +18,16 @@ from thesis_review_workflow.agent_coverage import (
     load_json_object,
     write_coverage,
 )
+from thesis_review_workflow.cli.context import (
+    repo_root,
+    require_case_dir,
+    require_round_dir,
+    resolve_round,
+    validate_id,
+)
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import rel_repo
 
-ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 MANIFEST_REL = Path("work/review_manifest.json")
 
 OUTPUT_TYPES = {
@@ -66,35 +71,6 @@ INTERNAL_EVIDENCE = {
     "demo_artifacts_review.md",
     "pr_contribution_review.md",
 }
-
-
-def repo_root() -> Path:
-    output = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return Path(output.strip())
-
-
-def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
-        raise SystemExit(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed."
-        )
-
-
-def resolve_round(case_dir: Path, round_id: str | None) -> str:
-    if round_id:
-        validate_id("ROUND_ID", round_id)
-        return round_id
-    current_round = case_dir / "current-round.txt"
-    if not current_round.is_file():
-        raise SystemExit(f"Missing current round: {case_dir}/current-round.txt")
-    resolved = current_round.read_text(encoding="utf-8").strip()
-    validate_id("ROUND_ID", resolved)
-    return resolved
 
 
 def now_utc() -> str:
@@ -538,13 +514,9 @@ def main() -> int:
 
     validate_id("CASE_ID", args.case_id)
     root = repo_root()
-    case_dir = root / "cases" / args.case_id
-    if not case_dir.is_dir():
-        raise SystemExit(f"Case does not exist: cases/{args.case_id}")
+    case_dir = require_case_dir(root, args.case_id)
     round_id = resolve_round(case_dir, args.round_id)
-    round_dir = case_dir / "rounds" / round_id
-    if not round_dir.is_dir():
-        raise SystemExit(f"Round does not exist: cases/{args.case_id}/rounds/{round_id}")
+    round_dir = require_round_dir(case_dir, args.case_id, round_id)
 
     manifest_path = round_dir / MANIFEST_REL
     existing = load_existing(manifest_path)

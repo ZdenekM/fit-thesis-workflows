@@ -78,7 +78,7 @@ Out of scope:
 
 ### Slice 1 - Shared CLI And Round Resolution Helpers
 
-- Status: pending
+- Status: done
 - Proposed commit message: `refactor(workflow): share cli round context helpers`
 - Why: Many checkers duplicate repo-root lookup, ID validation, current-round
   resolution, and manifest path handling before doing their real validation.
@@ -131,6 +131,8 @@ Out of scope:
   - `src/thesis_review_workflow/cli/check_feedback_output.py`
   - `src/thesis_review_workflow/cli/check_figure_media_review.py`
   - `src/thesis_review_workflow/cli/check_opponent_materials.py`
+  - `src/thesis_review_workflow/cli/check_opponent_report.py`
+  - `src/thesis_review_workflow/cli/draft_opponent_report.py`
   - `src/thesis_review_workflow/cli/check_typography_formal.py`
   - `src/thesis_review_workflow/cli/check_evaluation_claims.py`
   - `tests/test_markdown_utils.py`
@@ -269,7 +271,7 @@ Out of scope:
 
 ## Progress
 
-- Slice 1: pending - shared CLI and round resolution helpers
+- Slice 1: done - shared CLI and round resolution helpers
 - Slice 2: pending - shared Markdown validator primitives
 - Slice 3: pending - case doctor hotspot decomposition
 - Slice 4: pending - GitHub intake hotspot decomposition

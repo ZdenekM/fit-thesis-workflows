@@ -13,10 +13,16 @@ from typing import Any
 
 from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present
 from thesis_review_workflow.agent_coverage import coverage_required
+from thesis_review_workflow.cli.context import (
+    repo_root,
+    require_case_dir,
+    require_round_dir,
+    resolve_round,
+    validate_id,
+)
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
-ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
 MANIFEST_REL = "work/review_manifest.json"
 SCHEMA_VERSION = "review-manifest-v1"
@@ -40,38 +46,6 @@ KNOWN_REVIEW_STATUSES = REVIEWED_STATUSES | {
 }
 KNOWN_CHECK_STATUSES = {"passed", "failed", "not_run", "not_recorded", "not_applicable"}
 FINAL_SCOPES = {"sendable_final", "standalone_final"}
-
-
-def repo_root() -> Path:
-    output = subprocess.check_output(
-        ["git", "rev-parse", "--show-toplevel"],
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return Path(output.strip())
-
-
-def validate_id(label: str, value: str) -> None:
-    if not ID_RE.fullmatch(value) or set(value) == {"."}:
-        print(
-            f"Invalid {label}. Use only letters, numbers, dot, underscore, and dash; dot-only ids are not allowed.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
-
-
-def resolve_round(case_dir: Path, round_id: str | None) -> str:
-    if round_id:
-        validate_id("ROUND_ID", round_id)
-        return round_id
-    current_round = case_dir / "current-round.txt"
-    if not current_round.is_file():
-        print(f"Missing current round: {case_dir}/current-round.txt", file=sys.stderr)
-        raise SystemExit(2)
-    resolved = current_round.read_text(encoding="utf-8").strip()
-    validate_id("ROUND_ID", resolved)
-    return resolved
 
 
 def sha256_file(path: Path) -> str:
@@ -553,17 +527,16 @@ def main(argv: list[str]) -> int:
     parser.add_argument("round_id", nargs="?")
     args = parser.parse_args(argv[1:])
 
-    validate_id("CASE_ID", args.case_id)
+    validate_id("CASE_ID", args.case_id, stderr=True)
     root = repo_root()
-    case_dir = root / "cases" / args.case_id
-    if not case_dir.is_dir():
-        print(f"ERROR: Case does not exist: cases/{args.case_id}", file=sys.stderr)
-        return 2
-    round_id = resolve_round(case_dir, args.round_id)
-    round_dir = case_dir / "rounds" / round_id
-    if not round_dir.is_dir():
-        print(f"ERROR: Round does not exist: cases/{args.case_id}/rounds/{round_id}", file=sys.stderr)
-        return 2
+    try:
+        case_dir = require_case_dir(root, args.case_id, error_prefix="ERROR: ", stderr=True)
+        round_id = resolve_round(case_dir, args.round_id, stderr=True)
+        round_dir = require_round_dir(case_dir, args.case_id, round_id, error_prefix="ERROR: ", stderr=True)
+    except SystemExit as exc:
+        if exc.code == 2:
+            return 2
+        raise
 
     errors: list[str] = []
     warnings: list[str] = []
