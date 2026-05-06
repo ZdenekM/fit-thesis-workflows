@@ -186,7 +186,7 @@ Out of scope:
 
 ### Slice 4 - GitHub Intake Hotspot Decomposition
 
-- Status: pending
+- Status: done
 - Proposed commit message: `refactor(workflow): split github intake classification`
 - Why: Omen flags `import_github_code.py` as a critical hotspot. GitHub intake
   has external command and workspace side effects, so only pure classification,
@@ -275,7 +275,7 @@ Out of scope:
 - Slice 1: done - shared CLI and round resolution helpers
 - Slice 2: done - shared Markdown validator primitives
 - Slice 3: done - case doctor hotspot decomposition
-- Slice 4: pending - GitHub intake hotspot decomposition
+- Slice 4: done - GitHub intake hotspot decomposition
 - Slice 5: pending - evaluation claims hotspot decomposition
 - Slice 6: pending - hygiene baseline closeout
 
@@ -289,6 +289,10 @@ Out of scope:
 - 2026-05-06: Plan review split the broad hotspot slice into per-workflow
   commits and kept shared Markdown helpers mechanical only, because the
   validators own different normalization and placeholder-severity contracts.
+- 2026-05-06: Slice 4 review accepted the residual Omen critical hotspot in
+  `import_github_code.py` as remaining orchestration complexity, not a behavior
+  regression; the extracted helper stays pure and the CLI keeps GitHub and
+  filesystem side effects.
 
 ## Final Audit
 
