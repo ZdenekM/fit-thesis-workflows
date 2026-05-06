@@ -363,6 +363,7 @@ def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) 
             outputs_present=bool(outputs),
             manifest_error=None,
             artifacts=[],
+            supporting_work_artifacts=[],
             helper_checks=[],
             coverage_needed=False,
             coverage_present=False,
@@ -379,12 +380,14 @@ def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) 
         manifest_error = exc.msg
 
     artifacts = manifest.get("artifacts", []) if isinstance(manifest, dict) else []
+    supporting_work_artifacts = manifest.get("supporting_work_artifacts", []) if isinstance(manifest, dict) else []
     checks = manifest.get("helper_checks", []) if isinstance(manifest, dict) else []
     return manifest_summary_lines(
         manifest_present=True,
         outputs_present=bool(outputs),
         manifest_error=manifest_error,
         artifacts=artifacts,
+        supporting_work_artifacts=supporting_work_artifacts,
         helper_checks=checks,
         coverage_needed=isinstance(manifest, dict) and inferred_coverage_required(round_dir, manifest),
         coverage_present=(round_dir / COVERAGE_REL).is_file(),

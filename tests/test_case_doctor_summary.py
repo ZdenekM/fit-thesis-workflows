@@ -86,6 +86,7 @@ def test_manifest_summary_lines_records_coverage_and_shape_errors() -> None:
         outputs_present=True,
         manifest_error=None,
         artifacts={},
+        supporting_work_artifacts=[],
         helper_checks=[],
         coverage_needed=True,
         coverage_present=False,

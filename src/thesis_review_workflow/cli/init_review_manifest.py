@@ -27,6 +27,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
 
@@ -131,33 +132,7 @@ def collect_tree(round_dir: Path, subdir: str) -> list[dict[str, str]]:
 
 
 def collect_work_artifacts(round_dir: Path) -> list[dict[str, str]]:
-    work = round_dir / "work"
-    if not work.is_dir():
-        return []
-    records: list[dict[str, str]] = []
-    explicit = [
-        work / "feedback_student_draft.md",
-        work / "oponent_podklady_draft.md",
-        work / "oponent_posudek_draft.md",
-        work / "code_workspace.md",
-        work / "serena_roots.json",
-        work / COVERAGE_REL.relative_to("work"),
-        work / "code" / ".prepare-code-workspace-manifest.json",
-        work / "figure_media" / "visual_inventory.jsonl",
-    ]
-    for path in explicit:
-        if path.is_file():
-            records.append({"path": rel(path, round_dir), "kind": file_kind(path)})
-    for pattern in ("agent_*.md",):
-        for path in sorted(work.glob(pattern)):
-            if path.is_file():
-                records.append({"path": rel(path, round_dir), "kind": file_kind(path)})
-    github_intake = work / "github-intake"
-    if github_intake.is_dir():
-        for path in sorted(github_intake.rglob("*")):
-            if path.is_file():
-                records.append({"path": rel(path, round_dir), "kind": file_kind(path)})
-    return records
+    return collect_supporting_work_artifacts(round_dir)
 
 
 def load_existing(path: Path) -> dict[str, Any]:

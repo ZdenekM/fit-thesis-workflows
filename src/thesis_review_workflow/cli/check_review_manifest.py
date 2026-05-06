@@ -22,6 +22,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
 MANIFEST_REL = "work/review_manifest.json"
@@ -106,6 +107,49 @@ def records_by_path(records: Any, label: str, round_dir: Path, errors: list[str]
             errors.append(f"{label} item {index}: expected object")
             continue
         validate_rel_path(f"{label} item {index}", record.get("path"), round_dir, errors)
+        recorded_hash = record.get("artifact_sha256")
+        if recorded_hash is not None and not isinstance(recorded_hash, str):
+            errors.append(f"{label} item {index}: artifact_sha256 must be a string")
+
+
+def record_paths(records: Any) -> set[str]:
+    if not isinstance(records, list):
+        return set()
+    return {record["path"] for record in records if isinstance(record, dict) and isinstance(record.get("path"), str)}
+
+
+def helper_check_names(records: Any) -> set[str]:
+    if not isinstance(records, list):
+        return set()
+    return {record["check"] for record in records if isinstance(record, dict) and isinstance(record.get("check"), str)}
+
+
+def check_ref_list(
+    *,
+    artifact_path: str,
+    field: str,
+    refs: Any,
+    allowed_paths: set[str],
+    allowed_checks: set[str],
+    round_dir: Path,
+    errors: list[str],
+) -> None:
+    if not isinstance(refs, list):
+        errors.append(f"{artifact_path}: {field} must be a list")
+        return
+    for index, ref in enumerate(refs, start=1):
+        if not isinstance(ref, str) or not ref:
+            errors.append(f"{artifact_path}: {field} item {index} must be a non-empty string")
+            continue
+        if field == "check_refs":
+            if ref not in allowed_checks:
+                errors.append(f"{artifact_path}: check_refs item {index} is not a manifest helper check: {ref}")
+            continue
+        validate_rel_path(f"{artifact_path}: {field} item {index}", ref, round_dir, errors)
+        if ref not in allowed_paths:
+            errors.append(
+                f"{artifact_path}: {field} item {index} is not recorded in manifest inputs, work, or outputs: {ref}"
+            )
 
 
 def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None:
@@ -432,6 +476,15 @@ def check_artifacts(
         artifacts_by_path[path_value] = artifact
         pending.append((path_value, artifact, artifact_path))
 
+    input_paths = set().union(
+        record_paths(manifest.get("inputs")),
+        record_paths(manifest.get("extracted_artifacts")),
+        record_paths(manifest.get("notes")),
+    )
+    work_paths = record_paths(manifest.get("supporting_work_artifacts"))
+    helper_names = helper_check_names(manifest.get("helper_checks"))
+    artifact_paths = set(artifacts_by_path)
+
     for path_value, artifact, artifact_path in pending:
         if artifact_path and artifact_path.is_file():
             current_hash = sha256_file(artifact_path)
@@ -442,9 +495,36 @@ def check_artifacts(
             errors.append(f"{path_value}: skills must be a list")
         if not isinstance(artifact.get("helper_checks", []), list):
             errors.append(f"{path_value}: helper_checks must be a list")
-        for refs_field in ("input_refs", "evidence_refs", "check_refs"):
-            if refs_field in artifact and not isinstance(artifact.get(refs_field), list):
-                errors.append(f"{path_value}: {refs_field} must be a list")
+        if "input_refs" in artifact:
+            check_ref_list(
+                artifact_path=path_value,
+                field="input_refs",
+                refs=artifact.get("input_refs"),
+                allowed_paths=input_paths,
+                allowed_checks=helper_names,
+                round_dir=round_dir,
+                errors=errors,
+            )
+        if "evidence_refs" in artifact:
+            check_ref_list(
+                artifact_path=path_value,
+                field="evidence_refs",
+                refs=artifact.get("evidence_refs"),
+                allowed_paths=work_paths | artifact_paths,
+                allowed_checks=helper_names,
+                round_dir=round_dir,
+                errors=errors,
+            )
+        if "check_refs" in artifact:
+            check_ref_list(
+                artifact_path=path_value,
+                field="check_refs",
+                refs=artifact.get("check_refs"),
+                allowed_paths=set(),
+                allowed_checks=helper_names,
+                round_dir=round_dir,
+                errors=errors,
+            )
         artifact_review_ok(
             artifact,
             manifest,
@@ -490,7 +570,19 @@ def check_manifest(
     records_by_path(manifest.get("inputs"), "inputs", round_dir, errors)
     records_by_path(manifest.get("extracted_artifacts"), "extracted_artifacts", round_dir, errors)
     records_by_path(manifest.get("notes"), "notes", round_dir, errors)
-    records_by_path(manifest.get("supporting_work_artifacts"), "supporting_work_artifacts", round_dir, errors)
+    supporting_work_artifacts = manifest.get("supporting_work_artifacts")
+    if not isinstance(supporting_work_artifacts, list):
+        errors.append("supporting_work_artifacts must be a list")
+    else:
+        records_by_path(supporting_work_artifacts, "supporting_work_artifacts", round_dir, errors)
+        errors.extend(
+            validate_supporting_work_artifacts(
+                supporting_work_artifacts,
+                round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
 
     limitations = manifest.get("workflow_limitations")
     if limitations is not None and not isinstance(limitations, list):

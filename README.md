@@ -565,6 +565,12 @@ kontroluje, že tento kontrakt zůstává v aktivních repo pravidlech a že bal
 entrypointy pro Windows nezmizely; při změně command surface spusťte i
 `scripts/smoke-package-workflow-tools`.
 
+Checklist pro nový workflow příkaz: přidejte POSIX wrapper pod `scripts/`, CLI
+modul pod `src/thesis_review_workflow/cli/`, položku do
+`WORKFLOW_COMMAND_MODULES`, `python_source` v `src/.../cli/BUILD`, shell source,
+runtime dependency a `pex_binary(tags=["workflow-tool"])` v `scripts/BUILD`,
+cílený smoke skript a balicí smoke pro `.cmd`/`.ps1` launchery.
+
 Při změně deterministických validatorů spusťte i odpovídající smoke testy,
 například:
 

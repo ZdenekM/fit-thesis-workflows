@@ -311,6 +311,7 @@ def manifest_summary_lines(
     outputs_present: bool,
     manifest_error: str | None,
     artifacts: Any,
+    supporting_work_artifacts: Any,
     helper_checks: Any,
     coverage_needed: bool,
     coverage_present: bool,
@@ -343,6 +344,11 @@ def manifest_summary_lines(
     else:
         add_issue(issues, "ERROR", "Review manifest artifacts field is not a list.")
         lines.append("- manifest artifacts: invalid")
+    if isinstance(supporting_work_artifacts, list):
+        lines.append(f"- supporting work artifacts: {len(supporting_work_artifacts)}")
+    else:
+        add_issue(issues, "ERROR", "Review manifest supporting_work_artifacts field is not a list.")
+        lines.append("- supporting work artifacts: invalid")
     if isinstance(helper_checks, list):
         lines.append(f"- manifest helper checks: {len(helper_checks)}")
     else:
