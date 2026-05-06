@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__code_repro_smoke_$$"
+created_cases=()
+out_file="/tmp/code-repro-smoke.$$.out"
+err_file="/tmp/code-repro-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/round-a/inputs"
+  mkdir -p "$repo_root/cases/$case_id/rounds/round-a/notes"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Student feedback language: cs"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "round-a" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_file_contains() {
+  local path="$1"
+  local needle="$2"
+  if ! grep -Fq "$needle" "$path"; then
+    echo "Expected $path to contain: $needle" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+make_code_zip() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+target = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(target, "w") as archive:
+    archive.writestr("project/README.md", "# Synthetic project\n")
+    archive.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    archive.writestr("project/src/main.py", "print('synthetic')\n")
+    archive.writestr("project/tests/test_smoke.py", "def test_smoke():\n    assert True\n")
+PY
+}
+
+case_id="${case_prefix}_none"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+expect_success "no code evidence classifies cleanly" "$repo_root/scripts/check-code-reproducibility" "$case_id"
+expect_output "Classification: no_code_evidence"
+expect_file_contains "$round_dir/work/code_reproducibility.json" '"schema_version": "code-reproducibility-v1"'
+expect_file_contains "$round_dir/work/code_reproducibility.json" '"classification": "no_code_evidence"'
+
+case_id="${case_prefix}_prepared"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/code.zip"
+expect_success "prepare code workspace" "$repo_root/scripts/prepare-code-workspace" "$case_id"
+expect_success "prepared code classifies static setup" "$repo_root/scripts/check-code-reproducibility" "$case_id"
+expect_output "Classification: static_setup_present"
+expect_file_contains "$round_dir/work/code_reproducibility.json" '"execution_policy": "static_only_no_submitted_code_executed"'
+expect_file_contains "$round_dir/work/code_reproducibility.json" 'python -m pytest -q'
+
+case_id="${case_prefix}_unprepared"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+make_code_zip "$round_dir/inputs/code.zip"
+expect_success "unprepared code classifies not attempted" "$repo_root/scripts/check-code-reproducibility" "$case_id"
+expect_output "Classification: not_attempted"
+
+echo "Code reproducibility smoke passed"

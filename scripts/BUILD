@@ -4,6 +4,7 @@ shell_sources(
         "bootstrap-case",
         "case-doctor",
         "check-agent-coverage",
+        "check-code-reproducibility",
         "check-evaluation-claims",
         "check-feedback-language",
         "check-feedback-output",
@@ -31,6 +32,7 @@ shell_sources(
         "smoke-agent-coverage",
         "smoke-bootstrap-case",
         "smoke-case-doctor",
+        "smoke-code-reproducibility",
         "smoke-evaluation-claims",
         "smoke-feedback-language",
         "smoke-feedback-output",
@@ -55,6 +57,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:bootstrap_case",
     "src/thesis_review_workflow/cli:case_doctor",
     "src/thesis_review_workflow/cli:check_agent_coverage",
+    "src/thesis_review_workflow/cli:check_code_reproducibility",
     "src/thesis_review_workflow/cli:check_evaluation_claims",
     "src/thesis_review_workflow/cli:check_feedback_language",
     "src/thesis_review_workflow/cli:check_feedback_output",
@@ -108,6 +111,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-agent-coverage",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_code_reproducibility_tool",
+    entry_point="thesis_review_workflow.cli.check_code_reproducibility:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-code-reproducibility",
     tags=["workflow-tool"],
 )
 

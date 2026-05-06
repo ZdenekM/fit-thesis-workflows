@@ -572,7 +572,7 @@ parts actually completed.
 
 - Slice 1: done - plan hardening and baseline
 - Slice 2: done - work artifact and command surface contract
-- Slice 3: pending - static code reproducibility classification
+- Slice 3: done - static code reproducibility classification
 - Slice 4: pending - assignment coverage map
 - Slice 5: pending - evidence presence and media inventory
 - Slice 6: pending - thin validators for opponent evidence inputs

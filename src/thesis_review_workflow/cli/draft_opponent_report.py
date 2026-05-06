@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -24,6 +25,7 @@ from thesis_review_workflow.paths import rel_repo
 
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 DRAFT_REL = Path("work/oponent_posudek_draft.md")
+CODE_REPRO_REL = Path("work/code_reproducibility.json")
 
 IS_ITEMS = (
     ("Náročnost zadání", ("narocnost", "náročnost")),
@@ -121,7 +123,23 @@ def uncertain_claims(materials: str) -> list[str]:
     return claims
 
 
-def build_report(materials: str, materials_hash: str) -> str:
+def advisory_reproducibility_note(round_dir: Path) -> str | None:
+    path = round_dir / CODE_REPRO_REL
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return f"Zkontrolovat nevalidní advisory artefakt `{CODE_REPRO_REL.as_posix()}`."
+    if not isinstance(loaded, dict):
+        return f"Zkontrolovat nevalidní advisory artefakt `{CODE_REPRO_REL.as_posix()}`."
+    classification = loaded.get("classification")
+    if not isinstance(classification, str) or not classification:
+        classification = "nezaznamenáno"
+    return f"Zohlednit statickou klasifikaci reprodukovatelnosti kódu: {classification}."
+
+
+def build_report(materials: str, materials_hash: str, *, advisory_notes: list[str] | None = None) -> str:
     rows = is_rows(materials)
     strengths = bullets_from_section(section_by_number(materials, 7))
     risks = bullets_from_section(section_by_number(materials, 8))
@@ -179,6 +197,8 @@ def build_report(materials: str, materials_hash: str) -> str:
         lines.append("- Do celkového hodnocení zapracovat hlavní rizika: " + "; ".join(risks[:3]) + ".")
     for claim in uncertain[:5]:
         lines.append(f"- Zachovat opatrnou formulaci pro ručně neověřený bod: {claim}")
+    for note in advisory_notes or []:
+        lines.append(f"- {note}")
     lines.append("")
     return "\n".join(lines)
 
@@ -206,8 +226,13 @@ def main(argv: list[str]) -> int:
     if draft_path.exists() and not args.force:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")
     draft_path.parent.mkdir(parents=True, exist_ok=True)
+    advisory_notes = [note for note in [advisory_reproducibility_note(round_dir)] if note]
     draft_path.write_text(
-        build_report(materials_path.read_text(encoding="utf-8"), sha256_file(materials_path)),
+        build_report(
+            materials_path.read_text(encoding="utf-8"),
+            sha256_file(materials_path),
+            advisory_notes=advisory_notes,
+        ),
         encoding="utf-8",
     )
     print(f"Wrote {rel_repo(root, draft_path)}")

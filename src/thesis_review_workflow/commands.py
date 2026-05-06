@@ -12,6 +12,7 @@ WORKFLOW_COMMAND_MODULES = {
     "bootstrap-case": "thesis_review_workflow.cli.bootstrap_case",
     "case-doctor": "thesis_review_workflow.cli.case_doctor",
     "check-agent-coverage": "thesis_review_workflow.cli.check_agent_coverage",
+    "check-code-reproducibility": "thesis_review_workflow.cli.check_code_reproducibility",
     "check-evaluation-claims": "thesis_review_workflow.cli.check_evaluation_claims",
     "check-feedback-language": "thesis_review_workflow.cli.check_feedback_language",
     "check-feedback-output": "thesis_review_workflow.cli.check_feedback_output",

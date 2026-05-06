@@ -118,6 +118,8 @@ def output_next_actions(
     print("- Purpose: import/readiness/tooling check before authorized opponent-materials agents start.")
     if code_present:
         print(f"- Code evidence detected: yes ({', '.join(code_evidence)})")
+        if (round_dir / "work" / "code_reproducibility.json").is_file():
+            print("- Code reproducibility classification: `work/code_reproducibility.json`.")
         if code_root_count:
             print(
                 f"- Code workspace has {code_root_count} likely root(s); "
@@ -219,6 +221,14 @@ def main(argv: list[str]) -> int:
                 command=None,
                 returncode=0 if code_root_count else 1,
                 output=root_message,
+                required=True,
+            )
+        )
+        steps.append(
+            run_step(
+                root,
+                "Code reproducibility classification",
+                ["scripts/check-code-reproducibility", args.case_id, round_id],
                 required=True,
             )
         )
