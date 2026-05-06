@@ -154,9 +154,7 @@ def advisory_evidence_presence_note(round_dir: Path) -> str | None:
     if not isinstance(findings, list) or not findings:
         return None
     categories = sorted(
-        item["category"]
-        for item in findings
-        if isinstance(item, dict) and isinstance(item.get("category"), str)
+        item["category"] for item in findings if isinstance(item, dict) and isinstance(item.get("category"), str)
     )
     suffix = ", ".join(categories) if categories else "nezarazeno"
     return f"Zohlednit advisory evidence-presence rizika: {suffix}."

@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__internal_evidence_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/internal-evidence-smoke.$$.out"
+err_file="/tmp/internal-evidence-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local needle="$2"
+  shift 2
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected failure output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/outputs"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+cat >"$round_dir/outputs/code_consistency.md" <<'EOF'
+# Soulad textu s kodem
+
+## Rozsah kontroly
+
+Checked `extracted/thesis.txt`, `work/code/project/README.md`, and `work/code/project/src/app.py`.
+
+## Podporena tvrzeni
+
+- Import workflow is described in `work/code/project/README.md`.
+
+## Nejasna nebo neoverena tvrzeni
+
+| Tvrzeni v textu | Opora v textu | Opora v kodu | Problem |
+|---|---|---|---|
+| Evaluation accuracy | chapter 4 | `work/code/project/results.csv` | missing calculation path |
+
+## Reprodukovatelnost
+
+Static review only; no submitted code was executed.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Rucni kontroly
+
+- Verify page 42 in the rendered PDF if the exact metric is needed.
+EOF
+
+cat >"$round_dir/outputs/code_quality_review.md" <<'EOF'
+# Internal Code Quality Review
+
+## Rozsah kontroly
+
+Reviewed `work/code/project/src/app.py`, `work/code/project/tests/test_app.py`, and `work/code/project/README.md`.
+
+## Technicky prehled implementace
+
+The submitted code is a small Python prototype.
+
+## Hlavni technicka rizika
+
+| Priorita | Oblast | Evidence v kodu | Dopad | Doporuceni |
+|---|---|---|---|---|
+| P1 | validation | `work/code/project/src/app.py` | invalid input can fail late | add boundary tests |
+
+## Testy, smoke testy a reprodukovatelnost
+
+The README mentions `pytest`, but no submitted code was executed by this validator.
+
+## README, build a vyvojarska dokumentace
+
+`work/code/project/README.md` contains basic setup steps.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Rucni kontroly
+
+- Confirm whether the missing validation affects the final evaluation scenario.
+EOF
+
+cat >"$round_dir/outputs/revision_diff.md" <<'EOF'
+# Revision Diff
+
+## Compared Rounds
+
+Compared previous `outputs/feedback_student.md` with current `extracted/thesis.txt`.
+
+## High-Level Progress
+
+The current version adds chapter 4 and README updates.
+
+## Previous Feedback Status
+
+| Prior feedback | Status | Evidence | Follow-up |
+|---|---|---|---|
+| Add reproducibility notes | partially addressed | `work/code/project/README.md` | verify data path |
+
+## Thesis Text Changes
+
+Chapter 4 now describes evaluation limits.
+
+## Code / Artifact Changes
+
+`inputs/code.zip` changed and now includes `requirements.txt`.
+
+## New Risks
+
+The new metric claim on page 42 still needs calculation evidence.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Items Requiring Manual Check
+
+- Confirm the exact metric source in the rendered PDF.
+EOF
+
+expect_success "code consistency validator" "$repo_root/scripts/check-code-consistency" "$case_id"
+expect_success "code quality validator" "$repo_root/scripts/check-code-quality-review" "$case_id"
+expect_success "revision diff validator" "$repo_root/scripts/check-revision-diff" "$case_id"
+
+printf '\nTODO: placeholder\n' >>"$round_dir/outputs/revision_diff.md"
+expect_failure_contains "revision diff rejects placeholder" "placeholder" "$repo_root/scripts/check-revision-diff" "$case_id"
+
+echo "Internal evidence validators smoke passed"

@@ -5,6 +5,8 @@ shell_sources(
         "case-doctor",
         "check-agent-coverage",
         "check-assignment-coverage",
+        "check-code-consistency",
+        "check-code-quality-review",
         "check-code-reproducibility",
         "check-evidence-presence",
         "check-evaluation-claims",
@@ -16,6 +18,7 @@ shell_sources(
         "check-private",
         "check-review-manifest",
         "check-reviewer-profile",
+        "check-revision-diff",
         "check-round-ready",
         "check-scripts",
         "check-supervisor-ready",
@@ -42,6 +45,7 @@ shell_sources(
         "smoke-feedback-output",
         "smoke-figure-media-review",
         "smoke-github-code-intake",
+        "smoke-internal-evidence-validators",
         "smoke-opponent-closeout",
         "smoke-opponent-materials",
         "smoke-opponent-preflight",
@@ -62,6 +66,8 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:case_doctor",
     "src/thesis_review_workflow/cli:check_agent_coverage",
     "src/thesis_review_workflow/cli:check_assignment_coverage",
+    "src/thesis_review_workflow/cli:check_code_consistency",
+    "src/thesis_review_workflow/cli:check_code_quality_review",
     "src/thesis_review_workflow/cli:check_code_reproducibility",
     "src/thesis_review_workflow/cli:check_evidence_presence",
     "src/thesis_review_workflow/cli:check_evaluation_claims",
@@ -73,6 +79,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_private",
     "src/thesis_review_workflow/cli:check_review_manifest",
     "src/thesis_review_workflow/cli:check_reviewer_profile",
+    "src/thesis_review_workflow/cli:check_revision_diff",
     "src/thesis_review_workflow/cli:check_round_ready",
     "src/thesis_review_workflow/cli:check_scripts",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
@@ -127,6 +134,26 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-assignment-coverage",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_code_consistency_tool",
+    entry_point="thesis_review_workflow.cli.check_code_consistency:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-code-consistency",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_code_quality_review_tool",
+    entry_point="thesis_review_workflow.cli.check_code_quality_review:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-code-quality-review",
     tags=["workflow-tool"],
 )
 
@@ -237,6 +264,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-reviewer-profile",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_revision_diff_tool",
+    entry_point="thesis_review_workflow.cli.check_revision_diff:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-revision-diff",
     tags=["workflow-tool"],
 )
 

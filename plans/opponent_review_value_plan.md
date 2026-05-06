@@ -575,7 +575,7 @@ parts actually completed.
 - Slice 3: done - static code reproducibility classification
 - Slice 4: done - assignment coverage map
 - Slice 5: done - evidence presence and media inventory
-- Slice 6: pending - thin validators for opponent evidence inputs
+- Slice 6: done - thin validators for opponent evidence inputs
 - Slice 7: pending - role-specific opponent agent packets
 - Slice 8: pending - incremental opponent provenance helper
 - Slice 9: pending - wire evidence validators into opponent closeout
