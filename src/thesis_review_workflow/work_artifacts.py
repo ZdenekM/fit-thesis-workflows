@@ -13,7 +13,6 @@ from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEM
 
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
-    "work/evidence_presence.json": {"evidence-presence-v1"},
     "work/evidence_requirements.json": {"evidence-requirements-v1"},
     "work/quantitative_claims.json": {"quantitative-claims-v1"},
     "work/opponent_report_trace.json": {"opponent-report-trace-v1"},
@@ -22,7 +21,6 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/assignment_coverage_agent.json": {"assignment_points": list},
-    "work/evidence_presence.json": {"findings": list},
     "work/evidence_requirements.json": {"requirements": list},
     "work/quantitative_claims.json": {"claims": list},
     "work/opponent_report_trace.json": {"is_items": list, "uncertainty_items": list},
@@ -41,7 +39,6 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/code/.prepare-code-workspace-manifest.json",
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_agent.json",
-    "work/evidence_presence.json",
     "work/evidence_requirements.json",
     "work/quantitative_claims.json",
     "work/opponent_report_trace.json",

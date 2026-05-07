@@ -26,9 +26,12 @@ vstupy:
   `work/code_reproducibility.json`. Jde o statickou klasifikaci dostupného kódu,
   dependency souborů, entrypointů, README instrukcí a případné už dříve
   autorizované run evidence. Studentský kód nespouští.
-- `scripts/check-evidence-presence` zapisuje `work/evidence_presence.json` a
-  `work/media_presence_inventory.jsonl`. Výstup odlišuje chybějící,
-  přítomnou a zatím neinspektovanou evidenci.
+Evidence requirements jsou výjimka z před-agentního preflightu:
+`work/evidence_requirements.json` musí připravit autorizovaný evidence agent nebo
+člověk jako strukturovaný přehled požadované a dostupné evidence. Potom spusťte
+`scripts/check-evidence-presence`; skript artefakt jen ověřuje a zapíše
+strukturální `work/media_presence_inventory.jsonl` podle cest a přípon
+nalezených souborů.
 Assignment coverage je výjimka z před-agentního preflightu: `work/assignment_coverage_agent.json`
 musí připravit autorizovaný text/assignment agent nebo člověk jako strukturovanou
 mapu bodů zadání proti dostupné evidenci. Potom spusťte
@@ -52,7 +55,7 @@ Packet obsahuje autoritativní vstupy, dostupné work/output artefakty, očekáv
 role-owned výstupy a známá omezení. Nenahrazuje skill ani evidence pravidla,
 jen zmenšuje prompt drift mezi agenty.
 
-Pokud se po vygenerování packetů změní zadání, evidence-presence,
+Pokud se po vygenerování packetů změní zadání, evidence requirements,
 reprodukovatelnost nebo výstupy interních review, packety přegenerujte.
 
 ## Evidence Outputs

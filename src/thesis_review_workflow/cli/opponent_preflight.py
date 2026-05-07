@@ -120,8 +120,6 @@ def output_next_actions(
         print(f"- Code evidence detected: yes ({', '.join(code_evidence)})")
         if (round_dir / "work" / "code_reproducibility.json").is_file():
             print("- Code reproducibility classification: `work/code_reproducibility.json`.")
-        if (round_dir / "work" / "evidence_presence.json").is_file():
-            print("- Evidence presence findings: `work/evidence_presence.json`.")
         if code_root_count:
             print(
                 f"- Code workspace has {code_root_count} likely root(s); "
@@ -143,6 +141,12 @@ def output_next_actions(
             "- Existing assignment coverage artifact detected: "
             "`work/assignment_coverage_agent.json`; run `scripts/check-assignment-coverage` "
             "after text/assignment review."
+        )
+    if (round_dir / "work" / "evidence_requirements.json").is_file():
+        print(
+            "- Existing evidence requirements artifact detected: "
+            "`work/evidence_requirements.json`; run `scripts/check-evidence-presence` "
+            "after evidence-requirements review."
         )
     if github_hits and github_scope_done and not github_intake_available(round_dir):
         print("- GitHub URL evidence appears in notes and is explicitly marked out of scope for this review.")
@@ -239,15 +243,6 @@ def main(argv: list[str]) -> int:
                 required=True,
             )
         )
-
-    steps.append(
-        run_step(
-            root,
-            "Evidence presence",
-            ["scripts/check-evidence-presence", args.case_id, round_id],
-            required=False,
-        )
-    )
 
     if github_missing_intake:
         steps.append(

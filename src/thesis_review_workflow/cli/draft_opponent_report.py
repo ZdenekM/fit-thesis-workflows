@@ -22,11 +22,12 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.markdown_utils import numbered_section_text as section_by_number
 from thesis_review_workflow.markdown_utils import simple_table_rows as parse_markdown_rows
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 DRAFT_REL = Path("work/oponent_posudek_draft.md")
 CODE_REPRO_REL = Path("work/code_reproducibility.json")
-EVIDENCE_PRESENCE_REL = Path("work/evidence_presence.json")
+EVIDENCE_REQUIREMENTS_REL = Path("work/evidence_requirements.json")
 
 IS_ITEMS = (
     ("Náročnost zadání", ("narocnost", "náročnost")),
@@ -140,24 +141,34 @@ def advisory_reproducibility_note(round_dir: Path) -> str | None:
     return f"Zohlednit statickou klasifikaci reprodukovatelnosti kódu: {classification}."
 
 
-def advisory_evidence_presence_note(round_dir: Path) -> str | None:
-    path = round_dir / EVIDENCE_PRESENCE_REL
+def advisory_evidence_requirements_note(round_dir: Path, case_id: str, round_id: str) -> str | None:
+    path = round_dir / EVIDENCE_REQUIREMENTS_REL
     if not path.is_file():
         return None
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        EVIDENCE_REQUIREMENTS_REL,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        return "Zkontrolovat nevalidní strukturovaný artefakt evidence requirements."
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return "Zkontrolovat nevalidní advisory artefakt evidence-presence."
+    except (OSError, json.JSONDecodeError):
+        return "Zkontrolovat nevalidní strukturovaný artefakt evidence requirements."
     if not isinstance(loaded, dict):
-        return "Zkontrolovat nevalidní advisory artefakt evidence-presence."
-    findings = loaded.get("findings")
-    if not isinstance(findings, list) or not findings:
+        return "Zkontrolovat nevalidní strukturovaný artefakt evidence requirements."
+    requirements = loaded.get("requirements")
+    if not isinstance(requirements, list) or not requirements:
         return None
     categories = sorted(
-        item["category"] for item in findings if isinstance(item, dict) and isinstance(item.get("category"), str)
+        f"{item.get('category')}:{item.get('state')}"
+        for item in requirements
+        if isinstance(item, dict) and isinstance(item.get("category"), str) and isinstance(item.get("state"), str)
     )
     suffix = ", ".join(categories) if categories else "nezarazeno"
-    return f"Zohlednit advisory evidence-presence rizika: {suffix}."
+    return f"Zohlednit strukturované evidence requirements: {suffix}."
 
 
 def build_report(materials: str, materials_hash: str, *, advisory_notes: list[str] | None = None) -> str:
@@ -248,7 +259,12 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")
     draft_path.parent.mkdir(parents=True, exist_ok=True)
     advisory_notes = [
-        note for note in [advisory_reproducibility_note(round_dir), advisory_evidence_presence_note(round_dir)] if note
+        note
+        for note in [
+            advisory_reproducibility_note(round_dir),
+            advisory_evidence_requirements_note(round_dir, args.case_id, round_id),
+        ]
+        if note
     ]
     draft_path.write_text(
         build_report(

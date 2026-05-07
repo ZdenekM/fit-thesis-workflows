@@ -38,7 +38,7 @@ PROFILE_INPUTS = (
 )
 ADVISORY_ARTIFACTS = (
     "work/assignment_coverage_agent.json",
-    "work/evidence_presence.json",
+    "work/evidence_requirements.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
     "work/figure_media/visual_inventory.jsonl",
@@ -217,7 +217,7 @@ PACKET_ROLES = (
         ),
         role_inputs=(
             "work/assignment_coverage_agent.json",
-            "work/evidence_presence.json",
+            "work/evidence_requirements.json",
             "work/code_reproducibility.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",

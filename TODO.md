@@ -13,7 +13,7 @@
 - [ ] Replace remaining free-form text semantic detectors with agent-produced structured evidence.
    - Free-form thesis, README, notes, generated prose, and code text should be interpreted by an explicitly authorized agent/LLM workflow, then stored as structured artifacts with evidence anchors.
    - Deterministic helpers may parse metadata labels, Markdown sections/tables, paths, file suffixes, placeholders, privacy leaks, command output markers, and schema fields; they should not infer semantic meaning from raw text.
-   - Current advisory or free-text-derived parts to retire or wrap with structured agent artifacts include `scripts/check-evaluation-claims`, `scripts/check-evidence-presence`, `scripts/draft-opponent-report`, and `scripts/check-opponent-report`.
+   - Current advisory or free-text-derived parts to retire or wrap with structured agent artifacts include `scripts/check-evaluation-claims`, `scripts/draft-opponent-report`, and `scripts/check-opponent-report`.
    - Explicit URL and marker detection in `scripts/opponent-preflight` and `scripts/check-tooling` may remain structural evidence routing, but should move to structured metadata if the notes format becomes more formal.
    - Until replaced, free-text-derived helper output must remain warning/advisory only and must be treated as prompts for agent/human verification, not as readiness gates or findings; structural schema, path, hash, placeholder, and privacy checks may remain hard gates.
 - [ ] Implement the read-only case-data contract and migration dry-run from `plans/case_format_migration_contract_plan.md`.
@@ -29,7 +29,7 @@
    - Include `--backup`, `--case`, `--all`, and `--from/--to` style controls with explicit idempotence tests.
    - Preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
 - [ ] Implement the supervisor-feedback preflight and closeout bundle from `plans/supervisor_workflow_closeout_plan.md`.
-   - Preflight should run readiness checks, `scripts/case-doctor`, code workspace preparation when code exists, assignment/metadata sanity checks, and early evidence-presence checks.
+   - Preflight should run readiness checks, `scripts/case-doctor`, code workspace preparation when code exists, and assignment/metadata sanity checks.
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
    - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
@@ -50,7 +50,7 @@
    - Prefer concrete statements such as "the README mentions automated tests, but does not describe the dev/test setup" over instructions that make the student or supervisor re-check the source material.
    - Keep conditional wording only when the available evidence is genuinely missing, contradictory, or outside the provided inputs, and state that limitation explicitly.
    - Add a reviewer check that flags avoidable conditional wording in P0/P1 items and asks the synthesis/review agent to resolve it from evidence before finalizing.
-- [ ] Extend visual/media intake beyond the V1 evidence-presence inventory.
+- [ ] Extend visual/media intake beyond the V1 media-presence inventory.
    - Inventory PDF figures/tables, source image assets, screenshots, videos, notebooks, posters, and presentations in operator-only work artifacts.
    - Distinguish rendered-PDF evidence from source-asset evidence and record whether media content was actually inspected.
    - Route unresolved visual interpretation or result-graph quality issues to the figure/media and evaluation-claim review paths.

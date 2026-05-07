@@ -73,9 +73,10 @@ Supervisor preflight should treat as diagnostic or warning:
 - `scripts/check-assignment-coverage <case-id> [round-id]`, which validates an
   agent/human-authored map for reviewer verification and must not become an
   automatic assignment-fulfillment verdict;
-- `scripts/check-evidence-presence <case-id> [round-id]`, which records missing
-  or present-but-uninspected evidence as review risk, not as proof that a claim
-  is false;
+- `scripts/check-evidence-presence <case-id> [round-id]`, which validates an
+  agent/human-authored evidence-requirements artifact and writes structural
+  media inventory without turning missing evidence into proof that a claim is
+  false;
 - `scripts/check-evaluation-claims <case-id> [round-id]`, which warns about
   metric/evaluation evidence gaps and semantic sanity risks; failures caused by
   missing required source material should be surfaced as preflight blockers only
@@ -168,9 +169,9 @@ Out of scope:
   - Implement the command from the typed preflight plan.
   - Hard-fail on supervisor readiness and required missing inputs.
   - Print diagnostic `case-doctor` status without replacing readiness checks.
-  - Run evidence presence and evaluation-claim diagnostics after readiness and
-    before role packets; validate assignment coverage only after the relevant
-    agent/human-authored structured artifact exists.
+  - After the relevant agent/human-authored structured artifacts exist, run
+    assignment coverage, evidence requirements, and evaluation-claim validators
+    as diagnostics; do not run those semantic checks as pre-agent inference.
   - Prepare code workspace only when code evidence exists and static review
     needs inspectable source.
   - Package the command and add smoke coverage.

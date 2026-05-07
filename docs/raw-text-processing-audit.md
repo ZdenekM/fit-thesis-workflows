@@ -80,10 +80,6 @@ deterministically.
   language family only when structured metadata is `auto` or missing. Keep
   explicit `Thesis language` metadata preferred, and keep rendered-text-derived
   checks warning-only.
-- `src/thesis_review_workflow/evidence_presence.py`: detects media/demo and
-  metric/evaluation language from assignment/extracted text/notes. This is useful
-  as a prompt, but the recurring replacement should be structured evidence
-  requirements produced by an agent from the assignment and case context.
 - `src/thesis_review_workflow/cli/draft_opponent_report.py`: maps reviewed
   materials to IS report items using normalized tokens. This should move toward
   explicit structured IS-item fields in reviewed opponent materials.
@@ -110,6 +106,10 @@ their replacement with agent-produced structured evidence.
   deterministic `scripts/check-assignment-coverage` helper now validates
   `work/assignment_coverage_agent.json` instead of deriving coverage from token
   overlap in assignment, materials, or report text.
+- `src/thesis_review_workflow/evidence_presence.py`: raw text media/demo and
+  metric/evaluation detectors were removed. `scripts/check-evidence-presence`
+  now validates `work/evidence_requirements.json` and writes only structural
+  `work/media_presence_inventory.jsonl` records from file paths and suffixes.
 
 ## Follow-Up Shape
 

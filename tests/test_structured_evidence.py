@@ -151,6 +151,15 @@ def test_validate_evidence_requirements_accepts_human_payload(tmp_path: Path) ->
     assert errors == []
 
 
+def test_validate_structured_artifact_reports_unreadable_path(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "work" / "evidence_requirements.json").mkdir(parents=True)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/evidence_requirements.json")
+
+    assert any("cannot read structured evidence artifact" in error for error in errors)
+
+
 def test_validate_quantitative_claims_requires_enum_values(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_round_refs(round_dir)

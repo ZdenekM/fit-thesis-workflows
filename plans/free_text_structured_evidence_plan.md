@@ -27,8 +27,9 @@ Current audit findings:
 - `src/thesis_review_workflow/cli/check_assignment_coverage.py` originally built
   semantic coverage from assignment and generated Markdown text; Slice 2A
   replaces it with structured artifact validation.
-- `src/thesis_review_workflow/cli/check_evidence_presence.py` currently builds
-  semantic evidence-presence findings from extracted text. Its suffix/path-only
+- `src/thesis_review_workflow/cli/check_evidence_presence.py` originally built
+  semantic evidence-presence findings from extracted text; Slice 2B replaces it
+  with validation of `work/evidence_requirements.json`. Its suffix/path-only
   `work/media_presence_inventory.jsonl` output is structural and remains valid.
 - `src/thesis_review_workflow/cli/check_evaluation_claims.py` currently scans
   extracted thesis text for quantitative/evaluation claims.
@@ -467,7 +468,7 @@ Commit target:
 
 ### Slice 2B: Evidence Requirements Contract
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -608,7 +609,13 @@ Commit target:
   removed the retired `work/assignment_coverage_map.json` allowlist, adjusted
   packets/preflight/docs/smokes, and passed agent review after clarifying that
   assignment coverage is produced by text/assignment agents after preflight.
-- Current slice: Slice 2B pending.
+- 2026-05-07: Slice 2B migrated `scripts/check-evidence-presence` to validate
+  `work/evidence_requirements.json`, removed semantic evidence-presence
+  generation and parser code, kept `work/media_presence_inventory.jsonl` as a
+  structural suffix/path inventory, updated packets/preflight/docs/smokes, and
+  passed agent re-review after fixing draft-report validation, stale inventory,
+  unreadable-artifact handling, and preflight reporting.
+- Current slice: Slice 2C pending.
 
 ## Decision Log
 

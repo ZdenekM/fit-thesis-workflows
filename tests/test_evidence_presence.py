@@ -1,125 +1,146 @@
 import json
 from pathlib import Path
-from typing import Any, cast
 
-from thesis_review_workflow.evidence_presence import MEDIA_PRESENCE_INVENTORY_REL, to_artifact, write_media_inventory
-
-
-def test_evidence_presence_flags_missing_required_media_and_metric_inputs(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
-    (round_dir / "notes").mkdir(parents=True)
-    (round_dir / "extracted").mkdir()
-    (round_dir / "work").mkdir()
-    (round_dir / "notes" / "assignment.md").write_text(
-        "## Formal Assignment Text Or Summary\n- Provide demo video.\n",
-        encoding="utf-8",
-    )
-    (round_dir / "extracted" / "thesis.txt").write_text(
-        "Evaluation reports accuracy and F1 metrics.\n",
-        encoding="utf-8",
-    )
-    (round_dir / "work" / "code_reproducibility.json").write_text(
-        json.dumps({"classification": "missing_instructions"}) + "\n",
-        encoding="utf-8",
-    )
-
-    artifact, media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
-    states = {(item["category"], item["state"]) for item in findings}
-    by_state = {item["state"]: item for item in findings if item["category"] == "evaluation"}
-
-    assert artifact["schema_version"] == "evidence-presence-v1"
-    assert ("media", "missing") in states
-    assert ("evaluation", "missing_data") in states
-    assert ("evaluation", "missing_script") in states
-    assert "Request raw data" in by_state["missing_data"]["request"]
-    assert "Request or cite calculation scripts" in by_state["missing_script"]["request"]
-    assert ("code_reproducibility", "missing_instructions") in states
-    assert media[0]["category"] == "video"
-    assert media[0]["state"] == "missing"
+from thesis_review_workflow.cli import check_evidence_presence
+from thesis_review_workflow.evidence_presence import (
+    MEDIA_PRESENCE_INVENTORY_REL,
+    build_media_inventory,
+    write_media_inventory,
+)
 
 
-def test_evidence_presence_uses_structural_eval_artifacts_to_suppress_metric_requests(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
-    (round_dir / "extracted").mkdir(parents=True)
-    (round_dir / "inputs").mkdir()
-    (round_dir / "work").mkdir()
-    (round_dir / "extracted" / "thesis.txt").write_text(
-        "Evaluation reports accuracy and F1 metrics.\n",
-        encoding="utf-8",
-    )
-    (round_dir / "inputs" / "eval_results.csv").write_text("metric,value\naccuracy,0.98\n", encoding="utf-8")
-    (round_dir / "work" / "eval_metrics.py").write_text("print('synthetic')\n", encoding="utf-8")
-
-    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
-
-    assert not any(item["category"] == "evaluation" for item in findings)
+def write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def test_evidence_presence_does_not_treat_generic_json_or_app_script_as_eval_evidence(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
-    (round_dir / "extracted").mkdir(parents=True)
-    (round_dir / "inputs").mkdir()
-    (round_dir / "work").mkdir()
-    (round_dir / "extracted" / "thesis.txt").write_text(
-        "Evaluation reports accuracy and F1 metrics.\n",
-        encoding="utf-8",
-    )
-    (round_dir / "inputs" / "config.json").write_text("{}\n", encoding="utf-8")
-    (round_dir / "work" / "app.py").write_text("print('synthetic')\n", encoding="utf-8")
-
-    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
-    states = {(item["category"], item["state"]) for item in findings}
-
-    assert ("evaluation", "missing_data") in states
-    assert ("evaluation", "missing_script") in states
-
-
-def test_evidence_presence_records_present_media_as_uninspected(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
-    (round_dir / "inputs").mkdir(parents=True)
-    (round_dir / "inputs" / "demo.mp4").write_text("synthetic", encoding="utf-8")
-
-    artifact, media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
-
-    assert findings[0]["state"] == "present-uninspected"
-    assert media[0]["path"] == "inputs/demo.mp4"
-    assert media[0]["inspection_depth"] == "metadata-only"
-
-
-def test_evidence_presence_does_not_treat_demo_as_unsatisfiable_media_category(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
+def make_round(root: Path) -> Path:
+    case_dir = root / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
     (round_dir / "inputs").mkdir()
-    (round_dir / "notes" / "assignment.md").write_text(
-        "## Formal Assignment Text Or Summary\n- Provide demo video.\n",
-        encoding="utf-8",
-    )
+    (round_dir / "work").mkdir()
+    (case_dir / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    return round_dir
+
+
+def evidence_requirements(case_id: str = "case-a") -> dict[str, object]:
+    return {
+        "schema_version": "evidence-requirements-v1",
+        "case_id": case_id,
+        "round_id": "round-a",
+        "generated_at": "2026-05-07T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "evidence-requirements-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Current request explicitly authorized agents.",
+        "source_refs": ["notes/assignment.md"],
+        "requirements": [
+            {
+                "requirement_id": "E1",
+                "category": "media",
+                "state": "present",
+                "request": "Check demo evidence.",
+                "evidence_refs": ["inputs/demo.mp4"],
+                "requires_reviewer_verification": False,
+            },
+            {
+                "requirement_id": "E2",
+                "category": "evaluation_data",
+                "state": "weak",
+                "request": "Review result data.",
+                "evidence_refs": [],
+                "requires_reviewer_verification": True,
+            },
+        ],
+        "limitations": [],
+    }
+
+
+def test_check_evidence_presence_validates_requirements_and_writes_media_inventory(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    (round_dir / "inputs" / "demo.mp4").write_text("synthetic", encoding="utf-8")
+    write_json(round_dir / "work" / "evidence_requirements.json", evidence_requirements())
+    monkeypatch.setattr(check_evidence_presence, "repo_root", lambda: root)
+
+    assert check_evidence_presence.main(["case-a", "round-a"]) == 0
+
+    output = capsys.readouterr().out
+    assert "Evidence requirements artifact: cases/case-a/rounds/round-a/work/evidence_requirements.json" in output
+    assert "Evidence requirements: 2" in output
+    assert "Requirement states: present=1, weak=1" in output
+    assert "Media inventory records: 1" in output
+    inventory = (round_dir / MEDIA_PRESENCE_INVENTORY_REL).read_text(encoding="utf-8").splitlines()
+    assert json.loads(inventory[0])["path"] == "inputs/demo.mp4"
+    assert not (round_dir / "work" / "evidence_presence.json").exists()
+
+
+def test_check_evidence_presence_requires_structured_requirements(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    stale_inventory = round_dir / MEDIA_PRESENCE_INVENTORY_REL
+    stale_inventory.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(check_evidence_presence, "repo_root", lambda: root)
+
+    assert check_evidence_presence.main(["case-a", "round-a"]) == 1
+
+    output = capsys.readouterr().out
+    assert "missing structured evidence artifact" in output
+    assert "Create `work/evidence_requirements.json`" in output
+    assert not (round_dir / MEDIA_PRESENCE_INVENTORY_REL).exists()
+
+
+def test_check_evidence_presence_rejects_invalid_state(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    payload = evidence_requirements()
+    requirements = payload["requirements"]
+    assert isinstance(requirements, list)
+    requirements[0]["state"] = "unknown"
+    write_json(round_dir / "work" / "evidence_requirements.json", payload)
+    (round_dir / MEDIA_PRESENCE_INVENTORY_REL).write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(check_evidence_presence, "repo_root", lambda: root)
+
+    assert check_evidence_presence.main(["case-a", "round-a"]) == 1
+
+    output = capsys.readouterr().out
+    assert "state must be one of" in output
+    assert not (round_dir / MEDIA_PRESENCE_INVENTORY_REL).exists()
+
+
+def test_build_media_inventory_records_present_media_only(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "notes" / "assignment.md").write_text("Provide a demo video.\n", encoding="utf-8")
     (round_dir / "inputs" / "demo.mp4").write_text("synthetic", encoding="utf-8")
 
-    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
+    records = build_media_inventory(round_dir)
 
-    assert not any(item["state"] == "missing" for item in findings)
-
-
-def test_evidence_presence_reads_existing_figure_media_inventory_without_overwriting(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
-    inventory = round_dir / "work" / "figure_media" / "visual_inventory.jsonl"
-    inventory.parent.mkdir(parents=True)
-    inventory.write_text(
-        json.dumps({"item_id": "fig-1", "inspection_status": "pdf_inspected"}) + "\n",
-        encoding="utf-8",
-    )
-
-    artifact, _media = to_artifact("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
-    findings = cast(list[dict[str, Any]], artifact["findings"])
-
-    assert findings[0]["state"] == "inspected"
-    assert inventory.read_text(encoding="utf-8").strip()
+    assert records == [
+        {
+            "schema_version": "visual-media-inventory-v1",
+            "path": "inputs/demo.mp4",
+            "category": "video",
+            "state": "present-uninspected",
+            "inspection_depth": "metadata-only",
+        }
+    ]
 
 
 def test_write_media_inventory_uses_jsonl(tmp_path: Path) -> None:

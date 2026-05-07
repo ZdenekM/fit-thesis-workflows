@@ -73,6 +73,9 @@ def validate_structured_evidence_artifact(
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return [f"{rel}: missing structured evidence artifact"]
+    except OSError as exc:
+        detail = exc.strerror or exc.__class__.__name__
+        return [f"{rel}: cannot read structured evidence artifact: {detail}"]
     except json.JSONDecodeError as exc:
         return [f"{rel}: invalid JSON: {exc.msg}"]
     if not isinstance(loaded, dict):

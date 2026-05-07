@@ -223,8 +223,10 @@ Nejběžnější výstupy jsou:
   vizuálních prvků a jejich popisů,
 - `work/assignment_coverage_agent.json` - agentem nebo člověkem připravená
   strukturovaná mapa splnění bodů zadání,
-- `work/evidence_presence.json` - poradní přehled chybějící, přítomné
-  a zatím neinspektované evidence,
+- `work/evidence_requirements.json` - agentem nebo člověkem připravený
+  strukturovaný přehled požadované, dostupné a slabé evidence,
+- `work/media_presence_inventory.jsonl` - strukturální inventář nalezených
+  media souborů podle cesty a přípony,
 - `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
   kódového podkladu bez spouštění studentského kódu,
 - `work/opponent_packets/*.md` - stručné role-specific podklady pro agentní
@@ -377,14 +379,14 @@ formulace do feedbacku nebo posudku. Aktuální audit hranice je v
 
 Poradní příprava pro oponentské review:
 
-`scripts/check-assignment-coverage` spouštějte až po vytvoření
-`work/assignment_coverage_agent.json` autorizovaným text/assignment agentem nebo
-člověkem.
+`scripts/check-assignment-coverage` a `scripts/check-evidence-presence`
+spouštějte až po vytvoření příslušných strukturovaných artefaktů autorizovaným
+agentem nebo člověkem.
 
 ```bash
 scripts/check-assignment-coverage <case-id>
-scripts/check-code-reproducibility <case-id>
 scripts/check-evidence-presence <case-id>
+scripts/check-code-reproducibility <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/prepare-opponent-packets <case-id>
 scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
@@ -433,11 +435,11 @@ private notes a metadata musí před review potvrdit hodnotitel.
 
 `scripts/opponent-preflight <case-id> [round-id]` před oponentským workflow
 tvrdě hlídá opponent readiness, tooling, lokální code workspace a GitHub intake
-pro GitHub odkazy nalezené v round notes. Statická reprodukovatelnost kódu a
-evidence-presence kontrola běží před syntézou, aby review agenti dostali férové
-omezení. Assignment coverage vzniká až jako strukturovaný výstup
-text/assignment agenta nebo člověka a potom se ověřuje přes
-`scripts/check-assignment-coverage`. Výstup `case-doctor` v preflightu zůstává
+pro GitHub odkazy nalezené v round notes. Statická reprodukovatelnost kódu běží
+před syntézou, aby review agenti dostali férové omezení. Assignment coverage a
+evidence requirements vznikají až jako strukturované výstupy příslušného agenta
+nebo člověka a potom se ověřují přes `scripts/check-assignment-coverage` a
+`scripts/check-evidence-presence`. Výstup `case-doctor` v preflightu zůstává
 diagnostický snapshot: upozorní i na starší výstupy nebo supervisor-only gate,
 ale sám o sobě neblokuje start oponentských agentů.
 
