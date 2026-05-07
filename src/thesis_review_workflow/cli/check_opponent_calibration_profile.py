@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from thesis_review_workflow.opponent_calibration import (
     HISTORICAL_CASE_ANALYSIS_PREFIX,
     REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL,
     REVIEWER_CALIBRATION_PROFILE_REL,
+    REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX,
     REVIEWER_CHECKLIST_REL,
     REVIEWER_PROFILE_CHANGE_LOG_REL,
     REVIEWER_PROFILE_HISTORY_REL,
@@ -82,6 +84,8 @@ def load_history_entries(round_dir: Path) -> tuple[list[dict[str, Any]], list[st
         except json.JSONDecodeError:
             continue
         if isinstance(loaded, dict):
+            loaded = dict(loaded)
+            loaded["_history_entry_sha256"] = hashlib.sha256(line.encode("utf-8")).hexdigest()
             entries.append(loaded)
         else:
             errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: line {index}: JSONL entry must be an object")
@@ -104,10 +108,35 @@ def source_case_ref_errors(label: str, refs: list[str], valid_analyses: set[str]
     return errors
 
 
+def profile_snapshot_path(version: int) -> str:
+    return f"{REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX}v{version}.md"
+
+
+def approval_binding_errors(
+    label: str,
+    approval: Any,
+    *,
+    profile_version: Any,
+    profile_hash: str,
+    manifest_hash: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(approval, dict):
+        return errors
+    if approval.get("approved_profile_version") != profile_version:
+        errors.append(f"{label}: approved_profile_version does not match profile version")
+    if approval.get("approved_profile_markdown_sha256") != profile_hash:
+        errors.append(f"{label}: approved_profile_markdown_sha256 does not match current profile")
+    if approval.get("approved_profile_manifest_sha256") != manifest_hash:
+        errors.append(f"{label}: approved_profile_manifest_sha256 does not match current profile manifest")
+    return errors
+
+
 def profile_binding_errors(round_dir: Path, profile: dict[str, Any], analyses: list[str]) -> list[str]:
     errors: list[str] = []
     current_profile_hash = sha256_file(round_dir / PROFILE_MARKDOWN_REL)
     current_manifest_hash = sha256_file(round_dir / REVIEWER_CALIBRATION_PROFILE_REL)
+    profile_version = profile.get("profile_version")
     if profile.get("profile_markdown_path") != PROFILE_MARKDOWN_REL:
         errors.append(f"{REVIEWER_CALIBRATION_PROFILE_REL}: profile_markdown_path must be {PROFILE_MARKDOWN_REL}")
     if profile.get("profile_markdown_sha256") != current_profile_hash:
@@ -125,8 +154,73 @@ def profile_binding_errors(round_dir: Path, profile: dict[str, Any], analyses: l
     errors.extend(history_errors)
     versions = [entry.get("profile_version") for entry in history_entries]
     int_versions = [version for version in versions if isinstance(version, int) and not isinstance(version, bool)]
-    if int_versions != sorted(set(int_versions)):
+    if isinstance(profile_version, int) and not isinstance(profile_version, bool):
+        expected_versions = list(range(1, profile_version + 1))
+        if int_versions != expected_versions:
+            errors.append(
+                f"{REVIEWER_PROFILE_HISTORY_REL}: profile_version entries must be append-only sequence "
+                f"{expected_versions}"
+            )
+    elif int_versions != sorted(set(int_versions)):
         errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: profile_version entries must be strictly increasing")
+    for previous, current in zip(history_entries, history_entries[1:]):
+        previous_refs = set(distinct_historical_analysis_refs(previous.get("source_case_refs")))
+        current_refs = set(distinct_historical_analysis_refs(current.get("source_case_refs")))
+        dropped_refs = sorted(previous_refs.difference(current_refs))
+        for ref in dropped_refs:
+            errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: refresh dropped source case ref {ref}")
+        previous_source_refs = (
+            {ref for ref in previous.get("source_refs", []) if isinstance(ref, str)}
+            if isinstance(previous.get("source_refs"), list)
+            else set()
+        )
+        current_source_refs = (
+            {ref for ref in current.get("source_refs", []) if isinstance(ref, str)}
+            if isinstance(current.get("source_refs"), list)
+            else set()
+        )
+        dropped_source_refs = sorted(previous_source_refs.difference(current_source_refs))
+        for ref in dropped_source_refs:
+            errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: refresh dropped source ref {ref}")
+        previous_entry_hash = previous.get("_history_entry_sha256")
+        if current.get("previous_history_entry_sha256") != previous_entry_hash:
+            errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: previous_history_entry_sha256 is stale")
+    for entry in history_entries:
+        version = entry.get("profile_version")
+        if not isinstance(version, int) or isinstance(version, bool):
+            continue
+        if version == 1:
+            if entry.get("previous_profile_markdown_sha256") is not None:
+                errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: genesis previous_profile_markdown_sha256 must be null")
+            if entry.get("previous_history_entry_sha256") is not None:
+                errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: genesis previous_history_entry_sha256 must be null")
+        expected_snapshot = profile_snapshot_path(version)
+        snapshot_path = entry.get("profile_snapshot_path")
+        if snapshot_path != expected_snapshot:
+            errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: version {version} profile_snapshot_path is stale")
+            continue
+        snapshot = round_dir / expected_snapshot
+        if snapshot.is_file() and sha256_file(snapshot) != entry.get("profile_markdown_sha256"):
+            errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: version {version} profile snapshot hash is stale")
+        if version > 1:
+            previous_entry = history_entries[version - 2] if len(history_entries) >= version - 1 else None
+            previous_hash = previous_entry.get("profile_markdown_sha256") if isinstance(previous_entry, dict) else None
+            if entry.get("previous_profile_markdown_sha256") != previous_hash:
+                errors.append(
+                    f"{REVIEWER_PROFILE_HISTORY_REL}: version {version} previous_profile_markdown_sha256 is stale"
+                )
+            entry_manifest_hash = entry.get("profile_manifest_sha256")
+            if not isinstance(entry_manifest_hash, str):
+                entry_manifest_hash = ""
+            errors.extend(
+                approval_binding_errors(
+                    f"{REVIEWER_PROFILE_HISTORY_REL}: version {version} operator_approval",
+                    entry.get("operator_approval"),
+                    profile_version=version,
+                    profile_hash=str(entry.get("profile_markdown_sha256") or ""),
+                    manifest_hash=entry_manifest_hash,
+                )
+            )
     latest = history_entries[-1] if history_entries else None
     if latest is None:
         errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: missing latest profile history entry")
@@ -137,6 +231,32 @@ def profile_binding_errors(round_dir: Path, profile: dict[str, Any], analyses: l
         errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: latest profile_markdown_sha256 is stale")
     if latest.get("profile_manifest_sha256") != current_manifest_hash:
         errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: latest profile_manifest_sha256 is stale")
+    if isinstance(profile_version, int) and not isinstance(profile_version, bool) and profile_version > 1:
+        errors.extend(
+            approval_binding_errors(
+                f"{REVIEWER_PROFILE_HISTORY_REL}: latest operator_approval",
+                latest.get("operator_approval"),
+                profile_version=profile_version,
+                profile_hash=current_profile_hash,
+                manifest_hash=current_manifest_hash,
+            )
+        )
+    if isinstance(profile_version, int) and not isinstance(profile_version, bool):
+        if profile_version == 1:
+            if profile.get("profile_previous_sha256") is not None:
+                profile_previous_label = f"{REVIEWER_CALIBRATION_PROFILE_REL}: profile_previous_sha256"
+                errors.append(f"{profile_previous_label} must be null for version 1")
+            if latest.get("previous_profile_markdown_sha256") is not None:
+                latest_previous_label = f"{REVIEWER_PROFILE_HISTORY_REL}: latest previous_profile_markdown_sha256"
+                errors.append(f"{latest_previous_label} must be null for version 1")
+            if latest.get("previous_history_entry_sha256") is not None:
+                errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: latest previous_history_entry_sha256 must be null")
+        elif len(history_entries) >= 2:
+            previous_hash = history_entries[-2].get("profile_markdown_sha256")
+            if profile.get("profile_previous_sha256") != previous_hash:
+                errors.append(f"{REVIEWER_CALIBRATION_PROFILE_REL}: profile_previous_sha256 is stale")
+            if latest.get("previous_profile_markdown_sha256") != previous_hash:
+                errors.append(f"{REVIEWER_PROFILE_HISTORY_REL}: latest previous_profile_markdown_sha256 is stale")
     history_refs = distinct_historical_analysis_refs(latest.get("source_case_refs"))
     errors.extend(
         source_case_ref_errors(

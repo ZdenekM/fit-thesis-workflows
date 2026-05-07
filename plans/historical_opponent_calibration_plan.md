@@ -548,7 +548,7 @@ Commit target:
 
 ### Slice 4: Incremental Profile Refresh
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -861,6 +861,19 @@ Commit target:
   `scripts/smoke-opponent-calibration-profile`, `pants lint
   src/thesis_review_workflow:: tests:: scripts::`, `pants check
   src/thesis_review_workflow:: tests:: scripts::`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
+  `pants run :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 4 completed and agent-reviewed. Tightened refreshes to use
+  versioned profile snapshots, append-only history chains via
+  `previous_history_entry_sha256`, cumulative `source_refs` and
+  `source_case_refs`, stale previous-profile hash checks, and structured
+  per-refresh operator approval bound to the history entry version and hashes.
+  Verification: `pants fmt src/thesis_review_workflow:: tests:: scripts::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_calibration.py tests/test_work_artifacts.py`,
+  `scripts/smoke-opponent-calibration-profile`,
   `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
   `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
   `pants run :jscpd`, and `pants run :omen`.

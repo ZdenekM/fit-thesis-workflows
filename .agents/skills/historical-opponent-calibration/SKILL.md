@@ -37,6 +37,17 @@ profiles, checklists, and reviews stay under ignored `cases/`.
     source analysis refs, and limitations.
 12. Run `scripts/check-opponent-calibration-profile <calibration-case-id> [round-id]`.
 
+## Refresh
+
+To add a new historical case or a newly finalized opponent report, repeat the
+historical case analysis step for the new case, then synthesize a new profile
+version. A refresh must keep all prior `source_case_refs`, set
+`profile_previous_sha256` to the previous versioned Markdown snapshot hash, add
+`work/calibration/profile_versions/v<version>.md`, append a new history line
+with `previous_history_entry_sha256` instead of rewriting the JSONL file, update
+`reviewer_profile_change_log.md`, and record structured operator approval
+before the refreshed profile becomes the default calibration profile.
+
 ## Boundaries
 
 - The profile is calibration context, not evidence about a new student's work.

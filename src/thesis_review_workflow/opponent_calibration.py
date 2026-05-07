@@ -21,6 +21,7 @@ REVIEWER_CALIBRATION_PROFILE_REL = "work/calibration/reviewer_calibration_profil
 REVIEWER_CHECKLIST_REL = "work/calibration/reviewer_checklist.json"
 REVIEWER_PROFILE_HISTORY_REL = "work/calibration/reviewer_calibration_profile_history.jsonl"
 REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL = "outputs/reviewer_calibration_profile.md"
+REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX = "work/calibration/profile_versions/"
 REVIEWER_PROFILE_REVIEW_REL = "work/calibration/profile_review.md"
 REVIEWER_PROFILE_CHANGE_LOG_REL = "work/calibration/reviewer_profile_change_log.md"
 
@@ -77,6 +78,9 @@ def calibration_profile_check_targets(round_dir: Path) -> list[str]:
     analyses_dir = round_dir / HISTORICAL_CASE_ANALYSIS_PREFIX
     if analyses_dir.is_dir():
         targets.extend(path.relative_to(round_dir).as_posix() for path in sorted(analyses_dir.rglob("*.json")))
+    snapshots_dir = round_dir / REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX
+    if snapshots_dir.is_dir():
+        targets.extend(path.relative_to(round_dir).as_posix() for path in sorted(snapshots_dir.rglob("*.md")))
     return targets
 
 
@@ -205,6 +209,25 @@ def validate_profile_history_artifact(
         _require_sha(loaded, "profile_manifest_sha256", prefix, errors)
         _require_nonempty_string(loaded, "change_summary", prefix, errors)
         _require_nonempty_string(loaded, "review_status", prefix, errors)
+        _require_sha_or_null(loaded, "previous_history_entry_sha256", prefix, errors)
+        _require_nonempty_string(loaded, "profile_snapshot_path", prefix, errors)
+        snapshot_path = loaded.get("profile_snapshot_path")
+        if isinstance(snapshot_path, str):
+            _validate_profile_snapshot_path(
+                snapshot_path, loaded.get("profile_version"), f"{prefix}: profile_snapshot_path", errors
+            )
+            _validate_ref(
+                snapshot_path,
+                f"{prefix}: profile_snapshot_path",
+                round_dir=round_dir,
+                require_existing_refs=require_existing_refs,
+                errors=errors,
+            )
+        version = loaded.get("profile_version")
+        if isinstance(version, int) and not isinstance(version, bool) and version > 1:
+            _validate_operator_approval(loaded.get("operator_approval"), f"{prefix}: operator_approval", errors)
+        elif "operator_approval" in loaded:
+            _validate_operator_approval(loaded.get("operator_approval"), f"{prefix}: operator_approval", errors)
         _validate_refs(
             loaded.get("source_refs"),
             f"{prefix}: source_refs",
@@ -320,6 +343,8 @@ def _validate_profile_manifest(
     _require_int(loaded, "profile_version", rel_path, errors)
     _require_sha_or_null(loaded, "profile_previous_sha256", rel_path, errors)
     _require_nonempty_string(loaded, "profile_change_summary", rel_path, errors)
+    if "operator_approval" in loaded:
+        _validate_operator_approval(loaded.get("operator_approval"), f"{rel_path}: operator_approval", errors)
     _validate_confidence_by_dimension(loaded.get("confidence_by_dimension"), rel_path, errors)
     _require_list(loaded, "do_not_use_for", rel_path, errors)
     markdown_path = loaded.get("profile_markdown_path")
@@ -392,6 +417,33 @@ def _validate_confidence_by_dimension(value: Any, rel_path: str, errors: list[st
             continue
         _require_nonempty_string(item, "level", f"{rel_path}: confidence_by_dimension.{key}", errors)
         _require_nonempty_string(item, "rationale", f"{rel_path}: confidence_by_dimension.{key}", errors)
+
+
+def _validate_operator_approval(value: Any, label: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be object")
+        return
+    if value.get("approved") is not True:
+        errors.append(f"{label}: approved must be true")
+    if value.get("approval_kind") != "default_profile_refresh":
+        errors.append(f"{label}: approval_kind must be default_profile_refresh")
+    _require_int(value, "approved_profile_version", label, errors)
+    _require_sha(value, "approved_profile_markdown_sha256", label, errors)
+    _require_sha(value, "approved_profile_manifest_sha256", label, errors)
+    for field in ("approved_by", "approved_at", "approval_scope"):
+        _require_nonempty_string(value, field, label, errors)
+
+
+def _validate_profile_snapshot_path(value: str, version: Any, label: str, errors: list[str]) -> None:
+    if not value.startswith(REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX) or not value.endswith(".md"):
+        errors.append(f"{label}: path must be under {REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX} and end with .md")
+        return
+    if "/" in value.removeprefix(REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX):
+        errors.append(f"{label}: snapshot path must not contain nested directories")
+    if isinstance(version, int) and not isinstance(version, bool):
+        expected = f"{REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX}v{version}.md"
+        if value != expected:
+            errors.append(f"{label}: path must be {expected}")
 
 
 def _validate_refs(

@@ -94,7 +94,13 @@ Profile refresh history is append-only JSONL:
 - `work/calibration/reviewer_calibration_profile_history.jsonl`
 
 Each line records the new profile version, previous/current hashes, source case
-refs, review state, and change summary.
+refs, review state, a versioned profile snapshot path, the previous history
+entry hash, and change summary. Every refresh version after version 1 must also
+record explicit structured operator approval bound to that history entry,
+including the approved profile version, profile Markdown hash, and profile
+manifest hash. The structural checker rejects refreshes that break the history
+chain, skip versions, reuse a stale previous-profile hash, or drop earlier
+source refs silently.
 
 ## Current-Case Use
 

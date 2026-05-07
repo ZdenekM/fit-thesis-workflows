@@ -132,6 +132,9 @@ profile_md.write_text(
     "Synthetic private profile. This is not a real historical report.\n",
     encoding="utf-8",
 )
+profile_snapshot = round_dir / "work/calibration/profile_versions/v1.md"
+profile_snapshot.parent.mkdir(parents=True, exist_ok=True)
+profile_snapshot.write_text(profile_md.read_text(encoding="utf-8"), encoding="utf-8")
 profile_hash = sha256_file(profile_md)
 
 profile = {
@@ -183,6 +186,8 @@ history = {
     "source_refs": analysis_refs,
     "profile_version": 1,
     "previous_profile_markdown_sha256": None,
+    "previous_history_entry_sha256": None,
+    "profile_snapshot_path": "work/calibration/profile_versions/v1.md",
     "profile_markdown_sha256": profile_hash,
     "profile_manifest_sha256": sha256_file(round_dir / "work/calibration/reviewer_calibration_profile.json"),
     "source_case_refs": analysis_refs,
