@@ -19,6 +19,11 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.opponent_calibration import (
+    OPPONENT_CALIBRATION_ADVISORY_REL,
+    OPPONENT_CALIBRATION_USE_REL,
+    validate_opponent_calibration_artifact,
+)
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
@@ -27,6 +32,7 @@ DRAFT_REL = Path("work/oponent_posudek_draft.md")
 TRACE_REL = Path("work/opponent_report_trace.json")
 CODE_REPRO_REL = Path("work/code_reproducibility.json")
 EVIDENCE_REQUIREMENTS_REL = Path("work/evidence_requirements.json")
+CALIBRATION_CONTEXT_RELS = (Path(OPPONENT_CALIBRATION_USE_REL), Path(OPPONENT_CALIBRATION_ADVISORY_REL))
 
 IS_SECTIONS = (
     ("assignment_difficulty", "Náročnost zadání"),
@@ -90,6 +96,28 @@ def load_valid_trace(round_dir: Path, case_id: str, round_id: str) -> dict[str, 
             f"authorized opponent-report-trace reviewer before drafting.\n{detail}"
         )
     return load_json_object(round_dir / TRACE_REL, TRACE_REL.as_posix())
+
+
+def validate_current_case_calibration(round_dir: Path, case_id: str, round_id: str) -> str | None:
+    existing = [rel_path for rel_path in CALIBRATION_CONTEXT_RELS if (round_dir / rel_path).is_file()]
+    if len(existing) > 1:
+        paths = ", ".join(path.as_posix() for path in existing)
+        raise SystemExit(f"Conflicting current-case opponent calibration artifacts: {paths}")
+    if not existing:
+        return None
+    rel_path = existing[0]
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        rel_path,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        detail = "\n".join(f"ERROR: {error}" for error in errors)
+        raise SystemExit(
+            "Invalid current-case opponent calibration artifact; refresh or remove it before drafting.\n" f"{detail}"
+        )
+    return rel_path.as_posix()
 
 
 def trace_items_by_id(trace: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -268,6 +296,7 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"Missing reviewed opponent materials: {MATERIALS_REL.as_posix()}")
     trace_path = round_dir / TRACE_REL
     trace = load_valid_trace(round_dir, args.case_id, round_id)
+    validate_current_case_calibration(round_dir, args.case_id, round_id)
     draft_path = round_dir / DRAFT_REL
     if draft_path.exists() and not args.force:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")

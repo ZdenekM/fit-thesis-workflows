@@ -2,8 +2,12 @@ import hashlib
 import json
 from pathlib import Path
 
+from thesis_review_workflow.cli import check_reviewer_profile, check_round_ready
 from thesis_review_workflow.cli.check_opponent_calibration_profile import profile_binding_errors
+from thesis_review_workflow.cli.draft_opponent_report import validate_current_case_calibration
+from thesis_review_workflow.commands import Step
 from thesis_review_workflow.opponent_calibration import validate_opponent_calibration_artifact
+from thesis_review_workflow.structured_evidence import REQUIRED_OPPONENT_IS_ITEM_IDS
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts, validate_supporting_work_artifacts
 
 
@@ -26,6 +30,13 @@ def jsonl_entry_sha256(entry: dict[str, object]) -> str:
 
 def write_profile_snapshot(round_dir: Path, version: int, content: str = "synthetic fixture\n") -> Path:
     path = round_dir / "work/calibration/profile_versions" / f"v{version}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def write_text_artifact(round_dir: Path, rel_path: str, content: str = "synthetic fixture\n") -> Path:
+    path = round_dir / rel_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
@@ -115,6 +126,192 @@ def operator_approval(
         "approved_by": "synthetic-operator",
         "approved_at": "2026-05-07T00:00:00Z",
         "approval_scope": "Make refreshed profile version default for future opponent cases.",
+    }
+
+
+def write_selected_calibration_artifacts(round_dir: Path, *, profile_version: int = 1) -> dict[str, str]:
+    create_calibration_refs(round_dir)
+    analysis_refs = [
+        "work/calibration/historical_case_analyses/case-001.json",
+        "work/calibration/historical_case_analyses/case-002.json",
+    ]
+    for rel_path in analysis_refs:
+        historical_case_id = rel_path.rsplit("/", maxsplit=1)[1].removesuffix(".json")
+        write_json(round_dir / rel_path, historical_case_payload_for(historical_case_id))
+
+    profile_path = round_dir / "outputs/reviewer_calibration_profile.md"
+    profile = {
+        **common_fields("opponent-reviewer-calibration-profile-v1"),
+        "source_refs": analysis_refs,
+        "profile_markdown_path": "outputs/reviewer_calibration_profile.md",
+        "profile_markdown_sha256": sha256_file(profile_path),
+        "profile_applicability": {"confident": ["synthetic software engineering"]},
+        "source_case_refs": analysis_refs,
+        "profile_version": profile_version,
+        "profile_previous_sha256": None,
+        "profile_change_summary": "Initial synthetic profile.",
+        "confidence_by_dimension": confidence_by_dimension(),
+        "do_not_use_for": ["current-case conclusions without evidence"],
+    }
+    checklist = {
+        **common_fields("opponent-reviewer-checklist-v1"),
+        "source_refs": analysis_refs,
+        "checklist_items": [
+            {
+                "item_id": "assignment-map",
+                "evidence_class": "assignment_fulfillment",
+                "prompt": "Map submitted work to assignment points.",
+                "source_case_refs": analysis_refs,
+                "requires_current_case_evidence": True,
+            }
+        ],
+    }
+    paths = {
+        "profile": "work/calibration/reviewer_calibration_profile.json",
+        "checklist": "work/calibration/reviewer_checklist.json",
+    }
+    write_json(round_dir / paths["profile"], profile)
+    write_json(round_dir / paths["checklist"], checklist)
+    return {key: sha256_file(round_dir / rel_path) for key, rel_path in paths.items()}
+
+
+def current_case_hashes(round_dir: Path) -> dict[str, str]:
+    materials = write_text_artifact(round_dir, "outputs/oponent_podklady_revidovane.md")
+    write_json(
+        round_dir / "work/opponent_report_trace.json",
+        opponent_trace_payload(sha256_file(materials)),
+    )
+    hashes = write_selected_calibration_artifacts(round_dir)
+    paths = {
+        "source_materials": "outputs/oponent_podklady_revidovane.md",
+        "trace": "work/opponent_report_trace.json",
+    }
+    hashes.update({key: sha256_file(round_dir / rel_path) for key, rel_path in paths.items()})
+    return hashes
+
+
+def refresh_current_case_approval(payload: dict[str, object], field: str, value: str) -> None:
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval[field] = value
+    payload["operator_approval"] = approval
+
+
+def reviewer_profile_gate() -> dict[str, object]:
+    return {
+        "required": True,
+        "satisfied_by_historical_calibration": False,
+    }
+
+
+def opponent_trace_payload(source_hash: str) -> dict[str, object]:
+    return {
+        **common_fields("opponent-report-trace-v1"),
+        "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": source_hash,
+        "trace_review_status": "accepted",
+        "reviewer_role": "synthetic-trace-reviewer",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+        "is_items": [
+            {
+                "item_id": item_id,
+                "title": item_id.replace("_", " "),
+                "formulation": "Synthetic formulation.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+            for item_id in sorted(REQUIRED_OPPONENT_IS_ITEM_IDS)
+        ],
+        "defense_questions": [
+            {
+                "question_id": "D1",
+                "question": "Synthetic defense question?",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "pre_submission_checks": [
+            {
+                "check_id": "C1",
+                "instruction": "Synthetic manual check.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "uncertainty_items": [
+            {
+                "claim_id": "U1",
+                "summary": "Synthetic uncertainty.",
+                "handling_instruction": "Keep cautious wording.",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "target_section_ids": ["overall_assessment"],
+                "report_refs": ["work/oponent_posudek_draft.md"],
+                "status": "carried_to_report",
+            }
+        ],
+        "limitations": [],
+    }
+
+
+def current_case_approval(hashes: dict[str, str]) -> dict[str, object]:
+    return {
+        "approved": True,
+        "approval_kind": "current_case_calibration_use",
+        "approved_by": "synthetic-operator",
+        "approved_at": "2026-05-07T00:00:00Z",
+        "approved_profile_manifest_sha256": hashes["profile"],
+        "approved_checklist_sha256": hashes["checklist"],
+        "approved_source_materials_sha256": hashes["source_materials"],
+        "approved_trace_sha256": hashes["trace"],
+    }
+
+
+def calibration_use_payload(round_dir: Path) -> dict[str, object]:
+    hashes = current_case_hashes(round_dir)
+    return {
+        **common_fields("opponent-calibration-use-v1"),
+        "source_refs": [
+            "outputs/oponent_podklady_revidovane.md",
+            "work/opponent_report_trace.json",
+            "work/calibration/reviewer_calibration_profile.json",
+            "work/calibration/reviewer_checklist.json",
+        ],
+        "limitations": ["Synthetic calibration profile; current case evidence remains authoritative."],
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": hashes["source_materials"],
+        "opponent_report_trace_path": "work/opponent_report_trace.json",
+        "opponent_report_trace_sha256": hashes["trace"],
+        "profile_manifest_path": "work/calibration/reviewer_calibration_profile.json",
+        "profile_manifest_sha256": hashes["profile"],
+        "checklist_path": "work/calibration/reviewer_checklist.json",
+        "checklist_sha256": hashes["checklist"],
+        "selected_profile_version": 1,
+        "calibration_scope": "Style, evidence expectations, and checklist prompts only.",
+        "applicability_dimensions": [
+            {"dimension": "work_type", "status": "matching", "rationale": "Synthetic fixture."},
+            {"dimension": "domain", "status": "partial", "rationale": "Synthetic fixture."},
+        ],
+        "confidence_by_dimension": confidence_by_dimension(),
+        "reviewer_profile_gate": reviewer_profile_gate(),
+        "operator_approval": current_case_approval(hashes),
+    }
+
+
+def calibration_advisory_payload(round_dir: Path) -> dict[str, object]:
+    materials = write_text_artifact(round_dir, "outputs/oponent_podklady_revidovane.md")
+    trace = round_dir / "work/opponent_report_trace.json"
+    write_json(trace, opponent_trace_payload(sha256_file(materials)))
+    return {
+        **common_fields("opponent-calibration-advisory-v1"),
+        "source_refs": ["outputs/oponent_podklady_revidovane.md", "work/opponent_report_trace.json"],
+        "limitations": ["Historical calibration is optional and unavailable in this synthetic fixture."],
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": sha256_file(materials),
+        "opponent_report_trace_path": "work/opponent_report_trace.json",
+        "opponent_report_trace_sha256": sha256_file(trace),
+        "no_profile_reason": "missing_profile",
+        "advisory_status": "non_blocking",
+        "normal_workflow_continues": True,
+        "recommendation": "Add historical opponent reports later for better style calibration.",
+        "reviewer_profile_gate": reviewer_profile_gate(),
     }
 
 
@@ -1001,6 +1198,291 @@ def test_profile_binding_rejects_dropped_history_source_refs(tmp_path: Path) -> 
         "refresh dropped source ref work/calibration/historical_case_analyses/case-001.json" in error
         for error in errors
     )
+
+
+def test_validate_opponent_calibration_use_binds_current_case_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_use.json",
+        case_id="calibration-case",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_calibration_use_rejects_stale_trace_and_approval(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    (round_dir / "work/opponent_report_trace.json").write_text("changed\n", encoding="utf-8")
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval["approved_trace_sha256"] = "0" * 64
+    payload["operator_approval"] = approval
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("opponent_report_trace_sha256 is stale" in error for error in errors)
+    assert any("operator_approval.approved_trace_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_direct_stale_source_materials_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    (round_dir / "outputs/oponent_podklady_revidovane.md").write_text("changed materials\n", encoding="utf-8")
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("work/opponent_calibration_use.json: source_materials_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_direct_stale_profile_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    profile_path = round_dir / "work/calibration/reviewer_calibration_profile.json"
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    profile["profile_change_summary"] = "Changed synthetic profile."
+    write_json(profile_path, profile)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("profile_manifest_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_direct_stale_checklist_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    checklist_path = round_dir / "work/calibration/reviewer_checklist.json"
+    checklist = json.loads(checklist_path.read_text(encoding="utf-8"))
+    checklist["checklist_items"][0]["prompt"] = "Changed synthetic prompt."
+    write_json(checklist_path, checklist)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("checklist_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_unaccepted_trace_with_matching_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    trace_path = round_dir / "work/opponent_report_trace.json"
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    trace["trace_review_status"] = "draft"
+    write_json(trace_path, trace)
+    trace_hash = sha256_file(trace_path)
+    payload["opponent_report_trace_sha256"] = trace_hash
+    refresh_current_case_approval(payload, "approved_trace_sha256", trace_hash)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert not any("opponent_report_trace_sha256 is stale" in error for error in errors)
+    assert any("trace_review_status must be one of accepted" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_trace_with_stale_source_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    materials_path = round_dir / "outputs/oponent_podklady_revidovane.md"
+    materials_path.write_text("changed materials\n", encoding="utf-8")
+    materials_hash = sha256_file(materials_path)
+    payload["source_materials_sha256"] = materials_hash
+    refresh_current_case_approval(payload, "approved_source_materials_sha256", materials_hash)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert not any("work/opponent_calibration_use.json: source_materials_sha256 is stale" in error for error in errors)
+    assert any("work/opponent_report_trace.json: source_materials_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_invalid_selected_profile(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    profile_path = round_dir / "work/calibration/reviewer_calibration_profile.json"
+    write_json(profile_path, {})
+    profile_hash = sha256_file(profile_path)
+    payload["profile_manifest_sha256"] = profile_hash
+    refresh_current_case_approval(payload, "approved_profile_manifest_sha256", profile_hash)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert not any("profile_manifest_sha256 is stale" in error for error in errors)
+    assert any("schema_version must be opponent-reviewer-calibration-profile-v1" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_rejects_invalid_selected_checklist(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    checklist_path = round_dir / "work/calibration/reviewer_checklist.json"
+    write_json(checklist_path, {})
+    checklist_hash = sha256_file(checklist_path)
+    payload["checklist_sha256"] = checklist_hash
+    refresh_current_case_approval(payload, "approved_checklist_sha256", checklist_hash)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert not any("checklist_sha256 is stale" in error for error in errors)
+    assert any("schema_version must be opponent-reviewer-checklist-v1" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_requires_selected_profile_version_match(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    payload["selected_profile_version"] = 99
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("selected_profile_version must match profile_manifest profile_version" in error for error in errors)
+
+
+def test_validate_opponent_calibration_use_keeps_reviewer_profile_gate_separate(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    payload["reviewer_profile_gate"] = {
+        "required": False,
+        "satisfied_by_historical_calibration": True,
+    }
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_use.json")
+
+    assert any("reviewer_profile_gate.required must be true" in error for error in errors)
+    assert any("reviewer_profile_gate.satisfied_by_historical_calibration must be false" in error for error in errors)
+
+
+def test_current_case_calibration_cannot_satisfy_reviewer_profile_readiness(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "repo"
+    case_dir = root / "cases" / "calibration-case"
+    round_dir = case_dir / "rounds" / "round-a"
+    (root / "profiles").mkdir(parents=True)
+    (root / "profiles" / "default.md").write_text("# Default profile\n", encoding="utf-8")
+    case_dir.mkdir(parents=True)
+    (case_dir / "case.md").write_text("Reviewer profile: local/missing\n", encoding="utf-8")
+    (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    payload = calibration_use_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+    assert (
+        validate_opponent_calibration_artifact(
+            round_dir,
+            "work/opponent_calibration_use.json",
+            case_id="calibration-case",
+            round_id="round-a",
+        )
+        == []
+    )
+
+    def run_reviewer_profile(root_path: Path, label: str, args: list[str], *, required: bool = True) -> Step:
+        monkeypatch.setattr(check_reviewer_profile, "repo_root", lambda: root_path)
+        return Step(label, args, check_reviewer_profile.main(args), "", required)
+
+    monkeypatch.setattr(check_round_ready, "repo_root", lambda: root)
+    monkeypatch.setattr(check_round_ready, "run_step", run_reviewer_profile)
+
+    assert check_round_ready.main(["scripts/check-round-ready", "calibration-case", "round-a"]) == 1
+
+
+def test_validate_opponent_calibration_advisory_is_non_blocking(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_advisory_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_advisory.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_advisory.json")
+
+    assert errors == []
+
+
+def test_validate_opponent_calibration_advisory_rejects_unaccepted_trace_with_matching_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_advisory_payload(round_dir)
+    trace_path = round_dir / "work/opponent_report_trace.json"
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    trace["trace_review_status"] = "draft"
+    write_json(trace_path, trace)
+    payload["opponent_report_trace_sha256"] = sha256_file(trace_path)
+    write_json(round_dir / "work/opponent_calibration_advisory.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_advisory.json")
+
+    assert not any("opponent_report_trace_sha256 is stale" in error for error in errors)
+    assert any("trace_review_status must be one of accepted" in error for error in errors)
+
+
+def test_validate_opponent_calibration_advisory_rejects_gate_like_status(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = {
+        **calibration_advisory_payload(round_dir),
+        "advisory_status": "blocking",
+        "normal_workflow_continues": False,
+    }
+    write_json(round_dir / "work/opponent_calibration_advisory.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_calibration_advisory.json")
+
+    assert any("advisory_status must be non_blocking" in error for error in errors)
+    assert any("normal_workflow_continues must be true" in error for error in errors)
+
+
+def test_work_artifacts_collects_current_case_calibration_advisory(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_json(round_dir / "work/opponent_calibration_advisory.json", calibration_advisory_payload(round_dir))
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path["work/opponent_calibration_advisory.json"]["schema_version"] == "opponent-calibration-advisory-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="calibration-case", round_id="round-a") == []
+
+
+def test_draft_gate_validates_current_case_calibration_use(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+
+    selected = validate_current_case_calibration(round_dir, "calibration-case", "round-a")
+
+    assert selected == "work/opponent_calibration_use.json"
+
+
+def test_draft_gate_rejects_stale_current_case_calibration_use(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_use_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_use.json", payload)
+    profile_path = round_dir / "work/calibration/reviewer_calibration_profile.json"
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    profile["profile_change_summary"] = "Changed synthetic profile."
+    write_json(profile_path, profile)
+
+    try:
+        validate_current_case_calibration(round_dir, "calibration-case", "round-a")
+    except SystemExit as exc:
+        assert "Invalid current-case opponent calibration artifact" in str(exc)
+        assert "profile_manifest_sha256 is stale" in str(exc)
+    else:
+        raise AssertionError("Expected stale current-case calibration to fail")
+
+
+def test_draft_gate_rejects_conflicting_current_case_calibration_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_json(round_dir / "work/opponent_calibration_use.json", calibration_use_payload(round_dir))
+    write_json(round_dir / "work/opponent_calibration_advisory.json", calibration_advisory_payload(round_dir))
+
+    try:
+        validate_current_case_calibration(round_dir, "calibration-case", "round-a")
+    except SystemExit as exc:
+        assert "Conflicting current-case opponent calibration artifacts" in str(exc)
+    else:
+        raise AssertionError("Expected conflicting current-case calibration artifacts to fail")
 
 
 def test_validate_historical_case_analysis_rejects_dot_only_stem(tmp_path: Path) -> None:

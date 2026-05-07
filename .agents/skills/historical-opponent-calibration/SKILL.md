@@ -56,3 +56,10 @@ before the refreshed profile becomes the default calibration profile.
 - Deterministic helpers must not infer reviewer style from raw historical report
   text. They validate schemas, paths, hashes, and review state only.
 - Avoid long verbatim excerpts from historical reports.
+- Current-case use is recorded in `work/opponent_calibration_use.json` only
+  after reviewed opponent materials and an accepted report trace exist; absence
+  or non-use is recorded as non-blocking `work/opponent_calibration_advisory.json`.
+- Historical calibration must never satisfy the normal `Reviewer profile` gate.
+- Before drafting an opponent report, refresh or remove any stale current-case
+  calibration use/advisory artifact; the draft helper treats a recorded but
+  invalid calibration context as a blocking provenance error.

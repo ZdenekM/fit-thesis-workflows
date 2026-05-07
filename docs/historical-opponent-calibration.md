@@ -114,6 +114,19 @@ If a profile is selected, the workflow writes:
 
 - `work/opponent_calibration_use.json`
 
+This use artifact binds the current reviewed opponent materials, accepted report
+trace, selected private profile manifest, and checklist by path and SHA-256. It
+also records applicability dimensions, confidence by dimension, explicit
+operator approval for using the profile in the current case, and a structural
+marker that the normal `Reviewer profile` gate remains required and cannot be
+satisfied by historical calibration.
+
+`scripts/draft-opponent-report` validates any recorded
+`work/opponent_calibration_use.json` or `work/opponent_calibration_advisory.json`
+before writing a draft. If both exist, or if the recorded artifact is stale or
+invalid, drafting stops until the current-case calibration context is refreshed
+or removed.
+
 If no profile exists or the operator chooses not to use it, the workflow writes:
 
 - `work/opponent_calibration_advisory.json`

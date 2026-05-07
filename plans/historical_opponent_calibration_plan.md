@@ -357,11 +357,12 @@ In a normal opponent case, after reviewed materials and trace exist:
 
 - `work/opponent_calibration_use.json`: schema
   `opponent-calibration-use-v1`; selected private calibration profile id,
-  manifest path/hash, Markdown profile path/hash, checklist path/hash, source
-  reviewed-materials path/hash, source trace path/hash, scope, profile
-  applicability assessment, confidence by dimension, limitations, operator
-  approval, and approval note. This is supplemental context only and never
-  replaces `Reviewer profile` readiness.
+  manifest path/hash, checklist path/hash, source reviewed-materials path/hash,
+  source trace path/hash, scope, profile applicability assessment, confidence by
+  dimension, limitations, operator approval, and approval note. The selected
+  profile manifest carries the Markdown profile path/hash under its own schema.
+  This is supplemental context only and never replaces `Reviewer profile`
+  readiness.
 - `work/opponent_calibration_advisory.json`: schema
   `opponent-calibration-advisory-v1`; optional structural record that no
   profile was selected or available, why no profile was used, whether the
@@ -588,7 +589,7 @@ Commit target:
 
 ### Slice 5: Current-Case Calibration Selection Contracts
 
-Status: pending
+Status: completed
 
 Actions:
 
@@ -606,6 +607,9 @@ Actions:
 - Ensure the existing `Reviewer profile` readiness check still runs independently
   and historical calibration cannot satisfy it.
 - Add stale-hash tests for selected profile/checklist/materials/trace bindings.
+- Ensure `scripts/draft-opponent-report` validates any recorded current-case
+  calibration use/advisory artifact before writing a draft, so stale calibration
+  context cannot be silently ignored.
 
 Verification:
 
@@ -877,6 +881,20 @@ Commit target:
   `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
   `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
   `pants run :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 5 completed and agent-reviewed. Added current-case
+  calibration use/advisory artifact contracts, structural validation of bound
+  accepted report traces, selected profile manifests, and checklists, explicit
+  proof that historical calibration does not satisfy the normal `Reviewer
+  profile` readiness gate, and a draft helper gate that rejects stale, invalid,
+  or conflicting current-case calibration context before writing a report draft.
+  Verification: `pants fmt src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_opponent_calibration.py tests/test_structured_evidence.py
+  tests/test_review_manifest_helpers.py tests/test_draft_opponent_report.py`,
+  `scripts/smoke-opponent-report`, `pants lint src/thesis_review_workflow::
+  tests:: scripts::`, `pants check src/thesis_review_workflow:: tests::
+  scripts::`, `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, `pants run :vulture`, `pants run
+  :jscpd`, and `pants run :omen`.
 
 ## Decision Log
 

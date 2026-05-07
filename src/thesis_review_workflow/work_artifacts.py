@@ -46,6 +46,8 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/evidence_requirements.json",
     "work/quantitative_claims.json",
     "work/opponent_report_trace.json",
+    "work/opponent_calibration_use.json",
+    "work/opponent_calibration_advisory.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
 )

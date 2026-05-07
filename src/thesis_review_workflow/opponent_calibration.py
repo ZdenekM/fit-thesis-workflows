@@ -10,11 +10,14 @@ from typing import Any
 from thesis_review_workflow.artifact_validation import sha256_file, validate_common_artifact_fields
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
 HISTORICAL_CASE_ANALYSIS_SCHEMA = "historical-opponent-case-analysis-v1"
 REVIEWER_CALIBRATION_PROFILE_SCHEMA = "opponent-reviewer-calibration-profile-v1"
 REVIEWER_CHECKLIST_SCHEMA = "opponent-reviewer-checklist-v1"
 REVIEWER_PROFILE_HISTORY_SCHEMA = "opponent-reviewer-calibration-history-v1"
+OPPONENT_CALIBRATION_USE_SCHEMA = "opponent-calibration-use-v1"
+OPPONENT_CALIBRATION_ADVISORY_SCHEMA = "opponent-calibration-advisory-v1"
 
 HISTORICAL_CASE_ANALYSIS_PREFIX = "work/calibration/historical_case_analyses/"
 REVIEWER_CALIBRATION_PROFILE_REL = "work/calibration/reviewer_calibration_profile.json"
@@ -24,11 +27,17 @@ REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL = "outputs/reviewer_calibration_profil
 REVIEWER_CALIBRATION_PROFILE_SNAPSHOT_PREFIX = "work/calibration/profile_versions/"
 REVIEWER_PROFILE_REVIEW_REL = "work/calibration/profile_review.md"
 REVIEWER_PROFILE_CHANGE_LOG_REL = "work/calibration/reviewer_profile_change_log.md"
+OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
+OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
+OPPONENT_MATERIALS_REVIEWED_REL = "outputs/oponent_podklady_revidovane.md"
+OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
 
 EXACT_CALIBRATION_ARTIFACT_SCHEMAS: dict[str, str] = {
     REVIEWER_CALIBRATION_PROFILE_REL: REVIEWER_CALIBRATION_PROFILE_SCHEMA,
     REVIEWER_CHECKLIST_REL: REVIEWER_CHECKLIST_SCHEMA,
     REVIEWER_PROFILE_HISTORY_REL: REVIEWER_PROFILE_HISTORY_SCHEMA,
+    OPPONENT_CALIBRATION_USE_REL: OPPONENT_CALIBRATION_USE_SCHEMA,
+    OPPONENT_CALIBRATION_ADVISORY_REL: OPPONENT_CALIBRATION_ADVISORY_SCHEMA,
 }
 
 ALLOWED_REF_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
@@ -41,6 +50,15 @@ CONFIDENCE_DIMENSIONS = {
     "checklist_coverage",
 }
 HISTORICAL_CASE_STRENGTHS = {"strong", "typical", "weak", "atypical", "unknown"}
+CALIBRATION_APPLICABILITY_STATUSES = {"matching", "partial", "mismatch", "unknown"}
+CALIBRATION_ADVISORY_REASONS = {
+    "missing_profile",
+    "operator_declined",
+    "not_applicable",
+    "not_approved",
+    "stale_profile",
+    "insufficient_corpus",
+}
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -159,6 +177,24 @@ def validate_opponent_calibration_payload(
         _validate_profile_manifest(loaded, rel_path, round_dir, require_existing_refs, errors)
     elif expected_schema == REVIEWER_CHECKLIST_SCHEMA:
         _validate_reviewer_checklist(loaded, rel_path, round_dir, require_existing_refs, errors)
+    elif expected_schema == OPPONENT_CALIBRATION_USE_SCHEMA:
+        _validate_opponent_calibration_use(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            errors=errors,
+        )
+    elif expected_schema == OPPONENT_CALIBRATION_ADVISORY_SCHEMA:
+        _validate_opponent_calibration_advisory(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            errors=errors,
+        )
 
     _validate_refs(
         loaded.get("source_refs"),
@@ -401,6 +437,102 @@ def _validate_reviewer_checklist(
         _require_bool(item, "requires_current_case_evidence", prefix, errors)
 
 
+def _validate_opponent_calibration_use(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    *,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "source_materials_path",
+        "source_materials_sha256",
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        round_dir,
+        errors,
+    )
+    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_report_trace_path",
+        "opponent_report_trace_sha256",
+        OPPONENT_REPORT_TRACE_REL,
+        round_dir,
+        errors,
+    )
+    _validate_bound_calibration_artifact(REVIEWER_CALIBRATION_PROFILE_REL, round_dir, case_id, round_id, errors)
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "profile_manifest_path",
+        "profile_manifest_sha256",
+        REVIEWER_CALIBRATION_PROFILE_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "checklist_path",
+        "checklist_sha256",
+        REVIEWER_CHECKLIST_REL,
+        round_dir,
+        errors,
+    )
+    _validate_bound_calibration_artifact(REVIEWER_CHECKLIST_REL, round_dir, case_id, round_id, errors)
+    _require_int(loaded, "selected_profile_version", rel_path, errors)
+    _validate_selected_profile_version(loaded, rel_path, round_dir, errors)
+    _require_nonempty_string(loaded, "calibration_scope", rel_path, errors)
+    _validate_applicability_dimensions(loaded.get("applicability_dimensions"), rel_path, errors)
+    _validate_confidence_by_dimension(loaded.get("confidence_by_dimension"), rel_path, errors)
+    _require_nonempty_list(loaded, "limitations", rel_path, errors)
+    _validate_reviewer_profile_gate(loaded.get("reviewer_profile_gate"), rel_path, errors)
+    _validate_current_case_approval(loaded.get("operator_approval"), rel_path, loaded, errors)
+
+
+def _validate_opponent_calibration_advisory(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    *,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "source_materials_path",
+        "source_materials_sha256",
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_report_trace_path",
+        "opponent_report_trace_sha256",
+        OPPONENT_REPORT_TRACE_REL,
+        round_dir,
+        errors,
+    )
+    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    _require_enum(loaded, "no_profile_reason", CALIBRATION_ADVISORY_REASONS, rel_path, errors)
+    if loaded.get("advisory_status") != "non_blocking":
+        errors.append(f"{rel_path}: advisory_status must be non_blocking")
+    if loaded.get("normal_workflow_continues") is not True:
+        errors.append(f"{rel_path}: normal_workflow_continues must be true")
+    _require_nonempty_string(loaded, "recommendation", rel_path, errors)
+    _require_nonempty_list(loaded, "limitations", rel_path, errors)
+    _validate_reviewer_profile_gate(loaded.get("reviewer_profile_gate"), rel_path, errors)
+
+
 def _validate_confidence_by_dimension(value: Any, rel_path: str, errors: list[str]) -> None:
     if not isinstance(value, dict):
         errors.append(f"{rel_path}: confidence_by_dimension must be object")
@@ -417,6 +549,170 @@ def _validate_confidence_by_dimension(value: Any, rel_path: str, errors: list[st
             continue
         _require_nonempty_string(item, "level", f"{rel_path}: confidence_by_dimension.{key}", errors)
         _require_nonempty_string(item, "rationale", f"{rel_path}: confidence_by_dimension.{key}", errors)
+
+
+def _validate_hash_binding(
+    loaded: dict[str, Any],
+    rel_path: str,
+    path_field: str,
+    hash_field: str,
+    expected_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    path_value = loaded.get(path_field)
+    if path_value != expected_path:
+        errors.append(f"{rel_path}: {path_field} must be {expected_path}")
+    if isinstance(path_value, str):
+        _validate_ref(
+            path_value,
+            f"{rel_path}: {path_field}",
+            round_dir=round_dir,
+            require_existing_refs=True,
+            errors=errors,
+        )
+    hash_value = loaded.get(hash_field)
+    if not isinstance(hash_value, str) or not SHA256_RE.fullmatch(hash_value):
+        errors.append(f"{rel_path}: {hash_field} must be a 64-character hex string")
+    elif round_dir is not None and isinstance(path_value, str):
+        path = round_dir / path_value
+        if path.is_file() and sha256_file(path) != hash_value:
+            errors.append(f"{rel_path}: {hash_field} is stale")
+
+
+def _validate_current_case_trace(
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    if round_dir is None:
+        return
+    errors.extend(
+        validate_structured_evidence_artifact(
+            round_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
+        )
+    )
+
+
+def _validate_bound_calibration_artifact(
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    if round_dir is None:
+        return
+    errors.extend(validate_opponent_calibration_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id))
+
+
+def _validate_selected_profile_version(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    if round_dir is None:
+        return
+    selected_version = loaded.get("selected_profile_version")
+    if not isinstance(selected_version, int) or isinstance(selected_version, bool):
+        return
+    profile = _load_json_object(round_dir / REVIEWER_CALIBRATION_PROFILE_REL, REVIEWER_CALIBRATION_PROFILE_REL, errors)
+    if profile is None:
+        return
+    profile_version = profile.get("profile_version")
+    if (
+        isinstance(profile_version, int)
+        and not isinstance(profile_version, bool)
+        and selected_version != profile_version
+    ):
+        errors.append(f"{rel_path}: selected_profile_version must match profile_manifest profile_version")
+
+
+def _load_json_object(path: Path, rel_path: str, errors: list[str]) -> dict[str, Any] | None:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        errors.append(f"{rel_path}: missing opponent calibration artifact")
+        return None
+    except OSError as exc:
+        detail = exc.strerror or exc.__class__.__name__
+        errors.append(f"{rel_path}: cannot read opponent calibration artifact: {detail}")
+        return None
+    except json.JSONDecodeError as exc:
+        errors.append(f"{rel_path}: invalid JSON: {exc.msg}")
+        return None
+    if not isinstance(loaded, dict):
+        errors.append(f"{rel_path}: JSON opponent calibration artifact must be an object")
+        return None
+    return loaded
+
+
+def _validate_applicability_dimensions(value: Any, rel_path: str, errors: list[str]) -> None:
+    if not isinstance(value, list):
+        errors.append(f"{rel_path}: applicability_dimensions must be list")
+        return
+    if not value:
+        errors.append(f"{rel_path}: applicability_dimensions must not be empty")
+        return
+    items = value
+    if not isinstance(items, list):
+        return
+    seen: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: applicability_dimensions item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        dimension = item.get("dimension")
+        if not isinstance(dimension, str) or not dimension:
+            errors.append(f"{prefix}: dimension must be non-empty str")
+        elif dimension in seen:
+            errors.append(f"{prefix}: duplicate dimension {dimension}")
+        else:
+            seen.add(dimension)
+        _require_enum(item, "status", CALIBRATION_APPLICABILITY_STATUSES, prefix, errors)
+        _require_nonempty_string(item, "rationale", prefix, errors)
+
+
+def _validate_reviewer_profile_gate(value: Any, rel_path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{rel_path}: reviewer_profile_gate must be object")
+        return
+    if value.get("required") is not True:
+        errors.append(f"{rel_path}: reviewer_profile_gate.required must be true")
+    if value.get("satisfied_by_historical_calibration") is not False:
+        errors.append(f"{rel_path}: reviewer_profile_gate.satisfied_by_historical_calibration must be false")
+
+
+def _validate_current_case_approval(
+    value: Any,
+    rel_path: str,
+    loaded: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{rel_path}: operator_approval must be object")
+        return
+    if value.get("approved") is not True:
+        errors.append(f"{rel_path}: operator_approval.approved must be true")
+    if value.get("approval_kind") != "current_case_calibration_use":
+        errors.append(f"{rel_path}: operator_approval.approval_kind must be current_case_calibration_use")
+    if value.get("approved_profile_manifest_sha256") != loaded.get("profile_manifest_sha256"):
+        errors.append(f"{rel_path}: operator_approval.approved_profile_manifest_sha256 is stale")
+    if value.get("approved_checklist_sha256") != loaded.get("checklist_sha256"):
+        errors.append(f"{rel_path}: operator_approval.approved_checklist_sha256 is stale")
+    if value.get("approved_source_materials_sha256") != loaded.get("source_materials_sha256"):
+        errors.append(f"{rel_path}: operator_approval.approved_source_materials_sha256 is stale")
+    if value.get("approved_trace_sha256") != loaded.get("opponent_report_trace_sha256"):
+        errors.append(f"{rel_path}: operator_approval.approved_trace_sha256 is stale")
+    for field in ("approved_by", "approved_at"):
+        _require_nonempty_string(value, field, f"{rel_path}: operator_approval", errors)
 
 
 def _validate_operator_approval(value: Any, label: str, errors: list[str]) -> None:
@@ -517,6 +813,18 @@ def _require_dict(loaded: dict[str, Any], field: str, prefix: str, errors: list[
 def _require_bool(loaded: dict[str, Any], field: str, prefix: str, errors: list[str]) -> None:
     if not isinstance(loaded.get(field), bool):
         errors.append(f"{prefix}: {field} must be bool")
+
+
+def _require_enum(
+    loaded: dict[str, Any],
+    field: str,
+    allowed: set[str],
+    prefix: str,
+    errors: list[str],
+) -> None:
+    value = loaded.get(field)
+    if value not in allowed:
+        errors.append(f"{prefix}: {field} must be one of: {', '.join(sorted(allowed))}")
 
 
 def _require_int(loaded: dict[str, Any], field: str, prefix: str, errors: list[str]) -> None:
