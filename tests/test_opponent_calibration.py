@@ -315,6 +315,89 @@ def calibration_advisory_payload(round_dir: Path) -> dict[str, object]:
     }
 
 
+def revision_request_payload(round_dir: Path, *, use_calibration: bool = True) -> dict[str, object]:
+    if use_calibration:
+        calibration_payload = calibration_use_payload(round_dir)
+        calibration_rel = "work/opponent_calibration_use.json"
+    else:
+        calibration_payload = calibration_advisory_payload(round_dir)
+        calibration_rel = "work/opponent_calibration_advisory.json"
+    write_json(round_dir / calibration_rel, calibration_payload)
+    feedback = write_text_artifact(
+        round_dir,
+        "notes/opponent-report-operator-feedback.md",
+        "# Operator feedback\n\nPlease adjust grading and add one manual check.\n",
+    )
+    comparison = write_text_artifact(
+        round_dir,
+        "outputs/reference_report_comparison.md",
+        "# Reference report comparison\n\nSynthetic comparison.\n",
+    )
+    packet = write_text_artifact(
+        round_dir,
+        "outputs/opponent_reading_packet.md",
+        "# Opponent reading packet\n\nSynthetic reading packet.\n",
+    )
+    draft = write_text_artifact(
+        round_dir,
+        "work/oponent_posudek_draft.md",
+        "# Oponentsky posudek\n\nSynthetic draft calibrated by the operator.\n",
+    )
+    source_paths = [
+        "notes/opponent-report-operator-feedback.md",
+        "outputs/oponent_podklady_revidovane.md",
+        "work/opponent_report_trace.json",
+        "work/oponent_posudek_draft.md",
+        calibration_rel,
+        "outputs/reference_report_comparison.md",
+        "outputs/opponent_reading_packet.md",
+    ]
+    payload = {
+        **common_fields("opponent-report-revision-request-v1"),
+        "source_refs": source_paths,
+        "limitations": ["Synthetic operator feedback normalization."],
+        "operator_feedback_path": "notes/opponent-report-operator-feedback.md",
+        "operator_feedback_sha256": sha256_file(feedback),
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": sha256_file(round_dir / "outputs/oponent_podklady_revidovane.md"),
+        "opponent_report_trace_path": "work/opponent_report_trace.json",
+        "opponent_report_trace_sha256": sha256_file(round_dir / "work/opponent_report_trace.json"),
+        "opponent_report_draft_path": "work/oponent_posudek_draft.md",
+        "opponent_report_draft_sha256": sha256_file(draft),
+        "reference_report_comparison_path": "outputs/reference_report_comparison.md",
+        "reference_report_comparison_sha256": sha256_file(comparison),
+        "opponent_reading_packet_path": "outputs/opponent_reading_packet.md",
+        "opponent_reading_packet_sha256": sha256_file(packet),
+        "feedback_items": [
+            {
+                "item_id": "F1",
+                "category": "grading_calibration",
+                "summary": "Operator wants a stricter point interval.",
+                "requested_action": "Re-evaluate the point interval against current-case evidence.",
+                "evidence_refs": [
+                    "notes/opponent-report-operator-feedback.md",
+                    "outputs/opponent_reading_packet.md",
+                ],
+            }
+        ],
+        "requested_extra_checks": [
+            {
+                "check_id": "C1",
+                "category": "evidence_request",
+                "instruction": "Check whether the reproducibility concern is still current.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+    }
+    if use_calibration:
+        payload["calibration_use_path"] = calibration_rel
+        payload["calibration_use_sha256"] = sha256_file(round_dir / calibration_rel)
+    else:
+        payload["calibration_advisory_path"] = calibration_rel
+        payload["calibration_advisory_sha256"] = sha256_file(round_dir / calibration_rel)
+    return payload
+
+
 def test_validate_historical_case_analysis_accepts_path_classified_payload(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_calibration_refs(round_dir)
@@ -1433,6 +1516,110 @@ def test_validate_opponent_calibration_advisory_rejects_gate_like_status(tmp_pat
     assert any("normal_workflow_continues must be true" in error for error in errors)
 
 
+def test_validate_opponent_report_revision_request_binds_current_case_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_report_revision_request.json",
+        case_id="calibration-case",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_report_revision_request_accepts_nonblocking_advisory(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir, use_calibration=False)
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert errors == []
+
+
+def test_validate_opponent_report_revision_request_rejects_stale_feedback_and_packet(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    (round_dir / "notes/opponent-report-operator-feedback.md").write_text("changed feedback\n", encoding="utf-8")
+    (round_dir / "outputs/opponent_reading_packet.md").write_text("changed packet\n", encoding="utf-8")
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any("operator_feedback_sha256 is stale" in error for error in errors)
+    assert any("opponent_reading_packet_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_report_revision_request_rejects_stale_report_draft(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    (round_dir / "work/oponent_posudek_draft.md").write_text("changed draft\n", encoding="utf-8")
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any("opponent_report_draft_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_report_revision_request_rejects_unknown_feedback_category(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    feedback_items = payload["feedback_items"]
+    assert isinstance(feedback_items, list)
+    assert isinstance(feedback_items[0], dict)
+    feedback_items[0]["category"] = "contains_word_bad"
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any("category must be one of" in error for error in errors)
+    assert any("grading_calibration" in error for error in errors)
+
+
+def test_validate_opponent_report_revision_request_requires_one_calibration_context(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    payload.pop("calibration_use_path")
+    payload.pop("calibration_use_sha256")
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any(
+        "exactly one of calibration_use or calibration_advisory binding is required" in error for error in errors
+    )
+
+    payload = revision_request_payload(round_dir, use_calibration=False)
+    use_payload = calibration_use_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_use.json", use_payload)
+    payload["calibration_use_path"] = "work/opponent_calibration_use.json"
+    payload["calibration_use_sha256"] = sha256_file(round_dir / "work/opponent_calibration_use.json")
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any(
+        "exactly one of calibration_use or calibration_advisory binding is required" in error for error in errors
+    )
+
+
+def test_validate_opponent_report_revision_request_requires_source_refs_for_bound_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    payload["source_refs"] = ["notes/opponent-report-operator-feedback.md"]
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert any("source_refs must include outputs/opponent_reading_packet.md" in error for error in errors)
+    assert any("source_refs must include work/opponent_calibration_use.json" in error for error in errors)
+    assert any("source_refs must include work/oponent_posudek_draft.md" in error for error in errors)
+
+
 def test_work_artifacts_collects_current_case_calibration_advisory(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     write_json(round_dir / "work/opponent_calibration_advisory.json", calibration_advisory_payload(round_dir))
@@ -1441,6 +1628,19 @@ def test_work_artifacts_collects_current_case_calibration_advisory(tmp_path: Pat
     by_path = {record["path"]: record for record in records}
 
     assert by_path["work/opponent_calibration_advisory.json"]["schema_version"] == "opponent-calibration-advisory-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="calibration-case", round_id="round-a") == []
+
+
+def test_work_artifacts_collects_current_case_revision_request(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_json(round_dir / "work/opponent_report_revision_request.json", revision_request_payload(round_dir))
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert (
+        by_path["work/opponent_report_revision_request.json"]["schema_version"] == "opponent-report-revision-request-v1"
+    )
     assert validate_supporting_work_artifacts(records, round_dir, case_id="calibration-case", round_id="round-a") == []
 
 

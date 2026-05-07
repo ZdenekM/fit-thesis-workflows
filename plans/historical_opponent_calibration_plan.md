@@ -673,7 +673,7 @@ Commit target:
 
 ### Slice 7: Operator Feedback Revision Request
 
-Status: pending
+Status: completed
 
 Actions:
 
@@ -686,8 +686,8 @@ Actions:
   `factual_correction`, `wording_preference`, `defense_question`, or
   `scope_limitation`.
 - Bind the revision request to current operator feedback, reviewed materials,
-  trace, calibration-use or advisory artifact, comparison, and reading packet by
-  path and hash.
+  trace, current report draft, calibration-use or advisory artifact, comparison,
+  and reading packet by path and hash.
 - Require explicit current-request agent authorization, or a human reviewer note,
   before writing the structured revision request.
 
@@ -914,6 +914,24 @@ Commit target:
   `scripts/check-private`, `scripts/smoke-private`, `scripts/check-scripts`,
   `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and `pants run
   :omen`.
+- 2026-05-07: Slice 7 started. Scope is the structured
+  `work/opponent_report_revision_request.json` contract, operator feedback
+  handoff documentation, synthetic validation/smoke coverage, and private
+  artifact checks. This slice records operator feedback as typed structured
+  data; it does not revise the report trace or draft yet.
+- 2026-05-07: Slice 7 completed and agent-reviewed. Added the structured
+  operator-feedback revision request contract, typed feedback taxonomy,
+  calibration-use/advisory binding, current report draft hash binding, work
+  artifact collection, skill/docs handoff guidance, and smoke coverage. Fixed
+  review findings by making revision requests bind the exact draft version the
+  operator read. Verification: `pants fmt src/thesis_review_workflow:: tests::
+  scripts::`, `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_calibration.py tests/test_review_manifest_helpers.py`,
+  `scripts/smoke-opponent-report`, `scripts/check-private`,
+  `scripts/smoke-private`, `scripts/check-scripts`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `pants run :vulture`, `pants run :jscpd`, and `pants run :omen`.
 
 ## Decision Log
 

@@ -18,6 +18,7 @@ REVIEWER_CHECKLIST_SCHEMA = "opponent-reviewer-checklist-v1"
 REVIEWER_PROFILE_HISTORY_SCHEMA = "opponent-reviewer-calibration-history-v1"
 OPPONENT_CALIBRATION_USE_SCHEMA = "opponent-calibration-use-v1"
 OPPONENT_CALIBRATION_ADVISORY_SCHEMA = "opponent-calibration-advisory-v1"
+OPPONENT_REPORT_REVISION_REQUEST_SCHEMA = "opponent-report-revision-request-v1"
 
 HISTORICAL_CASE_ANALYSIS_PREFIX = "work/calibration/historical_case_analyses/"
 REVIEWER_CALIBRATION_PROFILE_REL = "work/calibration/reviewer_calibration_profile.json"
@@ -29,8 +30,13 @@ REVIEWER_PROFILE_REVIEW_REL = "work/calibration/profile_review.md"
 REVIEWER_PROFILE_CHANGE_LOG_REL = "work/calibration/reviewer_profile_change_log.md"
 OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
 OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
+OPPONENT_REPORT_REVISION_REQUEST_REL = "work/opponent_report_revision_request.json"
+OPPONENT_OPERATOR_FEEDBACK_REL = "notes/opponent-report-operator-feedback.md"
 OPPONENT_MATERIALS_REVIEWED_REL = "outputs/oponent_podklady_revidovane.md"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
+OPPONENT_REPORT_DRAFT_REL = "work/oponent_posudek_draft.md"
+REFERENCE_REPORT_COMPARISON_REL = "outputs/reference_report_comparison.md"
+OPPONENT_READING_PACKET_REL = "outputs/opponent_reading_packet.md"
 
 EXACT_CALIBRATION_ARTIFACT_SCHEMAS: dict[str, str] = {
     REVIEWER_CALIBRATION_PROFILE_REL: REVIEWER_CALIBRATION_PROFILE_SCHEMA,
@@ -38,6 +44,7 @@ EXACT_CALIBRATION_ARTIFACT_SCHEMAS: dict[str, str] = {
     REVIEWER_PROFILE_HISTORY_REL: REVIEWER_PROFILE_HISTORY_SCHEMA,
     OPPONENT_CALIBRATION_USE_REL: OPPONENT_CALIBRATION_USE_SCHEMA,
     OPPONENT_CALIBRATION_ADVISORY_REL: OPPONENT_CALIBRATION_ADVISORY_SCHEMA,
+    OPPONENT_REPORT_REVISION_REQUEST_REL: OPPONENT_REPORT_REVISION_REQUEST_SCHEMA,
 }
 
 ALLOWED_REF_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
@@ -58,6 +65,16 @@ CALIBRATION_ADVISORY_REASONS = {
     "not_approved",
     "stale_profile",
     "insufficient_corpus",
+}
+REVISION_FEEDBACK_CATEGORIES = {
+    "evidence_request",
+    "grading_calibration",
+    "tone_style",
+    "missing_check",
+    "factual_correction",
+    "wording_preference",
+    "defense_question",
+    "scope_limitation",
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -188,6 +205,15 @@ def validate_opponent_calibration_payload(
         )
     elif expected_schema == OPPONENT_CALIBRATION_ADVISORY_SCHEMA:
         _validate_opponent_calibration_advisory(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            errors=errors,
+        )
+    elif expected_schema == OPPONENT_REPORT_REVISION_REQUEST_SCHEMA:
+        _validate_opponent_report_revision_request(
             loaded,
             rel_path,
             round_dir,
@@ -531,6 +557,202 @@ def _validate_opponent_calibration_advisory(
     _require_nonempty_string(loaded, "recommendation", rel_path, errors)
     _require_nonempty_list(loaded, "limitations", rel_path, errors)
     _validate_reviewer_profile_gate(loaded.get("reviewer_profile_gate"), rel_path, errors)
+
+
+def _validate_opponent_report_revision_request(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    *,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "operator_feedback_path",
+        "operator_feedback_sha256",
+        OPPONENT_OPERATOR_FEEDBACK_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "source_materials_path",
+        "source_materials_sha256",
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_report_trace_path",
+        "opponent_report_trace_sha256",
+        OPPONENT_REPORT_TRACE_REL,
+        round_dir,
+        errors,
+    )
+    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_report_draft_path",
+        "opponent_report_draft_sha256",
+        OPPONENT_REPORT_DRAFT_REL,
+        round_dir,
+        errors,
+    )
+    _validate_revision_calibration_context(loaded, rel_path, round_dir, case_id, round_id, errors)
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "reference_report_comparison_path",
+        "reference_report_comparison_sha256",
+        REFERENCE_REPORT_COMPARISON_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_reading_packet_path",
+        "opponent_reading_packet_sha256",
+        OPPONENT_READING_PACKET_REL,
+        round_dir,
+        errors,
+    )
+    _validate_revision_feedback_items(loaded.get("feedback_items"), rel_path, "feedback_items", errors)
+    _validate_revision_extra_checks(loaded.get("requested_extra_checks"), rel_path, errors)
+    expected_refs = [
+        OPPONENT_OPERATOR_FEEDBACK_REL,
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        OPPONENT_REPORT_TRACE_REL,
+        OPPONENT_REPORT_DRAFT_REL,
+        REFERENCE_REPORT_COMPARISON_REL,
+        OPPONENT_READING_PACKET_REL,
+    ]
+    calibration_ref = loaded.get("calibration_use_path") or loaded.get("calibration_advisory_path")
+    if isinstance(calibration_ref, str):
+        expected_refs.append(calibration_ref)
+    _validate_source_refs_include(loaded, rel_path, expected_refs, errors)
+
+
+def _validate_revision_calibration_context(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    use_present = "calibration_use_path" in loaded or "calibration_use_sha256" in loaded
+    advisory_present = "calibration_advisory_path" in loaded or "calibration_advisory_sha256" in loaded
+    if use_present == advisory_present:
+        errors.append(f"{rel_path}: exactly one of calibration_use or calibration_advisory binding is required")
+        return
+    if use_present:
+        _validate_hash_binding(
+            loaded,
+            rel_path,
+            "calibration_use_path",
+            "calibration_use_sha256",
+            OPPONENT_CALIBRATION_USE_REL,
+            round_dir,
+            errors,
+        )
+        _validate_bound_calibration_artifact(OPPONENT_CALIBRATION_USE_REL, round_dir, case_id, round_id, errors)
+    else:
+        _validate_hash_binding(
+            loaded,
+            rel_path,
+            "calibration_advisory_path",
+            "calibration_advisory_sha256",
+            OPPONENT_CALIBRATION_ADVISORY_REL,
+            round_dir,
+            errors,
+        )
+        _validate_bound_calibration_artifact(OPPONENT_CALIBRATION_ADVISORY_REL, round_dir, case_id, round_id, errors)
+
+
+def _validate_revision_feedback_items(
+    value: Any,
+    rel_path: str,
+    field: str,
+    errors: list[str],
+) -> None:
+    items = _require_nonempty_list({field: value}, field, rel_path, errors)
+    if not isinstance(items, list):
+        return
+    seen: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: {field} item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        item_id = item.get("item_id")
+        if not isinstance(item_id, str) or not item_id:
+            errors.append(f"{prefix}: item_id must be non-empty str")
+        elif item_id in seen:
+            errors.append(f"{prefix}: duplicate item_id {item_id}")
+        else:
+            seen.add(item_id)
+        _require_enum(item, "category", REVISION_FEEDBACK_CATEGORIES, prefix, errors)
+        _require_nonempty_string(item, "summary", prefix, errors)
+        _require_nonempty_string(item, "requested_action", prefix, errors)
+        evidence_refs = _require_nonempty_list(item, "evidence_refs", prefix, errors)
+        _validate_refs(
+            evidence_refs,
+            f"{prefix}: evidence_refs",
+            round_dir=None,
+            require_existing_refs=False,
+            errors=errors,
+        )
+
+
+def _validate_revision_extra_checks(value: Any, rel_path: str, errors: list[str]) -> None:
+    checks = _require_list({"requested_extra_checks": value}, "requested_extra_checks", rel_path, errors)
+    if not isinstance(checks, list):
+        return
+    seen: set[str] = set()
+    for index, item in enumerate(checks, start=1):
+        prefix = f"{rel_path}: requested_extra_checks item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        check_id = item.get("check_id")
+        if not isinstance(check_id, str) or not check_id:
+            errors.append(f"{prefix}: check_id must be non-empty str")
+        elif check_id in seen:
+            errors.append(f"{prefix}: duplicate check_id {check_id}")
+        else:
+            seen.add(check_id)
+        _require_enum(item, "category", REVISION_FEEDBACK_CATEGORIES, prefix, errors)
+        _require_nonempty_string(item, "instruction", prefix, errors)
+        evidence_refs = _require_list(item, "evidence_refs", prefix, errors)
+        _validate_refs(
+            evidence_refs,
+            f"{prefix}: evidence_refs",
+            round_dir=None,
+            require_existing_refs=False,
+            errors=errors,
+        )
+
+
+def _validate_source_refs_include(
+    loaded: dict[str, Any],
+    rel_path: str,
+    expected_refs: list[str],
+    errors: list[str],
+) -> None:
+    source_refs = loaded.get("source_refs")
+    if not isinstance(source_refs, list):
+        return
+    for expected_ref in expected_refs:
+        if expected_ref not in source_refs:
+            errors.append(f"{rel_path}: source_refs must include {expected_ref}")
 
 
 def _validate_confidence_by_dimension(value: Any, rel_path: str, errors: list[str]) -> None:

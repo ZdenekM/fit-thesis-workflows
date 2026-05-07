@@ -140,6 +140,29 @@ Stable current-case Markdown outputs such as
 have review-manifest entries, source hashes, independent review records, and
 current reviewed hashes before they are used to revise the report trace or draft.
 
+After the operator reads the broad materials and report draft, their free-form
+notes live in `notes/opponent-report-operator-feedback.md`. An explicitly
+authorized agent, or a human reviewer, then writes
+`work/opponent_report_revision_request.json` with schema
+`opponent-report-revision-request-v1`. The revision request binds the feedback,
+reviewed materials, accepted trace, current report draft, calibration-use or
+advisory artifact, reference comparison, and reading packet by path and
+SHA-256. It normalizes operator requests into typed categories:
+
+- `evidence_request`
+- `grading_calibration`
+- `tone_style`
+- `missing_check`
+- `factual_correction`
+- `wording_preference`
+- `defense_question`
+- `scope_limitation`
+
+The revision request is a structured handoff for later trace editing.
+Deterministic helpers validate only schema, categories, paths, hashes, and
+source refs; semantic interpretation of the operator notes remains an
+authorized agent or human-review step.
+
 ## Agent Authorization
 
 Semantic interpretation of historical reports, current materials, or operator

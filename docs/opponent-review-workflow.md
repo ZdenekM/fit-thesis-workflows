@@ -114,6 +114,14 @@ Kalibrační výstupy `outputs/reference_report_comparison.md` a
 vyžaduje vlastní nezávislý review záznam a aktuální reviewed hash; nesmí být jen
 implicitně pokryté pozdější syntézou.
 
+Po přečtení podkladů a draftu může oponent zapsat připomínky do
+`notes/opponent-report-operator-feedback.md`. Autorizovaný agent nebo člověk je
+potom převede do `work/opponent_report_revision_request.json`: typovaného
+požadavku na revizi, který hashem váže původní připomínky, revidované podklady,
+trace, aktuální draft posudku, kalibrační use/advisory artefakt, srovnání s
+profilem a reading packet. Deterministické kontroly pracují jen s touto
+strukturou, ne s významem volného textu v poznámkách.
+
 ## Report Draft Boundary
 
 `outputs/oponent_podklady_revidovane.md` jsou interní revidované podklady pro

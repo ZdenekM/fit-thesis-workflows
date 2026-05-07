@@ -57,6 +57,17 @@ exist, use the private profile only through the current-case contract:
    independent reviewer, reviewed hash, current source hashes, evidence refs, and
    limitations. Then run `scripts/check-review-manifest --require-complete
    <case-id> [round-id]`.
+6. After the operator reads the packet and draft, store the free-form operator
+   notes in `notes/opponent-report-operator-feedback.md`.
+7. An explicitly authorized agent, or a human reviewer, normalizes those notes
+   into `work/opponent_report_revision_request.json`. Use only typed feedback
+   categories: `evidence_request`, `grading_calibration`, `tone_style`,
+   `missing_check`, `factual_correction`, `wording_preference`,
+   `defense_question`, or `scope_limitation`.
+8. Bind the revision request by path and SHA-256 to the operator feedback,
+   reviewed materials, accepted trace, current report draft, calibration-use or
+   advisory artifact, reference comparison, and reading packet. Do not revise
+   the trace from unstructured notes directly.
 
 ## Refresh
 
@@ -88,3 +99,7 @@ before the refreshed profile becomes the default calibration profile.
   `outputs/opponent_reading_packet.md` are internal evidence for the operator.
   They need independent review metadata and current reviewed hashes in
   `work/review_manifest.json` before they influence a report trace or draft.
+- `work/opponent_report_revision_request.json` is the structured handoff from
+  operator notes to later trace revision. Deterministic code may validate its
+  schema, categories, paths, hashes, and source refs, but not infer meaning from
+  `notes/opponent-report-operator-feedback.md`.

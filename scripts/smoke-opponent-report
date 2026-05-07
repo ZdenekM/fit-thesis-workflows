@@ -392,6 +392,130 @@ path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encodi
 PY
 }
 
+write_revision_request() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  python3 - "$repo_root" "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+repo_root = pathlib.Path(sys.argv[1])
+round_dir = pathlib.Path(sys.argv[2])
+case_id = sys.argv[3]
+round_id = sys.argv[4]
+sys.path.insert(0, str(repo_root / "src"))
+
+from thesis_review_workflow.opponent_calibration import validate_opponent_calibration_artifact
+
+
+def sha(rel: str) -> str:
+    return hashlib.sha256((round_dir / rel).read_bytes()).hexdigest()
+
+
+def write_text(rel: str, text: str) -> None:
+    path = round_dir / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def write_json(rel: str, payload: dict[str, object]) -> None:
+    path = round_dir / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+common = {
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "reviewer_profile_id": "default",
+    "producer_type": "agent",
+    "producer_role": "historical-opponent-calibration",
+    "producer_agent": "smoke-calibration-agent",
+    "authorization_note": "Smoke test uses synthetic agent-authored calibration fixtures.",
+}
+advisory = {
+    **common,
+    "schema_version": "opponent-calibration-advisory-v1",
+    "source_refs": ["outputs/oponent_podklady_revidovane.md", "work/opponent_report_trace.json"],
+    "limitations": ["Synthetic no-profile advisory."],
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": sha("outputs/oponent_podklady_revidovane.md"),
+    "opponent_report_trace_path": "work/opponent_report_trace.json",
+    "opponent_report_trace_sha256": sha("work/opponent_report_trace.json"),
+    "no_profile_reason": "missing_profile",
+    "advisory_status": "non_blocking",
+    "normal_workflow_continues": True,
+    "recommendation": "Add historical opponent reports later for better style calibration.",
+    "reviewer_profile_gate": {"required": True, "satisfied_by_historical_calibration": False},
+}
+write_json("work/opponent_calibration_advisory.json", advisory)
+write_text("notes/opponent-report-operator-feedback.md", "# Operator feedback\n\nTighten grading and add a reproducibility check.\n")
+write_text("outputs/reference_report_comparison.md", "# Reference report comparison\n\nSynthetic no-profile comparison.\n")
+write_text("outputs/opponent_reading_packet.md", "# Opponent reading packet\n\nSynthetic packet.\n")
+revision_request = {
+    **common,
+    "schema_version": "opponent-report-revision-request-v1",
+    "source_refs": [
+        "notes/opponent-report-operator-feedback.md",
+        "outputs/oponent_podklady_revidovane.md",
+    "work/opponent_report_trace.json",
+    "work/oponent_posudek_draft.md",
+    "work/opponent_calibration_advisory.json",
+    "outputs/reference_report_comparison.md",
+        "outputs/opponent_reading_packet.md",
+    ],
+    "limitations": ["Synthetic revision request."],
+    "operator_feedback_path": "notes/opponent-report-operator-feedback.md",
+    "operator_feedback_sha256": sha("notes/opponent-report-operator-feedback.md"),
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": sha("outputs/oponent_podklady_revidovane.md"),
+    "opponent_report_trace_path": "work/opponent_report_trace.json",
+    "opponent_report_trace_sha256": sha("work/opponent_report_trace.json"),
+    "opponent_report_draft_path": "work/oponent_posudek_draft.md",
+    "opponent_report_draft_sha256": sha("work/oponent_posudek_draft.md"),
+    "calibration_advisory_path": "work/opponent_calibration_advisory.json",
+    "calibration_advisory_sha256": sha("work/opponent_calibration_advisory.json"),
+    "reference_report_comparison_path": "outputs/reference_report_comparison.md",
+    "reference_report_comparison_sha256": sha("outputs/reference_report_comparison.md"),
+    "opponent_reading_packet_path": "outputs/opponent_reading_packet.md",
+    "opponent_reading_packet_sha256": sha("outputs/opponent_reading_packet.md"),
+    "feedback_items": [
+        {
+            "item_id": "F1",
+            "category": "grading_calibration",
+            "summary": "Operator asks for stricter grade calibration.",
+            "requested_action": "Re-check the point interval against current evidence.",
+            "evidence_refs": [
+                "notes/opponent-report-operator-feedback.md",
+                "outputs/opponent_reading_packet.md",
+            ],
+        }
+    ],
+    "requested_extra_checks": [
+        {
+            "check_id": "C1",
+            "category": "evidence_request",
+            "instruction": "Verify the reproducibility concern before revising the trace.",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+    ],
+}
+write_json("work/opponent_report_revision_request.json", revision_request)
+errors = validate_opponent_calibration_artifact(
+    round_dir,
+    "work/opponent_report_revision_request.json",
+    case_id=case_id,
+    round_id=round_id,
+)
+if errors:
+    raise SystemExit("\n".join(errors))
+PY
+}
+
 case_id="${case_prefix}_valid"
 make_case "$case_id"
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
@@ -493,5 +617,9 @@ expect_success "regenerate clean draft 3" "$repo_root/scripts/draft-opponent-rep
 replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 150"
 expect_failure "invalid points fail" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "point value outside"
+write_report_trace "$case_id" round-a
+expect_success "restore valid draft before revision request" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+calibrate_draft "$draft"
+write_revision_request "$case_id" round-a
 
 echo "Opponent report smoke passed"
