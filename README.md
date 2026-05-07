@@ -221,7 +221,8 @@ Nejběžnější výstupy jsou:
   a formální stránky podle jazyka práce,
 - `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
   vizuálních prvků a jejich popisů,
-- `work/assignment_coverage_map.json` - poradní mapa splnění bodů zadání,
+- `work/assignment_coverage_agent.json` - agentem nebo člověkem připravená
+  strukturovaná mapa splnění bodů zadání,
 - `work/evidence_presence.json` - poradní přehled chybějící, přítomné
   a zatím neinspektované evidence,
 - `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
@@ -376,6 +377,10 @@ formulace do feedbacku nebo posudku. Aktuální audit hranice je v
 
 Poradní příprava pro oponentské review:
 
+`scripts/check-assignment-coverage` spouštějte až po vytvoření
+`work/assignment_coverage_agent.json` autorizovaným text/assignment agentem nebo
+člověkem.
+
 ```bash
 scripts/check-assignment-coverage <case-id>
 scripts/check-code-reproducibility <case-id>
@@ -428,11 +433,13 @@ private notes a metadata musí před review potvrdit hodnotitel.
 
 `scripts/opponent-preflight <case-id> [round-id]` před oponentským workflow
 tvrdě hlídá opponent readiness, tooling, lokální code workspace a GitHub intake
-pro GitHub odkazy nalezené v round notes. Navíc spustí assignment coverage,
-statickou reprodukovatelnost kódu a evidence-presence kontrolu, aby review
-agenti dostali férové omezení ještě před syntézou. Výstup `case-doctor` v něm
-zůstává diagnostický snapshot: upozorní i na starší výstupy nebo supervisor-only
-gate, ale sám o sobě neblokuje start oponentských agentů.
+pro GitHub odkazy nalezené v round notes. Statická reprodukovatelnost kódu a
+evidence-presence kontrola běží před syntézou, aby review agenti dostali férové
+omezení. Assignment coverage vzniká až jako strukturovaný výstup
+text/assignment agenta nebo člověka a potom se ověřuje přes
+`scripts/check-assignment-coverage`. Výstup `case-doctor` v preflightu zůstává
+diagnostický snapshot: upozorní i na starší výstupy nebo supervisor-only gate,
+ale sám o sobě neblokuje start oponentských agentů.
 
 `prepare-code-workspace` rozbalí nebo zkopíruje pravděpodobné zdrojové archivy a
 adresáře do ignorovaného `work/code/`, zapíše `work/code_workspace.md` a

@@ -12,7 +12,6 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
 
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
-    "work/assignment_coverage_map.json": {"assignment-coverage-map-v1"},
     "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
     "work/evidence_presence.json": {"evidence-presence-v1"},
     "work/evidence_requirements.json": {"evidence-requirements-v1"},
@@ -22,7 +21,6 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
 }
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
-    "work/assignment_coverage_map.json": {"assignment_points": list},
     "work/assignment_coverage_agent.json": {"assignment_points": list},
     "work/evidence_presence.json": {"findings": list},
     "work/evidence_requirements.json": {"requirements": list},
@@ -42,7 +40,6 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/agent_coverage.json",
     "work/code/.prepare-code-workspace-manifest.json",
     "work/figure_media/visual_inventory.jsonl",
-    "work/assignment_coverage_map.json",
     "work/assignment_coverage_agent.json",
     "work/evidence_presence.json",
     "work/evidence_requirements.json",

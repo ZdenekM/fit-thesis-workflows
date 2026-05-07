@@ -24,8 +24,9 @@ Current audit findings:
   explicit opponent-report trace data.
 - `TODO.md` tracks the P0 item to replace the remaining free-text semantic
   detectors with agent-created structured artifacts.
-- `src/thesis_review_workflow/cli/check_assignment_coverage.py` currently builds
-  semantic coverage from assignment and generated Markdown text.
+- `src/thesis_review_workflow/cli/check_assignment_coverage.py` originally built
+  semantic coverage from assignment and generated Markdown text; Slice 2A
+  replaces it with structured artifact validation.
 - `src/thesis_review_workflow/cli/check_evidence_presence.py` currently builds
   semantic evidence-presence findings from extracted text. Its suffix/path-only
   `work/media_presence_inventory.jsonl` output is structural and remains valid.
@@ -432,7 +433,7 @@ Commit target:
 
 ### Slice 2A: Assignment Coverage Contract
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -602,7 +603,12 @@ Commit target:
   the four V1 artifacts in work-artifact collection, added regression coverage
   for schema enums, ref safety, agent identity, and opponent-trace hash binding,
   and passed independent agent review after fixing unsafe path dereferencing.
-- Current slice: Slice 2A pending.
+- 2026-05-07: Slice 2A migrated `scripts/check-assignment-coverage` to validate
+  `work/assignment_coverage_agent.json`, removed the raw token-overlap parser,
+  removed the retired `work/assignment_coverage_map.json` allowlist, adjusted
+  packets/preflight/docs/smokes, and passed agent review after clarifying that
+  assignment coverage is produced by text/assignment agents after preflight.
+- Current slice: Slice 2B pending.
 
 ## Decision Log
 

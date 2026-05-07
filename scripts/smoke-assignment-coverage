@@ -25,6 +25,16 @@ expect_success() {
   fi
 }
 
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
 expect_output() {
   local needle="$1"
   if ! grep -Fq "$needle" "$out_file" "$err_file"; then
@@ -63,26 +73,60 @@ None.
 
 - Describe deployment limits.
 EOF
-cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
-Import workflow prototype is supported by README evidence. Deployment limits are noted.
-EOF
-cat >"$round_dir/work/oponent_posudek_draft.md" <<'EOF'
-The usability evaluation remains partly evidenced.
-EOF
+expect_failure "missing structured assignment coverage" "$repo_root/scripts/check-assignment-coverage" "$case_id"
+expect_output "missing structured evidence artifact"
 
-expect_success "assignment coverage map" "$repo_root/scripts/check-assignment-coverage" "$case_id"
-expect_output "Assignment points: 3"
-python3 - "$round_dir/work/assignment_coverage_map.json" <<'PY'
+python3 - "$round_dir/work/assignment_coverage_agent.json" "$case_id" "$round_id" <<'PY'
 import json
 import pathlib
 import sys
 
 path = pathlib.Path(sys.argv[1])
-loaded = json.loads(path.read_text(encoding="utf-8"))
-assert loaded["schema_version"] == "assignment-coverage-map-v1", loaded
-assert loaded["case_id"].startswith("__assignment_coverage_smoke_"), loaded
-assert len(loaded["assignment_points"]) == 3, loaded["assignment_points"]
-assert loaded["assignment_points"][0]["opponent_materials"]["state"] == "mentioned"
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+payload = {
+    "schema_version": "assignment-coverage-agent-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "assignment-coverage-reviewer",
+    "producer_agent": "smoke-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["notes/assignment.md"],
+    "assignment_points": [
+        {
+            "point_id": "A1",
+            "summary": "Implement prototype for import workflow.",
+            "source_refs": ["notes/assignment.md"],
+            "coverage": {
+                "status": "covered",
+                "evidence_refs": ["notes/assignment.md"],
+                "limitations": [],
+                "requires_reviewer_verification": False,
+            },
+        },
+        {
+            "point_id": "A2",
+            "summary": "Evaluate usability with students.",
+            "source_refs": ["notes/assignment.md"],
+            "coverage": {
+                "status": "not_verifiable",
+                "evidence_refs": [],
+                "limitations": ["Synthetic smoke does not include thesis evidence."],
+                "requires_reviewer_verification": True,
+            },
+        },
+    ],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
+
+expect_success "structured assignment coverage" "$repo_root/scripts/check-assignment-coverage" "$case_id"
+expect_output "Assignment coverage structured artifact check passed"
+expect_output "Assignment points: 2"
+test -f "$round_dir/work/assignment_coverage_agent.json"
+test ! -f "$round_dir/work/assignment_coverage_map.json"
 
 echo "Assignment coverage smoke passed"

@@ -19,7 +19,8 @@ scripts/opponent-preflight <case-id> [round-id]
 
 Preflight tvrdě kontroluje opponent readiness, reviewer profil, tooling, lokální
 code workspace a GitHub intake pro GitHub odkazy nalezené v round notes. Zároveň
-spouští poradní evidence helpery, pokud mají v daném roundu relevantní vstupy:
+spouští před-agentní evidence helpery, pokud mají v daném roundu relevantní
+vstupy:
 
 - `scripts/check-code-reproducibility` zapisuje
   `work/code_reproducibility.json`. Jde o statickou klasifikaci dostupného kódu,
@@ -28,9 +29,11 @@ spouští poradní evidence helpery, pokud mají v daném roundu relevantní vst
 - `scripts/check-evidence-presence` zapisuje `work/evidence_presence.json` a
   `work/media_presence_inventory.jsonl`. Výstup odlišuje chybějící,
   přítomnou a zatím neinspektovanou evidenci.
-- `scripts/check-assignment-coverage` zapisuje
-  `work/assignment_coverage_map.json`. Mapuje body zadání proti existujícím
-  podkladům a oponentským výstupům, ale nerozhoduje známku.
+Assignment coverage je výjimka z před-agentního preflightu: `work/assignment_coverage_agent.json`
+musí připravit autorizovaný text/assignment agent nebo člověk jako strukturovanou
+mapu bodů zadání proti dostupné evidenci. Potom spusťte
+`scripts/check-assignment-coverage`; skript artefakt jen ověřuje, nevyvozuje
+splnění zadání z volného textu a nerozhoduje známku.
 
 Tyto artefakty jsou poradní. Chybějící evidence je riziko nebo požadavek na
 ruční ověření, ne automatický důkaz, že je tvrzení práce nepravdivé.

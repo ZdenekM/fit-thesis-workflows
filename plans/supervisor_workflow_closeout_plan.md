@@ -70,9 +70,9 @@ Supervisor preflight should hard-fail on:
 Supervisor preflight should treat as diagnostic or warning:
 
 - `scripts/case-doctor` findings unless they identify required missing inputs;
-- `scripts/check-assignment-coverage <case-id> [round-id]`, which produces an
-  advisory map for reviewer verification and must not become an automatic
-  assignment-fulfillment verdict;
+- `scripts/check-assignment-coverage <case-id> [round-id]`, which validates an
+  agent/human-authored map for reviewer verification and must not become an
+  automatic assignment-fulfillment verdict;
 - `scripts/check-evidence-presence <case-id> [round-id]`, which records missing
   or present-but-uninspected evidence as review risk, not as proof that a claim
   is false;
@@ -168,9 +168,9 @@ Out of scope:
   - Implement the command from the typed preflight plan.
   - Hard-fail on supervisor readiness and required missing inputs.
   - Print diagnostic `case-doctor` status without replacing readiness checks.
-  - Run assignment coverage, evidence presence, and evaluation-claim diagnostics
-    after readiness and before role packets so agents can use advisory evidence
-    without treating it as a verdict.
+  - Run evidence presence and evaluation-claim diagnostics after readiness and
+    before role packets; validate assignment coverage only after the relevant
+    agent/human-authored structured artifact exists.
   - Prepare code workspace only when code evidence exists and static review
     needs inspectable source.
   - Package the command and add smoke coverage.

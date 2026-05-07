@@ -84,10 +84,6 @@ deterministically.
   metric/evaluation language from assignment/extracted text/notes. This is useful
   as a prompt, but the recurring replacement should be structured evidence
   requirements produced by an agent from the assignment and case context.
-- `src/thesis_review_workflow/assignment_coverage.py`: token-overlap coverage is
-  advisory and can miss paraphrases or over-match shared vocabulary. Replace the
-  semantic coverage state with an agent-authored assignment-coverage artifact;
-  deterministic code can still validate schema and evidence anchors.
 - `src/thesis_review_workflow/cli/draft_opponent_report.py`: maps reviewed
   materials to IS report items using normalized tokens. This should move toward
   explicit structured IS-item fields in reviewed opponent materials.
@@ -107,6 +103,13 @@ uncertainty-wording hard errors in `scripts/check-opponent-report` were
 downgraded to warnings during the audit. The main residual risk is that several
 useful warning/advisory tools still read raw text directly. `TODO.md` now tracks
 their replacement with agent-produced structured evidence.
+
+### Retired In Current Plan
+
+- `src/thesis_review_workflow/assignment_coverage.py`: removed. The
+  deterministic `scripts/check-assignment-coverage` helper now validates
+  `work/assignment_coverage_agent.json` instead of deriving coverage from token
+  overlap in assignment, materials, or report text.
 
 ## Follow-Up Shape
 

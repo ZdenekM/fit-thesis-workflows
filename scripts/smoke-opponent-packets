@@ -60,7 +60,41 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 - Synthetic private note.
 EOF
 printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
-printf '{}\n' >"$round_dir/work/assignment_coverage_map.json"
+python3 - "$round_dir/work/assignment_coverage_agent.json" "$case_id" "$round_id" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+payload = {
+    "schema_version": "assignment-coverage-agent-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "assignment-coverage-reviewer",
+    "producer_agent": "smoke-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["notes/assignment.md"],
+    "assignment_points": [
+        {
+            "point_id": "A1",
+            "summary": "Implement and evaluate a synthetic thesis-review helper.",
+            "source_refs": ["notes/assignment.md"],
+            "coverage": {
+                "status": "covered",
+                "evidence_refs": ["notes/assignment.md"],
+                "limitations": [],
+                "requires_reviewer_verification": False,
+            },
+        }
+    ],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
 printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
 
 expect_success "prepare opponent packets" "$repo_root/scripts/prepare-opponent-packets" "$case_id"
@@ -74,7 +108,7 @@ test -f "$packet_dir/synthesis.md"
 grep -Fq "Schema version: \`opponent-review-packet-v1\`" "$packet_dir/synthesis.md"
 grep -Fq "\`case.md\` (present)" "$packet_dir/synthesis.md"
 grep -Fq "\`profiles/default.md\` (present)" "$packet_dir/synthesis.md"
-grep -Fq "\`work/assignment_coverage_map.json\` (present)" "$packet_dir/text_structure_assignment.md"
+grep -Fq "\`work/assignment_coverage_agent.json\` (present)" "$packet_dir/text_structure_assignment.md"
 grep -Fq "\`inputs/submitted-src/\`" "$packet_dir/code_quality.md"
 grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
 

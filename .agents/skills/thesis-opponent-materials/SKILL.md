@@ -73,6 +73,11 @@ be recorded as structured evidence with anchors. Do not turn raw keyword or
 token matches into assignment fulfillment, IS-item wording, grading rationale,
 or report-ready findings.
 
+For assignment coverage, the text/assignment role should create or update
+`work/assignment_coverage_agent.json` before `scripts/check-assignment-coverage`
+runs. The helper validates that structured artifact; it does not derive coverage
+from thesis or report prose.
+
 ## When Using Agents
 
 For a large opponent review, split reviewer agents by role:

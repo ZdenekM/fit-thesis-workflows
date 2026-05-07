@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.structured_evidence import (
+    STRUCTURED_EVIDENCE_SCHEMAS,
+    validate_structured_evidence_artifact,
+)
+
 PACKET_DIR_REL = Path("work/opponent_packets")
 SCHEMA_VERSION = "opponent-review-packet-v1"
 
@@ -32,7 +37,7 @@ PROFILE_INPUTS = (
     "profiles/local/default.md",
 )
 ADVISORY_ARTIFACTS = (
-    "work/assignment_coverage_map.json",
+    "work/assignment_coverage_agent.json",
     "work/evidence_presence.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
@@ -70,7 +75,7 @@ PACKET_ROLES = (
             "fair defense questions tied to assignment scope",
         ),
         role_inputs=(
-            "work/assignment_coverage_map.json",
+            "work/assignment_coverage_agent.json",
             "outputs/revision_diff.md",
         ),
         constraints=(
@@ -211,7 +216,7 @@ PACKET_ROLES = (
             "manual checks before writing the final report",
         ),
         role_inputs=(
-            "work/assignment_coverage_map.json",
+            "work/assignment_coverage_agent.json",
             "work/evidence_presence.json",
             "work/code_reproducibility.json",
             "outputs/code_consistency.md",
@@ -246,13 +251,35 @@ PACKET_ROLES = (
 )
 
 
-def rel_status(round_dir: Path, rel_path: str) -> str:
+def rel_status(
+    round_dir: Path,
+    rel_path: str,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> str:
     path = round_dir / rel_path
-    return "present" if path.exists() else "missing"
+    if not path.exists():
+        return "missing"
+    if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
+        errors = validate_structured_evidence_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id)
+        if errors:
+            return "invalid"
+    return "present"
 
 
-def existing_paths(round_dir: Path, rel_paths: tuple[str, ...]) -> list[str]:
-    return [rel_path for rel_path in rel_paths if (round_dir / rel_path).exists()]
+def existing_paths(
+    round_dir: Path,
+    rel_paths: tuple[str, ...],
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    return [
+        rel_path
+        for rel_path in rel_paths
+        if rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id) == "present"
+    ]
 
 
 def top_level_paths(round_dir: Path, rel_dir: str, *, limit: int = 12) -> list[str]:
@@ -281,8 +308,17 @@ def path_list(lines: list[str]) -> str:
     return "".join(f"- `{line}`\n" for line in lines)
 
 
-def status_list(round_dir: Path, paths: tuple[str, ...]) -> str:
-    return "".join(f"- `{rel_path}` ({rel_status(round_dir, rel_path)})\n" for rel_path in paths)
+def status_list(
+    round_dir: Path,
+    paths: tuple[str, ...],
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> str:
+    return "".join(
+        f"- `{rel_path}` ({rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id)})\n"
+        for rel_path in paths
+    )
 
 
 def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Path, role: PacketRole) -> str:
@@ -291,8 +327,8 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
     inputs = top_level_paths(round_dir, "inputs")
     notes = top_level_paths(round_dir, "notes")
     extracted = extracted_text_paths(round_dir)
-    role_existing = existing_paths(round_dir, role.role_inputs)
-    advisory_existing = existing_paths(round_dir, ADVISORY_ARTIFACTS)
+    role_existing = existing_paths(round_dir, role.role_inputs, case_id=case_id, round_id=round_id)
+    advisory_existing = existing_paths(round_dir, ADVISORY_ARTIFACTS, case_id=case_id, round_id=round_id)
     role_constraints = COMMON_CONSTRAINTS + role.constraints
 
     return "\n".join(
@@ -332,7 +368,7 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             path_list(extracted),
             "## Role-Specific Artifacts",
             "",
-            status_list(round_dir, role.role_inputs),
+            status_list(round_dir, role.role_inputs, case_id=case_id, round_id=round_id),
             "## Existing Advisory Or Evidence Artifacts",
             "",
             path_list(advisory_existing),

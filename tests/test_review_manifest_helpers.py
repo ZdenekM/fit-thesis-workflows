@@ -87,7 +87,7 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
     output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
     output.parent.mkdir(parents=True)
     output.write_text("# Reviewed\n", encoding="utf-8")
-    assignment = round_dir / "work" / "assignment_coverage_map.json"
+    assignment = round_dir / "work" / "assignment_coverage_agent.json"
     assignment.parent.mkdir(parents=True)
     assignment.write_text("{}\n", encoding="utf-8")
     manifest = {
@@ -113,7 +113,7 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
                 "independent_review": {"status": "not_required"},
                 "helper_checks": [],
                 "input_refs": ["/home/private/input.pdf"],
-                "evidence_refs": ["work/assignment_coverage_map.json"],
+                "evidence_refs": ["work/assignment_coverage_agent.json"],
                 "check_refs": ["missing-check"],
             }
         ],
