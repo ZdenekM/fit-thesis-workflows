@@ -395,6 +395,16 @@ In a normal opponent case, after reviewed materials and trace exist:
 - updated `work/opponent_report_trace.json` and regenerated
   `work/oponent_posudek_draft.md`, with manifest evidence that the revision used
   the current operator feedback and current profile hash.
+- `work/opponent_calibration_refresh_eligibility.json`: private case-local
+  marker for a finalized case that may be analyzed later for calibration
+  refresh. It binds reviewed materials, accepted trace, finalized draft,
+  opponent-report review, a finalization manifest snapshot under
+  `work/opponent_calibration_refresh_sources/review_manifest.json`, and operator
+  approval by path and SHA-256. It records `finalization_status:
+  human_finalized_after_independent_report_review`, `profile_update_status:
+  not_started`, `does_not_update_profile: true`, and a copy policy of
+  `private_case_local_refs_only`. This marker never copies case data and never
+  updates the profile by itself.
 
 ### Calibrated report trace bindings
 
@@ -756,7 +766,7 @@ Commit target:
 
 ### Slice 9: Calibration Refresh Eligibility From Finalized Cases
 
-Status: pending
+Status: completed
 
 Actions:
 
@@ -964,6 +974,25 @@ Commit target:
   `scripts/smoke-private`, `scripts/check-scripts`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `pants run :vulture`, `pants run :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 9 completed and agent-reviewed. Added
+  `work/opponent_calibration_refresh_eligibility.json` as a private case-local
+  marker for finalized cases, with hash bindings to reviewed materials, accepted
+  trace, finalized draft, opponent-report review, a pre-marker finalization
+  manifest snapshot, and operator approval. Fixed agent review findings by
+  validating structured manifest evidence for independent report/materials
+  review and passed helper checks instead of trusting Markdown existence alone;
+  added an explicit guard against self-referential manifest snapshots. The marker
+  records that profile update has not started and that no automatic copy or
+  profile update was performed. Verification: `pants fmt
+  src/thesis_review_workflow:: tests:: scripts::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_calibration.py tests/test_review_manifest_helpers.py
+  tests/test_work_artifacts.py`, `scripts/smoke-opponent-report`,
+  `scripts/smoke-opponent-closeout`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/smoke-private`, `scripts/check-scripts`,
+  `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and
+  `pants run :omen`.
 
 ## Decision Log
 

@@ -22,6 +22,7 @@ REVIEWER_PROFILE_HISTORY_SCHEMA = "opponent-reviewer-calibration-history-v1"
 OPPONENT_CALIBRATION_USE_SCHEMA = "opponent-calibration-use-v1"
 OPPONENT_CALIBRATION_ADVISORY_SCHEMA = "opponent-calibration-advisory-v1"
 OPPONENT_REPORT_REVISION_REQUEST_SCHEMA = "opponent-report-revision-request-v1"
+OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_SCHEMA = "opponent-calibration-refresh-eligibility-v1"
 
 HISTORICAL_CASE_ANALYSIS_PREFIX = "work/calibration/historical_case_analyses/"
 REVIEWER_CALIBRATION_PROFILE_REL = "work/calibration/reviewer_calibration_profile.json"
@@ -34,12 +35,15 @@ REVIEWER_PROFILE_CHANGE_LOG_REL = "work/calibration/reviewer_profile_change_log.
 OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
 OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
 OPPONENT_REPORT_REVISION_REQUEST_REL = "work/opponent_report_revision_request.json"
+OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_REL = "work/opponent_calibration_refresh_eligibility.json"
 OPPONENT_OPERATOR_FEEDBACK_REL = "notes/opponent-report-operator-feedback.md"
 OPPONENT_MATERIALS_REVIEWED_REL = "outputs/oponent_podklady_revidovane.md"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
 OPPONENT_REPORT_DRAFT_REL = "work/oponent_posudek_draft.md"
+OPPONENT_REPORT_REVIEW_REL = "outputs/feedback_k_posudku.md"
 OPPONENT_REVISION_SOURCE_TRACE_REL = "work/opponent_report_revision_sources/opponent_report_trace.json"
 OPPONENT_REVISION_SOURCE_DRAFT_REL = "work/opponent_report_revision_sources/oponent_posudek_draft.md"
+OPPONENT_REFRESH_SOURCE_MANIFEST_REL = "work/opponent_calibration_refresh_sources/review_manifest.json"
 REFERENCE_REPORT_COMPARISON_REL = "outputs/reference_report_comparison.md"
 OPPONENT_READING_PACKET_REL = "outputs/opponent_reading_packet.md"
 
@@ -50,6 +54,7 @@ EXACT_CALIBRATION_ARTIFACT_SCHEMAS: dict[str, str] = {
     OPPONENT_CALIBRATION_USE_REL: OPPONENT_CALIBRATION_USE_SCHEMA,
     OPPONENT_CALIBRATION_ADVISORY_REL: OPPONENT_CALIBRATION_ADVISORY_SCHEMA,
     OPPONENT_REPORT_REVISION_REQUEST_REL: OPPONENT_REPORT_REVISION_REQUEST_SCHEMA,
+    OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_REL: OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_SCHEMA,
 }
 
 ALLOWED_REF_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
@@ -82,6 +87,7 @@ REVISION_FEEDBACK_CATEGORIES = {
     "scope_limitation",
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+REVIEWED_STATUSES = {"reviewed", "reviewed_with_notes"}
 
 
 def calibration_schema_for_rel_path(rel_path: str) -> str | None:
@@ -224,6 +230,15 @@ def validate_opponent_calibration_payload(
         )
     elif expected_schema == OPPONENT_REPORT_REVISION_REQUEST_SCHEMA:
         _validate_opponent_report_revision_request(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            errors=errors,
+        )
+    elif expected_schema == OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_SCHEMA:
+        _validate_opponent_calibration_refresh_eligibility(
             loaded,
             rel_path,
             round_dir,
@@ -662,6 +677,316 @@ def _validate_opponent_report_revision_request(
     if isinstance(calibration_ref, str):
         expected_refs.append(calibration_ref)
     _validate_source_refs_include(loaded, rel_path, expected_refs, errors)
+
+
+def _validate_opponent_calibration_refresh_eligibility(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    *,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "source_materials_path",
+        "source_materials_sha256",
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "opponent_report_trace_path",
+        "opponent_report_trace_sha256",
+        OPPONENT_REPORT_TRACE_REL,
+        round_dir,
+        errors,
+    )
+    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "final_report_draft_path",
+        "final_report_draft_sha256",
+        OPPONENT_REPORT_DRAFT_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "final_report_review_path",
+        "final_report_review_sha256",
+        OPPONENT_REPORT_REVIEW_REL,
+        round_dir,
+        errors,
+    )
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        "review_manifest_snapshot_path",
+        "review_manifest_snapshot_sha256",
+        OPPONENT_REFRESH_SOURCE_MANIFEST_REL,
+        round_dir,
+        errors,
+    )
+    _validate_refresh_manifest_snapshot(loaded, rel_path, round_dir, case_id, round_id, errors)
+    if loaded.get("eligibility_status") != "operator_approved_for_calibration_refresh":
+        errors.append(f"{rel_path}: eligibility_status must be operator_approved_for_calibration_refresh")
+    if loaded.get("finalization_status") != "human_finalized_after_independent_report_review":
+        errors.append(f"{rel_path}: finalization_status must be human_finalized_after_independent_report_review")
+    if loaded.get("profile_update_status") != "not_started":
+        errors.append(f"{rel_path}: profile_update_status must be not_started")
+    if loaded.get("does_not_update_profile") is not True:
+        errors.append(f"{rel_path}: does_not_update_profile must be true")
+    _validate_refresh_copy_policy(loaded.get("copy_policy"), rel_path, errors)
+    case_local_refs = _require_nonempty_list(loaded, "case_local_source_refs", rel_path, errors)
+    _validate_refs(
+        case_local_refs,
+        f"{rel_path}: case_local_source_refs",
+        round_dir=round_dir,
+        require_existing_refs=True,
+        errors=errors,
+    )
+    expected_refs = [
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        OPPONENT_REPORT_TRACE_REL,
+        OPPONENT_REPORT_DRAFT_REL,
+        OPPONENT_REPORT_REVIEW_REL,
+        OPPONENT_REFRESH_SOURCE_MANIFEST_REL,
+    ]
+    _validate_source_refs_include(loaded, rel_path, expected_refs, errors)
+    if isinstance(case_local_refs, list):
+        for expected_ref in expected_refs:
+            if expected_ref not in case_local_refs:
+                errors.append(f"{rel_path}: case_local_source_refs must include {expected_ref}")
+    _validate_refresh_eligibility_approval(loaded.get("operator_approval"), rel_path, loaded, errors)
+
+
+def _validate_refresh_copy_policy(value: Any, rel_path: str, errors: list[str]) -> None:
+    label = f"{rel_path}: copy_policy"
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be object")
+        return
+    if value.get("copy_scope") != "private_case_local_refs_only":
+        errors.append(f"{label}: copy_scope must be private_case_local_refs_only")
+    if value.get("target_workspace") != "ignored_calibration_case_workspace":
+        errors.append(f"{label}: target_workspace must be ignored_calibration_case_workspace")
+    if value.get("auto_copy_performed") is not False:
+        errors.append(f"{label}: auto_copy_performed must be false")
+    if value.get("profile_auto_update") is not False:
+        errors.append(f"{label}: profile_auto_update must be false")
+    if value.get("requires_explicit_profile_refresh_approval") is not True:
+        errors.append(f"{label}: requires_explicit_profile_refresh_approval must be true")
+
+
+def _validate_refresh_manifest_snapshot(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    if round_dir is None:
+        return
+    manifest = _load_json_object(
+        round_dir / OPPONENT_REFRESH_SOURCE_MANIFEST_REL, OPPONENT_REFRESH_SOURCE_MANIFEST_REL, errors
+    )
+    if manifest is None:
+        return
+    label = f"{rel_path}: review_manifest_snapshot"
+    if manifest.get("schema_version") != "review-manifest-v1":
+        errors.append(f"{label}: schema_version must be review-manifest-v1")
+    if case_id is not None and manifest.get("case_id") != case_id:
+        errors.append(f"{label}: case_id does not match requested case")
+    if round_id is not None and manifest.get("round_id") != round_id:
+        errors.append(f"{label}: round_id does not match requested round")
+    if _manifest_record_by_path(
+        manifest.get("supporting_work_artifacts"), OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_REL
+    ):
+        errors.append(
+            f"{label}: snapshot must be captured before {OPPONENT_CALIBRATION_REFRESH_ELIGIBILITY_REL} is collected"
+        )
+
+    _validate_manifest_work_artifact(
+        manifest,
+        OPPONENT_REPORT_TRACE_REL,
+        loaded.get("opponent_report_trace_sha256"),
+        label,
+        errors,
+    )
+    _validate_manifest_work_artifact(
+        manifest,
+        OPPONENT_REPORT_DRAFT_REL,
+        loaded.get("final_report_draft_sha256"),
+        label,
+        errors,
+    )
+    _validate_manifest_output_artifact(
+        manifest,
+        OPPONENT_MATERIALS_REVIEWED_REL,
+        loaded.get("source_materials_sha256"),
+        label,
+        errors,
+    )
+    _validate_manifest_output_artifact(
+        manifest,
+        OPPONENT_REPORT_REVIEW_REL,
+        loaded.get("final_report_review_sha256"),
+        label,
+        errors,
+        review_basis_path=OPPONENT_REPORT_DRAFT_REL,
+        review_basis_sha256=loaded.get("final_report_draft_sha256"),
+    )
+    _validate_manifest_helper_check(
+        manifest,
+        "check-opponent-materials",
+        {OPPONENT_MATERIALS_REVIEWED_REL: loaded.get("source_materials_sha256")},
+        label,
+        errors,
+    )
+    _validate_manifest_helper_check(
+        manifest,
+        "check-opponent-report",
+        {
+            OPPONENT_MATERIALS_REVIEWED_REL: loaded.get("source_materials_sha256"),
+            OPPONENT_REPORT_TRACE_REL: loaded.get("opponent_report_trace_sha256"),
+            OPPONENT_REPORT_DRAFT_REL: loaded.get("final_report_draft_sha256"),
+        },
+        label,
+        errors,
+    )
+
+
+def _validate_manifest_work_artifact(
+    manifest: dict[str, Any],
+    expected_path: str,
+    expected_hash: Any,
+    label: str,
+    errors: list[str],
+) -> None:
+    record = _manifest_record_by_path(manifest.get("supporting_work_artifacts"), expected_path)
+    if record is None:
+        errors.append(f"{label}: supporting_work_artifacts must include {expected_path}")
+        return
+    if record.get("artifact_sha256") != expected_hash:
+        errors.append(f"{label}: supporting_work_artifacts hash is stale for {expected_path}")
+
+
+def _validate_manifest_output_artifact(
+    manifest: dict[str, Any],
+    expected_path: str,
+    expected_hash: Any,
+    label: str,
+    errors: list[str],
+    *,
+    review_basis_path: str | None = None,
+    review_basis_sha256: Any = None,
+) -> None:
+    record = _manifest_record_by_path(manifest.get("artifacts"), expected_path)
+    if record is None:
+        errors.append(f"{label}: artifacts must include {expected_path}")
+        return
+    if record.get("artifact_sha256") != expected_hash:
+        errors.append(f"{label}: artifact hash is stale for {expected_path}")
+    review = record.get("independent_review")
+    review_label = f"{label}: {expected_path} independent_review"
+    if not isinstance(review, dict):
+        errors.append(f"{review_label} must be object")
+        return
+    if review.get("status") not in REVIEWED_STATUSES:
+        errors.append(f"{review_label}.status must be reviewed or reviewed_with_notes")
+    if review.get("reviewed_hash") != record.get("artifact_sha256"):
+        errors.append(f"{review_label}.reviewed_hash is stale")
+    for field in ("reviewer_role", "reviewer_agent", "reviewed_at"):
+        _require_nonempty_string(review, field, review_label, errors)
+    if review_basis_path is not None:
+        if review.get("review_basis_path") != review_basis_path:
+            errors.append(f"{review_label}.review_basis_path must be {review_basis_path}")
+        if review.get("review_basis_sha256") != review_basis_sha256:
+            errors.append(f"{review_label}.review_basis_sha256 is stale")
+
+
+def _validate_manifest_helper_check(
+    manifest: dict[str, Any],
+    expected_check: str,
+    expected_target_hashes: dict[str, Any],
+    label: str,
+    errors: list[str],
+) -> None:
+    record = _manifest_record_by_check(manifest.get("helper_checks"), expected_check)
+    check_label = f"{label}: helper_checks {expected_check}"
+    if record is None:
+        errors.append(f"{label}: helper_checks must include {expected_check}")
+        return
+    if record.get("status") != "passed":
+        errors.append(f"{check_label}: status must be passed")
+    if record.get("exit_code") != 0:
+        errors.append(f"{check_label}: exit_code must be 0")
+    if not str(record.get("checked_at", "")).strip():
+        errors.append(f"{check_label}: checked_at must be recorded")
+    targets = record.get("target_artifacts")
+    target_set = {target for target in targets if isinstance(target, str)} if isinstance(targets, list) else set()
+    target_hashes = record.get("target_sha256")
+    if not isinstance(target_hashes, dict):
+        errors.append(f"{check_label}: target_sha256 must be object")
+        target_hashes = {}
+    for target, expected_hash in expected_target_hashes.items():
+        if target not in target_set:
+            errors.append(f"{check_label}: target_artifacts must include {target}")
+        if target_hashes.get(target) != expected_hash:
+            errors.append(f"{check_label}: target hash is stale for {target}")
+
+
+def _manifest_record_by_path(records: Any, path: str) -> dict[str, Any] | None:
+    if not isinstance(records, list):
+        return None
+    for record in records:
+        if isinstance(record, dict) and record.get("path") == path:
+            return record
+    return None
+
+
+def _manifest_record_by_check(records: Any, check: str) -> dict[str, Any] | None:
+    if not isinstance(records, list):
+        return None
+    for record in records:
+        if isinstance(record, dict) and record.get("check") == check:
+            return record
+    return None
+
+
+def _validate_refresh_eligibility_approval(
+    value: Any,
+    rel_path: str,
+    loaded: dict[str, Any],
+    errors: list[str],
+) -> None:
+    label = f"{rel_path}: operator_approval"
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be object")
+        return
+    if value.get("approved") is not True:
+        errors.append(f"{label}: approved must be true")
+    if value.get("approval_kind") != "calibration_refresh_eligibility":
+        errors.append(f"{label}: approval_kind must be calibration_refresh_eligibility")
+    expected_hashes = {
+        "approved_source_materials_sha256": "source_materials_sha256",
+        "approved_trace_sha256": "opponent_report_trace_sha256",
+        "approved_final_report_draft_sha256": "final_report_draft_sha256",
+        "approved_final_report_review_sha256": "final_report_review_sha256",
+        "approved_review_manifest_snapshot_sha256": "review_manifest_snapshot_sha256",
+    }
+    for approval_field, payload_field in expected_hashes.items():
+        if value.get(approval_field) != loaded.get(payload_field):
+            errors.append(f"{label}: {approval_field} is stale")
+    for field in ("approved_by", "approved_at", "approval_scope"):
+        _require_nonempty_string(value, field, label, errors)
 
 
 def _validate_revision_calibration_context(

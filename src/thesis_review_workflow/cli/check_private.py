@@ -14,7 +14,7 @@ PRIVATE_JSONL_RE = re.compile(r"(^|/)(visual_inventory|reviewer_calibration_prof
 PRIVATE_MANIFEST_RE = re.compile(
     r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest|"
     r"opponent_calibration_use|opponent_calibration_advisory|opponent_report_revision_request|"
-    r"reviewer_calibration_profile|reviewer_checklist)\.json$"
+    r"opponent_calibration_refresh_eligibility|reviewer_calibration_profile|reviewer_checklist)\.json$"
 )
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
 PRIVATE_MARKDOWN_RE = re.compile(

@@ -408,6 +408,185 @@ def revision_request_payload(round_dir: Path, *, use_calibration: bool = True) -
     return payload
 
 
+def calibration_refresh_eligibility_payload(round_dir: Path) -> dict[str, object]:
+    materials = write_text_artifact(round_dir, "outputs/oponent_podklady_revidovane.md")
+    trace_path = round_dir / "work/opponent_report_trace.json"
+    write_json(trace_path, opponent_trace_payload(sha256_file(materials)))
+    draft = write_text_artifact(
+        round_dir,
+        "work/oponent_posudek_draft.md",
+        "# Návrh oponentského posudku\n\nSynthetic finalized draft.\n",
+    )
+    review = write_text_artifact(
+        round_dir,
+        "outputs/feedback_k_posudku.md",
+        "# Review of opponent report\n\nIndependent reviewer accepted the finalized draft.\n",
+    )
+    hashes = {
+        "materials": sha256_file(materials),
+        "trace": sha256_file(trace_path),
+        "draft": sha256_file(draft),
+        "review": sha256_file(review),
+    }
+    manifest_snapshot = {
+        "schema_version": "review-manifest-v1",
+        "case_id": "calibration-case",
+        "round_id": "round-a",
+        "updated_at": "2026-05-07T00:00:00Z",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [],
+        "supporting_work_artifacts": [
+            {
+                "path": "work/opponent_report_trace.json",
+                "kind": "structured_data",
+                "artifact_sha256": hashes["trace"],
+                "schema_version": "opponent-report-trace-v1",
+            },
+            {
+                "path": "work/oponent_posudek_draft.md",
+                "kind": "text",
+                "artifact_sha256": hashes["draft"],
+            },
+        ],
+        "helper_checks": [
+            {
+                "check": "check-opponent-materials",
+                "command": "scripts/check-opponent-materials calibration-case round-a",
+                "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {"outputs/oponent_podklady_revidovane.md": hashes["materials"]},
+                "status": "passed",
+                "checked_at": "2026-05-07T00:01:00Z",
+                "exit_code": 0,
+            },
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report calibration-case round-a",
+                "target_artifacts": [
+                    "work/opponent_report_trace.json",
+                    "outputs/oponent_podklady_revidovane.md",
+                    "work/oponent_posudek_draft.md",
+                ],
+                "target_sha256": {
+                    "work/opponent_report_trace.json": hashes["trace"],
+                    "outputs/oponent_podklady_revidovane.md": hashes["materials"],
+                    "work/oponent_posudek_draft.md": hashes["draft"],
+                },
+                "status": "passed",
+                "checked_at": "2026-05-07T00:02:00Z",
+                "exit_code": 0,
+            },
+        ],
+        "workflow_limitations": [],
+        "artifacts": [
+            {
+                "path": "outputs/oponent_podklady_revidovane.md",
+                "kind": "text",
+                "artifact_sha256": hashes["materials"],
+                "review_scope": "standalone_final",
+                "generated_by": [
+                    {
+                        "role": "thesis-opponent-materials",
+                        "agent": "synthetic-materials-agent",
+                        "contribution": "generation",
+                        "notes": "Synthetic fixture.",
+                    }
+                ],
+                "independent_review": {
+                    "status": "reviewed",
+                    "reviewer_role": "thesis-opponent-materials-review",
+                    "reviewer_agent": "synthetic-materials-reviewer",
+                    "reviewed_at": "2026-05-07T00:03:00Z",
+                    "reviewed_hash": hashes["materials"],
+                    "covered_by_artifact": "",
+                    "used_findings": "",
+                    "exception": "",
+                    "notes": "Synthetic review passed.",
+                },
+                "limitations": ["Synthetic fixture."],
+            },
+            {
+                "path": "outputs/feedback_k_posudku.md",
+                "kind": "text",
+                "artifact_sha256": hashes["review"],
+                "review_scope": "standalone_final",
+                "generated_by": [
+                    {
+                        "role": "thesis-opponent-report-review",
+                        "agent": "synthetic-report-reviewer",
+                        "contribution": "generation",
+                        "notes": "Synthetic fixture.",
+                    }
+                ],
+                "independent_review": {
+                    "status": "reviewed",
+                    "reviewer_role": "thesis-opponent-report-review",
+                    "reviewer_agent": "synthetic-report-review-reviewer",
+                    "reviewed_at": "2026-05-07T00:04:00Z",
+                    "reviewed_hash": hashes["review"],
+                    "covered_by_artifact": "",
+                    "used_findings": "",
+                    "exception": "",
+                    "notes": "Synthetic report review accepted.",
+                    "review_basis_path": "work/oponent_posudek_draft.md",
+                    "review_basis_sha256": hashes["draft"],
+                },
+                "limitations": ["Synthetic fixture."],
+            },
+        ],
+    }
+    manifest_snapshot_path = round_dir / "work/opponent_calibration_refresh_sources/review_manifest.json"
+    write_json(manifest_snapshot_path, manifest_snapshot)
+    hashes["manifest_snapshot"] = sha256_file(manifest_snapshot_path)
+    source_refs = [
+        "outputs/oponent_podklady_revidovane.md",
+        "work/opponent_report_trace.json",
+        "work/oponent_posudek_draft.md",
+        "outputs/feedback_k_posudku.md",
+        "work/opponent_calibration_refresh_sources/review_manifest.json",
+    ]
+    return {
+        **common_fields("opponent-calibration-refresh-eligibility-v1"),
+        "source_refs": source_refs,
+        "limitations": ["Synthetic eligibility marker; profile refresh is a separate authorized workflow."],
+        "eligibility_status": "operator_approved_for_calibration_refresh",
+        "finalization_status": "human_finalized_after_independent_report_review",
+        "profile_update_status": "not_started",
+        "does_not_update_profile": True,
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": hashes["materials"],
+        "opponent_report_trace_path": "work/opponent_report_trace.json",
+        "opponent_report_trace_sha256": hashes["trace"],
+        "final_report_draft_path": "work/oponent_posudek_draft.md",
+        "final_report_draft_sha256": hashes["draft"],
+        "final_report_review_path": "outputs/feedback_k_posudku.md",
+        "final_report_review_sha256": hashes["review"],
+        "review_manifest_snapshot_path": "work/opponent_calibration_refresh_sources/review_manifest.json",
+        "review_manifest_snapshot_sha256": hashes["manifest_snapshot"],
+        "case_local_source_refs": source_refs,
+        "copy_policy": {
+            "copy_scope": "private_case_local_refs_only",
+            "target_workspace": "ignored_calibration_case_workspace",
+            "auto_copy_performed": False,
+            "profile_auto_update": False,
+            "requires_explicit_profile_refresh_approval": True,
+        },
+        "operator_approval": {
+            "approved": True,
+            "approval_kind": "calibration_refresh_eligibility",
+            "approved_by": "synthetic-operator",
+            "approved_at": "2026-05-07T00:00:00Z",
+            "approval_scope": "Allow this finalized case to be analyzed later for calibration refresh.",
+            "approved_source_materials_sha256": hashes["materials"],
+            "approved_trace_sha256": hashes["trace"],
+            "approved_final_report_draft_sha256": hashes["draft"],
+            "approved_final_report_review_sha256": hashes["review"],
+            "approved_review_manifest_snapshot_sha256": hashes["manifest_snapshot"],
+        },
+    }
+
+
 def test_validate_historical_case_analysis_accepts_path_classified_payload(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_calibration_refs(round_dir)
@@ -1683,6 +1862,184 @@ def test_validate_opponent_report_revision_request_requires_source_refs_for_boun
     )
 
 
+def test_validate_calibration_refresh_eligibility_binds_finalized_case_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+        case_id="calibration-case",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert not (round_dir / "work/calibration/reviewer_calibration_profile.json").exists()
+    assert not (round_dir / "work/calibration/reviewer_calibration_profile_history.jsonl").exists()
+
+
+def test_validate_calibration_refresh_eligibility_rejects_stale_final_report_review_and_approval(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    (round_dir / "outputs/feedback_k_posudku.md").write_text("changed review\n", encoding="utf-8")
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval["approved_final_report_review_sha256"] = "0" * 64
+    payload["operator_approval"] = approval
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any("final_report_review_sha256 is stale" in error for error in errors)
+    assert any("operator_approval: approved_final_report_review_sha256 is stale" in error for error in errors)
+
+
+def test_validate_calibration_refresh_eligibility_requires_manifest_review_and_helper_evidence(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    manifest_path = round_dir / "work/opponent_calibration_refresh_sources/review_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"] = [
+        artifact for artifact in manifest["artifacts"] if artifact["path"] != "outputs/feedback_k_posudku.md"
+    ]
+    for check in manifest["helper_checks"]:
+        if check["check"] == "check-opponent-report":
+            check["status"] = "failed"
+            check["exit_code"] = 1
+    write_json(manifest_path, manifest)
+    manifest_hash = sha256_file(manifest_path)
+    payload["review_manifest_snapshot_sha256"] = manifest_hash
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval["approved_review_manifest_snapshot_sha256"] = manifest_hash
+    payload["operator_approval"] = approval
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any("artifacts must include outputs/feedback_k_posudku.md" in error for error in errors)
+    assert any("helper_checks check-opponent-report: status must be passed" in error for error in errors)
+    assert any("helper_checks check-opponent-report: exit_code must be 0" in error for error in errors)
+
+
+def test_validate_calibration_refresh_eligibility_rejects_stale_manifest_check_target(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    manifest_path = round_dir / "work/opponent_calibration_refresh_sources/review_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for check in manifest["helper_checks"]:
+        if check["check"] == "check-opponent-report":
+            check["target_sha256"]["work/oponent_posudek_draft.md"] = "0" * 64
+    write_json(manifest_path, manifest)
+    manifest_hash = sha256_file(manifest_path)
+    payload["review_manifest_snapshot_sha256"] = manifest_hash
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval["approved_review_manifest_snapshot_sha256"] = manifest_hash
+    payload["operator_approval"] = approval
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any(
+        "helper_checks check-opponent-report: target hash is stale for work/oponent_posudek_draft.md" in error
+        for error in errors
+    )
+
+
+def test_validate_calibration_refresh_eligibility_rejects_self_referential_manifest_snapshot(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    marker_path = round_dir / "work/opponent_calibration_refresh_eligibility.json"
+    write_json(marker_path, payload)
+    marker_hash = sha256_file(marker_path)
+    manifest_path = round_dir / "work/opponent_calibration_refresh_sources/review_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["supporting_work_artifacts"].append(
+        {
+            "path": "work/opponent_calibration_refresh_eligibility.json",
+            "kind": "structured_data",
+            "artifact_sha256": marker_hash,
+            "schema_version": "opponent-calibration-refresh-eligibility-v1",
+        }
+    )
+    write_json(manifest_path, manifest)
+    manifest_hash = sha256_file(manifest_path)
+    payload["review_manifest_snapshot_sha256"] = manifest_hash
+    approval = dict(payload["operator_approval"]) if isinstance(payload["operator_approval"], dict) else {}
+    approval["approved_review_manifest_snapshot_sha256"] = manifest_hash
+    payload["operator_approval"] = approval
+    write_json(marker_path, payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any(
+        "snapshot must be captured before work/opponent_calibration_refresh_eligibility.json is collected" in error
+        for error in errors
+    )
+
+
+def test_validate_calibration_refresh_eligibility_rejects_profile_update_claims(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    payload["profile_update_status"] = "updated"
+    payload["does_not_update_profile"] = False
+    copy_policy = dict(payload["copy_policy"]) if isinstance(payload["copy_policy"], dict) else {}
+    copy_policy["profile_auto_update"] = True
+    copy_policy["auto_copy_performed"] = True
+    payload["copy_policy"] = copy_policy
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any("profile_update_status must be not_started" in error for error in errors)
+    assert any("does_not_update_profile must be true" in error for error in errors)
+    assert any("copy_policy: profile_auto_update must be false" in error for error in errors)
+    assert any("copy_policy: auto_copy_performed must be false" in error for error in errors)
+
+
+def test_validate_calibration_refresh_eligibility_rejects_unsafe_case_local_refs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = calibration_refresh_eligibility_payload(round_dir)
+    payload["case_local_source_refs"] = [
+        "outputs/oponent_podklady_revidovane.md",
+        "/tmp/private/feedback_k_posudku.md",
+        "work\\oponent_posudek_draft.md",
+        "../outside.md",
+    ]
+    write_json(round_dir / "work/opponent_calibration_refresh_eligibility.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/opponent_calibration_refresh_eligibility.json",
+    )
+
+    assert any("case_local_source_refs item 2: ref must be relative inside the round" in error for error in errors)
+    assert any("case_local_source_refs item 3: ref must be relative inside the round" in error for error in errors)
+    assert any("case_local_source_refs item 4: ref must be relative inside the round" in error for error in errors)
+
+
 def test_work_artifacts_collects_current_case_calibration_advisory(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     write_json(round_dir / "work/opponent_calibration_advisory.json", calibration_advisory_payload(round_dir))
@@ -1705,6 +2062,37 @@ def test_work_artifacts_collects_current_case_revision_request(tmp_path: Path) -
         by_path["work/opponent_report_revision_request.json"]["schema_version"] == "opponent-report-revision-request-v1"
     )
     assert validate_supporting_work_artifacts(records, round_dir, case_id="calibration-case", round_id="round-a") == []
+
+
+def test_work_artifacts_collects_current_case_calibration_refresh_eligibility(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_json(
+        round_dir / "work/opponent_calibration_refresh_eligibility.json",
+        calibration_refresh_eligibility_payload(round_dir),
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert (
+        by_path["work/opponent_calibration_refresh_eligibility.json"]["schema_version"]
+        == "opponent-calibration-refresh-eligibility-v1"
+    )
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="calibration-case", round_id="round-a") == []
+    stale_records = [dict(record) for record in records]
+    for record in stale_records:
+        if record["path"] == "work/opponent_calibration_refresh_eligibility.json":
+            record["artifact_sha256"] = "0" * 64
+    stale_errors = validate_supporting_work_artifacts(
+        stale_records,
+        round_dir,
+        case_id="calibration-case",
+        round_id="round-a",
+    )
+    assert any(
+        "artifact_sha256 is stale for work/opponent_calibration_refresh_eligibility.json" in error
+        for error in stale_errors
+    )
 
 
 def test_draft_gate_validates_current_case_calibration_use(tmp_path: Path) -> None:

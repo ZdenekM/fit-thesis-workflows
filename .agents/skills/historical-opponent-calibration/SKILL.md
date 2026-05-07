@@ -81,6 +81,16 @@ exist, use the private profile only through the current-case contract:
 11. Refresh `work/review_manifest.json`, run required coverage/manifest checks,
     and run an independent opponent-report review before treating the revised
     draft as sendable.
+12. After the report is human-finalized and independently reviewed, the operator
+    may mark it for a future calibration refresh by writing
+    `work/opponent_calibration_refresh_eligibility.json`. The marker binds the
+    finalized materials, accepted trace, finalized draft, opponent-report review,
+    finalization manifest snapshot at
+    `work/opponent_calibration_refresh_sources/review_manifest.json`, and
+    operator approval by SHA-256. It must say that profile update has not started
+    and that no automatic profile update or automatic copy was performed. Capture
+    the manifest snapshot before the eligibility marker itself is collected into
+    the active manifest.
 
 ## Refresh
 
@@ -92,6 +102,10 @@ version. A refresh must keep all prior `source_case_refs`, set
 with `previous_history_entry_sha256` instead of rewriting the JSONL file, update
 `reviewer_profile_change_log.md`, and record structured operator approval
 before the refreshed profile becomes the default calibration profile.
+
+The refresh-eligibility marker is only a private queue entry. It never replaces
+the later historical-case analysis, independent profile review, append-only
+history entry, or explicit default-profile approval.
 
 ## Boundaries
 
@@ -121,3 +135,6 @@ before the refreshed profile becomes the default calibration profile.
   binding record: it validates hashes of the exact calibration and revision
   artifacts used, without reinterpreting their free text or recursively
   requiring those input artifacts to bind the newly revised trace.
+- `work/opponent_calibration_refresh_eligibility.json` may mark a finalized case
+  for later profile refresh, but it must not copy private data or update the
+  reviewer profile by itself.

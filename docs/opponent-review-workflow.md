@@ -134,6 +134,16 @@ Ten hashem váže přesné vstupní kalibrační a revizní artefakty, které ve
 revidovaného draftu za sendable obnovte manifest, spusťte coverage/manifest
 kontroly a nezávislé review oponentského posudku.
 
+Po lidském dofinalizování a nezávislém review posudku může oponent případ
+označit jako kandidáta pro budoucí rozšíření soukromé kalibrace pomocí
+`work/opponent_calibration_refresh_eligibility.json`. Tento marker hashem váže
+revidované podklady, přijatý trace, finalizovaný draft, review posudku,
+snapshot finalizačního manifestu pod
+`work/opponent_calibration_refresh_sources/review_manifest.json` a souhlas
+oponenta. Snapshot se pořizuje před tím, než se samotný eligibility marker
+začne sbírat do aktivního manifestu. Nesmí kopírovat data ani měnit kalibrační
+profil; pozdější refresh profilu zůstává samostatný autorizovaný workflow krok.
+
 ## Report Draft Boundary
 
 `outputs/oponent_podklady_revidovane.md` jsou interní revidované podklady pro

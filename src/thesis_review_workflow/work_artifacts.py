@@ -49,6 +49,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/opponent_calibration_use.json",
     "work/opponent_calibration_advisory.json",
     "work/opponent_report_revision_request.json",
+    "work/opponent_calibration_refresh_eligibility.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
 )
@@ -57,6 +58,7 @@ WORK_ARTIFACT_GLOBS = (
     "work/agent_*.md",
     "work/opponent_packets/*.md",
     "work/opponent_report_revision_sources/*",
+    "work/opponent_calibration_refresh_sources/*",
     "work/calibration/*.json",
     "work/calibration/*.jsonl",
     "work/calibration/*.md",

@@ -184,6 +184,22 @@ reinterpret those inputs against the newly revised trace, because the revision
 request and earlier calibration-use/advisory artifacts may intentionally bind
 the pre-revision trace or draft the operator actually read.
 
+After the opponent report has been human-finalized and independently reviewed,
+the operator may mark the case as eligible for a future calibration refresh with
+`work/opponent_calibration_refresh_eligibility.json`. This private marker binds
+the reviewed opponent materials, accepted trace, finalized draft,
+opponent-report review, finalization manifest snapshot, and operator approval by
+path and SHA-256. The manifest snapshot lives at
+`work/opponent_calibration_refresh_sources/review_manifest.json` to avoid a
+self-referential hash cycle with the active manifest. Capture that snapshot
+after final report checks/review pass but before the eligibility marker itself
+is collected into the active manifest. It must record
+`profile_update_status: not_started`, `does_not_update_profile: true`, and a
+copy policy of `private_case_local_refs_only`. The marker does not copy data and
+does not update the reviewer profile; a later profile refresh still requires a
+separate authorized historical-case analysis, independent review, history entry,
+and default-profile approval.
+
 ## Agent Authorization
 
 Semantic interpretation of historical reports, current materials, or operator
