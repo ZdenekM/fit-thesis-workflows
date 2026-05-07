@@ -65,6 +65,14 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 19. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
 20. After the final output and checks exist, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles and any unavailable evidence in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. For every internal evidence artifact marked `covered_by_synthesis`, record a compact `used_findings` summary and evidence hash. If the final Markdown changes after review, refresh the manifest and rerun the independent review as needed.
 
+## Free-Text Boundary
+
+Deterministic checker output is a prompt or structured evidence source, not a
+replacement for semantic reading. Interpret free-form thesis, README, notes,
+code, and generated prose yourself as an agent, verify claims against available
+evidence, and store reusable conclusions as structured artifacts with evidence
+anchors. Do not turn raw keyword or token matches into feedback wording.
+
 ## Supervisor Notes Handling
 
 Treat notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, as hypotheses to evaluate, not as text to paste into student feedback.

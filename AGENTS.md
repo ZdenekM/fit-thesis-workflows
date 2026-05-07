@@ -13,14 +13,20 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - For non-trivial code navigation or edits, prefer Serena MCP for symbol-aware work when the language/root is supported; use `docs/serena-code-navigation.md` for repo and submitted-code scoping rules.
 - Preserve `README.md` as the human/operator-facing chat-first entrypoint. Its top path should explain what a supervisor or opponent writes to the agent, include concise prompt examples, and keep script/skill internals as lower-level reference. Do not let it regress into a script-first runbook; move detailed procedures into skills, templates, or focused docs.
 - Pipeline and helper-script extensions must be general and context-aware. Do not encode one real thesis, domain, dataset, concrete metric value, filename, or expected conclusion as an active workflow rule. When a case exposes a useful pattern, generalize it into evidence classes, configurable reviewer prompts, or cross-case checks, and apply the interpretation in the context of the current assignment, thesis phase, artifacts, and claims.
-- Do not add brittle content heuristics such as "if the thesis/code text
-  contains this substring, infer this review conclusion." For workflow decisions,
-  prefer structured metadata, parsed sections with documented schemas, explicit
-  operator configuration, typed evidence classes, or reviewer prompts that force
-  evidence verification. String matching is acceptable only for bounded
-  structural parsing such as known metadata labels, command output markers, file
-  extensions, section headings, or validator placeholders, and it must not by
-  itself become a domain judgment or grading/review finding.
+- Do not add brittle free-text heuristics such as "if raw thesis/code/README
+  text contains this substring, infer meaning or choose workflow behavior."
+  Semantic interpretation of free-form text belongs to an explicitly authorized
+  agent/LLM workflow that writes a structured artifact with evidence anchors.
+  Deterministic code should consume structured metadata, parsed sections with
+  documented schemas, explicit operator configuration, typed evidence classes,
+  manifests, hashes, or agent-produced JSON/Markdown contracts. String matching
+  is acceptable only for bounded structural parsing such as known metadata
+  labels, command output markers, file extensions, section headings, internal
+  placeholders, path/privacy leak checks, or schema validation. Any temporary
+  lexical detector over free-form text must be advisory, clearly labeled as a
+  prompt for agent/human verification, and must not by itself become a gate,
+  routing decision, readiness decision, migration decision, semantic finding,
+  grading point, feedback/report wording, or claim about thesis/code quality.
 - When a concrete case reveals a likely recurring review pattern, finish the case artifact first, then proactively suggest whether that pattern should be promoted into workflow docs, skills, templates, or TODO. If the user approves, update the workflow at the right level instead of leaving the lesson as an ad hoc memory.
 - Keep `TODO.md` as an unnumbered list of open work only; delete completed items instead of leaving checked-off historical entries.
 - Use tracked plan files for non-trivial multi-slice workflow/tooling changes. Active plans live under `plans/*_plan.md`, completed or superseded plans move under `plans/archive/`, and `plans/README.md` defines the plan contract. Tracked plans must stay case-neutral and must not include private case data.

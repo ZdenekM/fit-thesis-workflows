@@ -242,7 +242,7 @@ def run_opponent_materials_check(root: Path, case_id: str, round_id: str, errors
         errors.append("reviewed opponent materials check failed" + (f":\n{detail}" if detail else ""))
 
 
-def check_text(text: str, public_text: str, materials_text: str, errors: list[str]) -> None:
+def check_text(text: str, public_text: str, materials_text: str, errors: list[str], warnings: list[str]) -> None:
     lines = text.splitlines()
     for heading in REQUIRED_HEADINGS:
         if heading not in lines:
@@ -292,9 +292,10 @@ def check_text(text: str, public_text: str, materials_text: str, errors: list[st
         or "[k ruční kontrole]" in lower_materials
     ):
         if not any(term in lower_text for term in UNCERTAINTY_TERMS):
-            errors.append(
+            warnings.append(
                 "reviewed materials contain uncertainty/manual-check labels, "
-                "but report draft does not preserve any uncertainty wording"
+                "but report draft does not appear to preserve uncertainty wording; "
+                "verify manually or add a structured report trace"
             )
     chunks = text_chunks(public_text)
     for claim in uncertain_claims(materials_text):
@@ -303,7 +304,10 @@ def check_text(text: str, public_text: str, materials_text: str, errors: list[st
             any(token in chunk for token in tokens) and any(term in chunk for term in UNCERTAINTY_TERMS)
             for chunk in chunks
         ):
-            errors.append(f"uncertain source claim is not preserved in report draft wording: {claim}")
+            warnings.append(
+                "uncertain source claim may not be preserved in report draft wording; "
+                f"verify manually or add a structured report trace: {claim}"
+            )
 
 
 def main(argv: list[str]) -> int:
@@ -329,6 +333,7 @@ def main(argv: list[str]) -> int:
         raise
 
     errors: list[str] = []
+    warnings: list[str] = []
     run_round_ready(root, args.case_id, round_id, errors)
     run_opponent_materials_check(root, args.case_id, round_id, errors)
 
@@ -343,12 +348,14 @@ def main(argv: list[str]) -> int:
         materials_text = materials_path.read_text(encoding="utf-8") if materials_path.is_file() else ""
         text = draft_path.read_text(encoding="utf-8")
         validate_source_metadata(text, materials_path, args.path, errors)
-        check_text(text, strip_metadata_comments(text), materials_text, errors)
+        check_text(text, strip_metadata_comments(text), materials_text, errors, warnings)
 
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
+    for warning in warnings:
+        print(f"WARNING: {warning}", file=sys.stderr)
 
     print("Opponent report draft check passed")
     return 0

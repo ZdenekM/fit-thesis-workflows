@@ -43,9 +43,10 @@ Constraints:
   under a fixed ignored path such as `work/migrations/<run-id>/`, and must not
   rewrite `case.md`, `current-round.txt`, round directories, inputs, extracted
   text, work evidence, or outputs.
-- Do not introduce brittle content heuristics. Migration and readiness decisions
-  must use file layout, structured metadata, manifests, hashes, explicit operator
-  configuration, or typed evidence classes.
+- Do not introduce brittle free-text heuristics. Migration and readiness
+  decisions must use file layout, structured metadata, manifests, hashes,
+  explicit operator configuration, typed evidence classes, or agent-produced
+  structured artifacts.
 - Windows remains supported: new operator commands need Python/Pants/PEX command
   surfaces and generated `.cmd`/`.ps1` launchers.
 - Run Pants commands sequentially.
@@ -208,7 +209,8 @@ Out of scope:
   - Add format-level output to `case-doctor`.
   - Keep `case-doctor` diagnostic; required missing inputs remain enforced by
     readiness and closeout commands.
-  - Test that diagnostics do not infer thesis quality or review conclusions from
+  - Test that diagnostics do not infer workflow state, readiness, role routing,
+    evidence status, output wording, thesis quality, or review conclusions from
     file names or raw document text.
 - Verification:
   - `pants fmt ::`

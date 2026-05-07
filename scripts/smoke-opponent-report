@@ -342,7 +342,7 @@ write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
 expect_success "force regenerate clean draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 calibrate_draft "$draft"
 replace_text "$draft" "- Zachovat opatrnou formulaci pro ručně neověřený bod: Plny runtime nebyl overen" "- Zachovat obecnou opatrnost tam, kde dostupné podklady nejsou úplné."
-expect_failure "uncertain claim must remain tied to caution wording" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_success "uncertain claim token mismatch warns only" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "uncertain source claim"
 
 write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"

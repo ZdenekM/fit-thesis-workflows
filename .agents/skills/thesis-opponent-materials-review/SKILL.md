@@ -48,6 +48,14 @@ If both draft and output files exist, review the draft unless the user explicitl
 20. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
 21. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
+## Free-Text Boundary
+
+Treat deterministic checker output as prompts or structured evidence, not as a
+semantic verdict. Re-read free-form thesis, README, notes, code, and generated
+materials as an agent before preserving grade-impacting claims. Do not let raw
+keyword or token matches decide final opponent-materials wording; require
+evidence anchors or structured review artifacts.
+
 ## Output
 
 Write the hardened internal material to `outputs/oponent_podklady_revidovane.md`.

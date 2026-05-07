@@ -54,6 +54,13 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 27. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 28. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
+## Free-Text Boundary
+
+Treat deterministic checker output as prompts or structured evidence, not as a
+semantic verdict. Re-read free-form thesis, README, notes, code, and generated
+feedback prose as an agent before preserving or rejecting a claim. Do not let
+raw keyword or token matches decide final student-facing wording.
+
 ## Priority Calibration
 
 - `P0`: can affect assignment fulfillment, defensibility, technical truth, submission readiness, or the student's next step.

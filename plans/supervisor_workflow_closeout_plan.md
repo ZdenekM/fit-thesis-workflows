@@ -44,7 +44,10 @@ Constraints:
 
 - Do not generate or rewrite student-facing feedback in this plan.
 - Do not loosen the existing generated-artifact review loop.
-- Do not infer readiness from raw thesis/code text substring matches.
+- Do not infer readiness or semantic evidence state from raw thesis/code text
+  substring matches. Free-form text interpretation belongs in agent-produced
+  structured artifacts; deterministic preflight and closeout code should validate
+  those artifacts and keep any remaining lexical checks advisory.
 - Keep advisory diagnostics separate from hard gates.
 - Keep all private case data and generated artifacts under ignored `cases/`.
 - New operator commands need Python/Pants/PEX packaging and generated

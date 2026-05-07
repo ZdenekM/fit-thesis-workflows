@@ -365,6 +365,15 @@ aktivní round, readiness checky, deadline kalibraci, vstupy, extracty, kód,
 výstupy, review manifest a předchozí feedback. Nenahrazuje finální gate checky,
 jen rychle ukáže, co chybí nebo je stale před začátkem review.
 
+Volný text práce, README, poznámek, zdrojáků nebo generovaných prose výstupů má
+interpretovat agent/LLM a opřít výsledek o konkrétní důkazy. Deterministické
+skripty mají pracovat hlavně se strukturovanými daty: metadaty, manifesty,
+JSON/JSONL artefakty, hashi, cestami, příponami, sekcemi, tabulkami a schématy.
+Pokud skript ještě používá keyword/regex nad holým textem, je to jen poradní
+prompt pro ověření agentem nebo člověkem, ne verdikt, gate ani automatická
+formulace do feedbacku nebo posudku. Aktuální audit hranice je v
+`docs/raw-text-processing-audit.md`.
+
 Poradní příprava pro oponentské review:
 
 ```bash

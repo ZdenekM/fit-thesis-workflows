@@ -10,6 +10,12 @@
    - The highest-risk reliability helpers now have focused pytest coverage; keep adding pure tests for new validators, manifest/coverage rules, and planned case-format or supervisor-closeout helpers.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
    - Every new helper must land with focused anonymized fixtures under tracked fixture paths; never copy real `cases/` artifacts into test data.
+- [ ] Replace remaining free-form text semantic detectors with agent-produced structured evidence.
+   - Free-form thesis, README, notes, generated prose, and code text should be interpreted by an explicitly authorized agent/LLM workflow, then stored as structured artifacts with evidence anchors.
+   - Deterministic helpers may parse metadata labels, Markdown sections/tables, paths, file suffixes, placeholders, privacy leaks, command output markers, and schema fields; they should not infer semantic meaning from raw text.
+   - Current advisory or free-text-derived parts to retire or wrap with structured agent artifacts include `scripts/check-evaluation-claims`, `scripts/check-evidence-presence`, `scripts/check-assignment-coverage`, `scripts/draft-opponent-report`, and `scripts/check-opponent-report`.
+   - Explicit URL and marker detection in `scripts/opponent-preflight` and `scripts/check-tooling` may remain structural evidence routing, but should move to structured metadata if the notes format becomes more formal.
+   - Until replaced, free-text-derived helper output must remain warning/advisory only and must be treated as prompts for agent/human verification, not as readiness gates or findings; structural schema, path, hash, placeholder, and privacy checks may remain hard gates.
 - [ ] Implement the read-only case-data contract and migration dry-run from `plans/case_format_migration_contract_plan.md`.
    - Treat `cases/<case-id>/` layout, `case.md` metadata fields, round layout, manifests, coverage files, and reusable JSONL evidence as operator data contracts used by more than one person.
    - Start with `layout_current`, `review_ready`, and `provenance_ready` diagnostics before any write or bulk migration mode.

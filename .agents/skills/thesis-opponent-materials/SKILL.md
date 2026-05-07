@@ -64,6 +64,15 @@ cases/<case-id>/rounds/<round-id>/
 19. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
 20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles, covered evidence artifacts, checks, limitations, and compact `used_findings` summaries for each evidence artifact covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If reviewed materials change afterward, refresh the manifest and rerun the independent review as needed.
 
+## Free-Text Boundary
+
+Deterministic helper output is a prompt or structured evidence source, not a
+substitute for semantic opponent review. Interpret free-form thesis, README,
+notes, code, and generated prose through role agents; reusable conclusions must
+be recorded as structured evidence with anchors. Do not turn raw keyword or
+token matches into assignment fulfillment, IS-item wording, grading rationale,
+or report-ready findings.
+
 ## When Using Agents
 
 For a large opponent review, split reviewer agents by role:
