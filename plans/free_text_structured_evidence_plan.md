@@ -31,8 +31,9 @@ Current audit findings:
   semantic evidence-presence findings from extracted text; Slice 2B replaces it
   with validation of `work/evidence_requirements.json`. Its suffix/path-only
   `work/media_presence_inventory.jsonl` output is structural and remains valid.
-- `src/thesis_review_workflow/cli/check_evaluation_claims.py` currently scans
-  extracted thesis text for quantitative/evaluation claims.
+- `src/thesis_review_workflow/cli/check_evaluation_claims.py` originally
+  scanned extracted thesis text for quantitative/evaluation claims; Slice 2C
+  replaces it with validation of `work/quantitative_claims.json`.
 - `src/thesis_review_workflow/cli/draft_opponent_report.py` currently maps IS
   item formulations, risks, questions, and uncertainty from reviewed Markdown
   materials and has fallback section prose.
@@ -502,7 +503,7 @@ Commit target:
 
 ### Slice 2C: Quantitative Claims Contract
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -615,7 +616,11 @@ Commit target:
   structural suffix/path inventory, updated packets/preflight/docs/smokes, and
   passed agent re-review after fixing draft-report validation, stale inventory,
   unreadable-artifact handling, and preflight reporting.
-- Current slice: Slice 2C pending.
+- 2026-05-07: Slice 2C migrated `scripts/check-evaluation-claims` to validate
+  `work/quantitative_claims.json`, removed the regex/table/unit parser module,
+  updated repo-local skills/docs/smokes, required per-claim evidence anchors,
+  and passed agent re-review after fixing stale skill instructions.
+- Current slice: Slice 3 pending.
 
 ## Decision Log
 

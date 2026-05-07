@@ -56,7 +56,7 @@ thesis claim depends on them.
 11. Do not make visual-content claims unless the item status is `pdf_inspected` or `source_asset_checked`. Text-only inventory can support "caption says" findings, not "the figure shows" findings.
 12. Compare against previous rounds in the same case. Prefer the nearest previous `work/figure_media/visual_inventory.jsonl`; also read prior `outputs/figure_media_review.md` when the JSONL is missing. Classify changes as `added`, `removed`, `caption_changed`, `visual_content_changed`, `claim_alignment_changed`, `unchanged`, or `not_comparable`.
 13. Route related issues into existing checks:
-   - result graphs and metric tables -> `scripts/check-evaluation-claims <case-id> [round-id]`,
+   - result graphs and metric tables -> quantitative-claims review that writes `work/quantitative_claims.json`, followed by `scripts/check-evaluation-claims <case-id> [round-id]`,
    - screenshots or UI figures claiming implemented behavior -> `thesis-code-consistency`,
    - implementation/UI figures relevant to maintainability or reviewability -> `thesis-code-quality-review`,
    - copied/adapted figures and attribution/source support -> `thesis-literature-citation-review`.

@@ -232,7 +232,7 @@ def _validate_quantitative_claims(loaded: dict[str, Any], rel_path: str, errors:
         if "unit" in item and not isinstance(item["unit"], str):
             errors.append(f"{prefix}: unit must be str")
         _require_list(item, "reproducibility_refs", prefix, errors)
-        _require_list(item, "evidence_refs", prefix, errors)
+        _require_nonempty_list(item, "evidence_refs", prefix, errors)
         _require_bool(item, "requires_reviewer_verification", prefix, errors)
 
 
@@ -404,6 +404,13 @@ def _require_list(value: dict[str, Any], field: str, prefix: str, errors: list[s
     loaded = value.get(field)
     if not isinstance(loaded, list):
         errors.append(f"{prefix}: {field} must be list")
+    return loaded
+
+
+def _require_nonempty_list(value: dict[str, Any], field: str, prefix: str, errors: list[str]) -> Any:
+    loaded = _require_list(value, field, prefix, errors)
+    if isinstance(loaded, list) and not loaded:
+        errors.append(f"{prefix}: {field} must not be empty")
     return loaded
 
 

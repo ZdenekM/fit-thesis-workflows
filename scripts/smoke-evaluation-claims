@@ -4,13 +4,15 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 case_prefix="__evaluation_claims_smoke_$$"
 created_cases=()
+out_file="/tmp/check-evaluation-claims.$$.out"
+err_file="/tmp/check-evaluation-claims.$$.err"
 
 cleanup() {
   local case_id
   for case_id in "${created_cases[@]}"; do
     rm -rf "$repo_root/cases/$case_id"
   done
-  rm -f /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err
+  rm -f "$out_file" "$err_file"
 }
 trap cleanup EXIT
 
@@ -20,9 +22,8 @@ make_case() {
   local write_current="${3:-yes}"
 
   created_cases+=("$case_id")
-  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted"
-  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/inputs"
-  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/extracted" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work"
   {
     echo "Work type: BP"
     echo "Academic year: 2025/2026"
@@ -31,24 +32,52 @@ make_case() {
   if [[ "$write_current" == "yes" ]]; then
     echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
   fi
+  printf '%s\n' 'Synthetic thesis text used only as a referenced fixture.' \
+    >"$repo_root/cases/$case_id/rounds/$round_id/extracted/thesis.txt"
 }
 
-write_text() {
+write_claims() {
   local case_id="$1"
-  local round_id="round-a"
-  local text
+  local round_id="${2:-round-a}"
+  local status="${3:-needs_context}"
+  python3 - "$repo_root/cases/$case_id/rounds/$round_id/work/quantitative_claims.json" \
+    "$case_id" "$round_id" "$status" <<'PY'
+import json
+import pathlib
+import sys
 
-  if [[ $# -eq 2 ]]; then
-    text="$2"
-  elif [[ $# -eq 3 ]]; then
-    round_id="$2"
-    text="$3"
-  else
-    echo "write_text expects CASE_ID [ROUND_ID] TEXT" >&2
-    exit 1
-  fi
-
-  printf "%s\n" "$text" >"$repo_root/cases/$case_id/rounds/$round_id/extracted/thesis.txt"
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+status = sys.argv[4]
+payload = {
+    "schema_version": "quantitative-claims-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "quantitative-claims-reviewer",
+    "producer_agent": "smoke-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["extracted/thesis.txt"],
+    "claims": [
+        {
+            "claim_id": "Q1",
+            "summary": "Synthetic metric claim.",
+            "kind": "metric",
+            "status": status,
+            "unit": "%",
+            "baseline_status": "missing",
+            "practical_context": "weak",
+            "reproducibility_refs": [],
+            "evidence_refs": ["extracted/thesis.txt"],
+            "requires_reviewer_verification": True,
+        }
+    ],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
 }
 
 expect_success_contains() {
@@ -56,16 +85,17 @@ expect_success_contains() {
   local pattern="$2"
   shift 2
 
-  if ! "$@" >/tmp/check-evaluation-claims.out 2>/tmp/check-evaluation-claims.err; then
+  if ! "$@" >"$out_file" 2>"$err_file"; then
     echo "Expected success but failed: $name" >&2
-    cat /tmp/check-evaluation-claims.err >&2
+    cat "$err_file" >&2
+    cat "$out_file" >&2
     exit 1
   fi
-  if ! grep -E "$pattern" /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err >/dev/null; then
+  if ! grep -E "$pattern" "$out_file" "$err_file" >/dev/null; then
     echo "Expected output did not match pattern: $name" >&2
     echo "Pattern: $pattern" >&2
-    cat /tmp/check-evaluation-claims.out >&2
-    cat /tmp/check-evaluation-claims.err >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
     exit 1
   fi
 }
@@ -75,64 +105,55 @@ expect_failure_contains() {
   local pattern="$2"
   shift 2
 
-  if "$@" >/tmp/check-evaluation-claims.out 2>/tmp/check-evaluation-claims.err; then
+  if "$@" >"$out_file" 2>"$err_file"; then
     echo "Expected failure but passed: $name" >&2
-    cat /tmp/check-evaluation-claims.out >&2
+    cat "$out_file" >&2
     exit 1
   fi
-  if ! grep -E "$pattern" /tmp/check-evaluation-claims.out /tmp/check-evaluation-claims.err >/dev/null; then
+  if ! grep -E "$pattern" "$out_file" "$err_file" >/dev/null; then
     echo "Expected failure did not match pattern: $name" >&2
     echo "Pattern: $pattern" >&2
-    cat /tmp/check-evaluation-claims.err >&2
-    cat /tmp/check-evaluation-claims.out >&2
+    cat "$err_file" >&2
+    cat "$out_file" >&2
     exit 1
   fi
 }
 
-case_id="${case_prefix}_no_metrics"
+case_id="${case_prefix}_missing_artifact"
 make_case "$case_id"
-write_text "$case_id" "Prace popisuje navrh, architekturu a strukturu odevzdanych artefaktu."
-expect_success_contains "no metric text passes" "Evaluation-claim check passed" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+expect_failure_contains "missing quantitative claims artifact fails" \
+  "missing structured evidence artifact" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
-case_id="${case_prefix}_metric_no_artifacts"
+case_id="${case_prefix}_valid"
 make_case "$case_id"
-write_text "$case_id" "Experiment ukazuje RMSE 12.4 a zaver tvrdi, ze metoda je lepsi."
-expect_success_contains "metric text without artifacts warns" "metric/evaluation claims are present, but no obvious measurement data" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+write_claims "$case_id"
+expect_success_contains "structured quantitative claims pass" \
+  "Quantitative claims structured artifact check passed" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+expect_success_contains "claim count is reported" \
+  "Quantitative claims: 1" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
-case_id="${case_prefix}_table_warning"
+case_id="${case_prefix}_invalid_status"
 make_case "$case_id"
-round_dir="$repo_root/cases/$case_id/rounds/round-a"
-cat >"$round_dir/extracted/thesis.txt" <<'EOF'
-Kapacita systemu je 100 kW, coz dava meritko pro interpretaci vysledku.
-
-Method        RMSE [kW]    MAE [kW]
-baseline      10           8
-variant       9            10
-EOF
-echo "method,rmse,mae" >"$round_dir/inputs/eval_results.csv"
-echo "print('calculate metrics')" >"$round_dir/work/eval_metrics.py"
-expect_success_contains "metric table relationship warns" "RMSE is lower than MAE" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+write_claims "$case_id" "round-a" "strong"
+expect_failure_contains "invalid claim enum fails" \
+  "status must be one of" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
 case_id="${case_prefix}_explicit_round"
 make_case "$case_id" "round-b" "no"
-write_text "$case_id" "round-b" "Accuracy 105 % vyzaduje kontrolu jednotek."
-expect_success_contains "explicit round works" "metric/evaluation claims are present" "$repo_root/scripts/check-evaluation-claims" "$case_id" "round-b"
+write_claims "$case_id" "round-b"
+expect_success_contains "explicit round works" \
+  "Quantitative claims artifact" "$repo_root/scripts/check-evaluation-claims" "$case_id" "round-b"
 
-case_id="${case_prefix}_missing_text"
+case_id="${case_prefix}_missing_ref"
 make_case "$case_id"
+write_claims "$case_id"
 rm -f "$repo_root/cases/$case_id/rounds/round-a/extracted/thesis.txt"
-expect_failure_contains "missing source fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+expect_failure_contains "missing referenced source fails" \
+  "referenced file is missing" "$repo_root/scripts/check-evaluation-claims" "$case_id"
 
 case_id="${case_prefix}_dot_round"
 make_case "$case_id"
-expect_failure_contains "dot-only round id fails" "Invalid round id" "$repo_root/scripts/check-evaluation-claims" "$case_id" ".."
-
-case_id="${case_prefix}_tex_without_extract"
-make_case "$case_id"
-round_dir="$repo_root/cases/$case_id/rounds/round-a"
-rm -f "$round_dir/extracted/thesis.txt"
-mkdir -p "$round_dir/work/thesis-source"
-echo "Experiment ukazuje RMSE 12.4." >"$round_dir/work/thesis-source/thesis.tex"
-expect_failure_contains "tex without extracted PDF text fails" "no extracted thesis text" "$repo_root/scripts/check-evaluation-claims" "$case_id"
+expect_failure_contains "dot-only round id fails" \
+  "Invalid ROUND_ID" "$repo_root/scripts/check-evaluation-claims" "$case_id" ".."
 
 echo "Evaluation claims smoke passed"

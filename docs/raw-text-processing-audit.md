@@ -64,17 +64,8 @@ deterministically.
   generated artifacts for placeholders, required headings, privacy/path leaks,
   internal workflow terms, and schema-like evidence anchors. These are output
   hygiene checks, not thesis/code interpretation.
-- `src/thesis_review_workflow/evaluation_claims.py`: table/number/unit parsing
-  is acceptable only as numeric sanity scaffolding. Any interpretation of what a
-  result means must stay agent/human-reviewed.
-
 ### Advisory Until Replaced
 
-- `src/thesis_review_workflow/cli/check_evaluation_claims.py` and
-  `src/thesis_review_workflow/evaluation_claims.py`: use metric/conclusion/unit
-  regexes over extracted thesis text. The CLI already says it is a reviewer
-  prompt, not a verdict engine. Keep it warning-only until an agent creates a
-  structured quantitative-claims artifact.
 - `src/thesis_review_workflow/cli/check_typography_formal.py`: uses some regexes
   over rendered thesis text for typography/formal warnings and may auto-detect a
   language family only when structured metadata is `auto` or missing. Keep
@@ -110,6 +101,10 @@ their replacement with agent-produced structured evidence.
   metric/evaluation detectors were removed. `scripts/check-evidence-presence`
   now validates `work/evidence_requirements.json` and writes only structural
   `work/media_presence_inventory.jsonl` records from file paths and suffixes.
+- `src/thesis_review_workflow/evaluation_claims.py`: removed. Its table,
+  number, unit, metric, conclusion, data-artifact, and script-artifact regex
+  detectors were retired. `scripts/check-evaluation-claims` now validates
+  `work/quantitative_claims.json`.
 
 ## Follow-Up Shape
 
@@ -117,7 +112,8 @@ A future implementation plan should introduce small structured artifacts before
 retiring the advisory helpers:
 
 - `work/quantitative_claims.json`: agent-extracted metric/result claims with
-  evidence anchors, units, baselines, and limitations.
+  evidence anchors, units, baselines, and limitations; now validated by
+  `scripts/check-evaluation-claims`.
 - `work/evidence_requirements.json`: agent-extracted required/present/missing
   evidence classes from assignment, notes, and inputs.
 - `work/assignment_coverage_agent.json`: agent-verified coverage of assignment

@@ -187,6 +187,32 @@ def test_validate_quantitative_claims_requires_enum_values(tmp_path: Path) -> No
     assert any("practical_context must be one of" in error for error in errors)
 
 
+def test_validate_quantitative_claims_requires_evidence_anchor(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = {
+        **common_fields("quantitative-claims-v1"),
+        "claims": [
+            {
+                "claim_id": "Q1",
+                "summary": "Metric claim.",
+                "kind": "metric",
+                "status": "needs_context",
+                "baseline_status": "missing",
+                "practical_context": "weak",
+                "reproducibility_refs": [],
+                "evidence_refs": [],
+                "requires_reviewer_verification": True,
+            }
+        ],
+    }
+    write_json(round_dir / "work" / "quantitative_claims.json", payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/quantitative_claims.json")
+
+    assert any("evidence_refs must not be empty" in error for error in errors)
+
+
 def test_validate_structured_evidence_artifact_rejects_backslash_path(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_round_refs(round_dir)

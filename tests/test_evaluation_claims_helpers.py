@@ -1,78 +1,118 @@
+import json
 from pathlib import Path
 
-from thesis_review_workflow.evaluation_claims import (
-    SourceLine,
-    clean_cell,
-    convert_unit,
-    find_scale_anchors,
-    has_nearby_practical_context,
-    is_data_artifact_path,
-    is_script_artifact_path,
-    metric_direction,
-    parse_quantitative_tables,
-    script_artifact_from_data_path,
-    split_table_cells,
-    unit_from_text,
-)
+from thesis_review_workflow.cli import check_evaluation_claims
 
 
-def source_lines(path: Path, texts: list[str]) -> list[SourceLine]:
-    return [SourceLine(path=path, number=index, text=text) for index, text in enumerate(texts, start=1)]
+def write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def test_table_cell_cleanup_and_metric_direction() -> None:
-    assert clean_cell(r"  \textbf{RMSE [kW]} \\  ") == "RMSE [kW]"
-    assert split_table_cells("Method        RMSE [kW]    Accuracy [%]") == ["Method", "RMSE [kW]", "Accuracy [%]"]
-    assert metric_direction("RMSE [kW]") == "lower"
-    assert metric_direction("Accuracy [%]") == "higher"
-    assert metric_direction("Metric value") == "unknown"
+def make_round(root: Path) -> Path:
+    case_dir = root / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    (round_dir / "extracted").mkdir(parents=True)
+    (round_dir / "work").mkdir()
+    (case_dir / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    (round_dir / "extracted" / "thesis.txt").write_text("Reported metric claim.\n", encoding="utf-8")
+    return round_dir
 
 
-def test_parse_quantitative_tables_keeps_metric_columns_only() -> None:
-    path = Path("cases/case/rounds/round-a/extracted/thesis.txt")
-    lines = source_lines(
-        path,
-        [
-            "System capacity is 100 kW.",
-            "Method        Capacity [kW]    RMSE [kW]    MAE [kW]",
-            "baseline      100              10           8",
-            "variant       100              9            10",
+def quantitative_claims(case_id: str = "case-a") -> dict[str, object]:
+    return {
+        "schema_version": "quantitative-claims-v1",
+        "case_id": case_id,
+        "round_id": "round-a",
+        "generated_at": "2026-05-07T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "quantitative-claims-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Current request explicitly authorized agents.",
+        "source_refs": ["extracted/thesis.txt"],
+        "claims": [
+            {
+                "claim_id": "Q1",
+                "summary": "Reported metric needs context.",
+                "kind": "metric",
+                "status": "needs_context",
+                "unit": "%",
+                "baseline_status": "missing",
+                "practical_context": "weak",
+                "reproducibility_refs": [],
+                "evidence_refs": ["extracted/thesis.txt"],
+                "requires_reviewer_verification": True,
+            },
+            {
+                "claim_id": "Q2",
+                "summary": "Experiment result is not verifiable.",
+                "kind": "experiment",
+                "status": "not_verifiable",
+                "baseline_status": "not_verifiable",
+                "practical_context": "not_verifiable",
+                "reproducibility_refs": [],
+                "evidence_refs": ["extracted/thesis.txt"],
+                "requires_reviewer_verification": True,
+            },
         ],
-    )
-
-    tables = parse_quantitative_tables(lines)
-
-    assert len(tables) == 1
-    assert tables[0].headers == ["Method", "RMSE [kW]", "MAE [kW]"]
-    assert tables[0].rows[1].label == "variant"
-    assert tables[0].rows[1].values == {"RMSE [kW]": 9.0, "MAE [kW]": 10.0}
+        "limitations": [],
+    }
 
 
-def test_unit_conversion_and_scale_anchor_detection() -> None:
-    path = Path("cases/case/rounds/round-a/extracted/thesis.txt")
-    lines = source_lines(
-        path,
-        [
-            "Installed capacity is 100 kW and defines the practical scale.",
-            "Name        Limit [kW]",
-            "battery     50",
-            r"\includegraphics[width=100 kW]{plot}",
-        ],
-    )
+def test_check_evaluation_claims_validates_structured_artifact(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims())
+    monkeypatch.setattr(check_evaluation_claims, "repo_root", lambda: root)
 
-    anchors = find_scale_anchors(lines)
+    assert check_evaluation_claims.main(["scripts/check-evaluation-claims", "case-a"]) == 0
 
-    assert unit_from_text("RMSE [Wh]") == "wh"
-    assert convert_unit(1.5, "kwh", "wh") == 1500.0
-    assert convert_unit(1.0, "kwh", "kw") is None
-    assert [(anchor.value, anchor.unit) for anchor in anchors] == [(100.0, "kw"), (50.0, "kw")]
-    assert has_nearby_practical_context(lines, path, 2)
+    output = capsys.readouterr().out
+    assert "Quantitative claims artifact: cases/case-a/rounds/round-a/work/quantitative_claims.json" in output
+    assert "Quantitative claims: 2" in output
+    assert "Claim kinds: experiment=1, metric=1" in output
+    assert "Claim statuses: needs_context=1, not_verifiable=1" in output
+    assert "Baseline statuses: missing=1, not_verifiable=1" in output
+    assert "Practical-context statuses: not_verifiable=1, weak=1" in output
+    assert "Quantitative claims structured artifact check passed" in output
 
 
-def test_artifact_path_classification() -> None:
-    assert is_data_artifact_path(Path("inputs/eval_results.csv"))
-    assert is_data_artifact_path(Path("inputs/result_metrics.json"))
-    assert not is_data_artifact_path(Path("inputs/config.json"))
-    assert script_artifact_from_data_path(Path("work/eval_analysis.ipynb"))
-    assert is_script_artifact_path(Path("work/eval_metrics.py"))
-    assert not is_script_artifact_path(Path("work/app.py"))
+def test_check_evaluation_claims_requires_structured_artifact(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = tmp_path / "repo"
+    make_round(root)
+    monkeypatch.setattr(check_evaluation_claims, "repo_root", lambda: root)
+
+    assert check_evaluation_claims.main(["scripts/check-evaluation-claims", "case-a"]) == 1
+
+    output = capsys.readouterr().out
+    assert "missing structured evidence artifact" in output
+    assert "Create `work/quantitative_claims.json`" in output
+
+
+def test_check_evaluation_claims_rejects_invalid_enum(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    payload = quantitative_claims()
+    claims = payload["claims"]
+    assert isinstance(claims, list)
+    claims[0]["status"] = "strong"
+    write_json(round_dir / "work" / "quantitative_claims.json", payload)
+    monkeypatch.setattr(check_evaluation_claims, "repo_root", lambda: root)
+
+    assert check_evaluation_claims.main(["scripts/check-evaluation-claims", "case-a"]) == 1
+
+    output = capsys.readouterr().out
+    assert "status must be one of" in output
+
+
+def test_check_evaluation_claims_rejects_stale_case(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = tmp_path / "repo"
+    round_dir = make_round(root)
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims(case_id="other-case"))
+    monkeypatch.setattr(check_evaluation_claims, "repo_root", lambda: root)
+
+    assert check_evaluation_claims.main(["scripts/check-evaluation-claims", "case-a"]) == 1
+
+    output = capsys.readouterr().out
+    assert "case_id does not match requested case" in output

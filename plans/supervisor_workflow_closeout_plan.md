@@ -77,10 +77,9 @@ Supervisor preflight should treat as diagnostic or warning:
   agent/human-authored evidence-requirements artifact and writes structural
   media inventory without turning missing evidence into proof that a claim is
   false;
-- `scripts/check-evaluation-claims <case-id> [round-id]`, which warns about
-  metric/evaluation evidence gaps and semantic sanity risks; failures caused by
-  missing required source material should be surfaced as preflight blockers only
-  through the required-input/readiness path;
+- `scripts/check-evaluation-claims <case-id> [round-id]`, which validates an
+  agent/human-authored quantitative-claims artifact for reviewer verification
+  and must not infer metric meaning from raw thesis text;
 - optional tooling availability that is irrelevant to the current round;
 - advisory assignment/evidence warnings that require reviewer interpretation.
 
