@@ -9,7 +9,7 @@ from thesis_review_workflow.work_artifacts import sha256_file
 def test_review_manifest_validates_supporting_work_artifact_schema(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
-    artifact = round_dir / "work" / "assignment_coverage_map.json"
+    artifact = round_dir / "work" / "assignment_coverage_agent.json"
     artifact.parent.mkdir(parents=True)
     artifact.write_text(
         json.dumps(
@@ -18,6 +18,13 @@ def test_review_manifest_validates_supporting_work_artifact_schema(tmp_path: Pat
                 "case_id": "case-a",
                 "round_id": "round-a",
                 "generated_at": "2026-05-06T00:00:00Z",
+                "producer_type": "agent",
+                "producer_role": "assignment-coverage-reviewer",
+                "producer_agent": "agent-a",
+                "authorization_note": "Authorized in current request.",
+                "source_refs": [],
+                "assignment_points": [],
+                "limitations": [],
             }
         )
         + "\n",
@@ -33,7 +40,7 @@ def test_review_manifest_validates_supporting_work_artifact_schema(tmp_path: Pat
         "notes": [],
         "supporting_work_artifacts": [
             {
-                "path": "work/assignment_coverage_map.json",
+                "path": "work/assignment_coverage_agent.json",
                 "kind": "structured_data",
                 "artifact_sha256": "0" * 64,
             }
@@ -48,7 +55,7 @@ def test_review_manifest_validates_supporting_work_artifact_schema(tmp_path: Pat
     check_manifest(manifest, "case-a", "round-a", root, round_dir, False, errors, warnings)
 
     assert any("artifact_sha256 is stale" in error for error in errors)
-    assert any("schema_version must be assignment-coverage-map-v1" in error for error in errors)
+    assert any("schema_version must be assignment-coverage-agent-v1" in error for error in errors)
 
 
 def test_review_manifest_requires_supporting_work_artifacts_list(tmp_path: Path) -> None:

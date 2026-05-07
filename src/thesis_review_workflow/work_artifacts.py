@@ -8,15 +8,26 @@ import re
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
+
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/assignment_coverage_map.json": {"assignment-coverage-map-v1"},
+    "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
     "work/evidence_presence.json": {"evidence-presence-v1"},
+    "work/evidence_requirements.json": {"evidence-requirements-v1"},
+    "work/quantitative_claims.json": {"quantitative-claims-v1"},
+    "work/opponent_report_trace.json": {"opponent-report-trace-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
 }
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/assignment_coverage_map.json": {"assignment_points": list},
+    "work/assignment_coverage_agent.json": {"assignment_points": list},
     "work/evidence_presence.json": {"findings": list},
+    "work/evidence_requirements.json": {"requirements": list},
+    "work/quantitative_claims.json": {"claims": list},
+    "work/opponent_report_trace.json": {"is_items": list, "uncertainty_items": list},
     "work/code_reproducibility.json": {"classification": str},
 }
 
@@ -32,7 +43,11 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/code/.prepare-code-workspace-manifest.json",
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_map.json",
+    "work/assignment_coverage_agent.json",
     "work/evidence_presence.json",
+    "work/evidence_requirements.json",
+    "work/quantitative_claims.json",
+    "work/opponent_report_trace.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
 )
@@ -138,6 +153,9 @@ def validate_supporting_work_artifacts(
         rel_path = record.get("path")
         if not isinstance(rel_path, str):
             continue
+        if not is_safe_round_relative_path(rel_path):
+            errors.append(f"supporting_work_artifacts item {index}: path must be relative inside the round")
+            continue
         path = round_dir / rel_path
         if not path.is_file():
             errors.append(f"supporting_work_artifacts item {index}: referenced file is missing: {rel_path}")
@@ -149,7 +167,7 @@ def validate_supporting_work_artifacts(
             errors.append(f"supporting_work_artifacts item {index}: artifact_sha256 is stale for {rel_path}")
         expected_schemas = KNOWN_JSON_ARTIFACT_SCHEMAS.get(rel_path)
         if expected_schemas:
-            validate_json_work_artifact(path, rel_path, expected_schemas, case_id, round_id, errors)
+            validate_json_work_artifact(path, rel_path, expected_schemas, round_dir, case_id, round_id, errors)
     return errors
 
 
@@ -157,6 +175,7 @@ def validate_json_work_artifact(
     path: Path,
     rel_path: str,
     expected_schemas: set[str],
+    round_dir: Path,
     case_id: str | None,
     round_id: str | None,
     errors: list[str],
@@ -183,3 +202,13 @@ def validate_json_work_artifact(
     for field, expected_type in JSON_ARTIFACT_REQUIRED_FIELDS.get(rel_path, {}).items():
         if not isinstance(loaded.get(field), expected_type):
             errors.append(f"{rel_path}: {field} must be {expected_type.__name__}")
+    if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
+        errors.extend(
+            validate_structured_evidence_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )

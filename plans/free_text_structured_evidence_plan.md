@@ -399,7 +399,7 @@ text for semantic uncertainty carry-over.
 
 ### Slice 1: Plan Review and Artifact Validators
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -598,7 +598,11 @@ Commit target:
 - 2026-05-07: plan created and reviewed by two agents.
 - 2026-05-07: reviewer findings incorporated into the plan before
   implementation.
-- Current slice: Slice 1 pending.
+- 2026-05-07: Slice 1 implemented structured-evidence validators, registered
+  the four V1 artifacts in work-artifact collection, added regression coverage
+  for schema enums, ref safety, agent identity, and opponent-trace hash binding,
+  and passed independent agent review after fixing unsafe path dereferencing.
+- Current slice: Slice 2A pending.
 
 ## Decision Log
 
