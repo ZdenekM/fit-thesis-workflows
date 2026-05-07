@@ -1,6 +1,6 @@
 # Free Text Structured Evidence Plan
 
-Status: active
+Status: done
 Created: 2026-05-07
 
 ## Goal
@@ -570,7 +570,7 @@ Commit target:
 
 ### Slice 4: Workflow Surfaces and Closeout
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -629,7 +629,10 @@ Commit target:
   the trace, tightened trace evidence anchors and uncertainty handling, and
   passed agent re-review after fixing stale helper-check targets, schema
   ambiguity, and residual tone regex gating.
-- Current slice: Slice 4 pending.
+- 2026-05-07: Slice 4 removed the completed free-text semantic detector P0
+  TODO item, updated the raw-text audit to current-state structured artifacts
+  plus the remaining watchlist, recorded the final audit, and archived the plan.
+- Current slice: complete.
 
 ## Decision Log
 
@@ -646,12 +649,42 @@ Commit target:
 
 ## Final Audit
 
-Not run yet. Fill before archiving:
+Commands run during the completed implementation:
 
-- commands run
-- skipped checks and reasons
-- residual risks or TODO transfers
-- archive commit
+```bash
+pants fmt src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py src/thesis_review_workflow/cli/opponent_closeout.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/case_doctor.py src/thesis_review_workflow/case_doctor_summary.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/work_artifacts.py tests/test_opponent_report.py tests/test_structured_evidence.py tests/test_draft_opponent_report.py tests/test_case_doctor_summary.py tests/test_review_manifest_helpers.py
+pants lint src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py src/thesis_review_workflow/cli/opponent_closeout.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/case_doctor.py src/thesis_review_workflow/case_doctor_summary.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/work_artifacts.py tests/test_opponent_report.py tests/test_structured_evidence.py tests/test_draft_opponent_report.py tests/test_case_doctor_summary.py tests/test_review_manifest_helpers.py
+pants check src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py src/thesis_review_workflow/cli/opponent_closeout.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/case_doctor.py src/thesis_review_workflow/case_doctor_summary.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/work_artifacts.py tests/test_opponent_report.py tests/test_structured_evidence.py tests/test_draft_opponent_report.py tests/test_case_doctor_summary.py tests/test_review_manifest_helpers.py
+pants test tests/test_opponent_report.py tests/test_draft_opponent_report.py tests/test_structured_evidence.py tests/test_case_doctor_summary.py tests/test_review_manifest_helpers.py tests/test_workflow_python_contracts.py
+scripts/smoke-assignment-coverage
+scripts/smoke-evidence-presence
+scripts/smoke-evaluation-claims
+scripts/smoke-opponent-packets
+scripts/smoke-opponent-preflight
+scripts/smoke-opponent-report
+scripts/smoke-opponent-closeout
+scripts/smoke-package-workflow-tools
+pants run :omen
+scripts/check-private
+scripts/check-scripts
+git diff --check
+```
+
+No checks were intentionally skipped. Full repo-wide `pants test ::` was not
+used as a per-slice gate; the plan used targeted tests plus the affected smoke
+contracts and package smoke.
+
+Residual risks:
+
+- `check_typography_formal.py` still has warning-only rendered-text regexes for
+  formal/typography prompts. This is accepted in the audit watchlist and does
+  not gate readiness or create semantic findings.
+- Omen still reports pre-existing complexity/duplication hotspots, but the
+  overall grade is A and no new Omen smell item blocks this plan.
+
+Archive commit:
+
+- This plan is archived by the final documentation/archive commit.
 
 ## Review Discipline
 

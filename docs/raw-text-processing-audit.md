@@ -104,21 +104,32 @@ it stays warning-only and metadata-driven where possible.
   validates `work/opponent_report_trace.json`, trace/material hashes, structural
   draft headings, calibration fields, and public-text hygiene.
 
-## Follow-Up Shape
+## Current Structured Artifacts
 
-A future implementation plan should introduce small structured artifacts before
-retiring the advisory helpers:
+The semantic helper migrations are now expressed through small structured
+artifacts in the ignored round workspace:
 
 - `work/quantitative_claims.json`: agent-extracted metric/result claims with
   evidence anchors, units, baselines, and limitations; now validated by
   `scripts/check-evaluation-claims`.
 - `work/evidence_requirements.json`: agent-extracted required/present/missing
-  evidence classes from assignment, notes, and inputs.
+  evidence classes from assignment, notes, and inputs; now validated by
+  `scripts/check-evidence-presence`.
 - `work/assignment_coverage_agent.json`: agent-verified coverage of assignment
-  points in materials/drafts.
+  points in materials/drafts; now validated by
+  `scripts/check-assignment-coverage`.
 - `work/opponent_report_trace.json`: structured IS-item fields, defense
   questions, pre-submission checks, and uncertainty ledger consumed by
   `scripts/draft-opponent-report` and `scripts/check-opponent-report`.
 
-Those artifacts can then be checked deterministically for schema, paths, hashes,
-review status, and completeness.
+The deterministic code checks these artifacts for schema, safe refs, hashes,
+review status, and completeness. It does not derive review conclusions from raw
+thesis, README, generated materials, or report prose.
+
+## Remaining Watchlist
+
+- Keep `check_typography_formal.py` rendered-text regex checks warning-only until
+  a richer typography/formal evidence contract replaces them.
+- If the note format becomes more formal, move explicit URL and out-of-scope
+  marker routing in `opponent-preflight` and `check-tooling` into structured
+  round metadata.
