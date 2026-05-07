@@ -13,6 +13,11 @@ from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 MANIFEST_REL = Path("work/review_manifest.json")
 SCHEMA_VERSION = "review-manifest-v1"
 CHECK_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+REQUIRE_STANDALONE_REVIEW_FILENAMES = {
+    "reference_report_comparison.md",
+    "opponent_reading_packet.md",
+    "reviewer_calibration_profile.md",
+}
 
 OUTPUT_TYPES = {
     "feedback_student.md": (
@@ -38,6 +43,16 @@ OUTPUT_TYPES = {
         "standalone_final",
     ),
     "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
+    "reference_report_comparison.md": (
+        "reference_report_comparison",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
+    "opponent_reading_packet.md": (
+        "opponent_reading_packet",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
     "reviewer_calibration_profile.md": (
         "opponent_reviewer_calibration_profile",
         ("historical-opponent-calibration",),
@@ -178,6 +193,17 @@ def append_unique(values: Any, additions: list[str]) -> list[str]:
     return result
 
 
+def source_hashes(round_dir: Path, refs: list[str]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for ref in refs:
+        if not is_safe_round_relative_path(ref):
+            continue
+        path = round_dir / ref
+        if path.is_file():
+            hashes[ref] = sha256_file(path)
+    return hashes
+
+
 def upsert_output_artifact(
     manifest: dict[str, Any],
     round_dir: Path,
@@ -218,7 +244,10 @@ def upsert_output_artifact(
         }
         artifacts.append(existing)
 
-    scope = review_scope or str(existing.get("review_scope") or default_scope)
+    if Path(rel_path).name in REQUIRE_STANDALONE_REVIEW_FILENAMES:
+        scope = "internal_only"
+    else:
+        scope = review_scope or str(existing.get("review_scope") or default_scope)
     covered_by = feeds[0] if scope == "covered_by_synthesis" and feeds else ""
     reviewed_hash = current_hash if review_status in {"reviewed", "reviewed_with_notes"} else ""
     evidence_hash = current_hash if scope == "covered_by_synthesis" else ""
@@ -252,6 +281,9 @@ def upsert_output_artifact(
     existing["input_refs"] = append_unique(existing.get("input_refs"), input_refs)
     existing["evidence_refs"] = append_unique(existing.get("evidence_refs"), evidence_refs + feeds)
     existing["check_refs"] = append_unique(existing.get("check_refs"), check_refs)
+    source_refs = append_unique([], existing["input_refs"] + existing["evidence_refs"])
+    if source_refs:
+        existing["source_sha256"] = source_hashes(round_dir, source_refs)
     if notes:
         existing["notes"] = notes
 

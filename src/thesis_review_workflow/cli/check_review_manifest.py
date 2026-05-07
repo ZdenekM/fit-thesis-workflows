@@ -48,6 +48,10 @@ KNOWN_REVIEW_STATUSES = REVIEWED_STATUSES | {
 }
 KNOWN_CHECK_STATUSES = {"passed", "failed", "not_run", "not_recorded", "not_applicable"}
 FINAL_SCOPES = {"sendable_final", "standalone_final"}
+INDEPENDENT_REVIEW_REQUIRED_OUTPUTS = {
+    "outputs/reference_report_comparison.md",
+    "outputs/opponent_reading_packet.md",
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -151,6 +155,31 @@ def check_ref_list(
             errors.append(
                 f"{artifact_path}: {field} item {index} is not recorded in manifest inputs, work, or outputs: {ref}"
             )
+
+
+def check_source_hashes(
+    artifact_path: str,
+    artifact: dict[str, Any],
+    refs: list[str],
+    round_dir: Path,
+    errors: list[str],
+) -> None:
+    recorded = artifact.get("source_sha256")
+    if not isinstance(recorded, dict):
+        errors.append(f"{artifact_path}: calibrated internal evidence requires source_sha256")
+        return
+    if not refs:
+        errors.append(f"{artifact_path}: calibrated internal evidence requires source refs")
+        return
+    for ref in refs:
+        path = validate_rel_path(f"{artifact_path}: source_sha256 {ref}", ref, round_dir, errors, must_exist=True)
+        if path is None or not path.is_file():
+            continue
+        recorded_hash = recorded.get(ref)
+        if not isinstance(recorded_hash, str) or not recorded_hash:
+            errors.append(f"{artifact_path}: source_sha256 missing hash for {ref}")
+        elif recorded_hash != sha256_file(path):
+            errors.append(f"{artifact_path}: source_sha256 is stale for {ref}")
 
 
 def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None:
@@ -374,6 +403,24 @@ def artifact_review_ok(
             else:
                 warnings.append(f"{path}: final/sendable artifact has review status {status}; exception recorded")
 
+    if require_complete and path in INDEPENDENT_REVIEW_REQUIRED_OUTPUTS:
+        if scope != "internal_only":
+            errors.append(f"{path}: calibrated internal evidence must use review_scope internal_only")
+        if status not in REVIEWED_STATUSES:
+            errors.append(f"{path}: calibrated internal evidence requires a recorded independent review")
+        generated = artifact.get("generated_by")
+        has_recorded_generator = False
+        if isinstance(generated, list):
+            for generator in generated:
+                if not isinstance(generator, dict):
+                    continue
+                agent = str(generator.get("agent", "")).strip()
+                role = str(generator.get("role", "")).strip()
+                if agent not in {"", "not_recorded"} and role not in {"", "not_recorded"}:
+                    has_recorded_generator = True
+        if not has_recorded_generator:
+            errors.append(f"{path}: calibrated internal evidence requires a recorded generator")
+
     if scope == "covered_by_synthesis":
         covered_by = review.get("covered_by_artifact")
         used_findings = str(review.get("used_findings", "")).strip()
@@ -557,6 +604,13 @@ def check_artifacts(
             errors,
             warnings,
         )
+        if require_complete and path_value in INDEPENDENT_REVIEW_REQUIRED_OUTPUTS:
+            source_refs: list[str] = []
+            for field in ("input_refs", "evidence_refs"):
+                values = artifact.get(field)
+                if isinstance(values, list):
+                    source_refs.extend(ref for ref in values if isinstance(ref, str))
+            check_source_hashes(path_value, artifact, source_refs, round_dir, errors)
 
     missing_outputs = sorted(actual_outputs - manifest_paths)
     if missing_outputs and require_complete:

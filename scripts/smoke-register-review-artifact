@@ -40,6 +40,12 @@ EOF
 cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
 # Revidovane podklady pro oponentsky posudek
 EOF
+cat >"$round_dir/outputs/reference_report_comparison.md" <<'EOF'
+# Reference Report Comparison
+EOF
+cat >"$round_dir/outputs/opponent_reading_packet.md" <<'EOF'
+# Opponent Reading Packet
+EOF
 cat >"$round_dir/work/oponent_podklady_draft.md" <<'EOF'
 # Podklady pro oponentsky posudek
 EOF
@@ -79,6 +85,35 @@ expect_success "register work artifact" "$repo_root/scripts/register-review-arti
   --limitation "Feeds synthesis only." \
   --feeds outputs/oponent_podklady_revidovane.md
 
+expect_success "register reference comparison" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/reference_report_comparison.md" \
+  --role historical-opponent-calibration \
+  --agent comparison-generator \
+  --review-scope internal_only \
+  --review-status reviewed \
+  --reviewer-role anti-overfit-reviewer \
+  --reviewer-agent comparison-reviewer \
+  --reviewed-at 2026-05-06T00:10:00Z \
+  --limitation "Synthetic comparison only." \
+  --evidence-ref outputs/oponent_podklady_revidovane.md \
+  --evidence-ref work/opponent_packets/code_quality_findings.md \
+  --used-findings "Used only current-case supported calibration differences." \
+  --notes "Registered by smoke."
+
+expect_success "register reading packet" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/opponent_reading_packet.md" \
+  --role historical-opponent-calibration \
+  --agent packet-generator \
+  --review-scope internal_only \
+  --review-status reviewed \
+  --reviewer-role anti-overfit-reviewer \
+  --reviewer-agent packet-reviewer \
+  --reviewed-at 2026-05-06T00:11:00Z \
+  --limitation "Synthetic reading packet only." \
+  --evidence-ref outputs/reference_report_comparison.md \
+  --used-findings "Used reviewed comparison and current-case evidence only." \
+  --notes "Registered by smoke."
+
 "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
 
 python3 - "$round_dir/work/review_manifest.json" <<'PY'
@@ -86,7 +121,9 @@ import json
 import pathlib
 import sys
 
-manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+manifest_path = pathlib.Path(sys.argv[1])
+round_dir = manifest_path.parents[1]
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 output = next(item for item in manifest["artifacts"] if item["path"] == "outputs/code_quality_review.md")
 assert output["independent_review"]["status"] == "not_required", output
 assert output["generated_by"][0]["agent"] == "generator-agent", output
@@ -95,6 +132,23 @@ assert output["input_refs"] == ["notes/assignment.md"], output
 final = next(item for item in manifest["artifacts"] if item["path"] == "outputs/oponent_podklady_revidovane.md")
 assert final["independent_review"]["review_basis_path"] == "work/oponent_podklady_draft.md", final
 assert final["independent_review"]["review_basis_sha256"], final
+comparison = next(item for item in manifest["artifacts"] if item["path"] == "outputs/reference_report_comparison.md")
+assert comparison["artifact_type"] == "reference_report_comparison", comparison
+assert comparison["review_scope"] == "internal_only", comparison
+assert comparison["independent_review"]["status"] == "reviewed", comparison
+assert comparison["independent_review"]["reviewed_hash"] == comparison["artifact_sha256"], comparison
+assert comparison["independent_review"]["reviewer_agent"] == "comparison-reviewer", comparison
+assert "outputs/oponent_podklady_revidovane.md" in comparison["evidence_refs"], comparison
+assert comparison["source_sha256"]["outputs/oponent_podklady_revidovane.md"], comparison
+assert comparison["source_sha256"]["work/opponent_packets/code_quality_findings.md"], comparison
+packet = next(item for item in manifest["artifacts"] if item["path"] == "outputs/opponent_reading_packet.md")
+assert packet["artifact_type"] == "opponent_reading_packet", packet
+assert packet["review_scope"] == "internal_only", packet
+assert packet["independent_review"]["status"] == "reviewed", packet
+assert packet["independent_review"]["reviewed_hash"] == packet["artifact_sha256"], packet
+assert packet["independent_review"]["reviewer_agent"] == "packet-reviewer", packet
+assert "outputs/reference_report_comparison.md" in packet["evidence_refs"], packet
+assert packet["source_sha256"]["outputs/reference_report_comparison.md"], packet
 work = next(
     item
     for item in manifest["supporting_work_artifacts"]

@@ -70,6 +70,8 @@ evidenci:
 - `outputs/literature_citation_review.md`
 - `outputs/figure_media_review.md`
 - `outputs/typography_formal_review.md`
+- `outputs/reference_report_comparison.md`
+- `outputs/opponent_reading_packet.md`
 
 Pro jádrové code/revision artefakty existují strukturální validátory:
 
@@ -107,6 +109,10 @@ scripts/check-review-manifest --require-complete <case-id> [round-id]
 Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`
 nebo `outputs/revision_diff.md`, manifest closeout vyžaduje příslušný
 strukturální validátor jako passed helper check.
+Kalibrační výstupy `outputs/reference_report_comparison.md` a
+`outputs/opponent_reading_packet.md` jsou internal-only, ale closeout pro ně
+vyžaduje vlastní nezávislý review záznam a aktuální reviewed hash; nesmí být jen
+implicitně pokryté pozdější syntézou.
 
 ## Report Draft Boundary
 

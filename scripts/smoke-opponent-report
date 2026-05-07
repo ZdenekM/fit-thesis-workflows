@@ -471,6 +471,12 @@ expect_failure "internal path fails" "$repo_root/scripts/check-opponent-report" 
 expect_output "internal workflow path"
 
 write_report_trace "$case_id" round-a
+expect_success "regenerate clean draft after packet leak test" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Viz opponent_reading_packet.md."
+expect_failure "reading packet filename leak fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "internal workflow path"
+
+write_report_trace "$case_id" round-a
 expect_success "regenerate clean draft 2" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 python3 - "$draft" <<'PY'
 import pathlib

@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.cli.check_review_manifest import (
     check_helper_checks,
     check_manifest,
+    check_source_hashes,
     required_helper_targets,
 )
 from thesis_review_workflow.cli.init_review_manifest import merge_checks, output_artifacts
@@ -253,12 +254,44 @@ def test_init_manifest_keeps_calibration_profile_independently_reviewed_with_syn
     outputs.mkdir(parents=True)
     (outputs / "oponent_podklady_revidovane.md").write_text("# Reviewed materials\n", encoding="utf-8")
     (outputs / "reviewer_calibration_profile.md").write_text("# Calibration profile\n", encoding="utf-8")
+    (outputs / "reference_report_comparison.md").write_text("# Reference comparison\n", encoding="utf-8")
+    (outputs / "opponent_reading_packet.md").write_text("# Reading packet\n", encoding="utf-8")
 
     artifacts = output_artifacts(round_dir, {})
     by_path = {item["path"]: item for item in artifacts}
 
     assert by_path["outputs/oponent_podklady_revidovane.md"]["review_scope"] == "standalone_final"
     assert by_path["outputs/reviewer_calibration_profile.md"]["review_scope"] == "internal_only"
+    assert by_path["outputs/reference_report_comparison.md"]["review_scope"] == "internal_only"
+    assert by_path["outputs/opponent_reading_packet.md"]["review_scope"] == "internal_only"
+
+
+def test_init_manifest_repairs_stale_synthesis_scope_for_calibration_outputs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    outputs = round_dir / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "oponent_podklady_revidovane.md").write_text("# Reviewed materials\n", encoding="utf-8")
+    (outputs / "reference_report_comparison.md").write_text("# Reference comparison\n", encoding="utf-8")
+
+    artifacts = output_artifacts(
+        round_dir,
+        {
+            "artifacts": [
+                {
+                    "path": "outputs/reference_report_comparison.md",
+                    "review_scope": "covered_by_synthesis",
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                    },
+                }
+            ]
+        },
+    )
+    by_path = {item["path"]: item for item in artifacts}
+
+    assert by_path["outputs/reference_report_comparison.md"]["review_scope"] == "internal_only"
+    assert by_path["outputs/reference_report_comparison.md"]["independent_review"]["status"] == "not_recorded"
 
 
 def test_init_manifest_marks_changed_helper_target_set_stale() -> None:
@@ -310,6 +343,11 @@ def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> Non
     artifact = round_dir / "outputs" / "code_quality_review.md"
     artifact.parent.mkdir(parents=True)
     artifact.write_text("# Internal Code Quality Review\n", encoding="utf-8")
+    (round_dir / "outputs/oponent_podklady_revidovane.md").write_text("# Reviewed materials\n", encoding="utf-8")
+    (round_dir / "notes").mkdir(parents=True, exist_ok=True)
+    (round_dir / "notes/assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    (round_dir / "work").mkdir(parents=True, exist_ok=True)
+    (round_dir / "work/code_reproducibility.json").write_text("{}\n", encoding="utf-8")
     manifest = ensure_manifest({}, "case-a", "round-a")
 
     register_artifact(
@@ -341,6 +379,9 @@ def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> Non
     assert entry["independent_review"]["reviewed_hash"] == entry["artifact_sha256"]
     assert entry["limitations"] == ["Static review only."]
     assert "outputs/oponent_podklady_revidovane.md" in entry["evidence_refs"]
+    assert entry["source_sha256"]["work/code_reproducibility.json"] == sha256_file(
+        round_dir / "work/code_reproducibility.json"
+    )
 
 
 def test_reviewer_calibration_profile_manifest_defaults() -> None:
@@ -349,6 +390,269 @@ def test_reviewer_calibration_profile_manifest_defaults() -> None:
     assert artifact_type == "opponent_reviewer_calibration_profile"
     assert skills == ["historical-opponent-calibration"]
     assert scope == "internal_only"
+
+
+def test_current_case_calibration_output_manifest_defaults() -> None:
+    comparison_type, comparison_skills, comparison_scope = output_defaults("outputs/reference_report_comparison.md")
+    packet_type, packet_skills, packet_scope = output_defaults("outputs/opponent_reading_packet.md")
+
+    assert comparison_type == "reference_report_comparison"
+    assert comparison_skills == ["historical-opponent-calibration"]
+    assert comparison_scope == "internal_only"
+    assert packet_type == "opponent_reading_packet"
+    assert packet_skills == ["historical-opponent-calibration"]
+    assert packet_scope == "internal_only"
+
+
+def source_sha256(round_dir: Path, refs: list[str]) -> dict[str, str]:
+    return {ref: sha256_file(round_dir / ref) for ref in refs}
+
+
+def reviewed_internal_artifact(
+    round_dir: Path,
+    rel_path: str,
+    *,
+    reviewed: bool = True,
+    input_refs: list[str] | None = None,
+    evidence_refs: list[str] | None = None,
+    generator_agent: str = "generator-agent",
+) -> dict[str, object]:
+    artifact = round_dir / rel_path
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text(f"# {Path(rel_path).stem}\n", encoding="utf-8")
+    current_hash = sha256_file(artifact)
+    inputs = input_refs or []
+    evidence = evidence_refs or []
+    return {
+        "path": rel_path,
+        "artifact_type": output_defaults(rel_path)[0],
+        "artifact_sha256": current_hash,
+        "review_scope": "internal_only",
+        "skills": output_defaults(rel_path)[1],
+        "generated_by": [
+            {
+                "role": "historical-opponent-calibration",
+                "agent": generator_agent,
+                "contribution": "generation",
+                "notes": "Synthetic generator.",
+            }
+        ],
+        "independent_review": {
+            "status": "reviewed" if reviewed else "not_recorded",
+            "reviewer_role": "anti-overfit-reviewer" if reviewed else "not_recorded",
+            "reviewer_agent": "reviewer-agent" if reviewed else "not_recorded",
+            "reviewed_at": "2026-05-07T00:00:00Z" if reviewed else "",
+            "reviewed_hash": current_hash if reviewed else "",
+            "covered_by_artifact": "",
+            "used_findings": "",
+            "exception": "",
+            "notes": "Synthetic independent review." if reviewed else "",
+        },
+        "helper_checks": [],
+        "limitations": ["Synthetic fixture."],
+        "input_refs": inputs,
+        "evidence_refs": evidence,
+        "source_sha256": source_sha256(round_dir, inputs + evidence),
+        "check_refs": [],
+    }
+
+
+def calibration_outputs_manifest(round_dir: Path, *, reviewed: bool = True) -> dict[str, object]:
+    manifest_path = round_dir / "work/review_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text("{}\n", encoding="utf-8")
+    notes_path = round_dir / "notes/assignment.md"
+    sources_path = round_dir / "work/opponent_packets/current_case_sources.md"
+    calibration_path = round_dir / "work/opponent_packets/calibration_context.md"
+    for path, content in (
+        (notes_path, "# Assignment\n"),
+        (sources_path, "# Current case sources\n"),
+        (calibration_path, "# Calibration context\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    return {
+        "schema_version": "review-manifest-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "updated_at": "2026-05-07T00:00:00Z",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [{"path": "notes/assignment.md", "kind": "text"}],
+        "supporting_work_artifacts": [
+            {
+                "path": "work/opponent_packets/current_case_sources.md",
+                "kind": "text",
+                "artifact_sha256": sha256_file(sources_path),
+            },
+            {
+                "path": "work/opponent_packets/calibration_context.md",
+                "kind": "text",
+                "artifact_sha256": sha256_file(calibration_path),
+            },
+        ],
+        "workflow_limitations": [],
+        "helper_checks": [
+            {
+                "check": "check-review-manifest",
+                "command": "scripts/check-review-manifest --require-complete case-a round-a",
+                "target_artifacts": [
+                    "outputs/opponent_reading_packet.md",
+                    "outputs/reference_report_comparison.md",
+                ],
+                "target_sha256": {},
+                "status": "not_applicable",
+                "checked_at": "",
+                "exit_code": None,
+                "notes": "Self check.",
+            }
+        ],
+        "artifacts": [
+            reviewed_internal_artifact(
+                round_dir,
+                "outputs/reference_report_comparison.md",
+                reviewed=reviewed,
+                input_refs=["notes/assignment.md"],
+                evidence_refs=[
+                    "work/opponent_packets/current_case_sources.md",
+                    "work/opponent_packets/calibration_context.md",
+                ],
+                generator_agent="comparison-generator",
+            ),
+            reviewed_internal_artifact(
+                round_dir,
+                "outputs/opponent_reading_packet.md",
+                reviewed=reviewed,
+                input_refs=["notes/assignment.md"],
+                evidence_refs=[
+                    "work/opponent_packets/current_case_sources.md",
+                    "work/opponent_packets/calibration_context.md",
+                    "outputs/reference_report_comparison.md",
+                ],
+                generator_agent="packet-generator",
+            ),
+        ],
+    }
+
+
+def test_current_case_calibration_outputs_require_independent_review_in_closeout(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = calibration_outputs_manifest(round_dir, reviewed=False)
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert any(
+        "outputs/reference_report_comparison.md: calibrated internal evidence requires a recorded independent review"
+        in error
+        for error in errors
+    )
+    assert any(
+        "outputs/opponent_reading_packet.md: calibrated internal evidence requires a recorded independent review"
+        in error
+        for error in errors
+    )
+
+
+def test_current_case_calibration_outputs_pass_with_current_review_hashes(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = calibration_outputs_manifest(round_dir, reviewed=True)
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert errors == []
+
+
+def test_current_case_calibration_outputs_reject_stale_review_hash(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = calibration_outputs_manifest(round_dir, reviewed=True)
+    (round_dir / "outputs/reference_report_comparison.md").write_text("# Edited\n", encoding="utf-8")
+    updated_hash = sha256_file(round_dir / "outputs/reference_report_comparison.md")
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    for artifact in artifacts:
+        assert isinstance(artifact, dict)
+        if artifact["path"] == "outputs/reference_report_comparison.md":
+            artifact["artifact_sha256"] = updated_hash
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert any("outputs/reference_report_comparison.md: review is stale_after_edit" in error for error in errors)
+
+
+def test_current_case_calibration_outputs_require_recorded_generator(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = calibration_outputs_manifest(round_dir, reviewed=True)
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    for artifact in artifacts:
+        assert isinstance(artifact, dict)
+        if artifact["path"] == "outputs/reference_report_comparison.md":
+            artifact["generated_by"] = [
+                {
+                    "role": "not_recorded",
+                    "agent": "not_recorded",
+                    "contribution": "generation",
+                    "notes": "",
+                }
+            ]
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert any(
+        "outputs/reference_report_comparison.md: calibrated internal evidence requires a recorded generator" in error
+        for error in errors
+    )
+
+
+def test_current_case_calibration_outputs_reject_stale_source_hash(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = calibration_outputs_manifest(round_dir, reviewed=True)
+    (round_dir / "work/opponent_packets/current_case_sources.md").write_text("# Changed\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    expected = (
+        "outputs/reference_report_comparison.md: "
+        "source_sha256 is stale for work/opponent_packets/current_case_sources.md"
+    )
+    assert any(expected in error for error in errors)
+
+
+def test_source_hash_check_covers_output_sources(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    source = round_dir / "outputs/oponent_podklady_revidovane.md"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("# Reviewed materials\n", encoding="utf-8")
+    artifact = {
+        "source_sha256": {
+            "outputs/oponent_podklady_revidovane.md": sha256_file(source),
+        }
+    }
+    source.write_text("# Edited reviewed materials\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_source_hashes(
+        "outputs/reference_report_comparison.md",
+        artifact,
+        ["outputs/oponent_podklady_revidovane.md"],
+        round_dir,
+        errors,
+    )
+
+    assert errors == [
+        "outputs/reference_report_comparison.md: source_sha256 is stale for outputs/oponent_podklady_revidovane.md"
+    ]
 
 
 def test_register_work_artifact_records_supporting_metadata(tmp_path: Path) -> None:

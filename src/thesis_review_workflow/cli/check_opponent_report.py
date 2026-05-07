@@ -68,6 +68,7 @@ INTERNAL_PATTERNS = (
     r"\bgithub_code_intake\.md\b",
     r"\brevision_diff\.md\b",
     r"\breference_report_comparison\.md\b",
+    r"\bopponent_reading_packet\.md\b",
     r"\bpr_contribution_review\.md\b",
     r"\bdemo_artifacts_review\.md\b",
     r"\bcode_consistency\.md\b",

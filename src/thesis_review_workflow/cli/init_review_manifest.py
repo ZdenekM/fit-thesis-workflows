@@ -57,7 +57,16 @@ OUTPUT_TYPES = {
         "standalone_final",
     ),
     "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
-    "reference_report_comparison.md": ("reference_report_comparison", (), "internal_only"),
+    "reference_report_comparison.md": (
+        "reference_report_comparison",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
+    "opponent_reading_packet.md": (
+        "opponent_reading_packet",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
     "reviewer_calibration_profile.md": (
         "opponent_reviewer_calibration_profile",
         ("historical-opponent-calibration",),
@@ -76,9 +85,15 @@ INTERNAL_EVIDENCE = {
     "figure_media_review.md",
     "typography_formal_review.md",
     "reference_report_comparison.md",
+    "opponent_reading_packet.md",
     "reviewer_calibration_profile.md",
     "demo_artifacts_review.md",
     "pr_contribution_review.md",
+}
+REQUIRE_STANDALONE_REVIEW = {
+    "reference_report_comparison.md",
+    "opponent_reading_packet.md",
+    "reviewer_calibration_profile.md",
 }
 
 
@@ -106,6 +121,19 @@ def target_hashes(round_dir: Path, targets: list[str]) -> dict[str, str]:
         path = round_dir / target
         if path.is_file():
             hashes[target] = sha256_file(path)
+    return hashes
+
+
+def source_hashes(round_dir: Path, refs: Any) -> dict[str, str]:
+    if not isinstance(refs, list):
+        return {}
+    hashes: dict[str, str] = {}
+    for ref in refs:
+        if not isinstance(ref, str):
+            continue
+        path = round_dir / ref
+        if path.is_file():
+            hashes[ref] = sha256_file(path)
     return hashes
 
 
@@ -159,7 +187,7 @@ def artifact_defaults(filename: str, synthesis: str | None) -> tuple[str, tuple[
     artifact_type, skills, scope = OUTPUT_TYPES.get(filename, ("generated_markdown", (), "internal_only"))
     covered_by = ""
     used_findings = ""
-    if filename in INTERNAL_EVIDENCE and filename != "reviewer_calibration_profile.md" and synthesis:
+    if filename in INTERNAL_EVIDENCE and filename not in REQUIRE_STANDALONE_REVIEW and synthesis:
         scope = "covered_by_synthesis"
         covered_by = synthesis
         used_findings = "not_recorded"
@@ -232,9 +260,11 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
         artifact_type, skills, scope, covered_by, used_findings = artifact_defaults(filename, synthesis)
         previous = dict(existing_by_path.get(rel_path, {}))
         previous_scope = previous.get("review_scope")
-        if (
+        if filename in REQUIRE_STANDALONE_REVIEW:
+            effective_scope = "internal_only"
+        elif (
             filename in INTERNAL_EVIDENCE
-            and filename != "reviewer_calibration_profile.md"
+            and filename not in REQUIRE_STANDALONE_REVIEW
             and synthesis
             and previous_scope in {None, "", "internal_only"}
         ):
@@ -258,6 +288,8 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
             }
         if effective_scope == "covered_by_synthesis" and not review.get("evidence_hash"):
             review = {**review, "evidence_hash": current_hash}
+        elif filename in REQUIRE_STANDALONE_REVIEW and review.get("status") == "not_required":
+            review = default_review(effective_scope, "", "")
 
         limitations = previous.get("limitations") or []
         if not limitations and effective_scope in {"sendable_final", "standalone_final"}:
@@ -280,6 +312,13 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
         for field in ("input_refs", "evidence_refs", "check_refs"):
             if field in previous:
                 entry[field] = previous[field]
+        source_refs: list[str] = []
+        for field in ("input_refs", "evidence_refs"):
+            value = entry.get(field)
+            if isinstance(value, list):
+                source_refs.extend(ref for ref in value if isinstance(ref, str))
+        if source_refs:
+            entry["source_sha256"] = source_hashes(round_dir, source_refs)
         artifacts.append(entry)
     return artifacts
 

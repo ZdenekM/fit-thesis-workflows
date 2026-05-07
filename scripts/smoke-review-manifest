@@ -254,6 +254,55 @@ path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encod
 PY
 }
 
+add_calibration_output_sources() {
+  local manifest="$1"
+  python3 - "$manifest" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+round_dir = manifest_path.parents[1]
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+note = round_dir / "notes/assignment.md"
+sources = round_dir / "work/opponent_packets/current_case_sources.md"
+calibration = round_dir / "work/opponent_packets/calibration_context.md"
+sources.parent.mkdir(parents=True, exist_ok=True)
+sources.write_text("# Current case sources\n", encoding="utf-8")
+calibration.write_text("# Calibration context\n", encoding="utf-8")
+
+def sha(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+for artifact in manifest["artifacts"]:
+    if artifact["path"] == "outputs/reference_report_comparison.md":
+        refs = ["notes/assignment.md", "work/opponent_packets/current_case_sources.md", "work/opponent_packets/calibration_context.md"]
+        artifact["input_refs"] = ["notes/assignment.md"]
+        artifact["evidence_refs"] = ["work/opponent_packets/current_case_sources.md", "work/opponent_packets/calibration_context.md"]
+        artifact["source_sha256"] = {ref: sha(round_dir / ref) for ref in refs}
+    elif artifact["path"] == "outputs/opponent_reading_packet.md":
+        refs = [
+            "notes/assignment.md",
+            "work/opponent_packets/current_case_sources.md",
+            "work/opponent_packets/calibration_context.md",
+            "outputs/reference_report_comparison.md",
+        ]
+        artifact["input_refs"] = ["notes/assignment.md"]
+        artifact["evidence_refs"] = [
+            "work/opponent_packets/current_case_sources.md",
+            "work/opponent_packets/calibration_context.md",
+            "outputs/reference_report_comparison.md",
+        ]
+        artifact["source_sha256"] = {ref: sha(round_dir / ref) for ref in refs}
+manifest["supporting_work_artifacts"] = [
+    {"path": "work/opponent_packets/current_case_sources.md", "kind": "text", "artifact_sha256": sha(sources)},
+    {"path": "work/opponent_packets/calibration_context.md", "kind": "text", "artifact_sha256": sha(calibration)},
+]
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
 expect_success() {
   local name="$1"
   shift
@@ -312,6 +361,19 @@ make_case "$case_id"
 write_valid_code_quality_review "$case_id" round-a
 "$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
 expect_failure "internal evidence requires its validator check" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+case_id="${case_prefix}_calibration_outputs"
+make_case "$case_id"
+write_output "$case_id" round-a reference_report_comparison.md "# Reference Report Comparison"
+write_output "$case_id" round-a opponent_reading_packet.md "# Opponent Reading Packet"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+manifest="$repo_root/cases/$case_id/rounds/round-a/work/review_manifest.json"
+expect_failure "calibration outputs require independent review" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+mark_reviewed "$manifest"
+add_calibration_output_sources "$manifest"
+expect_success "calibration outputs pass after independent review" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+write_output "$case_id" round-a reference_report_comparison.md "# Edited Reference Report Comparison"
+expect_failure "calibration output edit makes review stale" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
 
 case_id="${case_prefix}_run_checks"
 make_case "$case_id"

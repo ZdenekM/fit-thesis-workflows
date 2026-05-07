@@ -115,6 +115,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/reviewer_calibration_profile.md"
 
+make_untracked_file "tmp-feedback-smoke/reference_report_comparison.md"
+expect_failure_contains \
+  "reference report comparison outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/reference_report_comparison.md"
+
 make_untracked_file "tmp-feedback-smoke/opponent_reading_packet.md"
 expect_failure_contains \
   "opponent reading packet outside cases fails" \

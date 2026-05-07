@@ -88,7 +88,7 @@ def test_matching_extract_does_not_reuse_or_guess_ambiguous_extracts() -> None:
 def test_output_expectations_records_missing_review_surfaces() -> None:
     issues: list[Issue] = []
     lines = output_expectations(
-        {"oponent_podklady_revidovane.md", "feedback_student.md"},
+        {"oponent_podklady_revidovane.md", "feedback_student.md", "opponent_reading_packet.md"},
         feedback_draft_present=False,
         opponent_materials_draft_present=False,
         reviewed_opponent_materials_present=True,
@@ -100,6 +100,7 @@ def test_output_expectations_records_missing_review_surfaces() -> None:
     )
 
     assert "- work/opponent_report_trace.json: missing (opponent report trace)" in lines
+    assert "- opponent_reading_packet.md: present (opponent reading packet)" in lines
     assert any("work/opponent_report_trace.json is missing" in issue.message for issue in issues)
     assert any("missing code review outputs" in issue.message for issue in issues)
 

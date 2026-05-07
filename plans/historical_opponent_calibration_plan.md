@@ -631,7 +631,7 @@ Commit target:
 
 ### Slice 6: Reference Comparison And Reading Packet
 
-Status: pending
+Status: completed
 
 Actions:
 
@@ -895,6 +895,25 @@ Commit target:
   scripts::`, `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
   `scripts/check-scripts`, `git diff --check`, `pants run :vulture`, `pants run
   :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 6 completed and agent-reviewed. Registered
+  `outputs/reference_report_comparison.md` and
+  `outputs/opponent_reading_packet.md` as stable internal evidence, kept them
+  out of automatic `covered_by_synthesis` downgrades, required recorded
+  generator and independent review metadata, added source-hash validation for
+  their inputs/evidence before manifest closeout, added case-doctor/private
+  coverage, blocked `opponent_reading_packet.md` leaks from report drafts, and
+  documented the current-case calibrated comparison/packet workflow in the skill.
+  Verification: `pants fmt src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_manifest_helpers.py
+  tests/test_case_doctor_summary.py tests/test_opponent_calibration.py
+  tests/test_opponent_report.py`, `scripts/smoke-review-manifest`,
+  `scripts/smoke-register-review-artifact`, `scripts/smoke-opponent-report`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`,
+  `scripts/smoke-opponent-closeout`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/smoke-private`, `scripts/check-scripts`,
+  `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and `pants run
+  :omen`.
 
 ## Decision Log
 

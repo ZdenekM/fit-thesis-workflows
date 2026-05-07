@@ -37,6 +37,27 @@ profiles, checklists, and reviews stay under ignored `cases/`.
     source analysis refs, and limitations.
 12. Run `scripts/check-opponent-calibration-profile <calibration-case-id> [round-id]`.
 
+## Current Case Use
+
+After reviewed opponent materials and an accepted `work/opponent_report_trace.json`
+exist, use the private profile only through the current-case contract:
+
+1. Record selected-profile use in `work/opponent_calibration_use.json`, or record
+   non-use in `work/opponent_calibration_advisory.json`.
+2. Write `outputs/reference_report_comparison.md` as operator-only internal
+   evidence comparing the current materials and trace with the selected profile.
+   Treat historical reports as calibration context, never as evidence about the
+   current student.
+3. Write `outputs/opponent_reading_packet.md` after the comparison. Use a stable
+   order: supported findings, uncertainties, evaluation axes, point/grade
+   tension, profile differences, defense questions, and manual checks.
+4. Run an independent anti-overfit review before either Markdown output can
+   influence trace edits or a draft report.
+5. Register both outputs in `work/review_manifest.json` with generator,
+   independent reviewer, reviewed hash, current source hashes, evidence refs, and
+   limitations. Then run `scripts/check-review-manifest --require-complete
+   <case-id> [round-id]`.
+
 ## Refresh
 
 To add a new historical case or a newly finalized opponent report, repeat the
@@ -63,3 +84,7 @@ before the refreshed profile becomes the default calibration profile.
 - Before drafting an opponent report, refresh or remove any stale current-case
   calibration use/advisory artifact; the draft helper treats a recorded but
   invalid calibration context as a blocking provenance error.
+- `outputs/reference_report_comparison.md` and
+  `outputs/opponent_reading_packet.md` are internal evidence for the operator.
+  They need independent review metadata and current reviewed hashes in
+  `work/review_manifest.json` before they influence a report trace or draft.

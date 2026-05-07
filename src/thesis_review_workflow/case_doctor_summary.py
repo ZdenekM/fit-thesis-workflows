@@ -82,6 +82,7 @@ KNOWN_OUTPUTS = {
     "oponent_podklady_revidovane.md": "reviewed opponent materials",
     "feedback_k_posudku.md": "opponent report review",
     "reference_report_comparison.md": "reference report comparison",
+    "opponent_reading_packet.md": "opponent reading packet",
     "demo_artifacts_review.md": "demo artifact review",
     "pr_contribution_review.md": "PR contribution review",
 }
