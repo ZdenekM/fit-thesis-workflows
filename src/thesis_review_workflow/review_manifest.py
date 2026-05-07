@@ -38,6 +38,11 @@ OUTPUT_TYPES = {
         "standalone_final",
     ),
     "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
+    "reviewer_calibration_profile.md": (
+        "opponent_reviewer_calibration_profile",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
 }
 
 

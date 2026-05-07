@@ -55,6 +55,20 @@ the boundaries where the profile must not be used. Deterministic helpers may
 validate these fields and hashes, but must not semantically parse the Markdown
 profile text.
 
+The synthesized profile can be checked with:
+
+```bash
+scripts/check-opponent-calibration-profile <calibration-case-id> [round-id]
+```
+
+The profile check requires at least two historical case analyses, the Markdown
+profile, profile manifest, checklist, append-only profile history, private
+`work/calibration/reviewer_profile_change_log.md` and
+`work/calibration/profile_review.md`, and a current reviewed
+`work/review_manifest.json` entry for `outputs/reviewer_calibration_profile.md`.
+It is still only a structural gate; synthesis and anti-overfit judgment belong
+to explicitly authorized agents or human reviewers.
+
 Historical case analyses are path-classified artifacts:
 
 - `work/calibration/historical_case_analyses/<historical-case-id>.json`

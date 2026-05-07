@@ -14,6 +14,7 @@ shell_sources(
         "check-feedback-output",
         "check-figure-media-review",
         "check-opponent-calibration-case",
+        "check-opponent-calibration-profile",
         "check-opponent-materials",
         "check-opponent-report",
         "check-private",
@@ -50,6 +51,7 @@ shell_sources(
         "smoke-github-code-intake",
         "smoke-internal-evidence-validators",
         "smoke-opponent-calibration-case",
+        "smoke-opponent-calibration-profile",
         "smoke-opponent-closeout",
         "smoke-opponent-materials",
         "smoke-opponent-packets",
@@ -89,6 +91,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_feedback_output",
     "src/thesis_review_workflow/cli:check_figure_media_review",
     "src/thesis_review_workflow/cli:check_opponent_calibration_case",
+    "src/thesis_review_workflow/cli:check_opponent_calibration_profile",
     "src/thesis_review_workflow/cli:check_opponent_materials",
     "src/thesis_review_workflow/cli:check_opponent_report",
     "src/thesis_review_workflow/cli:check_private",
@@ -241,6 +244,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-opponent-calibration-case",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_opponent_calibration_profile_tool",
+    entry_point="thesis_review_workflow.cli.check_opponent_calibration_profile:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-opponent-calibration-profile",
     tags=["workflow-tool"],
 )
 

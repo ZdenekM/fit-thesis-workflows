@@ -21,6 +21,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
@@ -158,12 +159,14 @@ def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None
 
 
 def required_helper_targets(name: str, round_dir: Path) -> set[str]:
-    if name != "check-opponent-report":
-        return set()
-    targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
-    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
-        targets.add("work/oponent_posudek_draft.md")
-    return targets
+    if name == "check-opponent-report":
+        targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
+        if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+            targets.add("work/oponent_posudek_draft.md")
+        return targets
+    if name == "check-opponent-calibration-profile":
+        return set(calibration_profile_check_targets(round_dir))
+    return set()
 
 
 def output_paths(round_dir: Path) -> set[str]:
@@ -279,6 +282,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-code-quality-review")
     if "outputs/revision_diff.md" in paths:
         required.add("check-revision-diff")
+    if "outputs/reviewer_calibration_profile.md" in paths:
+        required.add("check-opponent-calibration-profile")
     if coverage_required(round_dir, manifest):
         required.add("check-agent-coverage")
     return required

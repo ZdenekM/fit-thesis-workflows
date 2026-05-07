@@ -505,7 +505,7 @@ Commit target:
 
 ### Slice 3: Reviewer Profile And Checklist Synthesis
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -843,6 +843,24 @@ Commit target:
   src/thesis_review_workflow:: tests:: scripts::`, `pants test
   tests/test_opponent_calibration.py tests/test_workflow_python_contracts.py`,
   `scripts/smoke-opponent-calibration-case`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
+  `pants run :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 3 started. Scope is profile/checklist/history validation,
+  manifest registration for `outputs/reviewer_calibration_profile.md`, smoke
+  coverage, and docs. The slice does not synthesize semantic profile prose
+  without explicit agent authorization.
+- 2026-05-07: Slice 3 completed and agent-reviewed. Fixed review findings for
+  profiles citing fewer than two used historical analyses, JSON profile paths
+  not bound to `outputs/reviewer_calibration_profile.md`, stale profile-history
+  hashes, incomplete manifest helper targets, and accidental
+  `covered_by_synthesis` downgrade of the private calibration profile.
+  Verification: `pants fmt src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_opponent_calibration.py
+  tests/test_review_manifest_helpers.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-opponent-calibration-profile`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`,
   `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
   `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
   `pants run :jscpd`, and `pants run :omen`.

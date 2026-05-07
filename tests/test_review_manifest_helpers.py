@@ -1,9 +1,18 @@
 import json
 from pathlib import Path
 
-from thesis_review_workflow.cli.check_review_manifest import check_helper_checks, check_manifest
-from thesis_review_workflow.cli.init_review_manifest import merge_checks
-from thesis_review_workflow.review_manifest import ensure_manifest, merge_supporting_work_artifacts, register_artifact
+from thesis_review_workflow.cli.check_review_manifest import (
+    check_helper_checks,
+    check_manifest,
+    required_helper_targets,
+)
+from thesis_review_workflow.cli.init_review_manifest import merge_checks, output_artifacts
+from thesis_review_workflow.review_manifest import (
+    ensure_manifest,
+    merge_supporting_work_artifacts,
+    output_defaults,
+    register_artifact,
+)
 from thesis_review_workflow.work_artifacts import sha256_file
 
 
@@ -138,6 +147,7 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
         "outputs/code_consistency.md",
         "outputs/code_quality_review.md",
         "outputs/revision_diff.md",
+        "outputs/reviewer_calibration_profile.md",
     }
 
     init_names = {item["check"] for item in init_required_checks("case-a", "round-a", paths, round_dir, {})}
@@ -146,9 +156,11 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
     assert "check-code-consistency" in init_names
     assert "check-code-quality-review" in init_names
     assert "check-revision-diff" in init_names
+    assert "check-opponent-calibration-profile" in init_names
     assert "check-code-consistency" in check_names
     assert "check-code-quality-review" in check_names
     assert "check-revision-diff" in check_names
+    assert "check-opponent-calibration-profile" in check_names
 
 
 def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: Path) -> None:
@@ -184,6 +196,69 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
         "helper_checks check-opponent-report: missing required target artifact work/opponent_report_trace.json"
         in errors
     )
+
+
+def test_review_manifest_requires_calibration_profile_check_targets(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    for rel_path in (
+        "outputs/reviewer_calibration_profile.md",
+        "work/calibration/reviewer_calibration_profile.json",
+        "work/calibration/reviewer_checklist.json",
+        "work/calibration/reviewer_calibration_profile_history.jsonl",
+        "work/calibration/reviewer_profile_change_log.md",
+        "work/calibration/profile_review.md",
+        "work/calibration/historical_case_analyses/case-001.json",
+        "work/calibration/historical_case_analyses/nested/case-002.json",
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic fixture\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-calibration-profile",
+                "command": "scripts/check-opponent-calibration-profile case-a round-a",
+                "target_artifacts": ["outputs/reviewer_calibration_profile.md"],
+                "target_sha256": {"outputs/reviewer_calibration_profile.md": "0" * 64},
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-calibration-profile"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-opponent-calibration-profile: missing required target artifact "
+        "work/calibration/reviewer_calibration_profile.json"
+    ) in errors
+    assert (
+        "helper_checks check-opponent-calibration-profile: missing required target artifact "
+        "work/calibration/historical_case_analyses/nested/case-002.json"
+    ) in errors
+    assert "work/calibration/profile_review.md" in required_helper_targets(
+        "check-opponent-calibration-profile", round_dir
+    )
+
+
+def test_init_manifest_keeps_calibration_profile_independently_reviewed_with_synthesis(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    outputs = round_dir / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "oponent_podklady_revidovane.md").write_text("# Reviewed materials\n", encoding="utf-8")
+    (outputs / "reviewer_calibration_profile.md").write_text("# Calibration profile\n", encoding="utf-8")
+
+    artifacts = output_artifacts(round_dir, {})
+    by_path = {item["path"]: item for item in artifacts}
+
+    assert by_path["outputs/oponent_podklady_revidovane.md"]["review_scope"] == "standalone_final"
+    assert by_path["outputs/reviewer_calibration_profile.md"]["review_scope"] == "internal_only"
 
 
 def test_init_manifest_marks_changed_helper_target_set_stale() -> None:
@@ -266,6 +341,14 @@ def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> Non
     assert entry["independent_review"]["reviewed_hash"] == entry["artifact_sha256"]
     assert entry["limitations"] == ["Static review only."]
     assert "outputs/oponent_podklady_revidovane.md" in entry["evidence_refs"]
+
+
+def test_reviewer_calibration_profile_manifest_defaults() -> None:
+    artifact_type, skills, scope = output_defaults("outputs/reviewer_calibration_profile.md")
+
+    assert artifact_type == "opponent_reviewer_calibration_profile"
+    assert skills == ["historical-opponent-calibration"]
+    assert scope == "internal_only"
 
 
 def test_register_work_artifact_records_supporting_metadata(tmp_path: Path) -> None:

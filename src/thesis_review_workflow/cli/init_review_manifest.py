@@ -26,6 +26,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import merge_supporting_work_artifacts
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
@@ -57,6 +58,11 @@ OUTPUT_TYPES = {
     ),
     "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
     "reference_report_comparison.md": ("reference_report_comparison", (), "internal_only"),
+    "reviewer_calibration_profile.md": (
+        "opponent_reviewer_calibration_profile",
+        ("historical-opponent-calibration",),
+        "internal_only",
+    ),
     "demo_artifacts_review.md": ("demo_artifacts_review", (), "internal_only"),
     "pr_contribution_review.md": ("pr_contribution_review", ("thesis-github-code-intake",), "internal_only"),
 }
@@ -70,6 +76,7 @@ INTERNAL_EVIDENCE = {
     "figure_media_review.md",
     "typography_formal_review.md",
     "reference_report_comparison.md",
+    "reviewer_calibration_profile.md",
     "demo_artifacts_review.md",
     "pr_contribution_review.md",
 }
@@ -152,7 +159,7 @@ def artifact_defaults(filename: str, synthesis: str | None) -> tuple[str, tuple[
     artifact_type, skills, scope = OUTPUT_TYPES.get(filename, ("generated_markdown", (), "internal_only"))
     covered_by = ""
     used_findings = ""
-    if filename in INTERNAL_EVIDENCE and synthesis:
+    if filename in INTERNAL_EVIDENCE and filename != "reviewer_calibration_profile.md" and synthesis:
         scope = "covered_by_synthesis"
         covered_by = synthesis
         used_findings = "not_recorded"
@@ -225,7 +232,12 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
         artifact_type, skills, scope, covered_by, used_findings = artifact_defaults(filename, synthesis)
         previous = dict(existing_by_path.get(rel_path, {}))
         previous_scope = previous.get("review_scope")
-        if filename in INTERNAL_EVIDENCE and synthesis and previous_scope in {None, "", "internal_only"}:
+        if (
+            filename in INTERNAL_EVIDENCE
+            and filename != "reviewer_calibration_profile.md"
+            and synthesis
+            and previous_scope in {None, "", "internal_only"}
+        ):
             effective_scope = "covered_by_synthesis"
         else:
             effective_scope = previous_scope or scope
@@ -355,6 +367,12 @@ def required_checks(
             "check-revision-diff",
             f"scripts/check-revision-diff {case_id} {round_id}",
             ["outputs/revision_diff.md"],
+        )
+    if "outputs/reviewer_calibration_profile.md" in artifact_paths:
+        add(
+            "check-opponent-calibration-profile",
+            f"scripts/check-opponent-calibration-profile {case_id} {round_id}",
+            calibration_profile_check_targets(round_dir),
         )
     if coverage_required(round_dir, manifest):
         add("check-agent-coverage", f"scripts/check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))

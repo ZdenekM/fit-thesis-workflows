@@ -20,6 +20,9 @@ HISTORICAL_CASE_ANALYSIS_PREFIX = "work/calibration/historical_case_analyses/"
 REVIEWER_CALIBRATION_PROFILE_REL = "work/calibration/reviewer_calibration_profile.json"
 REVIEWER_CHECKLIST_REL = "work/calibration/reviewer_checklist.json"
 REVIEWER_PROFILE_HISTORY_REL = "work/calibration/reviewer_calibration_profile_history.jsonl"
+REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL = "outputs/reviewer_calibration_profile.md"
+REVIEWER_PROFILE_REVIEW_REL = "work/calibration/profile_review.md"
+REVIEWER_PROFILE_CHANGE_LOG_REL = "work/calibration/reviewer_profile_change_log.md"
 
 EXACT_CALIBRATION_ARTIFACT_SCHEMAS: dict[str, str] = {
     REVIEWER_CALIBRATION_PROFILE_REL: REVIEWER_CALIBRATION_PROFILE_SCHEMA,
@@ -60,6 +63,21 @@ def historical_case_analysis_id(rel_path: str) -> str | None:
 
 def is_opponent_calibration_artifact(rel_path: str) -> bool:
     return calibration_schema_for_rel_path(rel_path) is not None
+
+
+def calibration_profile_check_targets(round_dir: Path) -> list[str]:
+    targets = [
+        REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL,
+        REVIEWER_CALIBRATION_PROFILE_REL,
+        REVIEWER_CHECKLIST_REL,
+        REVIEWER_PROFILE_HISTORY_REL,
+        REVIEWER_PROFILE_CHANGE_LOG_REL,
+        REVIEWER_PROFILE_REVIEW_REL,
+    ]
+    analyses_dir = round_dir / HISTORICAL_CASE_ANALYSIS_PREFIX
+    if analyses_dir.is_dir():
+        targets.extend(path.relative_to(round_dir).as_posix() for path in sorted(analyses_dir.rglob("*.json")))
+    return targets
 
 
 def validate_opponent_calibration_artifact(
@@ -306,6 +324,8 @@ def _validate_profile_manifest(
     _require_list(loaded, "do_not_use_for", rel_path, errors)
     markdown_path = loaded.get("profile_markdown_path")
     if isinstance(markdown_path, str):
+        if markdown_path != REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL:
+            errors.append(f"{rel_path}: profile_markdown_path must be {REVIEWER_CALIBRATION_PROFILE_MARKDOWN_REL}")
         _validate_ref(
             markdown_path,
             f"{rel_path}: profile_markdown_path",
