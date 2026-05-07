@@ -65,9 +65,22 @@ exist, use the private profile only through the current-case contract:
    `missing_check`, `factual_correction`, `wording_preference`,
    `defense_question`, or `scope_limitation`.
 8. Bind the revision request by path and SHA-256 to the operator feedback,
-   reviewed materials, accepted trace, current report draft, calibration-use or
-   advisory artifact, reference comparison, and reading packet. Do not revise
-   the trace from unstructured notes directly.
+   reviewed materials, pre-revision trace snapshot, pre-revision draft snapshot,
+   calibration-use or advisory artifact, reference comparison, and reading
+   packet. Store the snapshots under `work/opponent_report_revision_sources/`.
+   Do not revise the trace from unstructured notes directly.
+9. When applying the revision request, an authorized agent or human reviewer
+   updates `work/opponent_report_trace.json` and records `calibration_context`
+   with path/SHA-256 bindings to the selected calibration-use or advisory
+   artifact, `outputs/reference_report_comparison.md`,
+   `outputs/opponent_reading_packet.md`, and
+   `work/opponent_report_revision_request.json`.
+10. Regenerate `work/oponent_posudek_draft.md` with
+    `scripts/draft-opponent-report --force <case-id> [round-id]`, then run
+    `scripts/check-opponent-report <case-id> [round-id]`.
+11. Refresh `work/review_manifest.json`, run required coverage/manifest checks,
+    and run an independent opponent-report review before treating the revised
+    draft as sendable.
 
 ## Refresh
 
@@ -103,3 +116,8 @@ before the refreshed profile becomes the default calibration profile.
   operator notes to later trace revision. Deterministic code may validate its
   schema, categories, paths, hashes, and source refs, but not infer meaning from
   `notes/opponent-report-operator-feedback.md`.
+- `work/opponent_report_trace.json` may include `calibration_context` after a
+  calibrated or operator-feedback-driven revision. That context is a source
+  binding record: it validates hashes of the exact calibration and revision
+  artifacts used, without reinterpreting their free text or recursively
+  requiring those input artifacts to bind the newly revised trace.

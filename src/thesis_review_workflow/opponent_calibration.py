@@ -10,7 +10,10 @@ from typing import Any
 from thesis_review_workflow.artifact_validation import sha256_file, validate_common_artifact_fields
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.paths import is_safe_round_relative_path
-from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
+from thesis_review_workflow.structured_evidence import (
+    validate_structured_evidence_artifact,
+    validate_structured_evidence_payload,
+)
 
 HISTORICAL_CASE_ANALYSIS_SCHEMA = "historical-opponent-case-analysis-v1"
 REVIEWER_CALIBRATION_PROFILE_SCHEMA = "opponent-reviewer-calibration-profile-v1"
@@ -35,6 +38,8 @@ OPPONENT_OPERATOR_FEEDBACK_REL = "notes/opponent-report-operator-feedback.md"
 OPPONENT_MATERIALS_REVIEWED_REL = "outputs/oponent_podklady_revidovane.md"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
 OPPONENT_REPORT_DRAFT_REL = "work/oponent_posudek_draft.md"
+OPPONENT_REVISION_SOURCE_TRACE_REL = "work/opponent_report_revision_sources/opponent_report_trace.json"
+OPPONENT_REVISION_SOURCE_DRAFT_REL = "work/opponent_report_revision_sources/oponent_posudek_draft.md"
 REFERENCE_REPORT_COMPARISON_REL = "outputs/reference_report_comparison.md"
 OPPONENT_READING_PACKET_REL = "outputs/opponent_reading_packet.md"
 
@@ -126,6 +131,7 @@ def validate_opponent_calibration_artifact(
     case_id: str | None = None,
     round_id: str | None = None,
     require_existing_refs: bool = True,
+    allow_stale_trace_binding: bool = False,
 ) -> list[str]:
     rel = rel_path.as_posix() if isinstance(rel_path, Path) else rel_path
     path_errors = validate_opponent_calibration_rel_path(rel)
@@ -159,6 +165,7 @@ def validate_opponent_calibration_artifact(
         case_id=case_id,
         round_id=round_id,
         require_existing_refs=require_existing_refs,
+        allow_stale_trace_binding=allow_stale_trace_binding,
     )
 
 
@@ -178,6 +185,7 @@ def validate_opponent_calibration_payload(
     case_id: str | None = None,
     round_id: str | None = None,
     require_existing_refs: bool = True,
+    allow_stale_trace_binding: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     path_errors = validate_opponent_calibration_rel_path(rel_path)
@@ -202,6 +210,7 @@ def validate_opponent_calibration_payload(
             case_id=case_id,
             round_id=round_id,
             errors=errors,
+            allow_stale_trace_binding=allow_stale_trace_binding,
         )
     elif expected_schema == OPPONENT_CALIBRATION_ADVISORY_SCHEMA:
         _validate_opponent_calibration_advisory(
@@ -211,6 +220,7 @@ def validate_opponent_calibration_payload(
             case_id=case_id,
             round_id=round_id,
             errors=errors,
+            allow_stale_trace_binding=allow_stale_trace_binding,
         )
     elif expected_schema == OPPONENT_REPORT_REVISION_REQUEST_SCHEMA:
         _validate_opponent_report_revision_request(
@@ -471,6 +481,7 @@ def _validate_opponent_calibration_use(
     case_id: str | None,
     round_id: str | None,
     errors: list[str],
+    allow_stale_trace_binding: bool = False,
 ) -> None:
     _validate_hash_binding(
         loaded,
@@ -481,7 +492,8 @@ def _validate_opponent_calibration_use(
         round_dir,
         errors,
     )
-    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    if not allow_stale_trace_binding:
+        _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
     _validate_hash_binding(
         loaded,
         rel_path,
@@ -490,6 +502,7 @@ def _validate_opponent_calibration_use(
         OPPONENT_REPORT_TRACE_REL,
         round_dir,
         errors,
+        check_current=not allow_stale_trace_binding,
     )
     _validate_bound_calibration_artifact(REVIEWER_CALIBRATION_PROFILE_REL, round_dir, case_id, round_id, errors)
     _validate_hash_binding(
@@ -529,6 +542,7 @@ def _validate_opponent_calibration_advisory(
     case_id: str | None,
     round_id: str | None,
     errors: list[str],
+    allow_stale_trace_binding: bool = False,
 ) -> None:
     _validate_hash_binding(
         loaded,
@@ -547,8 +561,10 @@ def _validate_opponent_calibration_advisory(
         OPPONENT_REPORT_TRACE_REL,
         round_dir,
         errors,
+        check_current=not allow_stale_trace_binding,
     )
-    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    if not allow_stale_trace_binding:
+        _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
     _require_enum(loaded, "no_profile_reason", CALIBRATION_ADVISORY_REASONS, rel_path, errors)
     if loaded.get("advisory_status") != "non_blocking":
         errors.append(f"{rel_path}: advisory_status must be non_blocking")
@@ -591,17 +607,25 @@ def _validate_opponent_report_revision_request(
         rel_path,
         "opponent_report_trace_path",
         "opponent_report_trace_sha256",
-        OPPONENT_REPORT_TRACE_REL,
+        OPPONENT_REVISION_SOURCE_TRACE_REL,
         round_dir,
         errors,
     )
-    _validate_current_case_trace(OPPONENT_REPORT_TRACE_REL, round_dir, case_id, round_id, errors)
+    _validate_trace_snapshot(
+        loaded,
+        rel_path,
+        "opponent_report_trace_path",
+        round_dir,
+        case_id,
+        round_id,
+        errors,
+    )
     _validate_hash_binding(
         loaded,
         rel_path,
         "opponent_report_draft_path",
         "opponent_report_draft_sha256",
-        OPPONENT_REPORT_DRAFT_REL,
+        OPPONENT_REVISION_SOURCE_DRAFT_REL,
         round_dir,
         errors,
     )
@@ -629,8 +653,8 @@ def _validate_opponent_report_revision_request(
     expected_refs = [
         OPPONENT_OPERATOR_FEEDBACK_REL,
         OPPONENT_MATERIALS_REVIEWED_REL,
-        OPPONENT_REPORT_TRACE_REL,
-        OPPONENT_REPORT_DRAFT_REL,
+        OPPONENT_REVISION_SOURCE_TRACE_REL,
+        OPPONENT_REVISION_SOURCE_DRAFT_REL,
         REFERENCE_REPORT_COMPARISON_REL,
         OPPONENT_READING_PACKET_REL,
     ]
@@ -663,7 +687,14 @@ def _validate_revision_calibration_context(
             round_dir,
             errors,
         )
-        _validate_bound_calibration_artifact(OPPONENT_CALIBRATION_USE_REL, round_dir, case_id, round_id, errors)
+        _validate_bound_calibration_artifact(
+            OPPONENT_CALIBRATION_USE_REL,
+            round_dir,
+            case_id,
+            round_id,
+            errors,
+            allow_stale_trace_binding=True,
+        )
     else:
         _validate_hash_binding(
             loaded,
@@ -674,7 +705,47 @@ def _validate_revision_calibration_context(
             round_dir,
             errors,
         )
-        _validate_bound_calibration_artifact(OPPONENT_CALIBRATION_ADVISORY_REL, round_dir, case_id, round_id, errors)
+        _validate_bound_calibration_artifact(
+            OPPONENT_CALIBRATION_ADVISORY_REL,
+            round_dir,
+            case_id,
+            round_id,
+            errors,
+            allow_stale_trace_binding=True,
+        )
+
+
+def _validate_trace_snapshot(
+    loaded: dict[str, Any],
+    rel_path: str,
+    path_field: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    if round_dir is None:
+        return
+    path_value = loaded.get(path_field)
+    if not isinstance(path_value, str):
+        return
+    snapshot_path = round_dir / path_value
+    if not snapshot_path.is_file():
+        return
+    snapshot = _load_json_object(snapshot_path, path_value, errors)
+    if snapshot is None:
+        return
+    snapshot_without_context = dict(snapshot)
+    snapshot_without_context.pop("calibration_context", None)
+    errors.extend(
+        validate_structured_evidence_payload(
+            snapshot_without_context,
+            OPPONENT_REPORT_TRACE_REL,
+            round_dir=round_dir,
+            case_id=case_id,
+            round_id=round_id,
+        )
+    )
 
 
 def _validate_revision_feedback_items(
@@ -781,6 +852,8 @@ def _validate_hash_binding(
     expected_path: str,
     round_dir: Path | None,
     errors: list[str],
+    *,
+    check_current: bool = True,
 ) -> None:
     path_value = loaded.get(path_field)
     if path_value != expected_path:
@@ -796,10 +869,36 @@ def _validate_hash_binding(
     hash_value = loaded.get(hash_field)
     if not isinstance(hash_value, str) or not SHA256_RE.fullmatch(hash_value):
         errors.append(f"{rel_path}: {hash_field} must be a 64-character hex string")
-    elif round_dir is not None and isinstance(path_value, str):
+    elif check_current and round_dir is not None and isinstance(path_value, str):
         path = round_dir / path_value
         if path.is_file() and sha256_file(path) != hash_value:
             errors.append(f"{rel_path}: {hash_field} is stale")
+
+
+def validate_round_hash_binding(
+    loaded: dict[str, Any],
+    rel_path: str,
+    *,
+    path_field: str,
+    hash_field: str,
+    expected_path: str,
+    round_dir: Path | None,
+    check_current: bool = True,
+) -> list[str]:
+    """Validate a path/SHA binding from another structured artifact."""
+
+    errors: list[str] = []
+    _validate_hash_binding(
+        loaded,
+        rel_path,
+        path_field,
+        hash_field,
+        expected_path,
+        round_dir,
+        errors,
+        check_current=check_current,
+    )
+    return errors
 
 
 def _validate_current_case_trace(
@@ -827,10 +926,20 @@ def _validate_bound_calibration_artifact(
     case_id: str | None,
     round_id: str | None,
     errors: list[str],
+    *,
+    allow_stale_trace_binding: bool = False,
 ) -> None:
     if round_dir is None:
         return
-    errors.extend(validate_opponent_calibration_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id))
+    errors.extend(
+        validate_opponent_calibration_artifact(
+            round_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
+            allow_stale_trace_binding=allow_stale_trace_binding,
+        )
+    )
 
 
 def _validate_selected_profile_version(

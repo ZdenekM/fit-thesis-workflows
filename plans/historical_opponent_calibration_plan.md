@@ -386,10 +386,12 @@ In a normal opponent case, after reviewed materials and trace exist:
   operator feedback, created by an authorized agent or human reviewer, using the
   feedback taxonomy from this plan. Schema
   `opponent-report-revision-request-v1`; required fields include operator
-  feedback path/hash, trace path/hash, reviewed-materials path/hash, selected
-  calibration-use or advisory path/hash, comparison path/hash if present,
-  reading-packet path/hash if present, typed feedback items, requested extra
-  checks, limitations, and authorization or human-review note.
+  feedback path/hash, pre-revision trace snapshot path/hash, pre-revision draft
+  snapshot path/hash, reviewed-materials path/hash, selected calibration-use or
+  advisory path/hash, comparison path/hash if present, reading-packet path/hash
+  if present, typed feedback items, requested extra checks, limitations, and
+  authorization or human-review note. Pre-revision snapshots live under
+  `work/opponent_report_revision_sources/`.
 - updated `work/opponent_report_trace.json` and regenerated
   `work/oponent_posudek_draft.md`, with manifest evidence that the revision used
   the current operator feedback and current profile hash.
@@ -412,7 +414,13 @@ Minimum fields:
 - `revision_request_path` and `revision_request_sha256` when operator feedback
   was applied;
 - `anti_overfit_review_status`, reviewer role, reviewer agent or human note,
-  reviewed hash, and limitations.
+  review timestamp, and limitations. A current reviewed trace hash is recorded
+  outside the self-referential JSON, for example in `work/review_manifest.json`.
+
+`calibration_context` validates hashes of the exact source artifacts used for a
+trace revision. It must not recursively require revision-request or
+calibration-use/advisory inputs to bind the newly revised trace, because those
+inputs may intentionally bind the pre-revision trace or draft the operator read.
 
 `scripts/check-opponent-report` must fail on stale or missing calibration
 bindings whenever a calibrated trace/draft is used.
@@ -686,8 +694,8 @@ Actions:
   `factual_correction`, `wording_preference`, `defense_question`, or
   `scope_limitation`.
 - Bind the revision request to current operator feedback, reviewed materials,
-  trace, current report draft, calibration-use or advisory artifact, comparison,
-  and reading packet by path and hash.
+  pre-revision trace and draft snapshots, calibration-use or advisory artifact,
+  comparison, and reading packet by path and hash.
 - Require explicit current-request agent authorization, or a human reviewer note,
   before writing the structured revision request.
 
@@ -710,7 +718,7 @@ Commit target:
 
 ### Slice 8: Calibrated Trace And Draft Binding
 
-Status: pending
+Status: completed
 
 Actions:
 
@@ -921,14 +929,38 @@ Commit target:
   data; it does not revise the report trace or draft yet.
 - 2026-05-07: Slice 7 completed and agent-reviewed. Added the structured
   operator-feedback revision request contract, typed feedback taxonomy,
-  calibration-use/advisory binding, current report draft hash binding, work
-  artifact collection, skill/docs handoff guidance, and smoke coverage. Fixed
-  review findings by making revision requests bind the exact draft version the
-  operator read. Verification: `pants fmt src/thesis_review_workflow:: tests::
+  calibration-use/advisory binding, pre-revision report draft hash binding,
+  work artifact collection, skill/docs handoff guidance, and smoke coverage.
+  Fixed review findings by making revision requests bind the exact draft version
+  the operator read. Verification: `pants fmt src/thesis_review_workflow:: tests::
   scripts::`, `pants lint src/thesis_review_workflow:: tests:: scripts::`,
   `pants check src/thesis_review_workflow:: tests:: scripts::`, `pants test
   tests/test_opponent_calibration.py tests/test_review_manifest_helpers.py`,
   `scripts/smoke-opponent-report`, `scripts/check-private`,
+  `scripts/smoke-private`, `scripts/check-scripts`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `pants run :vulture`, `pants run :jscpd`, and `pants run :omen`.
+- 2026-05-07: Slice 8 started. Scope is optional `calibration_context` binding
+  in `work/opponent_report_trace.json`, draft helper enforcement for
+  calibration/revision source hashes, and opponent-report draft checks for stale
+  calibrated context. This slice does not generate semantic trace revisions; it
+  only validates agent- or human-authored structured bindings.
+- 2026-05-07: Slice 8 completed and agent-reviewed. Added
+  `calibration_context` validation for calibrated report traces, required
+  comparison/reading-packet bindings, required revision-request binding when
+  operator feedback was applied, full schema validation of bound calibration and
+  revision artifacts with case/round propagation, pre-revision trace/draft
+  snapshots under `work/opponent_report_revision_sources/`, recursion-safe
+  snapshot validation for repeated calibrated revisions, draft helper handling
+  for already-calibrated traces, docs for manifest/coverage/report-review
+  follow-up, and smoke coverage for stale revision bindings. Verification:
+  `pants fmt src/thesis_review_workflow:: tests:: scripts::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_calibration.py tests/test_structured_evidence.py
+  tests/test_opponent_report.py tests/test_draft_opponent_report.py
+  tests/test_review_manifest_helpers.py`, `scripts/smoke-opponent-report`,
+  `scripts/smoke-opponent-closeout`, `scripts/check-private`,
   `scripts/smoke-private`, `scripts/check-scripts`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `pants run :vulture`, `pants run :jscpd`, and `pants run :omen`.

@@ -427,6 +427,12 @@ def write_json(rel: str, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def copy_file(source_rel: str, target_rel: str) -> None:
+    target = round_dir / target_rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes((round_dir / source_rel).read_bytes())
+
+
 common = {
     "case_id": case_id,
     "round_id": round_id,
@@ -456,16 +462,18 @@ write_json("work/opponent_calibration_advisory.json", advisory)
 write_text("notes/opponent-report-operator-feedback.md", "# Operator feedback\n\nTighten grading and add a reproducibility check.\n")
 write_text("outputs/reference_report_comparison.md", "# Reference report comparison\n\nSynthetic no-profile comparison.\n")
 write_text("outputs/opponent_reading_packet.md", "# Opponent reading packet\n\nSynthetic packet.\n")
+copy_file("work/opponent_report_trace.json", "work/opponent_report_revision_sources/opponent_report_trace.json")
+copy_file("work/oponent_posudek_draft.md", "work/opponent_report_revision_sources/oponent_posudek_draft.md")
 revision_request = {
     **common,
     "schema_version": "opponent-report-revision-request-v1",
     "source_refs": [
         "notes/opponent-report-operator-feedback.md",
         "outputs/oponent_podklady_revidovane.md",
-    "work/opponent_report_trace.json",
-    "work/oponent_posudek_draft.md",
-    "work/opponent_calibration_advisory.json",
-    "outputs/reference_report_comparison.md",
+        "work/opponent_report_revision_sources/opponent_report_trace.json",
+        "work/opponent_report_revision_sources/oponent_posudek_draft.md",
+        "work/opponent_calibration_advisory.json",
+        "outputs/reference_report_comparison.md",
         "outputs/opponent_reading_packet.md",
     ],
     "limitations": ["Synthetic revision request."],
@@ -473,10 +481,10 @@ revision_request = {
     "operator_feedback_sha256": sha("notes/opponent-report-operator-feedback.md"),
     "source_materials_path": "outputs/oponent_podklady_revidovane.md",
     "source_materials_sha256": sha("outputs/oponent_podklady_revidovane.md"),
-    "opponent_report_trace_path": "work/opponent_report_trace.json",
-    "opponent_report_trace_sha256": sha("work/opponent_report_trace.json"),
-    "opponent_report_draft_path": "work/oponent_posudek_draft.md",
-    "opponent_report_draft_sha256": sha("work/oponent_posudek_draft.md"),
+    "opponent_report_trace_path": "work/opponent_report_revision_sources/opponent_report_trace.json",
+    "opponent_report_trace_sha256": sha("work/opponent_report_revision_sources/opponent_report_trace.json"),
+    "opponent_report_draft_path": "work/opponent_report_revision_sources/oponent_posudek_draft.md",
+    "opponent_report_draft_sha256": sha("work/opponent_report_revision_sources/oponent_posudek_draft.md"),
     "calibration_advisory_path": "work/opponent_calibration_advisory.json",
     "calibration_advisory_sha256": sha("work/opponent_calibration_advisory.json"),
     "reference_report_comparison_path": "outputs/reference_report_comparison.md",
@@ -513,6 +521,54 @@ errors = validate_opponent_calibration_artifact(
 )
 if errors:
     raise SystemExit("\n".join(errors))
+PY
+}
+
+write_calibrated_trace_context() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  python3 - "$round_dir/work/opponent_report_trace.json" "$round_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+trace_path = pathlib.Path(sys.argv[1])
+round_dir = pathlib.Path(sys.argv[2])
+
+
+def sha(rel: str) -> str:
+    return hashlib.sha256((round_dir / rel).read_bytes()).hexdigest()
+
+
+trace = json.loads(trace_path.read_text(encoding="utf-8"))
+trace["calibration_context"] = {
+    "calibration_advisory_path": "work/opponent_calibration_advisory.json",
+    "calibration_advisory_sha256": sha("work/opponent_calibration_advisory.json"),
+    "reference_report_comparison_path": "outputs/reference_report_comparison.md",
+    "reference_report_comparison_sha256": sha("outputs/reference_report_comparison.md"),
+    "opponent_reading_packet_path": "outputs/opponent_reading_packet.md",
+    "opponent_reading_packet_sha256": sha("outputs/opponent_reading_packet.md"),
+    "revision_request_path": "work/opponent_report_revision_request.json",
+    "revision_request_sha256": sha("work/opponent_report_revision_request.json"),
+    "revision_applied": True,
+    "anti_overfit_review_status": "reviewed",
+    "anti_overfit_reviewer_role": "smoke-anti-overfit-reviewer",
+    "anti_overfit_reviewer_agent": "smoke-review-agent",
+    "reviewed_at": "2026-05-07T00:03:00Z",
+    "limitations": ["Synthetic calibrated trace context."],
+}
+source_refs = trace.setdefault("source_refs", [])
+for rel in (
+    "work/opponent_calibration_advisory.json",
+    "outputs/reference_report_comparison.md",
+    "outputs/opponent_reading_packet.md",
+    "work/opponent_report_revision_request.json",
+):
+    if rel not in source_refs:
+        source_refs.append(rel)
+trace_path.write_text(json.dumps(trace, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 }
 
@@ -621,5 +677,12 @@ write_report_trace "$case_id" round-a
 expect_success "restore valid draft before revision request" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 calibrate_draft "$draft"
 write_revision_request "$case_id" round-a
+write_calibrated_trace_context "$case_id" round-a
+expect_success "draft helper writes calibrated revision draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+calibrate_draft "$draft"
+expect_success "calibrated revision draft passes check" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+replace_text "$round_dir/work/opponent_report_revision_request.json" "Synthetic revision request." "Changed revision request."
+expect_failure "stale trace revision request binding fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "revision_request_sha256 is stale"
 
 echo "Opponent report smoke passed"

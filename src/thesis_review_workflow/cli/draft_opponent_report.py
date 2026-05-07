@@ -296,7 +296,8 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"Missing reviewed opponent materials: {MATERIALS_REL.as_posix()}")
     trace_path = round_dir / TRACE_REL
     trace = load_valid_trace(round_dir, args.case_id, round_id)
-    validate_current_case_calibration(round_dir, args.case_id, round_id)
+    if not isinstance(trace.get("calibration_context"), dict):
+        validate_current_case_calibration(round_dir, args.case_id, round_id)
     draft_path = round_dir / DRAFT_REL
     if draft_path.exists() and not args.force:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")

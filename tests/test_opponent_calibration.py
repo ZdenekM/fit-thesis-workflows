@@ -343,11 +343,21 @@ def revision_request_payload(round_dir: Path, *, use_calibration: bool = True) -
         "work/oponent_posudek_draft.md",
         "# Oponentsky posudek\n\nSynthetic draft calibrated by the operator.\n",
     )
+    trace_snapshot = write_text_artifact(
+        round_dir,
+        "work/opponent_report_revision_sources/opponent_report_trace.json",
+        (round_dir / "work/opponent_report_trace.json").read_text(encoding="utf-8"),
+    )
+    draft_snapshot = write_text_artifact(
+        round_dir,
+        "work/opponent_report_revision_sources/oponent_posudek_draft.md",
+        draft.read_text(encoding="utf-8"),
+    )
     source_paths = [
         "notes/opponent-report-operator-feedback.md",
         "outputs/oponent_podklady_revidovane.md",
-        "work/opponent_report_trace.json",
-        "work/oponent_posudek_draft.md",
+        "work/opponent_report_revision_sources/opponent_report_trace.json",
+        "work/opponent_report_revision_sources/oponent_posudek_draft.md",
         calibration_rel,
         "outputs/reference_report_comparison.md",
         "outputs/opponent_reading_packet.md",
@@ -360,10 +370,10 @@ def revision_request_payload(round_dir: Path, *, use_calibration: bool = True) -
         "operator_feedback_sha256": sha256_file(feedback),
         "source_materials_path": "outputs/oponent_podklady_revidovane.md",
         "source_materials_sha256": sha256_file(round_dir / "outputs/oponent_podklady_revidovane.md"),
-        "opponent_report_trace_path": "work/opponent_report_trace.json",
-        "opponent_report_trace_sha256": sha256_file(round_dir / "work/opponent_report_trace.json"),
-        "opponent_report_draft_path": "work/oponent_posudek_draft.md",
-        "opponent_report_draft_sha256": sha256_file(draft),
+        "opponent_report_trace_path": "work/opponent_report_revision_sources/opponent_report_trace.json",
+        "opponent_report_trace_sha256": sha256_file(trace_snapshot),
+        "opponent_report_draft_path": "work/opponent_report_revision_sources/oponent_posudek_draft.md",
+        "opponent_report_draft_sha256": sha256_file(draft_snapshot),
         "reference_report_comparison_path": "outputs/reference_report_comparison.md",
         "reference_report_comparison_sha256": sha256_file(comparison),
         "opponent_reading_packet_path": "outputs/opponent_reading_packet.md",
@@ -1518,7 +1528,7 @@ def test_validate_opponent_calibration_advisory_rejects_gate_like_status(tmp_pat
 
 def test_validate_opponent_report_revision_request_binds_current_case_artifacts(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
-    payload = revision_request_payload(round_dir)
+    payload = revision_request_payload(round_dir, use_calibration=False)
     write_json(round_dir / "work/opponent_report_revision_request.json", payload)
 
     errors = validate_opponent_calibration_artifact(
@@ -1554,15 +1564,65 @@ def test_validate_opponent_report_revision_request_rejects_stale_feedback_and_pa
     assert any("opponent_reading_packet_sha256 is stale" in error for error in errors)
 
 
-def test_validate_opponent_report_revision_request_rejects_stale_report_draft(tmp_path: Path) -> None:
+def test_validate_opponent_report_revision_request_rejects_stale_pre_revision_report_draft(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     payload = revision_request_payload(round_dir)
-    (round_dir / "work/oponent_posudek_draft.md").write_text("changed draft\n", encoding="utf-8")
+    (round_dir / "work/opponent_report_revision_sources/oponent_posudek_draft.md").write_text(
+        "changed draft\n",
+        encoding="utf-8",
+    )
     write_json(round_dir / "work/opponent_report_revision_request.json", payload)
 
     errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
 
     assert any("opponent_report_draft_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_report_revision_request_survives_active_trace_and_draft_rewrite(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir)
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+    rewritten_trace = opponent_trace_payload(sha256_file(round_dir / "outputs/oponent_podklady_revidovane.md"))
+    rewritten_trace["reviewed_at"] = "2026-05-07T00:02:00Z"
+    write_json(
+        round_dir / "work/opponent_report_trace.json",
+        rewritten_trace,
+    )
+    (round_dir / "work/oponent_posudek_draft.md").write_text("revised draft\n", encoding="utf-8")
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert errors == []
+
+
+def test_validate_opponent_report_revision_request_ignores_snapshot_calibration_context_cycle(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = revision_request_payload(round_dir, use_calibration=False)
+    trace_snapshot_path = round_dir / "work/opponent_report_revision_sources/opponent_report_trace.json"
+    trace_snapshot = json.loads(trace_snapshot_path.read_text(encoding="utf-8"))
+    trace_snapshot["calibration_context"] = {
+        "calibration_advisory_path": "work/opponent_calibration_advisory.json",
+        "calibration_advisory_sha256": payload["calibration_advisory_sha256"],
+        "reference_report_comparison_path": "outputs/reference_report_comparison.md",
+        "reference_report_comparison_sha256": payload["reference_report_comparison_sha256"],
+        "opponent_reading_packet_path": "outputs/opponent_reading_packet.md",
+        "opponent_reading_packet_sha256": payload["opponent_reading_packet_sha256"],
+        "revision_request_path": "work/opponent_report_revision_request.json",
+        "revision_request_sha256": "0" * 64,
+        "revision_applied": True,
+        "anti_overfit_review_status": "reviewed",
+        "anti_overfit_reviewer_role": "previous-reviewer",
+        "anti_overfit_reviewer_agent": "previous-agent",
+        "reviewed_at": "2026-05-07T00:02:00Z",
+        "limitations": [],
+    }
+    write_json(trace_snapshot_path, trace_snapshot)
+    payload["opponent_report_trace_sha256"] = sha256_file(trace_snapshot_path)
+    write_json(round_dir / "work/opponent_report_revision_request.json", payload)
+
+    errors = validate_opponent_calibration_artifact(round_dir, "work/opponent_report_revision_request.json")
+
+    assert errors == []
 
 
 def test_validate_opponent_report_revision_request_rejects_unknown_feedback_category(tmp_path: Path) -> None:
@@ -1617,7 +1677,10 @@ def test_validate_opponent_report_revision_request_requires_source_refs_for_boun
 
     assert any("source_refs must include outputs/opponent_reading_packet.md" in error for error in errors)
     assert any("source_refs must include work/opponent_calibration_use.json" in error for error in errors)
-    assert any("source_refs must include work/oponent_posudek_draft.md" in error for error in errors)
+    assert any(
+        "source_refs must include work/opponent_report_revision_sources/oponent_posudek_draft.md" in error
+        for error in errors
+    )
 
 
 def test_work_artifacts_collects_current_case_calibration_advisory(tmp_path: Path) -> None:

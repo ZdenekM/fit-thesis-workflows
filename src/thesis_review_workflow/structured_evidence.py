@@ -14,6 +14,11 @@ ASSIGNMENT_COVERAGE_REL = "work/assignment_coverage_agent.json"
 EVIDENCE_REQUIREMENTS_REL = "work/evidence_requirements.json"
 QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
+OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
+OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
+OPPONENT_REPORT_REVISION_REQUEST_REL = "work/opponent_report_revision_request.json"
+REFERENCE_REPORT_COMPARISON_REL = "outputs/reference_report_comparison.md"
+OPPONENT_READING_PACKET_REL = "outputs/opponent_reading_packet.md"
 
 STRUCTURED_EVIDENCE_SCHEMAS: dict[str, str] = {
     ASSIGNMENT_COVERAGE_REL: "assignment-coverage-agent-v1",
@@ -43,6 +48,7 @@ BASELINE_STATUSES = {"stated", "missing", "not_applicable", "not_verifiable"}
 PRACTICAL_CONTEXT_STATUSES = {"sufficient", "weak", "missing", "not_applicable", "not_verifiable"}
 OPPONENT_TRACE_REVIEW_STATUSES = {"accepted"}
 OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
+OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
 REQUIRED_OPPONENT_IS_ITEM_IDS = {
     "assignment_difficulty",
     "assignment_fulfillment",
@@ -115,7 +121,7 @@ def validate_structured_evidence_payload(
     elif rel_path == QUANTITATIVE_CLAIMS_REL:
         _validate_quantitative_claims(loaded, rel_path, errors)
     elif rel_path == OPPONENT_REPORT_TRACE_REL:
-        _validate_opponent_report_trace(loaded, rel_path, round_dir, errors)
+        _validate_opponent_report_trace(loaded, rel_path, round_dir, case_id, round_id, errors)
 
     _validate_refs(
         loaded,
@@ -219,6 +225,8 @@ def _validate_opponent_report_trace(
     loaded: dict[str, Any],
     rel_path: str,
     round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
     errors: list[str],
 ) -> None:
     _require_nonempty_string(loaded, "source_materials_path", rel_path, errors)
@@ -281,6 +289,143 @@ def _validate_opponent_report_trace(
                     if ref != "work/oponent_posudek_draft.md":
                         errors.append(f"{prefix}: report_refs item {ref_index} must be work/oponent_posudek_draft.md")
             _require_enum(item, "status", OPPONENT_TRACE_UNCERTAINTY_STATUSES, prefix, errors)
+    if "calibration_context" in loaded:
+        _validate_calibration_context(
+            loaded.get("calibration_context"),
+            rel_path,
+            round_dir,
+            case_id,
+            round_id,
+            errors,
+        )
+
+
+def _validate_calibration_context(
+    value: Any,
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    from thesis_review_workflow.opponent_calibration import (
+        validate_opponent_calibration_artifact,
+        validate_round_hash_binding,
+    )
+
+    prefix = f"{rel_path}: calibration_context"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    use_present = "calibration_use_path" in value or "calibration_use_sha256" in value
+    advisory_present = "calibration_advisory_path" in value or "calibration_advisory_sha256" in value
+    if use_present == advisory_present:
+        errors.append(f"{prefix}: exactly one of calibration_use or calibration_advisory binding is required")
+    elif use_present:
+        errors.extend(
+            validate_round_hash_binding(
+                value,
+                prefix,
+                path_field="calibration_use_path",
+                hash_field="calibration_use_sha256",
+                expected_path=OPPONENT_CALIBRATION_USE_REL,
+                round_dir=round_dir,
+            )
+        )
+        if round_dir is not None:
+            errors.extend(
+                validate_opponent_calibration_artifact(
+                    round_dir,
+                    OPPONENT_CALIBRATION_USE_REL,
+                    case_id=case_id,
+                    round_id=round_id,
+                    allow_stale_trace_binding=True,
+                )
+            )
+    else:
+        errors.extend(
+            validate_round_hash_binding(
+                value,
+                prefix,
+                path_field="calibration_advisory_path",
+                hash_field="calibration_advisory_sha256",
+                expected_path=OPPONENT_CALIBRATION_ADVISORY_REL,
+                round_dir=round_dir,
+            )
+        )
+        if round_dir is not None:
+            errors.extend(
+                validate_opponent_calibration_artifact(
+                    round_dir,
+                    OPPONENT_CALIBRATION_ADVISORY_REL,
+                    case_id=case_id,
+                    round_id=round_id,
+                    allow_stale_trace_binding=True,
+                )
+            )
+    required_bindings = (
+        ("reference_report_comparison_path", "reference_report_comparison_sha256", REFERENCE_REPORT_COMPARISON_REL),
+        ("opponent_reading_packet_path", "opponent_reading_packet_sha256", OPPONENT_READING_PACKET_REL),
+    )
+    for path_field, hash_field, expected_path in required_bindings:
+        path_present = path_field in value
+        hash_present = hash_field in value
+        if not path_present or not hash_present:
+            errors.append(f"{prefix}: {path_field} and {hash_field} are required")
+        else:
+            errors.extend(
+                validate_round_hash_binding(
+                    value,
+                    prefix,
+                    path_field=path_field,
+                    hash_field=hash_field,
+                    expected_path=expected_path,
+                    round_dir=round_dir,
+                )
+            )
+    _require_bool(value, "revision_applied", prefix, errors)
+    revision_applied = value.get("revision_applied") is True
+    revision_path_present = "revision_request_path" in value
+    revision_hash_present = "revision_request_sha256" in value
+    if revision_applied and (not revision_path_present or not revision_hash_present):
+        errors.append(
+            f"{prefix}: revision_request_path and revision_request_sha256 are required when revision_applied is true"
+        )
+    elif revision_path_present != revision_hash_present:
+        errors.append(f"{prefix}: revision_request_path and revision_request_sha256 must be recorded together")
+    elif revision_path_present:
+        errors.extend(
+            validate_round_hash_binding(
+                value,
+                prefix,
+                path_field="revision_request_path",
+                hash_field="revision_request_sha256",
+                expected_path=OPPONENT_REPORT_REVISION_REQUEST_REL,
+                round_dir=round_dir,
+            )
+        )
+        if round_dir is not None:
+            errors.extend(
+                validate_opponent_calibration_artifact(
+                    round_dir,
+                    OPPONENT_REPORT_REVISION_REQUEST_REL,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
+    elif not revision_applied:
+        revision_reason = value.get("revision_not_applicable_reason")
+        if not isinstance(revision_reason, str) or not revision_reason:
+            errors.append(f"{prefix}: revision_not_applicable_reason must be recorded when revision_applied is false")
+    _require_enum(value, "anti_overfit_review_status", OPPONENT_TRACE_ANTI_OVERFIT_STATUSES, prefix, errors)
+    if value.get("anti_overfit_review_status") in {"reviewed", "reviewed_with_notes"}:
+        _require_nonempty_string(value, "anti_overfit_reviewer_role", prefix, errors)
+        if not isinstance(value.get("anti_overfit_reviewer_agent"), str) and not isinstance(
+            value.get("anti_overfit_human_note"), str
+        ):
+            errors.append(f"{prefix}: anti_overfit_reviewer_agent or anti_overfit_human_note must be recorded")
+        _require_nonempty_string(value, "reviewed_at", prefix, errors)
+    _require_list(value, "limitations", prefix, errors)
 
 
 def _validate_source_materials_hash(

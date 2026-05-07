@@ -56,6 +56,7 @@ EXPLICIT_WORK_ARTIFACTS = (
 WORK_ARTIFACT_GLOBS = (
     "work/agent_*.md",
     "work/opponent_packets/*.md",
+    "work/opponent_report_revision_sources/*",
     "work/calibration/*.json",
     "work/calibration/*.jsonl",
     "work/calibration/*.md",

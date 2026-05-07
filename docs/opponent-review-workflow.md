@@ -118,9 +118,21 @@ Po přečtení podkladů a draftu může oponent zapsat připomínky do
 `notes/opponent-report-operator-feedback.md`. Autorizovaný agent nebo člověk je
 potom převede do `work/opponent_report_revision_request.json`: typovaného
 požadavku na revizi, který hashem váže původní připomínky, revidované podklady,
-trace, aktuální draft posudku, kalibrační use/advisory artefakt, srovnání s
-profilem a reading packet. Deterministické kontroly pracují jen s touto
-strukturou, ne s významem volného textu v poznámkách.
+snapshot původního trace, snapshot původního draftu posudku, kalibrační
+use/advisory artefakt, srovnání s profilem a reading packet. Snapshoty patří do
+`work/opponent_report_revision_sources/`, aby pozdější přepsání aktivního trace
+nebo draftu nezneplatnilo záznam toho, co oponent skutečně četl.
+Deterministické kontroly pracují jen s touto strukturou, ne s významem volného
+textu v poznámkách.
+
+Když se připomínky použijí, agent nebo člověk upraví
+`work/opponent_report_trace.json` a zapíše do něj `calibration_context`.
+Ten hashem váže přesné vstupní kalibrační a revizní artefakty, které vedly k
+úpravě trace. Potom se draft znovu vygeneruje přes
+`scripts/draft-opponent-report --force <case-id> [round-id]` a ověří přes
+`scripts/check-opponent-report <case-id> [round-id]`. Před považováním
+revidovaného draftu za sendable obnovte manifest, spusťte coverage/manifest
+kontroly a nezávislé review oponentského posudku.
 
 ## Report Draft Boundary
 

@@ -145,9 +145,11 @@ notes live in `notes/opponent-report-operator-feedback.md`. An explicitly
 authorized agent, or a human reviewer, then writes
 `work/opponent_report_revision_request.json` with schema
 `opponent-report-revision-request-v1`. The revision request binds the feedback,
-reviewed materials, accepted trace, current report draft, calibration-use or
-advisory artifact, reference comparison, and reading packet by path and
-SHA-256. It normalizes operator requests into typed categories:
+reviewed materials, pre-revision trace snapshot, pre-revision draft snapshot,
+calibration-use or advisory artifact, reference comparison, and reading packet
+by path and SHA-256. Store the pre-revision snapshots under
+`work/opponent_report_revision_sources/` before the active trace or draft is
+overwritten. It normalizes operator requests into typed categories:
 
 - `evidence_request`
 - `grading_calibration`
@@ -162,6 +164,25 @@ The revision request is a structured handoff for later trace editing.
 Deterministic helpers validate only schema, categories, paths, hashes, and
 source refs; semantic interpretation of the operator notes remains an
 authorized agent or human-review step.
+
+When the revision request is applied, the authorized agent or human reviewer
+updates `work/opponent_report_trace.json` and records a `calibration_context`
+object. This object binds, by path and SHA-256, the selected calibration-use or
+advisory artifact, `outputs/reference_report_comparison.md`,
+`outputs/opponent_reading_packet.md`, and, when operator feedback was applied,
+`work/opponent_report_revision_request.json`. It also records anti-overfit
+review status, reviewer identity or human note, review timestamp, and
+limitations.
+
+After regenerating the draft, refresh `work/review_manifest.json`, run the
+required manifest and agent-coverage checks, and run an independent
+opponent-report review before treating the revised draft as sendable.
+
+`calibration_context` is intentionally a source-binding record. It validates the
+exact input artifacts used for the trace revision. It must not recursively
+reinterpret those inputs against the newly revised trace, because the revision
+request and earlier calibration-use/advisory artifacts may intentionally bind
+the pre-revision trace or draft the operator actually read.
 
 ## Agent Authorization
 
