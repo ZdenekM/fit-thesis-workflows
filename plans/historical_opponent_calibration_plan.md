@@ -800,7 +800,15 @@ Commit target:
 
 ### Slice 10: Private Pilot With Historical Reports
 
-Status: pending
+Status: blocked
+
+Blocker:
+
+- No dedicated private calibration workspace with the required 2-3 historical
+  opponent cases is currently present under ignored `cases/`. This slice needs
+  real private historical reports supplied by the operator; synthetic smokes
+  already cover the public workflow mechanics but cannot validate reviewer-style
+  calibration quality.
 
 Actions:
 
@@ -993,6 +1001,12 @@ Commit target:
   `scripts/check-private`, `scripts/smoke-private`, `scripts/check-scripts`,
   `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and
   `pants run :omen`.
+- 2026-05-07: Slice 10 checked for readiness and left blocked. The repository
+  does not currently contain a dedicated ignored calibration workspace with 2-3
+  historical opponent cases, so running the private semantic pilot would require
+  inventing historical evidence. The plan remains active and must not be
+  archived until the operator supplies the private pilot inputs and the semantic
+  calibration/profile workflow is actually run.
 
 ## Decision Log
 
