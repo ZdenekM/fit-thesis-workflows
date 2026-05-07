@@ -10,15 +10,20 @@ from pathlib import Path
 from thesis_review_workflow.cases import repo_root
 
 SENSITIVE_SUFFIX_RE = re.compile(r"\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$", re.I)
-PRIVATE_JSONL_RE = re.compile(r"(^|/)visual_inventory\.jsonl$")
+PRIVATE_JSONL_RE = re.compile(r"(^|/)(visual_inventory|reviewer_calibration_profile_history)\.jsonl$")
 PRIVATE_MANIFEST_RE = re.compile(
-    r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest)\.json$"
+    r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest|"
+    r"opponent_calibration_use|opponent_calibration_advisory|opponent_report_revision_request|"
+    r"reviewer_calibration_profile|reviewer_checklist)\.json$"
 )
+PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
 PRIVATE_MARKDOWN_RE = re.compile(
     r"(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|"
     r"code_consistency|code_quality_review|literature_citation_review|figure_media_review|"
     r"typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|"
-    r"reference_report_comparison|oponent_podklady|oponent_podklady_draft|"
+    r"reference_report_comparison|opponent_reading_packet|reviewer_calibration_profile|"
+    r"reviewer_profile_change_log|profile_review|opponent-report-operator-feedback|"
+    r"oponent_podklady|oponent_podklady_draft|"
     r"oponent_podklady_revidovane|oponent_posudek_draft)\.md$"
 )
 PRIVATE_GITHUB_RE = re.compile(
@@ -72,6 +77,7 @@ def is_sensitive_artifact(path: str) -> bool:
         SENSITIVE_SUFFIX_RE.search(path)
         or PRIVATE_JSONL_RE.search(path)
         or PRIVATE_MANIFEST_RE.search(path)
+        or PRIVATE_CALIBRATION_TREE_RE.search(path)
         or PRIVATE_GITHUB_RE.search(path)
     )
 

@@ -420,7 +420,7 @@ bindings whenever a calibrated trace/draft is used.
 
 ### Slice 1: Calibration Workspace, Privacy, And Schema Contracts
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -451,7 +451,7 @@ Verification:
 pants fmt src/thesis_review_workflow:: tests::
 pants lint src/thesis_review_workflow:: tests::
 pants check src/thesis_review_workflow:: tests::
-pants test tests/test_work_artifacts.py tests/test_structured_evidence.py tests/test_workflow_python_contracts.py
+pants test tests/test_opponent_calibration.py tests/test_work_artifacts.py tests/test_structured_evidence.py tests/test_workflow_python_contracts.py
 scripts/smoke-private
 scripts/check-private
 scripts/check-scripts
@@ -819,6 +819,18 @@ Commit target:
   supplemental-not-readiness calibration profile semantics, generated-output
   review/provenance gates, path-classified calibration schemas, private-artifact
   coverage, Windows-aware command surface, and smaller current-case slices.
+- 2026-05-07: Slice 1 started. Scope is limited to docs, schema validators,
+  work-artifact registration, private-artifact checks, and synthetic tests.
+- 2026-05-07: Slice 1 completed and agent-reviewed. Fixed review findings for
+  JSONL provenance, case/round binding, historical-analysis source refs,
+  non-string hash handling, dot-only ids, private smoke coverage, and jscpd
+  duplication by sharing common artifact validation helpers. Verification:
+  `pants fmt src/thesis_review_workflow:: tests::`, `pants lint
+  src/thesis_review_workflow:: tests::`, `pants check
+  src/thesis_review_workflow:: tests::`, targeted tests named in Slice 1,
+  `scripts/smoke-private`, `scripts/check-private`, `scripts/check-scripts`,
+  `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and
+  `pants run :omen`.
 
 ## Decision Log
 

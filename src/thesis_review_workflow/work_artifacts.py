@@ -8,6 +8,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.opponent_calibration import (
+    is_opponent_calibration_artifact,
+    validate_opponent_calibration_artifact,
+)
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
 
@@ -49,6 +53,10 @@ EXPLICIT_WORK_ARTIFACTS = (
 WORK_ARTIFACT_GLOBS = (
     "work/agent_*.md",
     "work/opponent_packets/*.md",
+    "work/calibration/*.json",
+    "work/calibration/*.jsonl",
+    "work/calibration/*.md",
+    "work/calibration/historical_case_analyses/*.json",
 )
 
 
@@ -86,7 +94,9 @@ def work_artifact_record(round_dir: Path, path: Path) -> dict[str, str]:
         "kind": artifact_kind(path),
         "artifact_sha256": sha256_file(path),
     }
-    schema_version = json_schema_version(path) if rel_path in KNOWN_JSON_ARTIFACT_SCHEMAS else None
+    schema_version = None
+    if rel_path in KNOWN_JSON_ARTIFACT_SCHEMAS or is_opponent_calibration_artifact(rel_path):
+        schema_version = json_schema_version(path)
     if schema_version:
         record["schema_version"] = schema_version
     return record
@@ -94,6 +104,16 @@ def work_artifact_record(round_dir: Path, path: Path) -> dict[str, str]:
 
 def json_schema_version(path: Path) -> str | None:
     try:
+        if path.suffix.lower() == ".jsonl":
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                loaded = json.loads(line)
+                if not isinstance(loaded, dict):
+                    return None
+                schema_version = loaded.get("schema_version")
+                return schema_version if isinstance(schema_version, str) else None
+            return None
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
@@ -162,6 +182,15 @@ def validate_supporting_work_artifacts(
         expected_schemas = KNOWN_JSON_ARTIFACT_SCHEMAS.get(rel_path)
         if expected_schemas:
             validate_json_work_artifact(path, rel_path, expected_schemas, round_dir, case_id, round_id, errors)
+        elif is_opponent_calibration_artifact(rel_path):
+            errors.extend(
+                validate_opponent_calibration_artifact(
+                    round_dir,
+                    rel_path,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
     return errors
 
 
