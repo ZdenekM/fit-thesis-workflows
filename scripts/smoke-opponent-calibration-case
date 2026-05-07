@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_dir="$(mktemp -d "$repo_root/cases/__opponent_calibration_smoke.XXXXXX")"
+case_id="$(basename "$case_dir")"
+round_id="round-a"
+round_dir="$case_dir/rounds/$round_id"
+tmp_dir="$(mktemp -d)"
+out_file="$tmp_dir/out"
+err_file="$tmp_dir/err"
+
+cleanup() {
+  rm -rf "$case_dir" "$tmp_dir"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/inputs/historical_cases/case-001" "$round_dir/work/calibration/historical_case_analyses"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: calibration
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/inputs/historical_cases/case-001/opponent_report.md" <<'EOF'
+# Synthetic Historical Report
+
+This is a synthetic smoke fixture, not a real report.
+EOF
+cat >"$round_dir/inputs/historical_cases/case-001/assignment.md" <<'EOF'
+# Synthetic Assignment
+EOF
+mkdir -p "$round_dir/inputs/historical_cases/case-002"
+cat >"$round_dir/inputs/historical_cases/case-002/opponent_report.md" <<'EOF'
+# Other Synthetic Historical Report
+EOF
+
+expect_failure "missing historical case analyses" "$repo_root/scripts/check-opponent-calibration-case" "$case_id"
+expect_output "no historical case analyses found"
+
+python3 - "$round_dir/work/calibration/historical_case_analyses/case-001.json" "$case_id" "$round_id" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+payload = {
+    "schema_version": "historical-opponent-case-analysis-v1",
+    "reviewer_profile_id": "synthetic-calibration",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "historical-opponent-calibration-reviewer",
+    "producer_agent": "smoke-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["inputs/historical_cases/case-001/opponent_report.md"],
+    "limitations": ["Synthetic fixture."],
+    "historical_case_id": "case-001",
+    "work_type": "diploma thesis",
+    "domain": "synthetic software engineering",
+    "case_strength": "typical",
+    "artifact_availability": {"assignment": "present", "thesis": "absent", "report": "present"},
+    "code_availability": {"submitted_code": "absent"},
+    "report_shape": {"length_class": "short"},
+    "judgment_calibration": {"strictness": "medium"},
+    "evidence_habits": {"relied_on": ["assignment", "report"]},
+    "corpus_coverage": {"work_type": "diploma thesis", "domain": "synthetic"},
+    "recurring_checks": [
+        {
+            "check_id": "assignment-map",
+            "evidence_class": "assignment_fulfillment",
+            "prompt": "Map work to assignment points.",
+        }
+    ],
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+
+expect_success "valid historical case analysis" "$repo_root/scripts/check-opponent-calibration-case" "$case_id" "$round_id"
+expect_output "Historical opponent calibration case check passed"
+expect_output "Historical case analyses: 1"
+expect_output "Case strength mix: typical=1"
+
+python3 - "$round_dir/work/calibration/historical_case_analyses/case-001.json" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["source_refs"] = []
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+expect_failure "empty source refs fail" "$repo_root/scripts/check-opponent-calibration-case" "$case_id" "$round_id"
+expect_output "source_refs must not be empty"
+
+python3 - "$round_dir/work/calibration/historical_case_analyses/case-001.json" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["source_refs"] = ["inputs/historical_cases/case-002/opponent_report.md"]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+expect_failure "cross historical case refs fail" "$repo_root/scripts/check-opponent-calibration-case" "$case_id" "$round_id"
+expect_output "source_refs must not point to a different historical case id"
+
+python3 - "$round_dir/work/calibration/historical_case_analyses/case-001.json" "$case_id" "$round_id" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["case_id"] = case_id
+payload["round_id"] = round_id
+payload["source_refs"] = ["inputs/historical_cases/case-001/opponent_report.md"]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+cat >"$round_dir/work/calibration/historical_case_analyses/bad name.json" <<'EOF'
+{}
+EOF
+expect_failure "invalid analysis filename fails" "$repo_root/scripts/check-opponent-calibration-case" "$case_id" "$round_id"
+expect_output "invalid historical case analysis artifact path"
+rm -f "$round_dir/work/calibration/historical_case_analyses/bad name.json"
+
+expect_success "valid historical case analysis after cleanup" "$repo_root/scripts/check-opponent-calibration-case" "$case_id" "$round_id"
+
+echo "Opponent calibration case smoke passed"

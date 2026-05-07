@@ -107,6 +107,46 @@ def test_validate_historical_case_analysis_rejects_filename_mismatch(tmp_path: P
     assert any("historical_case_id must match the analysis filename" in error for error in errors)
 
 
+def test_validate_historical_case_analysis_requires_matching_source_anchor(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_calibration_refs(round_dir)
+    other_ref = round_dir / "inputs/historical_cases/case-002/opponent_report.md"
+    other_ref.parent.mkdir(parents=True, exist_ok=True)
+    other_ref.write_text("other synthetic fixture\n", encoding="utf-8")
+    payload = {
+        **historical_case_payload(),
+        "source_refs": ["inputs/historical_cases/case-002/opponent_report.md"],
+    }
+    write_json(round_dir / "work/calibration/historical_case_analyses/case-001.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/calibration/historical_case_analyses/case-001.json",
+    )
+
+    assert any("source_refs must not point to a different historical case id" in error for error in errors)
+    assert any(
+        "source_refs must include at least one ref under inputs/historical_cases/case-001/" in error for error in errors
+    )
+
+
+def test_validate_historical_case_analysis_requires_source_refs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_calibration_refs(round_dir)
+    payload = {
+        **historical_case_payload(),
+        "source_refs": [],
+    }
+    write_json(round_dir / "work/calibration/historical_case_analyses/case-001.json", payload)
+
+    errors = validate_opponent_calibration_artifact(
+        round_dir,
+        "work/calibration/historical_case_analyses/case-001.json",
+    )
+
+    assert any("source_refs must not be empty" in error for error in errors)
+
+
 def test_validate_profile_manifest_binds_markdown_hash(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_calibration_refs(round_dir)

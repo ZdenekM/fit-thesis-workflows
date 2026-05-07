@@ -63,6 +63,18 @@ Each analysis must use the schema
 `historical-opponent-case-analysis-v1`, carry corpus coverage metadata, and
 anchor evidence to private round-relative refs.
 
+Validate the current calibration round with:
+
+```bash
+scripts/check-opponent-calibration-case <calibration-case-id> [round-id]
+```
+
+The command is deterministic. It only checks that authorized agent- or
+human-authored historical case analysis JSON files are structurally valid,
+case/round-bound, path-safe, and anchored to existing private inputs. It does
+not create semantic analysis and does not read historical report prose to infer
+reviewer style.
+
 Profile refresh history is append-only JSONL:
 
 - `work/calibration/reviewer_calibration_profile_history.jsonl`

@@ -270,6 +270,22 @@ def _validate_historical_case_analysis(loaded: dict[str, Any], rel_path: str, er
         values = ", ".join(sorted(HISTORICAL_CASE_STRENGTHS))
         errors.append(f"{rel_path}: case_strength must be one of: {values}")
     _require_list(loaded, "recurring_checks", rel_path, errors)
+    source_refs = loaded.get("source_refs")
+    if not isinstance(source_refs, list) or not source_refs:
+        errors.append(f"{rel_path}: source_refs must not be empty")
+    elif isinstance(historical_case_id, str):
+        expected_prefix = f"inputs/historical_cases/{historical_case_id}/"
+        mismatched = [
+            ref
+            for ref in source_refs
+            if isinstance(ref, str)
+            and ref.startswith("inputs/historical_cases/")
+            and not ref.startswith(expected_prefix)
+        ]
+        if mismatched:
+            errors.append(f"{rel_path}: source_refs must not point to a different historical case id")
+        if not any(isinstance(ref, str) and ref.startswith(expected_prefix) for ref in source_refs):
+            errors.append(f"{rel_path}: source_refs must include at least one ref under {expected_prefix}")
 
 
 def _validate_profile_manifest(

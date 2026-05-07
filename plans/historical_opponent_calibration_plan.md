@@ -464,7 +464,7 @@ Commit target:
 
 ### Slice 2: Historical Case Analysis Workflow
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -831,6 +831,21 @@ Commit target:
   `scripts/smoke-private`, `scripts/check-private`, `scripts/check-scripts`,
   `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and
   `pants run :omen`.
+- 2026-05-07: Slice 2 started. Scope is the historical case analysis operator
+  validation command, smoke coverage, command packaging surface, and workflow
+  documentation. It does not generate semantic analysis without agent
+  authorization.
+- 2026-05-07: Slice 2 completed and agent-reviewed. Fixed review findings for
+  invalid analysis filenames being ignored, unanchored `source_refs`, and
+  cross-historical-case refs. Verification: `pants fmt
+  src/thesis_review_workflow:: tests:: scripts::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_calibration.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-opponent-calibration-case`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, `pants run :vulture`,
+  `pants run :jscpd`, and `pants run :omen`.
 
 ## Decision Log
 
