@@ -284,12 +284,95 @@ coverage_path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\
 PY
 }
 
+write_report_trace() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  python3 - "$round_dir/work/opponent_report_trace.json" "$case_id" "$round_id" "$round_dir/outputs/oponent_podklady_revidovane.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+materials_path = pathlib.Path(sys.argv[4])
+materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+formulations = {
+    "assignment_difficulty": ("Náročnost zadání", "Zadani hodnotim jako stredne narocne."),
+    "assignment_fulfillment": ("Rozsah splnění požadavků zadání", "Zadani bylo naplneno s vyhradami."),
+    "technical_report_scope": ("Rozsah technické zprávy", "Zprava pokryva hlavni principy."),
+    "technical_report_presentation": ("Prezentační úroveň technické zprávy", "Text je prevazne citelny."),
+    "technical_report_formal_level": ("Formální úprava technické zprávy", "Formalni stranka neni hlavni slabina."),
+    "literature_work": ("Práce s literaturou", "Literatura je relevantni, ale mohla byt vice vyuzita."),
+    "implementation_output": ("Realizační výstup", "Realizace je funkcni prototyp."),
+    "result_usability": ("Využitelnost výsledku", "Vysledek je vyuzitelny hlavne jako prototyp."),
+    "overall_assessment": ("Celkové hodnocení", "Celkove jde o obhajitelny BP vystup."),
+}
+payload = {
+    "schema_version": "opponent-report-trace-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "opponent-report-trace-reviewer",
+    "producer_agent": "smoke-trace-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": materials_hash,
+    "trace_review_status": "accepted",
+    "reviewer_role": "independent-opponent-report-trace-reviewer",
+    "reviewed_at": "2026-05-07T00:00:01Z",
+    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+    "is_items": [
+        {
+            "item_id": item_id,
+            "title": title,
+            "formulation": formulation,
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+        for item_id, (title, formulation) in formulations.items()
+    ],
+    "defense_questions": [
+        {
+            "question_id": "D1",
+            "question": "Jak presne lze reprodukovat vysledky z tabulky 2?",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+    ],
+    "pre_submission_checks": [
+        {
+            "check_id": "C1",
+            "instruction": "Zkontrolovat, ze slovni hodnoceni odpovida bodum a znamce.",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+    ],
+    "uncertainty_items": [
+        {
+            "claim_id": "U1",
+            "summary": "Plny runtime nebyl overen.",
+            "handling_instruction": "Zachovat opatrnou formulaci v celkovem hodnoceni.",
+            "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "target_section_ids": ["overall_assessment"],
+            "report_refs": ["work/oponent_posudek_draft.md"],
+            "status": "carried_to_report",
+        }
+    ],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
 prepare_reviewed_case() {
   local case_id="$1"
   local round_id="${2:-round-a}"
   make_case "$case_id" "$round_id"
   local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
   write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+  write_report_trace "$case_id" "$round_id"
   "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
   mark_opponent_reviewed "$round_dir"
   "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
@@ -312,21 +395,33 @@ case_id="${case_prefix}_valid"
 prepare_reviewed_case "$case_id"
 expect_success "reviewed opponent materials close out" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
 expect_output "Reviewed opponent materials: PASS"
+expect_output "Opponent report trace: PASS"
 expect_output "Agent role coverage: PASS"
 expect_output "Review manifest completeness: PASS"
+
+case_id="${case_prefix}_missing_trace"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+mark_opponent_reviewed "$round_dir"
+"$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
+block_typography_role "$round_dir"
+expect_failure "missing report trace blocks closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Opponent report trace: FAIL"
 
 case_id="${case_prefix}_draft_uncalibrated"
 prepare_reviewed_case "$case_id"
 expect_success "draft helper writes uncalibrated report draft" "$repo_root/scripts/draft-opponent-report" "$case_id"
 expect_failure "uncalibrated report draft blocks full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
-expect_output "Opponent report draft: FAIL"
+expect_output "Opponent report trace: FAIL"
 
 case_id="${case_prefix}_draft_calibrated"
 prepare_reviewed_case "$case_id"
 expect_success "draft helper writes report draft for calibration" "$repo_root/scripts/draft-opponent-report" "$case_id"
 calibrate_draft "$repo_root/cases/$case_id/rounds/round-a/work/oponent_posudek_draft.md"
 expect_success "calibrated report draft passes full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
-expect_output "Opponent report draft: PASS"
+expect_output "Opponent report trace: PASS"
 expect_output "Review manifest completeness: PASS"
 
 case_id="${case_prefix}_valid_with_hygiene"

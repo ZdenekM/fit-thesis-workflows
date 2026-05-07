@@ -237,6 +237,8 @@ Nejběžnější výstupy jsou:
   jejich triggery, výstupní evidenci, agent/reviewer údaje a typované výjimky,
 - `outputs/oponent_podklady.md` - draft interních oponentských podkladů,
 - `outputs/oponent_podklady_revidovane.md` - revidované oponentské podklady,
+- `work/opponent_report_trace.json` - strukturovaný, revidovaný trace z
+  oponentských podkladů do položek FIT IS, otázek a ručních kontrol,
 - `work/oponent_posudek_draft.md` - pracovní draft oponentského posudku podle
   položek FIT IS,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
@@ -245,17 +247,19 @@ Studentský feedback a oponentské materiály nejsou hotové jen proto, že vzni
 Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po větší
 úpravě se výstup znovu bere jako draft.
 
-`work/oponent_posudek_draft.md` je jen most z revidovaných podkladů do struktury
-IS. Helper do něj zapisuje hash zdrojových podkladů a nechává body/známku
-otevřené; `scripts/check-opponent-report` projde až po lidské kalibraci
-konkrétních bodů a známky a po ověření, že draft odpovídá aktuálním
+`work/oponent_posudek_draft.md` je jen most ze strukturovaného
+`work/opponent_report_trace.json` do struktury IS. Helper do něj zapisuje hash
+trace i zdrojových podkladů a nechává body/známku otevřené;
+`scripts/check-opponent-report` projde až po lidské kalibraci konkrétních bodů a
+známky a po ověření, že draft odpovídá aktuálnímu trace i
 `outputs/oponent_podklady_revidovane.md`.
 
 `scripts/opponent-closeout <case-id> [round-id]` je finální oponentský gate
-pro aktuální stav roundu. Zavře revidované podklady, manifest, agent coverage a
-repo hygienu; pokud už existuje `work/oponent_posudek_draft.md`, zahrne do
-closeoutu i `scripts/check-opponent-report`, takže pracovní draft musí být
-nejdřív lidsky zkalibrovaný v bodech, známce a formulacích.
+pro aktuální stav roundu. Zavře revidované podklady, report trace, manifest,
+agent coverage a repo hygienu. Gate vždy vyžaduje validní
+`work/opponent_report_trace.json`; pokud už existuje
+`work/oponent_posudek_draft.md`, musí být nejdřív lidsky zkalibrovaný v bodech,
+známce a formulacích.
 Pokud existují interní evidence `outputs/code_consistency.md`,
 `outputs/code_quality_review.md` nebo `outputs/revision_diff.md`, manifest a
 oponentní closeout vyžadují i jejich strukturální validátory.
@@ -419,7 +423,7 @@ scripts/opponent-preflight <case-id>
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 scripts/prepare-code-workspace <case-id>
-scripts/draft-opponent-report <case-id>
+scripts/draft-opponent-report <case-id>   # až po vytvoření work/opponent_report_trace.json
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 ```

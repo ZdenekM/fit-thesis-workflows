@@ -381,6 +381,8 @@ Minimum shape:
   "uncertainty_items": [
     {
       "claim_id": "U1",
+      "summary": "Uncertainty that must be preserved in the report.",
+      "handling_instruction": "How the draft/report should carry this uncertainty.",
       "source_refs": ["outputs/oponent_podklady_revidovane.md"],
       "target_section_ids": ["overall_assessment"],
       "report_refs": ["work/oponent_posudek_draft.md"],
@@ -534,7 +536,7 @@ Commit target:
 
 ### Slice 3: Opponent Report Trace Contract
 
-Status: pending
+Status: done
 
 Actions:
 
@@ -620,7 +622,14 @@ Commit target:
   `work/quantitative_claims.json`, removed the regex/table/unit parser module,
   updated repo-local skills/docs/smokes, required per-claim evidence anchors,
   and passed agent re-review after fixing stale skill instructions.
-- Current slice: Slice 3 pending.
+- 2026-05-07: Slice 3 migrated `scripts/draft-opponent-report` and
+  `scripts/check-opponent-report` to the reviewed
+  `work/opponent_report_trace.json` contract, removed reviewed-materials token
+  matching and fallback report prose, made closeout/manifest/case-doctor require
+  the trace, tightened trace evidence anchors and uncertainty handling, and
+  passed agent re-review after fixing stale helper-check targets, schema
+  ambiguity, and residual tone regex gating.
+- Current slice: Slice 4 pending.
 
 ## Decision Log
 

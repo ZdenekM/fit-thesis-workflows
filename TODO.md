@@ -13,7 +13,7 @@
 - [ ] Replace remaining free-form text semantic detectors with agent-produced structured evidence.
    - Free-form thesis, README, notes, generated prose, and code text should be interpreted by an explicitly authorized agent/LLM workflow, then stored as structured artifacts with evidence anchors.
    - Deterministic helpers may parse metadata labels, Markdown sections/tables, paths, file suffixes, placeholders, privacy leaks, command output markers, and schema fields; they should not infer semantic meaning from raw text.
-   - Current advisory or free-text-derived parts to retire or wrap with structured agent artifacts include `scripts/draft-opponent-report` and `scripts/check-opponent-report`.
+   - Current advisory or free-text-derived parts that remain should be promoted into structured artifacts before they influence routing, readiness, wording, grading, or review conclusions.
    - Explicit URL and marker detection in `scripts/opponent-preflight` and `scripts/check-tooling` may remain structural evidence routing, but should move to structured metadata if the notes format becomes more formal.
    - Until replaced, free-text-derived helper output must remain warning/advisory only and must be treated as prompts for agent/human verification, not as readiness gates or findings; structural schema, path, hash, placeholder, and privacy checks may remain hard gates.
 - [ ] Implement the read-only case-data contract and migration dry-run from `plans/case_format_migration_contract_plan.md`.

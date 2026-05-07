@@ -7,7 +7,8 @@ description: Review a drafted opponent report for fairness, evidence, tone, IS-i
 
 Use this skill after the user has drafted their own opponent report, or after
 `scripts/draft-opponent-report` has produced an internal bridge draft from
-reviewed opponent materials and a human has calibrated it.
+reviewed opponent materials, `work/opponent_report_trace.json`, and a human has
+calibrated it.
 
 ## Inputs
 
@@ -18,15 +19,19 @@ outputs/oponent_podklady.md
 outputs/oponent_podklady_revidovane.md
 notes/opponent-report-review-intake.md
 work/oponent_posudek_draft.md
+work/opponent_report_trace.json
 work/muj_posudek_draft.md
 ```
 
 If `work/oponent_posudek_draft.md` exists, treat it as the generated report draft
 to review unless the user provides a newer human draft elsewhere. A generated
 draft is not sendable by itself: it must contain concrete points and grade, must
-match the current `outputs/oponent_podklady_revidovane.md` hash, and must pass
+match the current `work/opponent_report_trace.json` and
+`outputs/oponent_podklady_revidovane.md` hashes, and must pass
 `scripts/check-opponent-report <case-id> [round-id]`. If the draft is elsewhere,
-use the path provided by the user.
+`scripts/check-opponent-report --path <round-relative-path> <case-id> [round-id]`
+is an ad hoc draft-shape check only; opponent closeout and manifest helper
+provenance track the canonical generated draft path `work/oponent_posudek_draft.md`.
 
 ## Process
 

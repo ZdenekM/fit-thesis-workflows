@@ -23,7 +23,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/assignment_coverage_agent.json": {"assignment_points": list},
     "work/evidence_requirements.json": {"requirements": list},
     "work/quantitative_claims.json": {"claims": list},
-    "work/opponent_report_trace.json": {"is_items": list, "uncertainty_items": list},
+    "work/opponent_report_trace.json": {"is_items": list, "defense_questions": list, "uncertainty_items": list},
     "work/code_reproducibility.json": {"classification": str},
 }
 

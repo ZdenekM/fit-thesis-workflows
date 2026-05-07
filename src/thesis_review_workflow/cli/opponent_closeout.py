@@ -18,14 +18,15 @@ from thesis_review_workflow.commands import Step, print_step, run_step
 COVERAGE_REL = Path("work/agent_coverage.json")
 OPPONENT_MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 OPPONENT_REPORT_DRAFT_REL = Path("work/oponent_posudek_draft.md")
+OPPONENT_REPORT_TRACE_REL = Path("work/opponent_report_trace.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scripts/opponent-closeout",
         description=(
-            "Validate reviewed opponent materials, provenance, role coverage, repo hygiene, "
-            "and any existing opponent report draft."
+            "Validate reviewed opponent materials, report trace, provenance, role coverage, "
+            "repo hygiene, and any existing opponent report draft."
         ),
     )
     parser.add_argument("case_id")
@@ -55,6 +56,7 @@ def main(argv: list[str]) -> int:
     steps.append(
         run_step(root, "Reviewed opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id])
     )
+    steps.append(run_step(root, "Opponent report trace", ["scripts/check-opponent-report", args.case_id, round_id]))
     steps.append(
         run_step(
             root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id]
@@ -79,9 +81,6 @@ def main(argv: list[str]) -> int:
             ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
         )
     )
-    if (round_dir / OPPONENT_REPORT_DRAFT_REL).is_file():
-        steps.append(run_step(root, "Opponent report draft", ["scripts/check-opponent-report", args.case_id, round_id]))
-
     if not args.skip_repo_hygiene:
         steps.append(run_step(root, "Private workspace hygiene", ["scripts/check-private"]))
         steps.append(run_step(root, "Script syntax", ["scripts/check-scripts"]))
@@ -96,11 +95,15 @@ def main(argv: list[str]) -> int:
         print(f"- Missing reviewed materials: `{OPPONENT_MATERIALS_REL.as_posix()}`.")
     else:
         print(f"- Reviewed materials present: `{OPPONENT_MATERIALS_REL.as_posix()}`.")
-    if (round_dir / OPPONENT_REPORT_DRAFT_REL).is_file():
-        print(f"- Opponent report draft present and included in closeout: `{OPPONENT_REPORT_DRAFT_REL.as_posix()}`.")
+    if not (round_dir / OPPONENT_REPORT_TRACE_REL).is_file():
+        print(f"- Missing opponent report trace: `{OPPONENT_REPORT_TRACE_REL.as_posix()}`.")
     else:
-        print("- No opponent report draft present; closeout covers reviewed materials only.")
-    print("- PASS means reviewed materials and any existing report draft passed their current reliance gates.")
+        print(f"- Opponent report trace present: `{OPPONENT_REPORT_TRACE_REL.as_posix()}`.")
+    if (round_dir / OPPONENT_REPORT_DRAFT_REL).is_file():
+        print(f"- Opponent report draft present: `{OPPONENT_REPORT_DRAFT_REL.as_posix()}`; " "included in trace gate.")
+    else:
+        print("- No opponent report draft present; trace gate checks the reviewed trace only.")
+    print("- PASS means reviewed materials, report trace, and any existing draft passed reliance gates.")
     print("- FAIL means fix the named gate before relying on the materials.")
     return 1 if any(not step.ok and step.required for step in steps) else 0
 

@@ -45,8 +45,9 @@ If both draft and output files exist, review the draft unless the user explicitl
 17. Check that proposed defense questions are fair, answerable, and tied to important issues.
 18. Keep grading calibration as intervals and rationale, not false precision.
 19. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
-20. After writing `outputs/oponent_podklady_revidovane.md`, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable.
-21. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+20. After writing `outputs/oponent_podklady_revidovane.md`, create or update `work/opponent_report_trace.json` with the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty ledger, current reviewed-materials hash, producer metadata, and evidence refs. This trace is the only deterministic input for `scripts/draft-opponent-report`; do not leave report drafting to token matching over reviewed Markdown.
+21. Run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable. If `scripts/draft-opponent-report` is needed, run it only after the trace validates.
+22. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Free-Text Boundary
 
@@ -59,11 +60,16 @@ evidence anchors or structured review artifacts.
 ## Output
 
 Write the hardened internal material to `outputs/oponent_podklady_revidovane.md`.
+After reviewed opponent materials exist, write the mandatory report trace to
+`work/opponent_report_trace.json` before opponent closeout. The report draft
+itself remains optional until the operator wants an IS-structured bridge draft.
 
 Before closeout, validate it with:
 
 ```bash
 scripts/check-opponent-materials <case-id> [round-id]
+scripts/check-opponent-report <case-id> [round-id]  # validates trace and any existing draft
+scripts/draft-opponent-report <case-id> [round-id]  # optional, only after trace exists
 scripts/check-review-manifest --require-complete <case-id> [round-id]
 ```
 

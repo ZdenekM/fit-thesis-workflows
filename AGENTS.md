@@ -124,7 +124,7 @@ Dedicated review loops:
 
 - supervisor feedback: first draft in `work/feedback_student_draft.md`, then `thesis-supervisor-feedback-review` writes reviewed `outputs/feedback_student.md`;
 - opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
-- opponent report draft: `scripts/draft-opponent-report <case-id> [round-id]` may create `work/oponent_posudek_draft.md` from reviewed opponent materials; the generated file is intentionally not sendable until a human calibrates concrete points/grade, resolves open wording, and `scripts/check-opponent-report <case-id> [round-id]` passes against the current reviewed materials hash;
+- opponent report trace and draft: after reviewed opponent materials exist, `work/opponent_report_trace.json` records the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty handling, and current reviewed-materials hash. `scripts/draft-opponent-report <case-id> [round-id]` may then create `work/oponent_posudek_draft.md` from that trace. The generated file is intentionally not sendable until a human calibrates concrete points/grade, resolves open wording, and `scripts/check-opponent-report <case-id> [round-id]` passes against the current trace and reviewed-materials hashes;
 - opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
 
 Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
@@ -149,6 +149,7 @@ Default outputs go into the active round:
 - agent role coverage manifest: `work/agent_coverage.json`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
+- opponent report trace: `work/opponent_report_trace.json`
 - opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
 - opponent report draft: `work/oponent_posudek_draft.md`
 - opponent report review: `outputs/feedback_k_posudku.md`

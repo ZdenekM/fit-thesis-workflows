@@ -295,11 +295,111 @@ manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\
 PY
 }
 
+write_report_trace() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  python3 - "$round_dir/work/opponent_report_trace.json" "$case_id" "$round_id" "$round_dir/outputs/oponent_podklady_revidovane.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+materials_path = pathlib.Path(sys.argv[4])
+materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+formulations = {
+    "assignment_difficulty": ("Náročnost zadání", "Zadani hodnotim jako stredne narocne."),
+    "assignment_fulfillment": ("Rozsah splnění požadavků zadání", "Zadani bylo naplneno s vyhradami."),
+    "technical_report_scope": ("Rozsah technické zprávy", "Zprava pokryva hlavni principy."),
+    "technical_report_presentation": ("Prezentační úroveň technické zprávy", "Text je prevazne citelny."),
+    "technical_report_formal_level": ("Formální úprava technické zprávy", "Formalni stranka neni hlavni slabina."),
+    "literature_work": ("Práce s literaturou", "Literatura je relevantni, ale mohla byt vice vyuzita."),
+    "implementation_output": ("Realizační výstup", "Realizace je funkcni prototyp."),
+    "result_usability": ("Využitelnost výsledku", "Vysledek je vyuzitelny hlavne jako prototyp."),
+    "overall_assessment": ("Celkové hodnocení", "Celkove jde o obhajitelny BP vystup."),
+}
+payload = {
+    "schema_version": "opponent-report-trace-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "opponent-report-trace-reviewer",
+    "producer_agent": "smoke-trace-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": materials_hash,
+    "trace_review_status": "accepted",
+    "reviewer_role": "independent-opponent-report-trace-reviewer",
+    "reviewed_at": "2026-05-07T00:00:01Z",
+    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+    "is_items": [
+        {
+            "item_id": item_id,
+            "title": title,
+            "formulation": formulation,
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+        for item_id, (title, formulation) in formulations.items()
+    ],
+    "defense_questions": [
+        {
+            "question_id": "D1",
+            "question": "Jak presne lze reprodukovat vysledky z tabulky 2?",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        },
+        {
+            "question_id": "D2",
+            "question": "Co by bylo potreba doplnit, aby byl prototyp robustnejsi?",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        },
+        {
+            "question_id": "D3",
+            "question": "Ktere casti reseni jsou vase vlastni a ktere primo zavisi na knihovnich metodach?",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        },
+    ],
+    "pre_submission_checks": [
+        {
+            "check_id": "C1",
+            "instruction": "Zkontrolovat, ze slovni hodnoceni odpovida bodum a znamce.",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        },
+        {
+            "check_id": "C2",
+            "instruction": "Zkontrolovat, ze zadne tvrzeni neprekračuje jistotu z dostupnych podkladu.",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        },
+    ],
+    "uncertainty_items": [
+        {
+            "claim_id": "U1",
+            "summary": "Plny runtime nebyl overen.",
+            "handling_instruction": "Zachovat opatrnou formulaci v celkovem hodnoceni.",
+            "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "target_section_ids": ["overall_assessment"],
+            "report_refs": ["work/oponent_posudek_draft.md"],
+            "status": "carried_to_report",
+        }
+    ],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
 case_id="${case_prefix}_valid"
 make_case "$case_id"
 round_dir="$repo_root/cases/$case_id/rounds/round-a"
 write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
 expect_success "reviewed materials are valid" "$repo_root/scripts/check-opponent-materials" "$case_id" round-a
+expect_failure "draft helper requires report trace" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
+expect_output "opponent_report_trace"
+write_report_trace "$case_id" round-a
 expect_success "draft helper writes report draft" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
 expect_failure "generated report draft requires human calibration" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "open calibration"
@@ -328,6 +428,7 @@ expect_success "manifest validates with final closeout" "$repo_root/scripts/chec
 replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Zadani hodnotim jako stredne narocne po pozdejsi uprave."
 expect_failure "manifest closeout fails after report draft edit" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
 expect_output "target hash is stale"
+write_report_trace "$case_id" round-a
 expect_success "restore clean draft after manifest stale check" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 calibrate_draft "$draft"
 
@@ -339,31 +440,37 @@ expect_failure "invalid reviewed source materials fail report check" "$repo_root
 expect_output "reviewed opponent materials check failed"
 
 write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+write_report_trace "$case_id" round-a
 expect_success "force regenerate clean draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 calibrate_draft "$draft"
-replace_text "$draft" "- Zachovat opatrnou formulaci pro ručně neověřený bod: Plny runtime nebyl overen" "- Zachovat obecnou opatrnost tam, kde dostupné podklady nejsou úplné."
-expect_success "uncertain claim token mismatch warns only" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
-expect_output "uncertain source claim"
 
-write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
-replace_text "$round_dir/outputs/oponent_podklady_revidovane.md" '| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |' ""
-expect_success "materials can warn on missing IS area" "$repo_root/scripts/check-opponent-materials" "$case_id" round-a
-expect_success "force regenerate fallback draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+replace_text "$round_dir/work/opponent_report_trace.json" "Zadani hodnotim jako stredne narocne." "Zadani hodnotim jako stredne narocne po pozdejsi uprave."
+expect_failure "stale trace hash fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
+expect_output "opponent report trace hash changed"
+
+write_report_trace "$case_id" round-a
+replace_text "$round_dir/work/opponent_report_trace.json" '"trace_review_status": "accepted"' '"trace_review_status": "draft"'
+expect_failure "unreviewed trace fails draft helper" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
+expect_output "trace_review_status"
+
+write_report_trace "$case_id" round-a
+expect_success "force regenerate clean draft from trace" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 calibrate_draft "$draft"
-expect_failure "fallback section text must be replaced" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
-expect_output "open calibration"
 
 write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+write_report_trace "$case_id" round-a
 expect_success "force regenerate clean draft after fallback test" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 replace_text "$draft" "Zadani hodnotim jako stredne narocne." "TODO: doplnit narocnost."
 expect_failure "placeholder fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "placeholder remains"
 
+write_report_trace "$case_id" round-a
 expect_success "regenerate clean draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Viz outputs/oponent_podklady_revidovane.md."
 expect_failure "internal path fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "internal workflow path"
 
+write_report_trace "$case_id" round-a
 expect_success "regenerate clean draft 2" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 python3 - "$draft" <<'PY'
 import pathlib
@@ -375,6 +482,7 @@ PY
 expect_failure "missing question mark fails" "$repo_root/scripts/check-opponent-report" "$case_id" round-a
 expect_output "defense questions"
 
+write_report_trace "$case_id" round-a
 expect_success "regenerate clean draft 3" "$repo_root/scripts/draft-opponent-report" --force "$case_id" round-a
 replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 150"
 expect_failure "invalid points fail" "$repo_root/scripts/check-opponent-report" "$case_id" round-a

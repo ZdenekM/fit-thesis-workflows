@@ -71,25 +71,15 @@ deterministically.
   language family only when structured metadata is `auto` or missing. Keep
   explicit `Thesis language` metadata preferred, and keep rendered-text-derived
   checks warning-only.
-- `src/thesis_review_workflow/cli/draft_opponent_report.py`: maps reviewed
-  materials to IS report items using normalized tokens. This should move toward
-  explicit structured IS-item fields in reviewed opponent materials.
-- `src/thesis_review_workflow/cli/check_opponent_report.py`: preserves
-  uncertainty through token matching between reviewed materials and draft report.
-  The audit demoted free-prose uncertainty wording checks to warnings. Replace
-  these with a structured uncertainty ledger or reviewed-materials field consumed
-  by the report checker.
 
 ### No Immediate Blocker Found
 
 The audit did not find a deterministic helper that currently produces a final
 grade, final feedback wording, final opponent finding, or case migration decision
 solely from a free-text substring match. Explicit GitHub URL detection remains a
-structural evidence-routing gate, not semantic text interpretation. Semantic
-uncertainty-wording hard errors in `scripts/check-opponent-report` were
-downgraded to warnings during the audit. The main residual risk is that several
-useful warning/advisory tools still read raw text directly. `TODO.md` now tracks
-their replacement with agent-produced structured evidence.
+structural evidence-routing gate, not semantic text interpretation. The main
+residual accepted advisory surface is typography/formal rendered-text checking;
+it stays warning-only and metadata-driven where possible.
 
 ### Retired In Current Plan
 
@@ -105,6 +95,14 @@ their replacement with agent-produced structured evidence.
   number, unit, metric, conclusion, data-artifact, and script-artifact regex
   detectors were retired. `scripts/check-evaluation-claims` now validates
   `work/quantitative_claims.json`.
+- `src/thesis_review_workflow/cli/draft_opponent_report.py`: no longer maps
+  reviewed Markdown materials to IS report items with normalized tokens and no
+  longer synthesizes fallback section prose. It requires validated
+  `work/opponent_report_trace.json`.
+- `src/thesis_review_workflow/cli/check_opponent_report.py`: no longer token
+  matches uncertainty wording between reviewed materials and draft report. It
+  validates `work/opponent_report_trace.json`, trace/material hashes, structural
+  draft headings, calibration fields, and public-text hygiene.
 
 ## Follow-Up Shape
 
@@ -118,7 +116,9 @@ retiring the advisory helpers:
   evidence classes from assignment, notes, and inputs.
 - `work/assignment_coverage_agent.json`: agent-verified coverage of assignment
   points in materials/drafts.
-- explicit IS-item fields and uncertainty ledger in reviewed opponent materials.
+- `work/opponent_report_trace.json`: structured IS-item fields, defense
+  questions, pre-submission checks, and uncertainty ledger consumed by
+  `scripts/draft-opponent-report` and `scripts/check-opponent-report`.
 
 Those artifacts can then be checked deterministically for schema, paths, hashes,
 review status, and completeness.

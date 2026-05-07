@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-from thesis_review_workflow.cli.check_review_manifest import check_manifest
+from thesis_review_workflow.cli.check_review_manifest import check_helper_checks, check_manifest
+from thesis_review_workflow.cli.init_review_manifest import merge_checks
 from thesis_review_workflow.review_manifest import ensure_manifest, merge_supporting_work_artifacts, register_artifact
 from thesis_review_workflow.work_artifacts import sha256_file
 
@@ -148,6 +149,85 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
     assert "check-code-consistency" in check_names
     assert "check-code-quality-review" in check_names
     assert "check-revision-diff" in check_names
+
+
+def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    materials.parent.mkdir(parents=True)
+    trace.parent.mkdir(parents=True)
+    materials.write_text("# Reviewed materials\n", encoding="utf-8")
+    trace.write_text("{}\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report case-a round-a",
+                "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {"outputs/oponent_podklady_revidovane.md": "0" * 64},
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-report"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-opponent-report: missing required target artifact work/opponent_report_trace.json"
+        in errors
+    )
+
+
+def test_init_manifest_marks_changed_helper_target_set_stale() -> None:
+    generated = [
+        {
+            "check": "check-opponent-report",
+            "command": "scripts/check-opponent-report case-a round-a",
+            "target_artifacts": ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"],
+            "target_sha256": {
+                "work/opponent_report_trace.json": "1" * 64,
+                "outputs/oponent_podklady_revidovane.md": "2" * 64,
+            },
+            "status": "not_recorded",
+            "checked_at": "",
+            "exit_code": None,
+            "notes": "new",
+        }
+    ]
+    existing = {
+        "helper_checks": [
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report case-a round-a",
+                "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {
+                    "work/opponent_report_trace.json": "1" * 64,
+                    "outputs/oponent_podklady_revidovane.md": "2" * 64,
+                },
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+                "notes": "old",
+            }
+        ]
+    }
+
+    merged = merge_checks(existing, generated)
+
+    assert merged[0]["status"] == "not_recorded"
+    assert "Target artifact set changed" in merged[0]["notes"]
+    assert merged[0]["target_artifacts"] == [
+        "work/opponent_report_trace.json",
+        "outputs/oponent_podklady_revidovane.md",
+    ]
 
 
 def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> None:

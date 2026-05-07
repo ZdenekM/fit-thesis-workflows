@@ -1,15 +1,15 @@
-"""Create a structured opponent-report draft from reviewed opponent materials."""
+"""Create an opponent-report bridge draft from reviewed structured trace data."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from thesis_review_workflow.cli.context import (
     repo_root,
@@ -19,26 +19,25 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
-from thesis_review_workflow.markdown_utils import numbered_section_text as section_by_number
-from thesis_review_workflow.markdown_utils import simple_table_rows as parse_markdown_rows
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 DRAFT_REL = Path("work/oponent_posudek_draft.md")
+TRACE_REL = Path("work/opponent_report_trace.json")
 CODE_REPRO_REL = Path("work/code_reproducibility.json")
 EVIDENCE_REQUIREMENTS_REL = Path("work/evidence_requirements.json")
 
-IS_ITEMS = (
-    ("Náročnost zadání", ("narocnost", "náročnost")),
-    ("Rozsah splnění požadavků zadání", ("rozsah splneni", "rozsah splnění", "splneni zadani", "splnění zadání")),
-    ("Rozsah technické zprávy", ("rozsah technicke", "rozsah technické")),
-    ("Prezentační úroveň technické zprávy", ("prezentacni", "prezentační")),
-    ("Formální úprava technické zprávy", ("formalni", "formální")),
-    ("Práce s literaturou", ("literatur", "citac", "citac")),
-    ("Realizační výstup", ("realizacni", "realizační", "vystup", "výstup")),
-    ("Využitelnost výsledku", ("vyuzitelnost", "využitelnost")),
-    ("Celkové hodnocení", ("celkove", "celkové")),
+IS_SECTIONS = (
+    ("assignment_difficulty", "Náročnost zadání"),
+    ("assignment_fulfillment", "Rozsah splnění požadavků zadání"),
+    ("technical_report_scope", "Rozsah technické zprávy"),
+    ("technical_report_presentation", "Prezentační úroveň technické zprávy"),
+    ("technical_report_formal_level", "Formální úprava technické zprávy"),
+    ("literature_work", "Práce s literaturou"),
+    ("implementation_output", "Realizační výstup"),
+    ("result_usability", "Využitelnost výsledku"),
+    ("overall_assessment", "Celkové hodnocení"),
 )
 
 
@@ -59,48 +58,6 @@ def run_required(root: Path, command: list[str]) -> None:
         raise SystemExit(f"Required command failed: {' '.join(command)}\n{detail}")
 
 
-def normalized(value: str) -> str:
-    replacements = str.maketrans("ěščřžýáíéúůňťďóĚŠČŘŽÝÁÍÉÚŮŇŤĎÓ", "escrzyaieuuntdoESCRZYAIEUUNTDO")
-    value = value.translate(replacements).lower()
-    return re.sub(r"\s+", " ", value).strip()
-
-
-def is_rows(materials: str) -> dict[str, str]:
-    section = section_by_number(materials, 9)
-    rows = parse_markdown_rows(section)
-    result: dict[str, str] = {}
-    if rows and any("polozka" in normalized(cell) or "položka" in normalized(cell) for cell in rows[0]):
-        rows = rows[1:]
-    for cells in rows:
-        item = normalized(cells[0])
-        formulation = cells[-1].strip() if cells else ""
-        evidence = cells[2].strip() if len(cells) >= 3 else ""
-        if not formulation or formulation in {"-", "n/a"}:
-            formulation = evidence
-        for title, tokens in IS_ITEMS:
-            if any(token in item for token in tokens) and formulation:
-                result[title] = formulation
-    return result
-
-
-def bullets_from_section(section: str) -> list[str]:
-    bullets = []
-    for line in section.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(("- ", "* ")):
-            bullets.append(stripped[2:].strip())
-        elif "?" in stripped and len(stripped) > 8:
-            bullets.append(stripped.strip("-* "))
-    return bullets
-
-
-def fallback_item_text(title: str) -> str:
-    return (
-        "Z dostupných revidovaných podkladů není pro tuto položku připravena hotová "
-        f"formulace. Před odevzdáním ji zkalibrujte proti části revidovaných podkladů věnované položce {title.lower()}."
-    )
-
-
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -109,20 +66,80 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def uncertain_claims(materials: str) -> list[str]:
-    section = section_by_number(materials, 6)
-    claims = []
-    for cells in parse_markdown_rows(section):
-        joined = " ".join(cells).lower()
+def load_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid JSON in {label}: {exc.msg}") from exc
+    if not isinstance(loaded, dict):
+        raise SystemExit(f"Invalid JSON in {label}: expected object")
+    return loaded
+
+
+def load_valid_trace(round_dir: Path, case_id: str, round_id: str) -> dict[str, Any]:
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        TRACE_REL,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        detail = "\n".join(f"ERROR: {error}" for error in errors)
+        raise SystemExit(
+            "Missing or invalid `work/opponent_report_trace.json`; create it with an explicitly "
+            f"authorized opponent-report-trace reviewer before drafting.\n{detail}"
+        )
+    return load_json_object(round_dir / TRACE_REL, TRACE_REL.as_posix())
+
+
+def trace_items_by_id(trace: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    items = trace.get("is_items")
+    if not isinstance(items, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for item in items:
+        if isinstance(item, dict) and isinstance(item.get("item_id"), str):
+            result[item["item_id"]] = item
+    return result
+
+
+def trace_text_items(trace: dict[str, Any], field: str, text_field: str) -> list[str]:
+    items = trace.get(field)
+    if not isinstance(items, list):
+        return []
+    values: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        value = item.get(text_field)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+    return values
+
+
+def trace_uncertainty_items(trace: dict[str, Any]) -> list[str]:
+    items = trace.get("uncertainty_items")
+    if not isinstance(items, list):
+        return []
+    result: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        claim_id = item.get("claim_id")
+        summary = item.get("summary")
+        instruction = item.get("handling_instruction")
+        status = item.get("status")
+        target_ids = item.get("target_section_ids")
         if (
-            "[neovereno]" in joined
-            or "[neověřeno]" in joined
-            or "[k rucni kontrole]" in joined
-            or "[k ruční kontrole]" in joined
+            isinstance(claim_id, str)
+            and isinstance(summary, str)
+            and isinstance(instruction, str)
+            and isinstance(status, str)
+            and isinstance(target_ids, list)
         ):
-            if cells and cells[0].strip() and "tvrzeni" not in normalized(cells[0]):
-                claims.append(cells[0].strip().strip('"'))
-    return claims
+            targets = ", ".join(str(target) for target in target_ids)
+            result.append(f"{claim_id}: {summary}; stav: {status}; cílové položky: {targets}; pokyn: {instruction}.")
+    return result
 
 
 def advisory_reproducibility_note(round_dir: Path) -> str | None:
@@ -171,20 +188,23 @@ def advisory_evidence_requirements_note(round_dir: Path, case_id: str, round_id:
     return f"Zohlednit strukturované evidence requirements: {suffix}."
 
 
-def build_report(materials: str, materials_hash: str, *, advisory_notes: list[str] | None = None) -> str:
-    rows = is_rows(materials)
-    strengths = bullets_from_section(section_by_number(materials, 7))
-    risks = bullets_from_section(section_by_number(materials, 8))
-    questions = bullets_from_section(section_by_number(materials, 14))
-    uncertain = uncertain_claims(materials)
-    if not questions:
-        questions = [
-            "Které hlavní omezení nebo ručně neověřený bod z revidovaných podkladů student při obhajobě nejlépe doloží?"
-        ]
+def build_report(
+    trace: dict[str, Any],
+    *,
+    trace_hash: str,
+    materials_hash: str,
+    advisory_notes: list[str] | None = None,
+) -> str:
+    items = trace_items_by_id(trace)
+    questions = trace_text_items(trace, "defense_questions", "question")
+    checks = trace_text_items(trace, "pre_submission_checks", "instruction")
+    uncertainty_items = trace_uncertainty_items(trace)
     created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
     lines = [
-        "<!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->",
+        f"<!-- source_trace_path: {TRACE_REL.as_posix()} -->",
+        f"<!-- source_trace_sha256: {trace_hash} -->",
+        f"<!-- source_materials_path: {MATERIALS_REL.as_posix()} -->",
         f"<!-- source_materials_sha256: {materials_hash} -->",
         "# Návrh oponentského posudku",
         "",
@@ -192,21 +212,18 @@ def build_report(materials: str, materials_hash: str, *, advisory_notes: list[st
         "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace.",
         "",
     ]
-    for index, (title, _) in enumerate(IS_ITEMS, start=1):
+    for index, (item_id, title) in enumerate(IS_SECTIONS, start=1):
+        trace_item = items[item_id]
+        formulation = trace_item["formulation"]
         lines.append(f"## {index}. {title}")
         lines.append("")
-        lines.append(rows.get(title) or fallback_item_text(title))
+        lines.append(str(formulation).strip())
         lines.append("")
 
-    lines.extend(
-        [
-            "## 10. Otázky k obhajobě",
-            "",
-        ]
-    )
+    lines.extend(["## 10. Otázky k obhajobě", ""])
     for question in questions:
-        question = question if question.endswith("?") else question.rstrip(".") + "?"
-        lines.append(f"- {question}")
+        rendered = question if question.endswith("?") else question.rstrip(".") + "?"
+        lines.append(f"- {rendered}")
     lines.extend(
         [
             "",
@@ -218,17 +235,12 @@ def build_report(materials: str, materials_hash: str, *, advisory_notes: list[st
             "",
             "## 12. Před odevzdáním",
             "",
-            "- Zkontrolovat, že slovní hodnocení odpovídá bodům a známce.",
-            "- Zkontrolovat, že žádné tvrzení nepřekračuje jistotu z dostupných podkladů.",
-            "- Zkontrolovat, že otázky k obhajobě míří na podstatné a zodpověditelné body.",
         ]
     )
-    if strengths:
-        lines.append("- Do celkového hodnocení zapracovat podložené silné stránky: " + "; ".join(strengths[:3]) + ".")
-    if risks:
-        lines.append("- Do celkového hodnocení zapracovat hlavní rizika: " + "; ".join(risks[:3]) + ".")
-    for claim in uncertain[:5]:
-        lines.append(f"- Zachovat opatrnou formulaci pro ručně neověřený bod: {claim}")
+    for check in checks:
+        lines.append(f"- {check}")
+    for uncertainty in uncertainty_items:
+        lines.append(f"- Zohlednit strukturovaný uncertainty ledger: {uncertainty}")
     for note in advisory_notes or []:
         lines.append(f"- {note}")
     lines.append("")
@@ -254,6 +266,8 @@ def main(argv: list[str]) -> int:
     materials_path = round_dir / MATERIALS_REL
     if not materials_path.is_file():
         raise SystemExit(f"Missing reviewed opponent materials: {MATERIALS_REL.as_posix()}")
+    trace_path = round_dir / TRACE_REL
+    trace = load_valid_trace(round_dir, args.case_id, round_id)
     draft_path = round_dir / DRAFT_REL
     if draft_path.exists() and not args.force:
         raise SystemExit(f"Refusing to overwrite existing draft without --force: {DRAFT_REL.as_posix()}")
@@ -268,8 +282,9 @@ def main(argv: list[str]) -> int:
     ]
     draft_path.write_text(
         build_report(
-            materials_path.read_text(encoding="utf-8"),
-            sha256_file(materials_path),
+            trace,
+            trace_hash=sha256_file(trace_path),
+            materials_hash=sha256_file(materials_path),
             advisory_notes=advisory_notes,
         ),
         encoding="utf-8",

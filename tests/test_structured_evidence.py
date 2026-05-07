@@ -268,6 +268,8 @@ def trace_payload(source_hash: str) -> dict[str, object]:
         "uncertainty_items": [
             {
                 "claim_id": "U1",
+                "summary": "Runtime was not fully verified.",
+                "handling_instruction": "Preserve cautious wording in the overall assessment.",
                 "source_refs": ["outputs/oponent_podklady_revidovane.md"],
                 "target_section_ids": ["overall_assessment"],
                 "report_refs": ["work/oponent_posudek_draft.md"],
@@ -308,6 +310,79 @@ def test_validate_opponent_report_trace_accepts_complete_payload(tmp_path: Path)
     )
 
     assert errors == []
+
+
+def test_validate_opponent_report_trace_requires_unique_anchored_is_items(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    items = copy.deepcopy(payload["is_items"])
+    assert isinstance(items, list)
+    items[1]["item_id"] = items[0]["item_id"]
+    items[0]["evidence_refs"] = []
+    payload["is_items"] = items
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("duplicate item_id" in error for error in errors)
+    assert any("evidence_refs must not be empty" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_allows_future_report_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    (round_dir / "work" / "oponent_posudek_draft.md").unlink()
+    write_json(
+        round_dir / OPPONENT_REPORT_TRACE_REL,
+        trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md")),
+    )
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert errors == []
+
+
+def test_validate_opponent_report_trace_requires_questions(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["defense_questions"] = []
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("defense_questions must not be empty" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_restricts_report_refs_to_generated_draft(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    uncertainty_items = payload["uncertainty_items"]
+    assert isinstance(uncertainty_items, list)
+    uncertainty_items[0]["report_refs"] = ["work/not_the_generated_report.md"]
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("report_refs item 1 must be work/oponent_posudek_draft.md" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_requires_uncertainty_content(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    uncertainty_items = payload["uncertainty_items"]
+    assert isinstance(uncertainty_items, list)
+    uncertainty_items[0]["summary"] = ""
+    uncertainty_items[0].pop("handling_instruction")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("summary must be non-empty str" in error for error in errors)
+    assert any("handling_instruction must be non-empty str" in error for error in errors)
 
 
 def test_validate_opponent_report_trace_rejects_stale_materials_hash(tmp_path: Path) -> None:

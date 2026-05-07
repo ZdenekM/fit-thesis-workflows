@@ -157,6 +157,15 @@ def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None
         errors.append(f"{label}: command contains an absolute filesystem path")
 
 
+def required_helper_targets(name: str, round_dir: Path) -> set[str]:
+    if name != "check-opponent-report":
+        return set()
+    targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
+    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        targets.add("work/oponent_posudek_draft.md")
+    return targets
+
+
 def output_paths(round_dir: Path) -> set[str]:
     outputs = round_dir / "outputs"
     if not outputs.is_dir():
@@ -225,6 +234,11 @@ def check_helper_checks(
         if not isinstance(targets, list):
             errors.append(f"helper_checks {name}: target_artifacts must be a list")
             targets = []
+        if require_complete and name in required:
+            target_set = {target for target in targets if isinstance(target, str)}
+            missing_targets = sorted(required_helper_targets(name, round_dir) - target_set)
+            for target in missing_targets:
+                errors.append(f"helper_checks {name}: missing required target artifact {target}")
         recorded_hashes = check.get("target_sha256", {})
         if require_complete and name in required and name != "check-review-manifest":
             if not isinstance(recorded_hashes, dict):
@@ -254,7 +268,7 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
     if "outputs/feedback_student.md" in paths:
         required.update({"check-supervisor-ready", "check-feedback-language", "check-feedback-output"})
     if "outputs/oponent_podklady_revidovane.md" in paths:
-        required.update({"check-round-ready", "check-opponent-materials"})
+        required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report"})
     if "outputs/figure_media_review.md" in paths:
         required.add("check-figure-media-review")
     if "outputs/typography_formal_review.md" in paths:
@@ -265,8 +279,6 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-code-quality-review")
     if "outputs/revision_diff.md" in paths:
         required.add("check-revision-diff")
-    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
-        required.add("check-opponent-report")
     if coverage_required(round_dir, manifest):
         required.add("check-agent-coverage")
     return required

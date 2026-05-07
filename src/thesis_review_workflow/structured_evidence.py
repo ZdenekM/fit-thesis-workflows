@@ -265,11 +265,13 @@ def _validate_opponent_report_trace(
                 continue
             item_id = item.get("item_id")
             if isinstance(item_id, str):
+                if item_id in item_ids:
+                    errors.append(f"{prefix}: duplicate item_id {item_id}")
                 item_ids.add(item_id)
             _require_enum(item, "item_id", REQUIRED_OPPONENT_IS_ITEM_IDS, prefix, errors)
             _require_nonempty_string(item, "title", prefix, errors)
             _require_nonempty_string(item, "formulation", prefix, errors)
-            _require_list(item, "evidence_refs", prefix, errors)
+            _require_nonempty_list(item, "evidence_refs", prefix, errors)
     missing_ids = sorted(REQUIRED_OPPONENT_IS_ITEM_IDS - item_ids)
     if missing_ids:
         errors.append(f"{rel_path}: missing required is_items: {', '.join(missing_ids)}")
@@ -284,14 +286,21 @@ def _validate_opponent_report_trace(
                 errors.append(f"{prefix} must be object")
                 continue
             _require_nonempty_string(item, "claim_id", prefix, errors)
-            _require_list(item, "source_refs", prefix, errors)
-            _require_list(item, "target_section_ids", prefix, errors)
+            _require_nonempty_string(item, "summary", prefix, errors)
+            _require_nonempty_string(item, "handling_instruction", prefix, errors)
+            _require_nonempty_list(item, "source_refs", prefix, errors)
+            _require_nonempty_list(item, "target_section_ids", prefix, errors)
             target_ids = item.get("target_section_ids")
             if isinstance(target_ids, list):
                 for target_index, target_id in enumerate(target_ids, start=1):
                     if target_id not in REQUIRED_OPPONENT_IS_ITEM_IDS:
                         errors.append(f"{prefix}: target_section_ids item {target_index} has unknown IS item id")
-            _require_list(item, "report_refs", prefix, errors)
+            _require_nonempty_list(item, "report_refs", prefix, errors)
+            report_refs = item.get("report_refs")
+            if isinstance(report_refs, list):
+                for ref_index, ref in enumerate(report_refs, start=1):
+                    if ref != "work/oponent_posudek_draft.md":
+                        errors.append(f"{prefix}: report_refs item {ref_index} must be work/oponent_posudek_draft.md")
             _require_enum(item, "status", OPPONENT_TRACE_UNCERTAINTY_STATUSES, prefix, errors)
 
 
@@ -320,7 +329,7 @@ def _validate_trace_questions(
     rel_path: str,
     errors: list[str],
 ) -> None:
-    items = _require_list(loaded, field, rel_path, errors)
+    items = _require_nonempty_list(loaded, field, rel_path, errors)
     if not isinstance(items, list):
         return
     for index, item in enumerate(items, start=1):
@@ -330,7 +339,7 @@ def _validate_trace_questions(
             continue
         _require_nonempty_string(item, id_field, prefix, errors)
         _require_nonempty_string(item, text_field, prefix, errors)
-        _require_list(item, "evidence_refs", prefix, errors)
+        _require_nonempty_list(item, "evidence_refs", prefix, errors)
 
 
 def _validate_refs(
@@ -349,7 +358,8 @@ def _validate_refs(
                     errors.append(f"{nested_path} must be list")
                     continue
                 for index, ref in enumerate(nested, start=1):
-                    _validate_ref(ref, f"{nested_path} item {index}", round_dir, require_existing_refs, errors)
+                    ref_must_exist = require_existing_refs and key != "report_refs"
+                    _validate_ref(ref, f"{nested_path} item {index}", round_dir, ref_must_exist, errors)
             elif key == "source_materials_path":
                 _validate_ref(nested, nested_path, round_dir, require_existing_refs, errors)
             else:

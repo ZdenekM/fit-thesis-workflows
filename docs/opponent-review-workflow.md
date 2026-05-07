@@ -111,12 +111,16 @@ strukturální validátor jako passed helper check.
 ## Report Draft Boundary
 
 `outputs/oponent_podklady_revidovane.md` jsou interní revidované podklady pro
-oponenta. `scripts/draft-opponent-report` z nich může vytvořit
+oponenta. Než z nich vznikne draft posudku, autorizovaný agent nebo člověk musí
+připravit `work/opponent_report_trace.json`: strukturované mapování položek FIT
+IS, otázek k obhajobě, ručních kontrol a nejistot na aktuální revidované
+podklady. `scripts/draft-opponent-report` pak z tohoto trace vytvoří
 `work/oponent_posudek_draft.md`, ale tento draft není finální posudek.
 
 `scripts/check-opponent-report` projde až po lidské kalibraci bodů, známky a
-formulací. Nové evidence helpery mohou přidat důvody k ruční kontrole nebo
-zastavení, ale nesmí automaticky posudek schválit.
+formulací. Ověřuje strukturální tvar draftu, hash trace, hash revidovaných
+podkladů a bezpečnost veřejného textu; neporovnává volný text materiálů a
+posudku tokenově.
 
 Finální oponentský gate:
 
@@ -124,5 +128,5 @@ Finální oponentský gate:
 scripts/opponent-closeout <case-id> [round-id]
 ```
 
-Closeout znovu projde revidované podklady, manifest, agent coverage, report
-draft gate, pokud draft existuje, private-data kontrolu a skriptovou hygienu.
+Closeout znovu projde revidované podklady, report trace, případný report draft,
+manifest, agent coverage, private-data kontrolu a skriptovou hygienu.

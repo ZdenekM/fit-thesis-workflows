@@ -92,14 +92,15 @@ def test_output_expectations_records_missing_review_surfaces() -> None:
         feedback_draft_present=False,
         opponent_materials_draft_present=False,
         reviewed_opponent_materials_present=True,
+        opponent_report_trace_present=False,
         opponent_report_draft_present=False,
         opponent_report_review_present=False,
         code_present=True,
         issues=issues,
     )
 
-    assert "- work/oponent_posudek_draft.md: missing (opponent report draft)" in lines
-    assert any("work/oponent_posudek_draft.md is missing" in issue.message for issue in issues)
+    assert "- work/opponent_report_trace.json: missing (opponent report trace)" in lines
+    assert any("work/opponent_report_trace.json is missing" in issue.message for issue in issues)
     assert any("missing code review outputs" in issue.message for issue in issues)
 
 

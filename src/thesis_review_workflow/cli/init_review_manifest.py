@@ -322,6 +322,10 @@ def required_checks(
             f"scripts/check-opponent-materials {case_id} {round_id}",
             ["outputs/oponent_podklady_revidovane.md"],
         )
+        targets = ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"]
+        if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+            targets.append("work/oponent_posudek_draft.md")
+        add("check-opponent-report", f"scripts/check-opponent-report {case_id} {round_id}", targets)
     if "outputs/figure_media_review.md" in artifact_paths:
         add(
             "check-figure-media-review",
@@ -352,11 +356,6 @@ def required_checks(
             f"scripts/check-revision-diff {case_id} {round_id}",
             ["outputs/revision_diff.md"],
         )
-    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
-        targets = ["work/oponent_posudek_draft.md"]
-        if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():
-            targets.append("outputs/oponent_podklady_revidovane.md")
-        add("check-opponent-report", f"scripts/check-opponent-report {case_id} {round_id}", targets)
     if coverage_required(round_dir, manifest):
         add("check-agent-coverage", f"scripts/check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
     add(
@@ -381,6 +380,11 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
         if item.get("check") == "check-review-manifest":
             merged.append(item)
         elif isinstance(previous, dict) and previous.get("command") == item.get("command"):
+            if previous.get("target_artifacts") != item.get("target_artifacts"):
+                stale = dict(item)
+                stale["notes"] = "Target artifact set changed since the previous check; rerun this helper check."
+                merged.append(stale)
+                continue
             if previous.get("target_sha256") != item.get("target_sha256"):
                 stale = dict(item)
                 stale["notes"] = "Target artifact hash changed since the previous check; rerun this helper check."

@@ -550,6 +550,7 @@ def main(argv: list[str]) -> int:
         feedback_draft_present=feedback_draft_present,
         opponent_materials_draft_present=(round_dir / "work" / "oponent_podklady_draft.md").is_file(),
         reviewed_opponent_materials_present=(round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file(),
+        opponent_report_trace_present=(round_dir / "work" / "opponent_report_trace.json").is_file(),
         opponent_report_draft_present=(round_dir / "work" / "oponent_posudek_draft.md").is_file(),
         opponent_report_review_present="feedback_k_posudku.md" in output_names,
         code_present=code_present,
@@ -577,8 +578,9 @@ def main(argv: list[str]) -> int:
         gates.append(run_gate(root, "feedback output", ["scripts/check-feedback-output", args.case_id, round_id]))
     if (round_dir / "outputs" / "oponent_podklady_revidovane.md").is_file():
         gates.append(run_gate(root, "opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id]))
-    if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
-        gates.append(run_gate(root, "opponent report draft", ["scripts/check-opponent-report", args.case_id, round_id]))
+        gates.append(
+            run_gate(root, "opponent report trace/draft", ["scripts/check-opponent-report", args.case_id, round_id])
+        )
     if (round_dir / "outputs" / "figure_media_review.md").is_file():
         gates.append(
             run_gate(root, "figure/media review", ["scripts/check-figure-media-review", args.case_id, round_id])

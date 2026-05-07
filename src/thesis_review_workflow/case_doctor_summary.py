@@ -421,6 +421,7 @@ def output_expectations(
     feedback_draft_present: bool,
     opponent_materials_draft_present: bool,
     reviewed_opponent_materials_present: bool,
+    opponent_report_trace_present: bool,
     opponent_report_draft_present: bool,
     opponent_report_review_present: bool,
     code_present: bool,
@@ -436,10 +437,14 @@ def output_expectations(
         add_issue(issues, "WARNING", "Supervisor feedback draft exists but outputs/feedback_student.md is missing.")
     if opponent_materials_draft_present and "oponent_podklady_revidovane.md" not in output_names:
         add_issue(issues, "WARNING", "Opponent materials draft exists but reviewed output is missing.")
-    if reviewed_opponent_materials_present and not opponent_report_draft_present:
-        add_issue(issues, "WARNING", "Reviewed opponent materials exist but work/oponent_posudek_draft.md is missing.")
-        lines.append("- work/oponent_posudek_draft.md: missing (opponent report draft)")
-    elif opponent_report_draft_present:
+    if reviewed_opponent_materials_present and not opponent_report_trace_present:
+        add_issue(
+            issues, "WARNING", "Reviewed opponent materials exist but work/opponent_report_trace.json is missing."
+        )
+        lines.append("- work/opponent_report_trace.json: missing (opponent report trace)")
+    elif opponent_report_trace_present:
+        lines.append("- work/opponent_report_trace.json: present (opponent report trace)")
+    if opponent_report_draft_present:
         lines.append("- work/oponent_posudek_draft.md: present (opponent report draft)")
         if not opponent_report_review_present:
             add_issue(
