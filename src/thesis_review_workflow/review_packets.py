@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
-from thesis_review_workflow.review_materiality import is_materiality_decision_path, validate_review_materiality_artifact
+from thesis_review_workflow.review_materiality import (
+    is_materiality_decision_path,
+    unresolved_required_next_actions,
+    validate_review_materiality_artifact,
+)
 from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
     validate_structured_evidence_artifact,
@@ -359,3 +363,41 @@ def late_communications_section(round_dir: Path) -> str:
             "",
         ]
     )
+
+
+def materiality_next_actions_section(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    workflow_profile: str,
+) -> str:
+    actions, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile=workflow_profile,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    lines = ["## Materiality Next Actions", ""]
+    if errors:
+        lines.extend(f"- invalid materiality index: {error}" for error in errors)
+    elif not actions:
+        lines.append("- none")
+    else:
+        for action in actions:
+            role = action.get("role", "unknown")
+            required = action.get("required_artifact_path", "unknown")
+            command = action.get("command", "not recorded")
+            reason = action.get("reason", "not recorded")
+            limitation = action.get("typed_limitation_scope", "not recorded")
+            lines.append(f"- `{role}` requires `{required}`: {reason}")
+            lines.append(f"  Command/skill: {command}")
+            lines.append(f"  Typed limitation scope if unavailable: `{limitation}`")
+    lines.extend(
+        [
+            "",
+            "Resolve required actions before synthesis/final readiness, or record a typed workflow limitation.",
+            "",
+        ]
+    )
+    return "\n".join(lines)

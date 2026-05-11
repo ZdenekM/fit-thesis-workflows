@@ -4,6 +4,8 @@ from pathlib import Path
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
     build_materiality_decisions,
+    unresolved_required_next_actions,
+    validate_materiality_workflow_limitations,
     validate_review_materiality_artifact,
     write_materiality_decisions,
 )
@@ -103,7 +105,7 @@ def test_final_supervisor_phase_marks_typography_material(tmp_path: Path) -> Non
 def test_supervisor_auto_phase_does_not_route_from_free_text_notes(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     (round_dir / "notes" / "supervisor-intake.md").write_text(
-        "Stav prace podle vedouciho: finalni kontrola\n",
+        "Stav prace podle vedouciho: finalni kontrola. Repo: https://github.com/example/project\n",
         encoding="utf-8",
     )
 
@@ -117,6 +119,7 @@ def test_supervisor_auto_phase_does_not_route_from_free_text_notes(tmp_path: Pat
     assert errors == []
     assert phase == "non_final"
     assert "typography_formal" not in {decision.role for decision in decisions if decision.material}
+    assert "github_intake" not in {decision.role for decision in decisions if decision.material}
 
 
 def test_code_workspace_marks_code_roles_without_optional_packet_files(tmp_path: Path) -> None:
@@ -253,6 +256,230 @@ def test_quantitative_claims_and_evaluation_tables_are_material_without_text_mat
     roles = material_roles(round_dir)
 
     assert "quantitative_claims" in roles
+
+
+def test_material_quantitative_claims_create_next_action_when_handoff_missing(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    index = json.loads((round_dir / "work" / "review_materiality" / "index.json").read_text(encoding="utf-8"))
+    [action] = index["next_actions"]
+    assert action["role"] == "quantitative_claims"
+    assert action["required_artifact_path"] == "work/quantitative_claims.json"
+    assert action["status"] == "unresolved"
+    assert action["source_sha256"]["inputs/results.csv"]
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert errors == []
+    assert [item["role"] for item in unresolved] == ["quantitative_claims"]
+
+
+def test_material_quantitative_next_action_resolves_after_current_handoff_exists(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert unresolved == []
+
+
+def test_material_quantitative_next_action_stays_unresolved_when_source_hash_changes(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    source = round_dir / "inputs" / "results.csv"
+    source.write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+    source.write_text("metric,value\nlatency,99\n", encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert unresolved[0]["role"] == "quantitative_claims"
+    assert "stored materiality source hash is stale" in unresolved[0]["reason"]
+
+
+def test_material_github_intake_next_action_resolves_with_typed_limitation(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    github_source = round_dir / "inputs" / "github" / "prs" / "owner__project__pr-1" / "pr.meta.json"
+    github_source.parent.mkdir(parents=True)
+    github_source.write_text("{}\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "workflow_limitations": [
+                {
+                    "type": "out_of_scope_for_round",
+                    "scope": "github_intake",
+                    "trigger": "materiality_next_action",
+                    "required_for": ["supervisor_feedback"],
+                    "description": "GitHub evidence is out of scope for this round.",
+                    "impact": "Use submitted archive only.",
+                    "status": "closed",
+                    "accepted_by": "test-reviewer",
+                }
+            ],
+        },
+    )
+
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    index = json.loads((round_dir / "work" / "review_materiality" / "index.json").read_text(encoding="utf-8"))
+    assert index["next_actions"] == []
+
+
+def test_materiality_limitation_requires_typed_contract() -> None:
+    errors = validate_materiality_workflow_limitations(
+        [
+            {
+                "scope": "github_intake",
+                "description": "Too weak.",
+                "impact": "Ambiguous.",
+                "status": "closed",
+            }
+        ],
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert any("trigger must be materiality_next_action" in error for error in errors)
+    assert any("required_for must be a non-empty list" in error for error in errors)
+    assert any("accepted_by or reviewer_role" in error for error in errors)
+
+
+def test_material_github_intake_marks_stale_source_hash(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    source = round_dir / "inputs" / "github" / "prs" / "owner__project__pr-1" / "pr.meta.json"
+    source.parent.mkdir(parents=True)
+    source.write_text("{}\n", encoding="utf-8")
+    output = round_dir / "outputs" / "github_code_intake.md"
+    output.parent.mkdir()
+    output.write_text("# GitHub intake\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "workflow_limitations": [],
+            "artifacts": [
+                {
+                    "path": "outputs/github_code_intake.md",
+                    "source_sha256": {"inputs/github/prs/owner__project__pr-1/pr.meta.json": "0" * 64},
+                }
+            ],
+        },
+    )
+
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert errors == []
+    assert unresolved[0]["role"] == "github_intake"
+    assert "source hash is stale" in unresolved[0]["reason"]
 
 
 def test_cli_writes_and_prunes_role_files(tmp_path: Path, monkeypatch, capsys) -> None:

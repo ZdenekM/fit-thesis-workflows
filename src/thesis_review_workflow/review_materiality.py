@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.paths import is_safe_round_relative_path
-from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
+from thesis_review_workflow.structured_evidence import (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    validate_structured_evidence_artifact,
+)
 
 INDEX_REL = Path("work/review_materiality/index.json")
 DECISION_SCHEMA = "review-materiality-decision-v1"
@@ -37,18 +41,42 @@ CODE_WORKSPACE_PATHS = (
     "work/serena_roots.json",
     "work/code/.prepare-code-workspace-manifest.json",
 )
-GITHUB_EVIDENCE_PATHS = (
-    "outputs/github_code_intake.md",
-    "inputs/github",
-    "work/github-intake",
-)
+GITHUB_EVIDENCE_MARKER_PATHS = ("outputs/github_code_intake.md",)
+GITHUB_EVIDENCE_ROOTS = (Path("inputs/github"), Path("work/github-intake"))
 EVALUATION_TABLE_SUFFIXES = {".csv", ".tsv", ".xlsx", ".ods", ".parquet"}
 MEDIA_INVENTORY_REL = Path("work/media_presence_inventory.jsonl")
 VISUAL_INVENTORY_REL = Path("work/figure_media/visual_inventory.jsonl")
 EVIDENCE_REQUIREMENTS_REL = Path("work/evidence_requirements.json")
 QUANTITATIVE_CLAIMS_REL = Path("work/quantitative_claims.json")
+REVIEW_MANIFEST_REL = Path("work/review_manifest.json")
+NEXT_ACTION_STATUSES = {"unresolved", "resolved_by_artifact", "resolved_by_limitation"}
+NEXT_ACTION_SEVERITIES = {"required", "advisory"}
+NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims"}
+NEXT_ACTION_CONFIG = {
+    "github_intake": {
+        "required_artifact_path": "outputs/github_code_intake.md",
+        "command": "scripts/import-github-code <case-id> <round-id> ...; then run thesis-github-code-intake",
+        "skill": "thesis-github-code-intake",
+        "typed_limitation_scope": "github_intake",
+    },
+    "quantitative_claims": {
+        "required_artifact_path": QUANTITATIVE_CLAIMS_REL.as_posix(),
+        "command": "Run an authorized thesis-quantitative-claims-review, then scripts/check-evaluation-claims.",
+        "skill": "thesis-quantitative-claims-review",
+        "typed_limitation_scope": "quantitative_claims",
+    },
+}
+MATERIALITY_LIMITATION_TYPES = {
+    "unavailable_evidence",
+    "unavailable_tool",
+    "manual_review_required",
+    "not_material_to_final",
+    "out_of_scope_for_round",
+    "upstream_or_external_scope",
+}
+MATERIALITY_LIMITATION_STATUSES = {"accepted", "closed", "resolved"}
+MATERIALITY_LIMITATION_TRIGGER = "materiality_next_action"
 
-GITHUB_URL_RE = re.compile(r"(?:https://github\.com/|git@github\.com:)", re.IGNORECASE)
 ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:")
 
 
@@ -65,6 +93,26 @@ class MaterialityDecision:
     @property
     def material(self) -> bool:
         return self.recommendation == "material"
+
+
+@dataclass(frozen=True)
+class MaterialityNextAction:
+    role: str
+    workflow_profile: str
+    status: str
+    severity: str
+    required_artifact_path: str
+    reason: str
+    command: str
+    skill: str
+    source_refs: tuple[str, ...]
+    source_sha256: dict[str, str]
+    typed_limitation_scope: str
+    limitations: tuple[str, ...] = ()
+
+    @property
+    def unresolved(self) -> bool:
+        return self.status == "unresolved"
 
 
 def is_materiality_decision_path(rel_path: str) -> bool:
@@ -93,6 +141,14 @@ def load_json_object(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
     if not isinstance(loaded, dict):
         return None, [f"{path.name}: JSON materiality input must be an object"]
     return loaded, []
+
+
+def sha256_file(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_valid_structured(
@@ -165,16 +221,14 @@ def evaluation_table_paths(round_dir: Path) -> list[str]:
     return paths
 
 
-def github_note_refs(round_dir: Path) -> list[str]:
-    refs: list[str] = []
-    for notes_dir in (round_dir / "notes",):
-        if not notes_dir.is_dir():
+def github_structured_refs(round_dir: Path) -> list[str]:
+    refs = first_existing(round_dir, GITHUB_EVIDENCE_MARKER_PATHS)
+    for root_rel in GITHUB_EVIDENCE_ROOTS:
+        root = round_dir / root_rel
+        if not root.is_dir():
             continue
-        for path in sorted(notes_dir.glob("*.md")):
-            text = path.read_text(encoding="utf-8", errors="replace")
-            if GITHUB_URL_RE.search(text):
-                refs.append(path.relative_to(round_dir).as_posix())
-    return refs
+        refs.extend(path.relative_to(round_dir).as_posix() for path in sorted(root.rglob("*")) if path.is_file())
+    return sorted(dict.fromkeys(refs))
 
 
 def infer_phase(round_dir: Path, workflow_profile: str, requested_phase: str) -> str:
@@ -343,14 +397,14 @@ def build_materiality_decisions(
                 source_refs=code_refs,
             )
 
-    github_refs = [*first_existing(round_dir, GITHUB_EVIDENCE_PATHS), *github_note_refs(round_dir)]
+    github_refs = github_structured_refs(round_dir)
     if github_refs:
         merge_material(
             decisions,
             workflow_profile,
             "github_intake",
             scope="github_or_pr_evidence",
-            reason="GitHub/PR evidence is present or explicitly referenced",
+            reason="structured GitHub/PR evidence is present",
             source_refs=github_refs,
         )
 
@@ -441,7 +495,284 @@ def build_materiality_decisions(
     return ordered, errors, resolved_phase
 
 
+def build_materiality_next_actions(
+    round_dir: Path,
+    decisions: list[MaterialityDecision],
+    *,
+    workflow_profile: str,
+) -> list[MaterialityNextAction]:
+    material = {decision.role: decision for decision in decisions if decision.material}
+    actions: list[MaterialityNextAction] = []
+    github = material.get("github_intake")
+    if github is not None:
+        config = NEXT_ACTION_CONFIG["github_intake"]
+        actions.extend(
+            _next_action_for_required_artifact(
+                round_dir,
+                decision=github,
+                workflow_profile=workflow_profile,
+                required_artifact_path=config["required_artifact_path"],
+                command=config["command"],
+                skill=config["skill"],
+                typed_limitation_scope=config["typed_limitation_scope"],
+            )
+        )
+    quantitative = material.get("quantitative_claims")
+    if quantitative is not None:
+        config = NEXT_ACTION_CONFIG["quantitative_claims"]
+        errors = validate_structured_evidence_artifact(
+            round_dir,
+            QUANTITATIVE_CLAIMS_REL,
+            require_existing_refs=True,
+        )
+        if errors and not _has_typed_limitation(
+            round_dir,
+            "quantitative_claims",
+            workflow_profile=workflow_profile,
+        ):
+            actions.append(
+                _make_next_action(
+                    round_dir,
+                    decision=quantitative,
+                    workflow_profile=workflow_profile,
+                    required_artifact_path=config["required_artifact_path"],
+                    reason=(
+                        "Quantitative materiality is active but " "work/quantitative_claims.json is missing or invalid."
+                    ),
+                    command=config["command"],
+                    skill=config["skill"],
+                    typed_limitation_scope=config["typed_limitation_scope"],
+                    source_refs=list(quantitative.source_refs),
+                    limitations=tuple(errors[:5]),
+                )
+            )
+    return actions
+
+
+def _next_action_for_required_artifact(
+    round_dir: Path,
+    *,
+    decision: MaterialityDecision,
+    workflow_profile: str,
+    required_artifact_path: str,
+    command: str,
+    skill: str,
+    typed_limitation_scope: str,
+) -> list[MaterialityNextAction]:
+    if _has_typed_limitation(
+        round_dir,
+        typed_limitation_scope,
+        workflow_profile=workflow_profile,
+    ):
+        return []
+    path = round_dir / required_artifact_path
+    if not path.is_file():
+        return [
+            _make_next_action(
+                round_dir,
+                decision=decision,
+                workflow_profile=workflow_profile,
+                required_artifact_path=required_artifact_path,
+                reason=f"Material role {decision.role} is active but {required_artifact_path} is missing.",
+                command=command,
+                skill=skill,
+                typed_limitation_scope=typed_limitation_scope,
+                source_refs=list(decision.source_refs),
+            )
+        ]
+    stale_reasons = _artifact_stale_reasons(round_dir, required_artifact_path)
+    if stale_reasons:
+        return [
+            _make_next_action(
+                round_dir,
+                decision=decision,
+                workflow_profile=workflow_profile,
+                required_artifact_path=required_artifact_path,
+                reason="; ".join(stale_reasons),
+                command=command,
+                skill=skill,
+                typed_limitation_scope=typed_limitation_scope,
+                source_refs=list(decision.source_refs) + [required_artifact_path],
+                limitations=tuple(stale_reasons),
+            )
+        ]
+    return []
+
+
+def _make_next_action(
+    round_dir: Path,
+    *,
+    decision: MaterialityDecision,
+    workflow_profile: str,
+    required_artifact_path: str,
+    reason: str,
+    command: str,
+    skill: str,
+    typed_limitation_scope: str,
+    source_refs: list[str],
+    limitations: tuple[str, ...] = (),
+) -> MaterialityNextAction:
+    safe_refs = [ref for ref in source_refs if source_ref_is_allowed(ref)]
+    return MaterialityNextAction(
+        role=decision.role,
+        workflow_profile=workflow_profile,
+        status="unresolved",
+        severity="required",
+        required_artifact_path=required_artifact_path,
+        reason=reason,
+        command=command,
+        skill=skill,
+        source_refs=tuple(sorted(dict.fromkeys(safe_refs))),
+        source_sha256=source_hashes_for_refs(round_dir, safe_refs),
+        typed_limitation_scope=typed_limitation_scope,
+        limitations=limitations,
+    )
+
+
+def _artifact_stale_reasons(round_dir: Path, artifact_path: str) -> list[str]:
+    reasons: list[str] = []
+    manifest, _ = load_json_object(round_dir / REVIEW_MANIFEST_REL)
+    if manifest is not None:
+        artifacts = manifest.get("artifacts")
+        if isinstance(artifacts, list):
+            for artifact in artifacts:
+                if not isinstance(artifact, dict) or artifact.get("path") != artifact_path:
+                    continue
+                source_sha256 = artifact.get("source_sha256")
+                if isinstance(source_sha256, dict):
+                    for ref, recorded_hash in source_sha256.items():
+                        if not isinstance(ref, str) or not isinstance(recorded_hash, str):
+                            continue
+                        if not is_safe_round_relative_path(ref):
+                            reasons.append(f"{artifact_path}: manifest source ref is unsafe: {ref}")
+                            continue
+                        path = round_dir / ref
+                        if not path.is_file():
+                            reasons.append(f"{artifact_path}: manifest source ref is missing: {ref}")
+                        elif sha256_file(path) != recorded_hash:
+                            reasons.append(f"{artifact_path}: manifest source hash is stale for {ref}")
+                break
+    snapshot, _ = load_json_object(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL)
+    if snapshot is not None:
+        snapshot_errors = validate_structured_evidence_artifact(
+            round_dir,
+            CURRENT_EVIDENCE_SNAPSHOT_REL,
+            require_existing_refs=False,
+        )
+        reasons.extend(f"{artifact_path}: current evidence snapshot invalid: {error}" for error in snapshot_errors)
+        items = snapshot.get("items")
+        if isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict) or item.get("path") != artifact_path:
+                    continue
+                if item.get("status") != "present":
+                    reasons.append(f"{artifact_path}: current evidence snapshot status is {item.get('status')}")
+                elif item.get("freshness") not in {"current", "not_applicable"}:
+                    reasons.append(f"{artifact_path}: current evidence snapshot freshness is {item.get('freshness')}")
+                break
+    return reasons
+
+
+def validate_materiality_limitation_item(
+    item: dict[str, Any],
+    *,
+    scope: str | None = None,
+    workflow_profile: str | None = None,
+    rel_path: str = REVIEW_MANIFEST_REL.as_posix(),
+) -> list[str]:
+    errors: list[str] = []
+    prefix = rel_path
+    limitation_type = item.get("type")
+    if limitation_type not in MATERIALITY_LIMITATION_TYPES:
+        errors.append(
+            f"{prefix}: type must be one of {sorted(MATERIALITY_LIMITATION_TYPES)} "
+            f"for {MATERIALITY_LIMITATION_TRIGGER}"
+        )
+    if item.get("trigger") != MATERIALITY_LIMITATION_TRIGGER:
+        errors.append(f"{prefix}: trigger must be {MATERIALITY_LIMITATION_TRIGGER}")
+    status = item.get("status")
+    if status not in MATERIALITY_LIMITATION_STATUSES:
+        errors.append(f"{prefix}: status must be one of {sorted(MATERIALITY_LIMITATION_STATUSES)}")
+    item_scope = item.get("scope") or item.get("role")
+    if item_scope not in NEXT_ACTION_ROLES:
+        errors.append(f"{prefix}: scope/role must be one of {sorted(NEXT_ACTION_ROLES)}")
+    elif scope is not None and item_scope != scope:
+        errors.append(f"{prefix}: scope/role must be {scope}")
+    required_for = item.get("required_for")
+    if not isinstance(required_for, list) or not required_for:
+        errors.append(f"{prefix}: required_for must be a non-empty list")
+    else:
+        invalid = [value for value in required_for if value not in WORKFLOW_PROFILES and value != "all"]
+        if invalid:
+            errors.append(f"{prefix}: required_for contains unknown workflow profile: {', '.join(map(str, invalid))}")
+        if workflow_profile is not None and workflow_profile not in required_for and "all" not in required_for:
+            errors.append(f"{prefix}: required_for must include {workflow_profile} or all")
+    for field in ("description", "impact"):
+        value = item.get(field)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{prefix}: {field} must be a non-empty string")
+    accepted_by = item.get("accepted_by") or item.get("reviewer_role")
+    if not isinstance(accepted_by, str) or not accepted_by.strip():
+        errors.append(f"{prefix}: accepted_by or reviewer_role must be a non-empty string")
+    return errors
+
+
+def validate_materiality_workflow_limitations(
+    limitations: Any,
+    *,
+    workflow_profile: str | None = None,
+    rel_path: str = REVIEW_MANIFEST_REL.as_posix(),
+) -> list[str]:
+    if limitations is None:
+        return []
+    if not isinstance(limitations, list):
+        return [f"{rel_path}: workflow_limitations must be a list"]
+    errors: list[str] = []
+    for index, item in enumerate(limitations, start=1):
+        if not isinstance(item, dict):
+            continue
+        item_scope = item.get("scope") or item.get("role")
+        is_materiality_limitation = (
+            item.get("trigger") == MATERIALITY_LIMITATION_TRIGGER or item_scope in NEXT_ACTION_ROLES
+        )
+        if not is_materiality_limitation:
+            continue
+        item_errors = validate_materiality_limitation_item(
+            item,
+            workflow_profile=workflow_profile,
+            rel_path=f"{rel_path}: workflow_limitations item {index}",
+        )
+        errors.extend(item_errors)
+    return errors
+
+
+def _has_typed_limitation(
+    round_dir: Path,
+    scope: str,
+    *,
+    workflow_profile: str | None,
+) -> bool:
+    manifest, _ = load_json_object(round_dir / REVIEW_MANIFEST_REL)
+    if manifest is None:
+        return False
+    limitations = manifest.get("workflow_limitations")
+    if not isinstance(limitations, list):
+        return False
+    for item in limitations:
+        if not isinstance(item, dict):
+            continue
+        values = {item.get("scope"), item.get("role")}
+        if scope in values and not validate_materiality_limitation_item(
+            item,
+            scope=scope,
+            workflow_profile=workflow_profile,
+        ):
+            return True
+    return False
+
+
 def decision_payload(
+    round_dir: Path,
     decision: MaterialityDecision,
     *,
     case_id: str,
@@ -462,8 +793,24 @@ def decision_payload(
         }
     )
     payload["source_refs"] = list(decision.source_refs)
+    payload["source_sha256"] = source_hashes_for_refs(round_dir, decision.source_refs)
     payload["limitations"] = list(decision.limitations)
     return payload
+
+
+def next_action_payload(action: MaterialityNextAction) -> dict[str, Any]:
+    payload = asdict(action)
+    payload["source_refs"] = list(action.source_refs)
+    payload["limitations"] = list(action.limitations)
+    return payload
+
+
+def source_hashes_for_refs(round_dir: Path, refs: tuple[str, ...] | list[str]) -> dict[str, str]:
+    return {
+        ref: sha256_file(round_dir / ref)
+        for ref in refs
+        if is_safe_round_relative_path(ref) and (round_dir / ref).is_file()
+    }
 
 
 def write_materiality_decisions(
@@ -479,6 +826,11 @@ def write_materiality_decisions(
 ) -> list[Path]:
     materiality_dir = round_dir / "work" / "review_materiality"
     materiality_dir.mkdir(parents=True, exist_ok=True)
+    next_actions = build_materiality_next_actions(
+        round_dir,
+        decisions,
+        workflow_profile=workflow_profile,
+    )
 
     written: list[Path] = []
     index_payload = {
@@ -489,7 +841,19 @@ def write_materiality_decisions(
         "phase": phase,
         "generated_at": generated_at,
         "producer_role": producer_role,
-        "decisions": [asdict(decision) for decision in decisions],
+        "decisions": [
+            decision_payload(
+                round_dir,
+                decision,
+                case_id=case_id,
+                round_id=round_id,
+                workflow_profile=workflow_profile,
+                generated_at=generated_at,
+                producer_role=producer_role,
+            )
+            for decision in decisions
+        ],
+        "next_actions": [next_action_payload(action) for action in next_actions],
     }
     index_path = round_dir / INDEX_REL
     index_path.write_text(json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -504,6 +868,7 @@ def write_materiality_decisions(
             continue
         decision = next(item for item in decisions if item.role == role)
         payload = decision_payload(
+            round_dir,
             decision,
             case_id=case_id,
             round_id=round_id,
@@ -561,6 +926,274 @@ def validate_materiality_decision_payload(
     if limitations is not None and not isinstance(limitations, list):
         errors.append(f"{rel_path}: limitations must be a list")
     return errors
+
+
+def validate_materiality_next_actions_payload(
+    actions: Any,
+    rel_path: str,
+    *,
+    workflow_profile: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(actions, list):
+        return [f"{rel_path}: next_actions must be a list"]
+    for index, action in enumerate(actions, start=1):
+        prefix = f"{rel_path}: next_actions item {index}"
+        if not isinstance(action, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        role = action.get("role")
+        if role not in NEXT_ACTION_ROLES:
+            errors.append(f"{prefix}: role must be one of {sorted(NEXT_ACTION_ROLES)}")
+        action_profile = action.get("workflow_profile")
+        if action_profile not in WORKFLOW_PROFILES:
+            errors.append(f"{prefix}: workflow_profile must be one of {sorted(WORKFLOW_PROFILES)}")
+        elif workflow_profile is not None and action_profile != workflow_profile:
+            errors.append(f"{prefix}: workflow_profile must be {workflow_profile}")
+        if action.get("status") not in NEXT_ACTION_STATUSES:
+            errors.append(f"{prefix}: status must be one of {sorted(NEXT_ACTION_STATUSES)}")
+        if action.get("severity") not in NEXT_ACTION_SEVERITIES:
+            errors.append(f"{prefix}: severity must be one of {sorted(NEXT_ACTION_SEVERITIES)}")
+        for field in ("required_artifact_path", "reason", "command", "skill", "typed_limitation_scope"):
+            value = action.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{prefix}: {field} must be a non-empty string")
+        required_path = action.get("required_artifact_path")
+        if isinstance(required_path, str) and not is_safe_round_relative_path(required_path):
+            errors.append(f"{prefix}: required_artifact_path must be relative inside the round")
+        source_refs = action.get("source_refs")
+        if not isinstance(source_refs, list):
+            errors.append(f"{prefix}: source_refs must be a list")
+        elif any(not isinstance(item, str) or not source_ref_is_allowed(item) for item in source_refs):
+            errors.append(f"{prefix}: source_refs must be safe round-relative paths or allowed synthetic refs")
+        source_sha256 = action.get("source_sha256")
+        if not isinstance(source_sha256, dict):
+            errors.append(f"{prefix}: source_sha256 must be an object")
+        else:
+            for ref, digest in source_sha256.items():
+                if not isinstance(ref, str) or not is_safe_round_relative_path(ref):
+                    errors.append(f"{prefix}: source_sha256 keys must be safe round-relative paths")
+                if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append(f"{prefix}: source_sha256 values must be sha256 hex strings")
+        limitations = action.get("limitations")
+        if not isinstance(limitations, list):
+            errors.append(f"{prefix}: limitations must be a list")
+    return errors
+
+
+def load_review_materiality_index(
+    round_dir: Path,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+    workflow_profile: str | None = None,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    payload, load_errors = load_json_object(round_dir / INDEX_REL)
+    if payload is None:
+        return None, load_errors
+    errors: list[str] = []
+    if payload.get("schema_version") != INDEX_SCHEMA:
+        errors.append(f"{INDEX_REL.as_posix()}: schema_version must be {INDEX_SCHEMA}")
+    if case_id is not None and payload.get("case_id") != case_id:
+        errors.append(f"{INDEX_REL.as_posix()}: case_id must be {case_id}")
+    if round_id is not None and payload.get("round_id") != round_id:
+        errors.append(f"{INDEX_REL.as_posix()}: round_id must be {round_id}")
+    profile = payload.get("workflow_profile")
+    if profile not in WORKFLOW_PROFILES:
+        errors.append(f"{INDEX_REL.as_posix()}: workflow_profile must be one of {sorted(WORKFLOW_PROFILES)}")
+    elif workflow_profile is not None and profile != workflow_profile:
+        errors.append(f"{INDEX_REL.as_posix()}: workflow_profile must be {workflow_profile}")
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        errors.append(f"{INDEX_REL.as_posix()}: decisions must be a list")
+    errors.extend(
+        validate_materiality_next_actions_payload(
+            payload.get("next_actions", []),
+            INDEX_REL.as_posix(),
+            workflow_profile=workflow_profile,
+        )
+    )
+    return payload, errors
+
+
+def _validate_source_sha256_payload(value: Any, prefix: str) -> list[str]:
+    errors: list[str] = []
+    if value is None:
+        return errors
+    if not isinstance(value, dict):
+        return [f"{prefix}: source_sha256 must be an object when present"]
+    for ref, digest in value.items():
+        if not isinstance(ref, str) or not is_safe_round_relative_path(ref):
+            errors.append(f"{prefix}: source_sha256 keys must be safe round-relative paths")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            errors.append(f"{prefix}: source_sha256 values must be sha256 hex strings")
+    return errors
+
+
+def _index_decisions_from_payload(
+    payload: dict[str, Any]
+) -> tuple[list[MaterialityDecision], dict[str, dict[str, str]], list[str]]:
+    loaded = payload.get("decisions")
+    if not isinstance(loaded, list):
+        return [], {}, []
+    decisions: list[MaterialityDecision] = []
+    hashes_by_role: dict[str, dict[str, str]] = {}
+    errors: list[str] = []
+    for index, item in enumerate(loaded, start=1):
+        prefix = f"{INDEX_REL.as_posix()}: decisions item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        role = item.get("role")
+        if role not in MATERIALITY_ROLES:
+            errors.append(f"{prefix}: role must be one of {list(MATERIALITY_ROLES)}")
+            continue
+        recommendation = item.get("recommendation")
+        if recommendation not in {"material", "not_material"}:
+            errors.append(f"{prefix}: recommendation must be material or not_material")
+            continue
+        fields: dict[str, str] = {}
+        for field in ("scope", "impact", "reason"):
+            value = item.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"{prefix}: {field} must be a non-empty string")
+            else:
+                fields[field] = value
+        source_refs = item.get("source_refs")
+        if not isinstance(source_refs, list):
+            errors.append(f"{prefix}: source_refs must be a list")
+            refs: tuple[str, ...] = ()
+        else:
+            invalid_refs = [ref for ref in source_refs if not isinstance(ref, str) or not source_ref_is_allowed(ref)]
+            if invalid_refs:
+                errors.append(f"{prefix}: source_refs must be safe round-relative paths or allowed synthetic refs")
+            refs = tuple(ref for ref in source_refs if isinstance(ref, str))
+        limitations = item.get("limitations", [])
+        if not isinstance(limitations, list):
+            errors.append(f"{prefix}: limitations must be a list")
+            limitation_values: tuple[str, ...] = ()
+        else:
+            limitation_values = tuple(str(value) for value in limitations if isinstance(value, str))
+        source_hashes = item.get("source_sha256")
+        hash_errors = _validate_source_sha256_payload(source_hashes, prefix)
+        errors.extend(hash_errors)
+        if isinstance(source_hashes, dict) and not hash_errors:
+            hashes_by_role[str(role)] = {str(ref): str(digest) for ref, digest in source_hashes.items()}
+        if {"scope", "impact", "reason"} <= fields.keys():
+            decisions.append(
+                MaterialityDecision(
+                    role=str(role),
+                    recommendation=str(recommendation),
+                    scope=fields["scope"],
+                    impact=fields["impact"],
+                    reason=fields["reason"],
+                    source_refs=refs,
+                    limitations=limitation_values,
+                )
+            )
+    return decisions, hashes_by_role, errors
+
+
+def _stored_source_hash_stale_reasons(
+    round_dir: Path,
+    source_hashes: dict[str, str],
+    *,
+    role: str,
+) -> list[str]:
+    reasons: list[str] = []
+    for ref, recorded_hash in sorted(source_hashes.items()):
+        if not is_safe_round_relative_path(ref):
+            reasons.append(f"{role}: stored materiality source ref is unsafe: {ref}")
+            continue
+        path = round_dir / ref
+        if not path.is_file():
+            reasons.append(f"{role}: stored materiality source ref is missing: {ref}")
+        elif sha256_file(path) != recorded_hash:
+            reasons.append(f"{role}: stored materiality source hash is stale for {ref}")
+    return reasons
+
+
+def _current_required_next_actions_from_index(
+    round_dir: Path,
+    payload: dict[str, Any],
+    *,
+    workflow_profile: str,
+) -> tuple[list[MaterialityNextAction], list[str]]:
+    decisions, hashes_by_role, errors = _index_decisions_from_payload(payload)
+    if errors:
+        return [], errors
+    actions = build_materiality_next_actions(round_dir, decisions, workflow_profile=workflow_profile)
+    action_roles = {action.role for action in actions}
+    material_decisions = {decision.role: decision for decision in decisions if decision.material}
+    for role in sorted(NEXT_ACTION_ROLES):
+        if role in action_roles:
+            continue
+        decision = material_decisions.get(role)
+        if decision is None:
+            continue
+        config = NEXT_ACTION_CONFIG[role]
+        if _has_typed_limitation(
+            round_dir,
+            config["typed_limitation_scope"],
+            workflow_profile=workflow_profile,
+        ):
+            continue
+        stale_reasons = _stored_source_hash_stale_reasons(
+            round_dir,
+            hashes_by_role.get(role, {}),
+            role=role,
+        )
+        if not stale_reasons:
+            continue
+        actions.append(
+            _make_next_action(
+                round_dir,
+                decision=decision,
+                workflow_profile=workflow_profile,
+                required_artifact_path=config["required_artifact_path"],
+                reason="; ".join(stale_reasons),
+                command=config["command"],
+                skill=config["skill"],
+                typed_limitation_scope=config["typed_limitation_scope"],
+                source_refs=list(decision.source_refs),
+                limitations=tuple(stale_reasons),
+            )
+        )
+    return actions, []
+
+
+def unresolved_required_next_actions(
+    round_dir: Path,
+    *,
+    workflow_profile: str,
+    case_id: str | None = None,
+    round_id: str | None = None,
+    require_index: bool = False,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    payload, errors = load_review_materiality_index(
+        round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        workflow_profile=workflow_profile,
+    )
+    if payload is None:
+        if require_index and not errors:
+            errors = [
+                f"{INDEX_REL.as_posix()}: missing; run scripts/check-review-materiality --workflow {workflow_profile}"
+            ]
+        return [], errors
+    current_actions, current_errors = _current_required_next_actions_from_index(
+        round_dir,
+        payload,
+        workflow_profile=workflow_profile,
+    )
+    errors.extend(current_errors)
+    unresolved = [
+        next_action_payload(action)
+        for action in current_actions
+        if action.status == "unresolved" and action.severity == "required"
+    ]
+    return unresolved, errors
 
 
 def validate_review_materiality_artifact(

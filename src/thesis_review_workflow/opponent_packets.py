@@ -16,6 +16,7 @@ from thesis_review_workflow.review_packets import (
     extracted_text_paths,
     generated_role_paths,
     late_communications_section,
+    materiality_next_actions_section,
     omen_advisory_section,
     path_list,
     prune_inactive_packets,
@@ -387,6 +388,12 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
     active_packets = generated_role_paths(PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
     optional_sections = [
         current_evidence_snapshot_section(round_dir, case_id=case_id, round_id=round_id),
+        materiality_next_actions_section(
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            workflow_profile="opponent_review",
+        ),
         late_communications_section(round_dir),
     ]
     if role.key == "code_quality":

@@ -159,7 +159,7 @@ Out of scope:
 
 ### Slice 3 - Materiality To Action Bridge
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): route materiality next actions`
 - Expected paths:
   - `src/thesis_review_workflow/review_materiality.py`
@@ -354,6 +354,16 @@ Out of scope:
   records directory refs as `invalid` without hashing them, and rejects unsafe
   refs before reading. Slice review found dropped deleted refs, stale negative
   statuses, and unsafe builder hashing; all were fixed.
+- 2026-05-11: Slice 3 added materiality `next_actions` into
+  `work/review_materiality/index.json`, renders unresolved GitHub/quantitative
+  actions in supervisor/opponent packets, and blocks synthesis/final waves when
+  a mapped workflow lacks a current materiality index or has unresolved required
+  actions. Slice review found stale stored next actions, weak source-freshness
+  handling, missing-index bypass, hard routing from raw GitHub URLs in notes,
+  and weak typed limitations; the implementation now re-evaluates actions from
+  current artifacts/limitations, hash-binds decision sources, ignores raw note
+  URLs for hard materiality, validates current snapshots when present, and
+  requires a typed materiality limitation contract.
 
 ## Decision Log
 

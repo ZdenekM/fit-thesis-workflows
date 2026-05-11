@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from thesis_review_workflow.review_approvals import sha256_file
+from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, validate_wave
 
 
@@ -280,3 +281,58 @@ def test_builtin_profiles_keep_draft_and_post_review_gates_separate() -> None:
 
     opponent_reviewed = builtin_wave_spec("opponent-materials", "reviewed")
     assert opponent_reviewed.outputs[0].checks[0].args == ("check-opponent-materials",)
+
+
+def test_wave_gate_blocks_unresolved_materiality_next_actions(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+    source = round_dir / "inputs" / "results.csv"
+    source.parent.mkdir()
+    source.write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="quantitative_claims",
+                recommendation="material",
+                scope="explicit_request",
+                impact="student-action priority",
+                reason="test materiality decision",
+                source_refs=("inputs/results.csv",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="non_final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("supervisor-feedback", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("materiality next action unresolved" in error for error in result.errors)
+
+
+def test_wave_gate_requires_materiality_index_for_synthesis_waves(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("supervisor-feedback", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("work/review_materiality/index.json: missing" in error for error in result.errors)

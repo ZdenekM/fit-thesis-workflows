@@ -29,6 +29,7 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
+from thesis_review_workflow.review_materiality import validate_materiality_workflow_limitations
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -702,6 +703,8 @@ def check_manifest(
     limitations = manifest.get("workflow_limitations")
     if limitations is not None and not isinstance(limitations, list):
         errors.append("workflow_limitations must be a list")
+    else:
+        errors.extend(validate_materiality_workflow_limitations(limitations))
 
     artifact_paths = check_artifacts(manifest, case_id, round_id, round_dir, require_complete, errors, warnings)
     check_helper_checks(

@@ -154,6 +154,7 @@ write_json(
         "workflow_profile": "supervisor_feedback",
         "reviewer_role": "thesis-supervisor-feedback-review",
         "verdict": "approved",
+        "blocking_findings_count": 0,
         "reviewed_artifact_path": "outputs/feedback_student.md",
         "reviewed_artifact_sha256": digest("outputs/feedback_student.md"),
         "review_basis_path": "work/feedback_student_draft.md",
@@ -164,11 +165,12 @@ write_json(
     },
 )
 write_json(
-    "work/reviews/feedback_student_rejected.json",
+    "work/reviews/feedback_student_rejected_review.json",
     {
         "workflow_profile": "supervisor_feedback",
         "reviewer_role": "thesis-supervisor-feedback-review",
         "verdict": "rejected",
+        "blocking_findings_count": 1,
         "reviewed_artifact_path": "outputs/feedback_student.md",
         "reviewed_artifact_sha256": digest("outputs/feedback_student.md"),
         "review_basis_path": "work/missing_basis.md",
@@ -208,7 +210,7 @@ cat >"$round_dir/work/wave-approval-rejected.json" <<'EOF'
     {
       "role": "feedback_review",
       "path": "outputs/feedback_student.md",
-      "approval_record": "work/reviews/feedback_student_rejected.json"
+      "approval_record": "work/reviews/feedback_student_rejected_review.json"
     }
   ]
 }
@@ -217,7 +219,7 @@ EOF
 expect_failure "rejected approval record fails" "$repo_root/scripts/check-review-wave" \
   --spec work/wave-approval-rejected.json "$case_id"
 expect_output "verdict must be approved/pass"
-expect_output "review basis is missing"
+expect_output "review_basis_path points to a missing file"
 
 cat >"$round_dir/work/wave-approval-unsafe.json" <<'EOF'
 {

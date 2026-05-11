@@ -219,6 +219,43 @@ def test_supervisor_optional_materiality_paths_are_role_specific(tmp_path: Path)
     assert "typography_formal.md" not in names
 
 
+def test_supervisor_packet_renders_materiality_next_actions(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="quantitative_claims",
+                recommendation="material",
+                scope="explicit_request",
+                impact="student-action priority",
+                reason="test materiality decision",
+                source_refs=("inputs/results.csv",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="non_final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    role = next(item for item in PACKET_ROLES if item.key == "text_assignment")
+
+    text = render_packet(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        role,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+
+    assert "## Materiality Next Actions" in text
+    assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
+    assert "thesis-quantitative-claims-review" in text
+
+
 def test_supervisor_packet_includes_previous_feedback_index(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     previous = round_dir.parents[0] / "round-previous" / "outputs" / "feedback_student.md"

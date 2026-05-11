@@ -179,6 +179,39 @@ def test_optional_materiality_paths_are_role_specific(tmp_path: Path) -> None:
     assert "literature_citation.md" not in names
 
 
+def test_opponent_packet_renders_materiality_next_actions(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "inputs").mkdir()
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="quantitative_claims",
+                recommendation="material",
+                scope="explicit_request",
+                impact="opponent report defensibility",
+                reason="test materiality decision",
+                source_refs=("inputs/results.csv",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    role = next(item for item in PACKET_ROLES if item.key == "text_structure_assignment")
+
+    text = render_packet("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir, role)
+
+    assert "## Materiality Next Actions" in text
+    assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
+
+
 def test_packet_marks_invalid_structured_artifact_as_limitation(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"

@@ -405,11 +405,25 @@ scripts/check-assignment-coverage <case-id>
 scripts/check-evidence-presence <case-id>
 scripts/check-code-reproducibility <case-id>
 scripts/check-evaluation-claims <case-id>
+scripts/update-current-evidence-snapshot <case-id>
+scripts/check-review-materiality --workflow supervisor_feedback <case-id>
 scripts/prepare-supervisor-packets <case-id>
+scripts/check-review-materiality --workflow opponent_review <case-id>
 scripts/prepare-opponent-packets <case-id>
 scripts/check-review-wave --workflow supervisor_feedback --wave draft <case-id>
 scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
 ```
+
+`scripts/check-review-materiality` nepíše verdikty o kvalitě práce. Z
+existujících strukturovaných artefaktů a explicitních vstupů vytvoří poradní
+materiality index; jeho `next_actions` řeknou, že před syntézou chybí například
+`outputs/github_code_intake.md` nebo `work/quantitative_claims.json`, případně
+že je potřeba zapsat typed limitation. Packet generátory tyto akce zobrazují a
+wave gate je u synthesis/final vln považuje za blokující, dokud nejsou
+vyřešené. Typed limitation pro takovou akci patří do
+`work/review_manifest.json` jako strukturovaný záznam s
+`trigger: materiality_next_action`, `scope`, `type`, `required_for`,
+`description`, `impact`, `status` a `accepted_by` nebo `reviewer_role`.
 
 Časté finální kontroly:
 

@@ -19,6 +19,7 @@ from thesis_review_workflow.review_materiality import (
     PHASES,
     WORKFLOW_PROFILES,
     build_materiality_decisions,
+    unresolved_required_next_actions,
     write_materiality_decisions,
 )
 
@@ -90,6 +91,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Review materiality phase: {resolved_phase}")
     for decision in decisions:
         print(render_decision_line(decision.role, decision.recommendation, decision.scope))
+    next_actions, action_errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile=args.workflow_profile,
+        case_id=args.case_id,
+        round_id=round_id,
+    )
+    if action_errors:
+        for error in action_errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+    for action in next_actions:
+        print(f"! next action {action['role']}: {action['required_artifact_path']} - {action['reason']}")
     for path in written:
         print(f"Wrote {rel_repo(root, path)}")
     print("Review materiality check passed")

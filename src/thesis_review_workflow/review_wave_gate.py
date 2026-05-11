@@ -11,6 +11,7 @@ from typing import Any
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import require_review_approval_path, validate_review_approval_artifact
+from thesis_review_workflow.review_materiality import unresolved_required_next_actions
 
 DEFAULT_HANDOFF_HEADING = "## Synthesis Handoff"
 
@@ -492,6 +493,7 @@ def validate_wave(
     require_handoffs: bool = False,
 ) -> GateResult:
     result = GateResult()
+    check_materiality_next_actions(round_dir, spec, case_id=case_id, round_id=round_id, result=result)
     for expected in spec.outputs:
         result.merge(
             validate_expected_output(
@@ -504,3 +506,42 @@ def validate_wave(
             )
         )
     return result
+
+
+def check_materiality_next_actions(
+    round_dir: Path,
+    spec: WaveSpec,
+    *,
+    case_id: str,
+    round_id: str,
+    result: GateResult,
+) -> None:
+    workflow_profile = materiality_profile_for_wave(spec)
+    if workflow_profile is None:
+        return
+    actions, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile=workflow_profile,
+        case_id=case_id,
+        round_id=round_id,
+        require_index=True,
+    )
+    for error in errors:
+        result.errors.append(f"materiality next actions: {error}")
+    for action in actions:
+        result.errors.append(
+            "materiality next action unresolved: "
+            f"{action.get('role')} requires {action.get('required_artifact_path')}: {action.get('reason')}"
+        )
+    if not errors and not actions:
+        result.passed.append("materiality next actions clear")
+
+
+def materiality_profile_for_wave(spec: WaveSpec) -> str | None:
+    workflow = spec.workflow.replace("-", "_")
+    wave = spec.wave.replace("-", "_")
+    if workflow == "supervisor_feedback" and wave in {"draft", "final"}:
+        return "supervisor_feedback"
+    if workflow == "opponent_materials" and wave in {"draft", "reviewed"}:
+        return "opponent_review"
+    return None
