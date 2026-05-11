@@ -5,6 +5,11 @@ description: Check whether BP/DP thesis text claims are supported by the submitt
 
 # Thesis Code Consistency
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill for text-versus-code claim checks inside supervisor feedback or opponent review.
 
 This skill answers whether the thesis says things that are supported by submitted artifacts. It does not answer whether the implementation is well engineered overall; use `thesis-code-quality-review` for architecture, maintainability, runtime risks, comments, developer documentation, and smoke-test readiness.

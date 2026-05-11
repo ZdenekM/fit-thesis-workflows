@@ -5,6 +5,11 @@ description: Review BP/DP cited literature for relevance, claim support, accessi
 
 # Thesis Literature Citation Review
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when a supervisor or opponent workflow needs a deeper look at
 whether cited literature is relevant and used defensibly. The output is
 internal/operator evidence, not student-facing prose by default.

@@ -55,13 +55,13 @@ NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims"}
 NEXT_ACTION_CONFIG = {
     "github_intake": {
         "required_artifact_path": "outputs/github_code_intake.md",
-        "command": "scripts/import-github-code <case-id> <round-id> ...; then run thesis-github-code-intake",
+        "command": "import-github-code <case-id> <round-id> ...; then run thesis-github-code-intake",
         "skill": "thesis-github-code-intake",
         "typed_limitation_scope": "github_intake",
     },
     "quantitative_claims": {
         "required_artifact_path": QUANTITATIVE_CLAIMS_REL.as_posix(),
-        "command": "Run an authorized thesis-quantitative-claims-review, then scripts/check-evaluation-claims.",
+        "command": "Run an authorized thesis-quantitative-claims-review, then check-evaluation-claims.",
         "skill": "thesis-quantitative-claims-review",
         "typed_limitation_scope": "quantitative_claims",
     },
@@ -1178,9 +1178,7 @@ def unresolved_required_next_actions(
     )
     if payload is None:
         if require_index and not errors:
-            errors = [
-                f"{INDEX_REL.as_posix()}: missing; run scripts/check-review-materiality --workflow {workflow_profile}"
-            ]
+            errors = [f"{INDEX_REL.as_posix()}: missing; run check-review-materiality --workflow {workflow_profile}"]
         return [], errors
     current_actions, current_errors = _current_required_next_actions_from_index(
         round_dir,

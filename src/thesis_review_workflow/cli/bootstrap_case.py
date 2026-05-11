@@ -21,7 +21,7 @@ from thesis_review_workflow.code_workspace import (
     safe_copy_input_dir,
     safe_name,
 )
-from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.commands import command_display, repo_command_environment, resolve_repo_command
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -158,7 +158,7 @@ def run_command(root: Path, args: list[str], *, check: bool) -> subprocess.Compl
     )
     if check and result.returncode != 0:
         print(result.stdout, end="")
-        die(f"Command failed: {' '.join(args)}")
+        die(f"Command failed: {command_display(args)}")
     return result
 
 
@@ -681,7 +681,7 @@ def print_command_result(title: str, command: list[str], result: subprocess.Comp
     status = "PASS" if result.returncode == 0 else "NEEDS ATTENTION"
     print()
     print(f"## {title}: {status}")
-    print(f"$ {' '.join(command)}")
+    print(f"$ {command_display(command)}")
     if result.stdout.strip():
         print(result.stdout.rstrip())
 

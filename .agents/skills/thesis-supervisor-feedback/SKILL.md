@@ -5,6 +5,11 @@ description: Iterative DEEP workflow for student-facing supervisor feedback on B
 
 # Thesis Supervisor Feedback
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when preparing feedback that the supervisor can send to a student with minimal editing.
 
 ## Inputs

@@ -37,9 +37,43 @@ WINDOWS_CONTRACT_FILES = {
     Path("src/thesis_review_workflow/cli/package_workflow_tools.py"): (
         "CMD_LAUNCHER",
         "PS_LAUNCHER",
-        "Windows launchers are generated as .cmd and .ps1",
+        "The extensionless launchers are POSIX-only",
+    ),
+    Path("src/thesis_review_workflow/commands.py"): (
+        "canonical_command_text",
+        "dist\\\\workflow-tools\\\\bin",
+    ),
+    Path("src/thesis_review_workflow/cli/init_review_manifest.py"): (
+        "Store logical workflow commands",
+        "canonical_command_text",
+    ),
+    Path("README.md"): (
+        "Na Windows nespouštějte ani neklikejte bezpříponové",
+        "dist\\workflow-tools\\bin\\init-review-manifest.cmd",
+        ".\\dist\\workflow-tools\\bin\\init-review-manifest.ps1",
+    ),
+    Path("docs/workflow-command-surface.md"): (
+        "do not run or click extensionless `scripts/<tool>` files",
+        "stores helper check",
+    ),
+    Path("docs/agent-scheduling.md"): (
+        "Command routing: `scripts/<tool>` examples in this document",
+        "do not run or click extensionless `scripts/<tool>` files",
+    ),
+    Path("docs/historical-opponent-calibration.md"): (
+        "Command routing: `scripts/<tool>` examples in this document",
+        "do not run or click extensionless `scripts/<tool>` files",
+    ),
+    Path(".codex/hooks/session_start_context.py"): (
+        "logical workflow command check-supervisor-ready",
+        "packaged .cmd/.ps1 launcher",
     ),
 }
+
+SKILL_COMMAND_ROUTING_SNIPPETS = (
+    "Command routing: treat `scripts/<tool>` examples below as logical workflow",
+    "not run or click extensionless `scripts/<tool>` files",
+)
 
 
 def script_files(root: Path) -> list[Path]:
@@ -113,6 +147,10 @@ def check_windows_operator_contract(root: Path, errors: list[str]) -> None:
     check_required_snippets(root / "AGENTS.md", WINDOWS_RULE_SNIPPETS, errors)
     for rel_path, snippets in WINDOWS_CONTRACT_FILES.items():
         check_required_snippets(root / rel_path, snippets, errors)
+    skills_dir = root / ".agents" / "skills"
+    if skills_dir.is_dir():
+        for skill_path in sorted(skills_dir.glob("*/SKILL.md")):
+            check_required_snippets(skill_path, SKILL_COMMAND_ROUTING_SNIPPETS, errors)
 
 
 def main(argv: list[str] | None = None) -> int:

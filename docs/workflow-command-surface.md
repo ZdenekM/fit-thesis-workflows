@@ -23,8 +23,10 @@ run repeatedly while working on a case. Each tool must have:
 - focused pytest or smoke coverage for the command contract.
 
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
-quick use. For repeated operator and agent runs, package the tools first and use
-`dist/workflow-tools/bin/`.
+quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
+Windows treats them as files to open, not native commands, and may show a
+"Select an app" dialog. For repeated operator and agent runs, package the tools
+first and use `dist/workflow-tools/bin/`.
 
 ### Packaging Bootstrap Commands
 
@@ -52,6 +54,13 @@ The launchers:
 - clear `PYTHONPATH` so local source shadowing does not leak into packaged runs;
 - default `PEX_ROOT` to `.pants.d/pex_root` inside the repository;
 - require Python 3.12, with `WORKFLOW_TOOLS_PYTHON` as an explicit override.
+
+Generated provenance such as `work/review_manifest.json` stores helper check
+commands as logical workflow command names, for example
+`check-supervisor-ready <case-id> [round-id]`, not as POSIX wrapper
+paths. Repository Python runners resolve those logical names directly to CLI
+modules; Windows operators should translate them to the matching packaged
+`.cmd` or `.ps1` launcher.
 
 ### Developer Smokes
 

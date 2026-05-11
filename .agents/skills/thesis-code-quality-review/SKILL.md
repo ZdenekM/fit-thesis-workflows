@@ -5,6 +5,11 @@ description: Review BP/DP submitted code for architecture, design quality, maint
 
 # Thesis Code Quality Review
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when a thesis round contains implementation artifacts and you need to assess whether the implementation is technically well engineered and defensible.
 
 This is not the text-code consistency check. Use `thesis-code-consistency` for whether thesis claims match code, README, configs, tests, and results. Use this skill for the quality of the implementation itself.

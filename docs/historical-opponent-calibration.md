@@ -10,6 +10,11 @@ the readiness gate for opponent workflows. Historical calibration is additional
 case-local context that an explicitly authorized agent may use after the current
 case already has reviewed opponent materials and an accepted report trace.
 
+Command routing: `scripts/<tool>` examples in this document are Linux/dev
+shorthand and logical workflow command names. On Windows, package the workflow
+tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching
+PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
+
 ## Private Workspace
 
 Historical reports, theses, source archives, extracted text, notes, generated

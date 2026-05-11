@@ -18,7 +18,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
-from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.commands import command_display, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import (
     OPPONENT_CALIBRATION_ADVISORY_REL,
     OPPONENT_CALIBRATION_USE_REL,
@@ -61,7 +61,7 @@ def run_required(root: Path, command: list[str]) -> None:
     )
     if result.returncode != 0:
         detail = "\n".join(line for line in (result.stderr + result.stdout).splitlines() if line.strip())
-        raise SystemExit(f"Required command failed: {' '.join(command)}\n{detail}")
+        raise SystemExit(f"Required command failed: {command_display(command)}\n{detail}")
 
 
 def sha256_file(path: Path) -> str:

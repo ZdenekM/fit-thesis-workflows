@@ -7,7 +7,12 @@ from thesis_review_workflow.cli.check_review_manifest import (
     check_source_hashes,
     required_helper_targets,
 )
-from thesis_review_workflow.cli.init_review_manifest import merge_checks, output_artifacts
+from thesis_review_workflow.cli.init_review_manifest import (
+    merge_checks,
+    output_artifacts,
+    required_checks,
+    run_check_record,
+)
 from thesis_review_workflow.review_manifest import (
     apply_review_approval_records,
     ensure_manifest,
@@ -221,6 +226,59 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
     assert "check-evaluation-claims" in check_names
 
 
+def test_init_manifest_required_checks_use_logical_commands(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/feedback_student.md"},
+        round_dir,
+        {},
+    )
+
+    commands = {item["check"]: item["command"] for item in checks}
+
+    assert commands["check-supervisor-ready"] == "check-supervisor-ready case-a round-a"
+    assert commands["check-feedback-output"] == "check-feedback-output case-a round-a"
+    assert commands["check-review-manifest"] == "check-review-manifest --require-complete case-a round-a"
+    assert all(not command.startswith("scripts/") for command in commands.values())
+
+
+def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    module_dir = root / "src" / "thesis_review_workflow" / "cli"
+    module_dir.mkdir(parents=True)
+    (module_dir.parent / "__init__.py").write_text("", encoding="utf-8")
+    (module_dir / "__init__.py").write_text("", encoding="utf-8")
+    (module_dir / "check_reviewer_profile.py").write_text(
+        "import sys\n"
+        "\n"
+        "def main(argv):\n"
+        "    return 0 if argv[1:] == ['case-a'] else 1\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    raise SystemExit(main(sys.argv))\n",
+        encoding="utf-8",
+    )
+    check: dict[str, object] = {
+        "check": "check-reviewer-profile",
+        "command": "check-reviewer-profile case-a",
+        "target_artifacts": [],
+        "target_sha256": {},
+        "status": "not_recorded",
+        "checked_at": "",
+        "exit_code": None,
+        "notes": "",
+    }
+
+    run_check_record(root, round_dir, check)
+
+    assert check["status"] == "passed", check["notes"]
+    assert check["exit_code"] == 0
+
+
 def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
@@ -393,6 +451,46 @@ def test_init_manifest_marks_changed_helper_target_set_stale() -> None:
         "work/opponent_report_trace.json",
         "outputs/oponent_podklady_revidovane.md",
     ]
+
+
+def test_init_manifest_preserves_status_when_command_surface_changes() -> None:
+    generated = [
+        {
+            "check": "check-opponent-report",
+            "command": "check-opponent-report case-a round-a",
+            "target_artifacts": ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"],
+            "target_sha256": {
+                "work/opponent_report_trace.json": "1" * 64,
+                "outputs/oponent_podklady_revidovane.md": "2" * 64,
+            },
+            "status": "not_recorded",
+            "checked_at": "",
+            "exit_code": None,
+            "notes": "new",
+        }
+    ]
+    existing = {
+        "helper_checks": [
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report case-a round-a",
+                "target_artifacts": ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {
+                    "work/opponent_report_trace.json": "1" * 64,
+                    "outputs/oponent_podklady_revidovane.md": "2" * 64,
+                },
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+                "notes": "old",
+            }
+        ]
+    }
+
+    merged = merge_checks(existing, generated)
+
+    assert merged[0]["status"] == "passed"
+    assert merged[0]["command"] == "check-opponent-report case-a round-a"
 
 
 def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> None:

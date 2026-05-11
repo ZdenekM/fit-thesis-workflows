@@ -5,6 +5,11 @@ description: DEEP workflow for internal opponent materials for a BP/DP report, w
 
 # Thesis Opponent Materials
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill to prepare internal materials for an opponent report. The output is not the final report to submit.
 
 ## Inputs

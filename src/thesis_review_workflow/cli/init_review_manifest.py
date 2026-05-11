@@ -31,7 +31,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
-from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.commands import canonical_command_text, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import apply_review_approval_records, merge_supporting_work_artifacts
@@ -279,10 +279,13 @@ def required_checks(
     checks: list[dict[str, Any]] = []
 
     def add(name: str, command: str, targets: list[str]) -> None:
+        # Store logical workflow commands, not POSIX wrapper paths. The runner
+        # resolves them to Python modules, and operator docs map them to native
+        # launchers on Windows.
         checks.append(
             {
                 "check": name,
-                "command": command,
+                "command": canonical_command_text(command),
                 "target_artifacts": targets,
                 "target_sha256": target_hashes(round_dir, targets),
                 "status": "not_recorded",
@@ -295,81 +298,81 @@ def required_checks(
     if "outputs/feedback_student.md" in artifact_paths:
         add(
             "check-supervisor-ready",
-            f"scripts/check-supervisor-ready {case_id} {round_id}",
+            f"check-supervisor-ready {case_id} {round_id}",
             ["outputs/feedback_student.md"],
         )
         add(
             "check-feedback-language",
-            f"scripts/check-feedback-language {case_id} {round_id}",
+            f"check-feedback-language {case_id} {round_id}",
             ["outputs/feedback_student.md"],
         )
         add(
             "check-feedback-output",
-            f"scripts/check-feedback-output {case_id} {round_id}",
+            f"check-feedback-output {case_id} {round_id}",
             ["outputs/feedback_student.md"],
         )
     if "outputs/oponent_podklady_revidovane.md" in artifact_paths:
         add(
             "check-round-ready",
-            f"scripts/check-round-ready {case_id} {round_id}",
+            f"check-round-ready {case_id} {round_id}",
             ["outputs/oponent_podklady_revidovane.md"],
         )
         add(
             "check-opponent-materials",
-            f"scripts/check-opponent-materials {case_id} {round_id}",
+            f"check-opponent-materials {case_id} {round_id}",
             ["outputs/oponent_podklady_revidovane.md"],
         )
         targets = ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"]
         if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
             targets.append("work/oponent_posudek_draft.md")
-        add("check-opponent-report", f"scripts/check-opponent-report {case_id} {round_id}", targets)
+        add("check-opponent-report", f"check-opponent-report {case_id} {round_id}", targets)
     if "outputs/figure_media_review.md" in artifact_paths:
         add(
             "check-figure-media-review",
-            f"scripts/check-figure-media-review {case_id} {round_id}",
+            f"check-figure-media-review {case_id} {round_id}",
             ["outputs/figure_media_review.md"],
         )
     if "outputs/typography_formal_review.md" in artifact_paths:
         add(
             "check-typography-formal",
-            f"scripts/check-typography-formal --require-output {case_id} {round_id}",
+            f"check-typography-formal --require-output {case_id} {round_id}",
             ["outputs/typography_formal_review.md"],
         )
     if "outputs/code_consistency.md" in artifact_paths:
         add(
             "check-code-consistency",
-            f"scripts/check-code-consistency {case_id} {round_id}",
+            f"check-code-consistency {case_id} {round_id}",
             ["outputs/code_consistency.md"],
         )
     if "outputs/code_quality_review.md" in artifact_paths:
         add(
             "check-code-quality-review",
-            f"scripts/check-code-quality-review {case_id} {round_id}",
+            f"check-code-quality-review {case_id} {round_id}",
             ["outputs/code_quality_review.md"],
         )
     if supporting_work_artifact_present(manifest, "work/quantitative_claims.json"):
         add(
             "check-evaluation-claims",
-            f"scripts/check-evaluation-claims {case_id} {round_id}",
+            f"check-evaluation-claims {case_id} {round_id}",
             ["work/quantitative_claims.json"],
         )
     if "outputs/revision_diff.md" in artifact_paths:
         add(
             "check-revision-diff",
-            f"scripts/check-revision-diff {case_id} {round_id}",
+            f"check-revision-diff {case_id} {round_id}",
             ["outputs/revision_diff.md"],
         )
     if "outputs/reviewer_calibration_profile.md" in artifact_paths:
         add(
             "check-opponent-calibration-profile",
-            f"scripts/check-opponent-calibration-profile {case_id} {round_id}",
+            f"check-opponent-calibration-profile {case_id} {round_id}",
             calibration_profile_check_targets(round_dir),
         )
     if coverage_required(round_dir, manifest):
-        add("check-agent-coverage", f"scripts/check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
+        add("check-agent-coverage", f"check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
     add(
         "check-review-manifest",
-        f"scripts/check-review-manifest --require-complete {case_id} {round_id}",
+        f"check-review-manifest --require-complete {case_id} {round_id}",
         sorted(artifact_paths),
     )
     checks[-1]["status"] = "not_applicable"
@@ -395,7 +398,11 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
         previous = existing_by_name.get(item["check"])
         if item.get("check") == "check-review-manifest":
             merged.append(item)
-        elif isinstance(previous, dict) and previous.get("command") == item.get("command"):
+        elif (
+            isinstance(previous, dict)
+            and isinstance(previous.get("command"), str)
+            and canonical_command_text(previous["command"]) == canonical_command_text(item.get("command", ""))
+        ):
             if previous.get("target_artifacts") != item.get("target_artifacts"):
                 stale = dict(item)
                 stale["notes"] = "Target artifact set changed since the previous check; rerun this helper check."
@@ -407,6 +414,7 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
                 merged.append(stale)
                 continue
             updated = {**item, **previous}
+            updated["command"] = item["command"]
             if not updated.get("target_artifacts"):
                 updated["target_artifacts"] = item["target_artifacts"]
             if not updated.get("target_sha256"):

@@ -207,6 +207,15 @@ def package(root: Path) -> list[str]:
     return expected_tools
 
 
+def launcher_listing_lines(tools: list[str]) -> list[str]:
+    lines = ["Packaged tools:"]
+    for tool_name in sorted(tools):
+        lines.append(f"- POSIX launcher: dist/workflow-tools/bin/{tool_name}")
+        lines.append(f"  Windows cmd: dist\\workflow-tools\\bin\\{tool_name}.cmd")
+        lines.append(f"  PowerShell: .\\dist\\workflow-tools\\bin\\{tool_name}.ps1")
+    return lines
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scripts/package-workflow-tools",
@@ -221,12 +230,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print()
-    print("Packaged tools:")
-    for tool_name in sorted(tools):
-        for suffix in ("", ".cmd", ".ps1"):
-            print(f"- dist/workflow-tools/bin/{tool_name}{suffix}")
+    for line in launcher_listing_lines(tools):
+        print(line)
     print("PEX_ROOT defaults to .pants.d/pex_root in the repository unless already set.")
-    print("Windows launchers are generated as .cmd and .ps1 next to the POSIX launchers.")
+    print("The extensionless launchers are POSIX-only; Windows users should run the .cmd or .ps1 launchers.")
     return 0
 
 

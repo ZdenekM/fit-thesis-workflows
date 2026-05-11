@@ -5,6 +5,11 @@ description: Private DEEP workflow for analyzing historical opponent reports and
 
 # Historical Opponent Calibration
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill only after the user explicitly authorizes agents in the current
 request. Historical reports, theses, code, notes, generated case analyses,
 profiles, checklists, and reviews stay under ignored `cases/`.

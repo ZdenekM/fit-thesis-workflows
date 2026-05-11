@@ -5,6 +5,11 @@ explicitly authorizes agents, keep review quality and required role separation,
 but bound the number of live agents so thesis rounds can run on machines with
 limited RAM.
 
+Command routing: `scripts/<tool>` examples in this document are Linux/dev
+shorthand and logical workflow command names. On Windows, package the workflow
+tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching
+PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
+
 ## Default Limit
 
 - Run at most 2 spawned workflow agents concurrently by default.

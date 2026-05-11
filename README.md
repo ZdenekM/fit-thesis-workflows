@@ -289,10 +289,10 @@ basis. Strict closeout nebere takový výstup jako hotový, dokud manifest
 neobsahuje review status, reviewer roli, čas review, approval record a hash
 přesně té verze souboru, která má být použita.
 
-Pokud dostupné vstupy vyžadují specializované role, `scripts/init-review-manifest`
+Pokud dostupné vstupy vyžadují specializované role, `init-review-manifest`
 založí nebo obnoví generovaný `work/agent_coverage.json`. Zdroj pravdy pro
 generator/reviewer údaje zůstává `work/review_manifest.json`; v coverage souboru
-se ručně doplňují jen typované výjimky. `scripts/check-agent-coverage` hlídá,
+se ručně doplňují jen typované výjimky. `check-agent-coverage` hlídá,
 že povinné role mají odpovídající výstupní evidenci, skill, zapsaného
 role-specific agenta a u review rolí také reviewer údaje a hash kontrolované
 verze. Chybějící roli je možné uzavřít jen konkrétní `typed_limitation`, ne
@@ -372,6 +372,14 @@ agenta požádat například:
 ```text
 Spusť readiness a privacy kontroly pro aktuální case a řekni mi, co chybí.
 ```
+
+Všechny tvary `scripts/<tool>` v tomto README jsou Linux/dev zkratka a zároveň logický
+název workflow příkazu. Na Windows nespouštějte ani neklikejte bezpříponové
+`scripts/<tool>` soubory; Windows je může zkusit otevřít jako dokument a ukázat
+dialog „Select an app“. Nejprve zabalte workflow nástroje přes
+`scripts\package-workflow-tools.cmd` nebo `.\scripts\package-workflow-tools.ps1`
+a potom používejte `dist\workflow-tools\bin\<tool>.cmd` nebo odpovídající
+PowerShell launcher.
 
 Základní diagnostika:
 
@@ -539,6 +547,9 @@ scripts\package-workflow-tools.cmd
 dist\workflow-tools\bin\check-tooling.cmd <case-id>
 dist\workflow-tools\bin\opponent-preflight.cmd <case-id>
 dist\workflow-tools\bin\prepare-code-workspace.cmd <case-id>
+dist\workflow-tools\bin\init-review-manifest.cmd --run-checks <case-id> [round-id]
+dist\workflow-tools\bin\check-agent-coverage.cmd <case-id> [round-id]
+dist\workflow-tools\bin\check-review-manifest.cmd --require-complete <case-id> [round-id]
 ```
 
 ```powershell
@@ -546,6 +557,9 @@ dist\workflow-tools\bin\prepare-code-workspace.cmd <case-id>
 .\dist\workflow-tools\bin\check-tooling.ps1 <case-id>
 .\dist\workflow-tools\bin\opponent-preflight.ps1 <case-id>
 .\dist\workflow-tools\bin\prepare-code-workspace.ps1 <case-id>
+.\dist\workflow-tools\bin\init-review-manifest.ps1 --run-checks <case-id> [round-id]
+.\dist\workflow-tools\bin\check-agent-coverage.ps1 <case-id> [round-id]
+.\dist\workflow-tools\bin\check-review-manifest.ps1 --require-complete <case-id> [round-id]
 ```
 
 `scripts/package-workflow-tools` a jeho `.cmd`/`.ps1` varianty spustí jediné

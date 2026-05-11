@@ -5,6 +5,11 @@ description: Read-only GitHub repository and pull-request intake for BP/DP code 
 
 # Thesis GitHub Code Intake
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when a thesis round provides GitHub repository URLs, branch/tag
 or commit references, pull request URLs, fork/upstream contribution context, or
 when the student has no standalone repository and their code contribution lives

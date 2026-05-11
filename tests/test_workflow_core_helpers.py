@@ -6,10 +6,13 @@ from thesis_review_workflow.cases import MissingCurrentRound, read_current_round
 from thesis_review_workflow.cli import check_reviewer_profile, check_tooling
 from thesis_review_workflow.commands import (
     Step,
+    canonical_command_args,
+    canonical_command_text,
     command_display,
     compact_output,
     repo_command_environment,
     resolve_repo_command,
+    workflow_command_module,
 )
 from thesis_review_workflow.ids import invalid_id_message, is_valid_id, validate_id
 from thesis_review_workflow.metadata import read_fields, resolve_thesis_language
@@ -200,6 +203,35 @@ def test_step_status_distinguishes_required_and_optional_failures() -> None:
 def test_command_display_allows_synthetic_steps_without_commands() -> None:
     assert command_display(None) == ""
     assert command_display(["scripts/check-private"]) == "scripts/check-private"
+
+
+def test_command_display_uses_windows_packaged_launcher(monkeypatch) -> None:
+    import thesis_review_workflow.commands as commands
+
+    monkeypatch.setattr(commands.os, "name", "nt", raising=False)
+
+    assert (
+        command_display(["scripts/init-review-manifest", "--run-checks", "case-a", "round-a"])
+        == ".\\dist\\workflow-tools\\bin\\init-review-manifest.cmd --run-checks case-a round-a"
+    )
+
+
+def test_canonical_command_normalizes_workflow_wrappers() -> None:
+    assert canonical_command_args(["scripts/check-private"]) == ["check-private"]
+    assert canonical_command_args(["check-private"]) == ["check-private"]
+    assert canonical_command_text("scripts/init-review-manifest --run-checks case-a round-a") == (
+        "init-review-manifest --run-checks case-a round-a"
+    )
+    assert canonical_command_text(r"dist\workflow-tools\bin\check-opponent-report.cmd case-a round-a") == (
+        "check-opponent-report case-a round-a"
+    )
+    assert (
+        canonical_command_text(r".\dist\workflow-tools\bin\check-review-manifest.ps1 --require-complete case-a round-a")
+        == "check-review-manifest --require-complete case-a round-a"
+    )
+    assert workflow_command_module(r"dist\workflow-tools\bin\check-private.cmd") == (
+        "thesis_review_workflow.cli.check_private"
+    )
 
 
 def test_compact_output_drops_blank_lines_and_truncates() -> None:

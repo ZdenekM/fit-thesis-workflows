@@ -5,6 +5,11 @@ description: Internal BP/DP evidence workflow for reviewing thesis figures, tabl
 
 # Thesis Figure/Media Review
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when supervisor feedback, opponent materials, revision diff, or a
 standalone operator check needs evidence about visual elements in the submitted
 thesis. The output is internal/operator evidence, not student-facing prose by

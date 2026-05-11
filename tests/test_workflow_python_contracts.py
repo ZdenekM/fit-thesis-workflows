@@ -16,7 +16,10 @@ from thesis_review_workflow.artifact_registry import (
     output_defaults,
 )
 from thesis_review_workflow.case_doctor_summary import FINAL_OUTPUTS, KNOWN_OUTPUTS
-from thesis_review_workflow.cli.package_workflow_tools import workflow_tool_names_from_peek_payload
+from thesis_review_workflow.cli.package_workflow_tools import (
+    launcher_listing_lines,
+    workflow_tool_names_from_peek_payload,
+)
 from thesis_review_workflow.commands import WORKFLOW_COMMAND_MODULES
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
@@ -93,6 +96,17 @@ def cli_python_sources() -> dict[str, str]:
 def workflow_runtime_deps() -> set[str]:
     tree = build_tree("scripts/BUILD")
     return set(assignment_literal(tree, "WORKFLOW_CLI_RUNTIME_DEPS"))
+
+
+def test_packaged_tool_listing_labels_extensionless_launchers_as_posix_only() -> None:
+    lines = launcher_listing_lines(["init-review-manifest"])
+
+    assert lines == [
+        "Packaged tools:",
+        "- POSIX launcher: dist/workflow-tools/bin/init-review-manifest",
+        "  Windows cmd: dist\\workflow-tools\\bin\\init-review-manifest.cmd",
+        "  PowerShell: .\\dist\\workflow-tools\\bin\\init-review-manifest.ps1",
+    ]
 
 
 def codex_agent_config() -> dict[str, object]:

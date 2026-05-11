@@ -18,8 +18,10 @@ def main() -> int:
         "For code-bearing supervisor/opponent rounds, run both code consistency and code quality review "
         "or state the concrete limitation.",
         "Real student data belongs under gitignored cases/; never force-add case contents.",
-        "Before supervisor feedback, run scripts/check-supervisor-ready for the active case.",
-        "Before opponent materials, run scripts/check-round-ready for the active case.",
+        "Before supervisor feedback, run logical workflow command check-supervisor-ready for the active case; "
+        "on Windows use the packaged .cmd/.ps1 launcher from README.md.",
+        "Before opponent materials, run logical workflow command check-round-ready for the active case; "
+        "on Windows use the packaged .cmd/.ps1 launcher from README.md.",
         "Supervisor feedback is iterative: read prior outputs/feedback_student.md before writing a new round.",
     ]
     if source == "resume":

@@ -44,7 +44,7 @@ from thesis_review_workflow.case_doctor_summary import (
     path_list,
 )
 from thesis_review_workflow.cases import read_current_round, repo_root
-from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.commands import command_display, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.ids import validate_id as validate_id_core
 from thesis_review_workflow.metadata import read_fields
@@ -123,7 +123,7 @@ def validate_id(label: str, value: str) -> None:
 
 
 def run_gate(root: Path, name: str, args: list[str], timeout: int = 45) -> GateResult:
-    display = " ".join(args)
+    display = command_display(args)
     try:
         result = subprocess.run(
             resolve_repo_command(root, args),

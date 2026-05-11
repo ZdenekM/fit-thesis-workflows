@@ -5,6 +5,11 @@ description: Review a drafted opponent report for fairness, evidence, tone, IS-i
 
 # Thesis Opponent Report Review
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill after the user has drafted their own opponent report, or after
 `scripts/draft-opponent-report` has produced an internal bridge draft from
 reviewed opponent materials, `work/opponent_report_trace.json`, and a human has

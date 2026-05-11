@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -74,7 +75,30 @@ class Step:
 
 
 def command_display(args: list[str] | None) -> str:
-    return " ".join(args) if args else ""
+    if not args:
+        return ""
+    tool_name = workflow_command_name(args[0])
+    if os.name == "nt" and tool_name is not None:
+        return " ".join([f".\\dist\\workflow-tools\\bin\\{tool_name}.cmd", *args[1:]])
+    return " ".join(args)
+
+
+def canonical_command_args(args: list[str]) -> list[str]:
+    if not args:
+        return args
+    tool_name = workflow_command_name(args[0])
+    if tool_name is None:
+        return args
+    return [tool_name, *args[1:]]
+
+
+def canonical_command_text(command: str) -> str:
+    try:
+        args = shlex.split(command, posix="\\" not in command)
+    except ValueError:
+        return command
+    args = [arg.strip("\"'") for arg in args]
+    return " ".join(canonical_command_args(args))
 
 
 def compact_output(value: str, *, limit: int) -> str:
@@ -94,11 +118,24 @@ def repo_command_environment(root: Path) -> dict[str, str]:
 
 
 def workflow_command_module(command: str) -> str | None:
-    path = Path(command)
-    if len(path.parts) == 2 and path.parts[0] == "scripts":
-        return WORKFLOW_COMMAND_MODULES.get(path.name)
-    if len(path.parts) == 1:
-        return WORKFLOW_COMMAND_MODULES.get(path.name)
+    tool_name = workflow_command_name(command)
+    if tool_name is None:
+        return None
+    return WORKFLOW_COMMAND_MODULES.get(tool_name)
+
+
+def workflow_command_name(command: str) -> str | None:
+    normalized = command.replace("\\", "/")
+    stripped = normalized.removeprefix("./")
+    name = stripped.rsplit("/", 1)[-1]
+    for suffix in (".cmd", ".ps1"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    if "/" in stripped and not (stripped.startswith("scripts/") or stripped.startswith("dist/workflow-tools/bin/")):
+        return None
+    if name in WORKFLOW_COMMAND_MODULES:
+        return name
     return None
 
 

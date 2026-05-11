@@ -5,6 +5,11 @@ description: Compare two thesis/code rounds in a case and report what changed, w
 
 # Thesis Revision Diff
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when the task is to understand progress between rounds or prepare the previous-feedback section for supervisor feedback.
 
 ## Inputs

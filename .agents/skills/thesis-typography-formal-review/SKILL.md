@@ -5,6 +5,11 @@ description: Internal BP/DP evidence workflow for late-stage typography and form
 
 # Thesis Typography/Formal Review
 
+Command routing: treat `scripts/<tool>` examples below as logical workflow
+command names. On Windows, use the packaged
+`dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
+not run or click extensionless `scripts/<tool>` files.
+
 Use this skill when supervisor feedback, opponent materials, or a standalone
 operator check needs late-stage evidence about typographic and formal
 presentation issues. The output is internal/operator evidence by default, not a

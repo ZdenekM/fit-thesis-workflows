@@ -7,7 +7,8 @@ closeout kontrol. Není to návod k ručnímu psaní finálního IS posudku.
 `scripts/<tool>` v tomto dokumentu znamená logický workflow příkaz. Na Linux
 checkoutu jsou POSIX wrappery v `scripts/` v pořádku; na Windows používejte po
 zabalení workflow nástrojů odpovídající `.cmd` nebo `.ps1` launchery popsané
-v `README.md`.
+v `README.md`. Bezpříponové `scripts/<tool>` soubory na Windows nespouštějte
+ani neotvírejte kliknutím; Windows je může zkusit otevřít jako dokument.
 
 ## Intake And Preflight
 

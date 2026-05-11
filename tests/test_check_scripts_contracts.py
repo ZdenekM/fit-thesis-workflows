@@ -32,7 +32,64 @@ def create_contract_root(tmp_path: Path, *, agents_snippets: tuple[str, ...]) ->
         (
             "CMD_LAUNCHER",
             "PS_LAUNCHER",
-            "Windows launchers are generated as .cmd and .ps1",
+            "The extensionless launchers are POSIX-only",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "src/thesis_review_workflow/commands.py",
+        (
+            "canonical_command_text",
+            "dist\\\\workflow-tools\\\\bin",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "src/thesis_review_workflow/cli/init_review_manifest.py",
+        (
+            "Store logical workflow commands",
+            "canonical_command_text",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "README.md",
+        (
+            "Na Windows nespouštějte ani neklikejte bezpříponové",
+            "dist\\workflow-tools\\bin\\init-review-manifest.cmd",
+            ".\\dist\\workflow-tools\\bin\\init-review-manifest.ps1",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "docs/workflow-command-surface.md",
+        (
+            "do not run or click extensionless `scripts/<tool>` files",
+            "stores helper check",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "docs/agent-scheduling.md",
+        (
+            "Command routing: `scripts/<tool>` examples in this document",
+            "do not run or click extensionless `scripts/<tool>` files",
+        ),
+    )
+    write_contract_file(
+        tmp_path / "docs/historical-opponent-calibration.md",
+        (
+            "Command routing: `scripts/<tool>` examples in this document",
+            "do not run or click extensionless `scripts/<tool>` files",
+        ),
+    )
+    write_contract_file(
+        tmp_path / ".codex/hooks/session_start_context.py",
+        (
+            "logical workflow command check-supervisor-ready",
+            "packaged .cmd/.ps1 launcher",
+        ),
+    )
+    write_contract_file(
+        tmp_path / ".agents/skills/example/SKILL.md",
+        (
+            "Command routing: treat `scripts/<tool>` examples below as logical workflow",
+            "not run or click extensionless `scripts/<tool>` files",
         ),
     )
     return tmp_path
