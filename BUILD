@@ -16,6 +16,14 @@ python_requirement(
     requirements=["vulture==2.16"],
 )
 
+files(
+    name="codex_agent_profile_metadata",
+    sources=[
+        ".codex/config.toml",
+        ".codex/agents/*.toml",
+    ],
+)
+
 pex_binary(
     name="vulture",
     description="Run a dev-only dead-code scan over workflow code.",

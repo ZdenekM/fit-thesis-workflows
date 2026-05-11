@@ -58,6 +58,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-github-code-intake/SKILL.md` for read-only GitHub repository and upstream PR contribution intake before code reviews.
 - `.agents/skills/thesis-code-consistency/SKILL.md` for thesis-text versus code/reproducibility checks.
 - `.agents/skills/thesis-code-quality-review/SKILL.md` for implementation quality, architecture/design, maintainability, runtime risks, and reviewer-facing developer evidence.
+- `.agents/skills/thesis-quantitative-claims-review/SKILL.md` for semantic quantitative/result-claim sanity checks into `work/quantitative_claims.json`.
 - `.agents/skills/thesis-literature-citation-review/SKILL.md` for cited-literature relevance, source availability, and citation-support checks.
 - `.agents/skills/thesis-figure-media-review/SKILL.md` for internal visual evidence about thesis figures, tables, screenshots, result images, diagrams, reusable visual descriptions, context/claim alignment, and figure changes between rounds.
 - `.agents/skills/thesis-typography-formal-review/SKILL.md` for late-stage, language-calibrated typography and formal-presentation checks.
@@ -108,6 +109,7 @@ When the user explicitly authorizes agents, give them enough time. If authorizat
 - figure/media evidence, captions, visual claims, context/claim alignment, and figure changes between rounds,
 - code/reproducibility and text-code consistency,
 - code quality/design and reviewer-facing implementation evidence,
+- quantitative/result claims, units, baselines, practical magnitude, and reproducibility context,
 - GitHub/PR contribution intake when code evidence comes from GitHub URLs or upstream PRs,
 - literature/citation relevance, source availability, and claim support,
 - late-stage typography/formal presentation when the round is near final or explicitly asks for it,
@@ -131,7 +133,7 @@ Dedicated review loops:
 - opponent report trace and draft: after reviewed opponent materials exist, `work/opponent_report_trace.json` records the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty handling, and current reviewed-materials hash. `scripts/draft-opponent-report <case-id> [round-id]` may then create `work/oponent_posudek_draft.md` from that trace. The generated file is intentionally not sendable until a human calibrates concrete points/grade, resolves open wording, and `scripts/check-opponent-report <case-id> [round-id]` passes against the current trace and reviewed-materials hashes;
 - opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
 
-Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
+Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `work/quantitative_claims.json`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
 
 Keep generated-artifact provenance in the ignored round workspace at `work/review_manifest.json`. The manifest records contributing inputs, checks, skills, generator/reviewer roles, review scope, limitations, and the reviewed artifact hash so material edits after review are visible as stale. Required multi-agent role coverage is generated into `work/agent_coverage.json` from the manifest and validated by `scripts/check-agent-coverage <case-id> [round-id]`; missing required roles must be fixed in the manifest or recorded as typed limitations before closeout.
 
@@ -151,6 +153,7 @@ Default outputs go into the active round:
 - reusable visual inventory: `work/figure_media/visual_inventory.jsonl`
 - review evidence/provenance manifest: `work/review_manifest.json`
 - agent role coverage manifest: `work/agent_coverage.json`
+- quantitative/result-claims handoff: `work/quantitative_claims.json`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
 - opponent report trace: `work/opponent_report_trace.json`

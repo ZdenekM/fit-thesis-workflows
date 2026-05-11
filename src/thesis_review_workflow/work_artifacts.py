@@ -112,7 +112,31 @@ def work_artifact_record(round_dir: Path, path: Path) -> dict[str, str]:
         schema_version = json_schema_version(path)
     if schema_version:
         record["schema_version"] = schema_version
+    record.update(json_producer_fields(path))
     return record
+
+
+def json_producer_fields(path: Path) -> dict[str, str]:
+    if path.suffix.lower() != ".json":
+        return {}
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    fields: dict[str, str] = {}
+    for source, target in (
+        ("producer_role", "producer_role"),
+        ("producer_agent", "producer_agent"),
+        ("producer_type", "producer_type"),
+    ):
+        value = loaded.get(source)
+        if isinstance(value, str) and value.strip():
+            fields[target] = value.strip()
+    if fields.get("producer_type") == "human" and "producer_agent" not in fields:
+        fields["producer_agent"] = "human_reviewer"
+    return fields
 
 
 def json_schema_version(path: Path) -> str | None:

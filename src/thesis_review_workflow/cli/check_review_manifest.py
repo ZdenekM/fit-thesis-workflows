@@ -192,6 +192,8 @@ def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None
 
 
 def required_helper_targets(name: str, round_dir: Path) -> set[str]:
+    if name == "check-evaluation-claims":
+        return {"work/quantitative_claims.json"}
     if name == "check-opponent-report":
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
@@ -313,6 +315,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-code-consistency")
     if "outputs/code_quality_review.md" in paths:
         required.add("check-code-quality-review")
+    if supporting_work_artifact_present(manifest, "work/quantitative_claims.json"):
+        required.add("check-evaluation-claims")
     if "outputs/revision_diff.md" in paths:
         required.add("check-revision-diff")
     if "outputs/reviewer_calibration_profile.md" in paths:
@@ -320,6 +324,13 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
     if coverage_required(round_dir, manifest):
         required.add("check-agent-coverage")
     return required
+
+
+def supporting_work_artifact_present(manifest: dict[str, Any], rel_path: str) -> bool:
+    records = manifest.get("supporting_work_artifacts")
+    if not isinstance(records, list):
+        return False
+    return any(isinstance(record, dict) and record.get("path") == rel_path for record in records)
 
 
 def check_agent_coverage_gate(

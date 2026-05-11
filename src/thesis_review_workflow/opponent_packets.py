@@ -20,6 +20,7 @@ from thesis_review_workflow.review_packets import (
     omen_advisory_section,
     path_list,
     prune_inactive_packets,
+    quantitative_claims_handoff_section,
     role_is_active,
     status_list,
     text_list,
@@ -38,6 +39,7 @@ ADVISORY_ARTIFACTS = (
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",
     "work/code_reproducibility.json",
+    "work/quantitative_claims.json",
     "work/media_presence_inventory.jsonl",
     "work/figure_media/visual_inventory.jsonl",
     "work/code_workspace.md",
@@ -206,6 +208,39 @@ PACKET_ROLES = (
         activation_workflow_profile="opponent_review",
     ),
     PacketRole(
+        key="quantitative_claims",
+        title="Quantitative Claims Review",
+        skill="thesis-quantitative-claims-review",
+        expected_output="work/quantitative_claims.json",
+        mission=(
+            "Sanity-check material quantitative, evaluation, experiment, metric, performance, and result claims "
+            "before opponent-materials synthesis."
+        ),
+        focus=(
+            "unit and scale interpretation",
+            "baseline, comparator, sample-size, and practical-magnitude context",
+            "reproducibility and evidence anchors",
+            "overclaim risk and grade/report defensibility",
+        ),
+        role_inputs=(
+            "work/quantitative_claims.json",
+            "work/review_materiality/index.json",
+            "work/evidence_requirements.json",
+            "work/code_reproducibility.json",
+            "outputs/code_consistency.md",
+            "outputs/figure_media_review.md",
+        ),
+        constraints=(
+            "Write or update only the structured `work/quantitative_claims.json` contract.",
+            "Do not infer metric meaning from deterministic raw-text matching; use semantic review with evidence "
+            "anchors.",
+            "Keep opponent impact proportionate to the available baseline, reproducibility, and practical context.",
+        ),
+        activation="existing_artifact_or_next_action",
+        activation_paths=("work/quantitative_claims.json",),
+        activation_workflow_profile="opponent_review",
+    ),
+    PacketRole(
         key="evidence_calibration",
         title="Evidence Labels And Severity Calibration",
         skill="thesis-opponent-materials-review",
@@ -223,6 +258,7 @@ PACKET_ROLES = (
             "work/assignment_coverage_agent.json",
             "work/evidence_requirements.json",
             "work/code_reproducibility.json",
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -235,6 +271,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=(
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -290,6 +327,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=(
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -394,6 +432,7 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             round_id=round_id,
             workflow_profile="opponent_review",
         ),
+        quantitative_claims_handoff_section(round_dir, case_id=case_id, round_id=round_id),
         late_communications_section(round_dir),
     ]
     if role.key == "code_quality":

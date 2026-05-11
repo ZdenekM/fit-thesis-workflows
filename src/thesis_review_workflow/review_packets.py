@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,6 +60,7 @@ CODE_WORKSPACE_PATHS = (
     "work/serena_roots.json",
     "work/code/.prepare-code-workspace-manifest.json",
 )
+QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
 
 
 @dataclass(frozen=True)
@@ -247,6 +249,27 @@ def role_is_active(
                 materiality_workflow_profile=role.activation_workflow_profile,
             )
         )
+    if role.activation == "existing_artifact_or_next_action":
+        paths = role.activation_paths or role.role_inputs
+        if existing_paths(
+            round_dir,
+            paths,
+            case_id=case_id,
+            round_id=round_id,
+            materiality_workflow_profile=role.activation_workflow_profile,
+        ):
+            return True
+        if case_id is None or round_id is None or role.activation_workflow_profile is None:
+            return False
+        actions, errors = unresolved_required_next_actions(
+            round_dir,
+            workflow_profile=role.activation_workflow_profile,
+            case_id=case_id,
+            round_id=round_id,
+        )
+        if errors:
+            return False
+        return any(action.get("role") == role.key for action in actions)
     if role.activation == "check":
         if case_id is None or round_id is None or not role.activation_check:
             return False
@@ -397,6 +420,104 @@ def materiality_next_actions_section(
         [
             "",
             "Resolve required actions before synthesis/final readiness, or record a typed workflow limitation.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _count_claim_values(claims: list[object], field: str) -> str:
+    counts: dict[str, int] = {}
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        value = claim.get(field)
+        if isinstance(value, str) and value:
+            counts[value] = counts.get(value, 0) + 1
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+
+
+def quantitative_claims_handoff_section(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    limit: int = 8,
+) -> str:
+    lines = ["## Quantitative Claims Handoff", ""]
+    path = round_dir / QUANTITATIVE_CLAIMS_REL
+    if not path.is_file():
+        lines.extend(
+            [
+                f"- `{QUANTITATIVE_CLAIMS_REL}` is missing.",
+                "- If this packet belongs to the quantitative role, use it with the materiality next action to "
+                "author the structured handoff.",
+                "- If quantitative materiality is active, resolve the materiality next action before synthesis.",
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        QUANTITATIVE_CLAIMS_REL,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        lines.extend(f"- invalid quantitative claims artifact: {error}" for error in errors)
+        lines.append("")
+        return "\n".join(lines)
+
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        lines.extend([f"- cannot read `{QUANTITATIVE_CLAIMS_REL}`: {exc}", ""])
+        return "\n".join(lines)
+    claims = loaded.get("claims") if isinstance(loaded, dict) else None
+    claim_list = claims if isinstance(claims, list) else []
+    lines.extend(
+        [
+            f"- Artifact: `{QUANTITATIVE_CLAIMS_REL}` ({len(claim_list)} claim(s))",
+            f"- Status counts: {_count_claim_values(claim_list, 'status')}",
+            f"- Baseline counts: {_count_claim_values(claim_list, 'baseline_status')}",
+            f"- Practical-context counts: {_count_claim_values(claim_list, 'practical_context')}",
+            f"- Overclaim-risk counts: {_count_claim_values(claim_list, 'overclaim_risk')}",
+            "",
+        ]
+    )
+    if claim_list:
+        lines.append("Claims:")
+    for claim in claim_list[:limit]:
+        if not isinstance(claim, dict):
+            continue
+        claim_id = str(claim.get("claim_id", "unknown")).strip() or "unknown"
+        kind = str(claim.get("kind", "unknown")).strip() or "unknown"
+        status = str(claim.get("status", "unknown")).strip() or "unknown"
+        baseline = str(claim.get("baseline_status", "unknown")).strip() or "unknown"
+        context = str(claim.get("practical_context", "unknown")).strip() or "unknown"
+        overclaim = str(claim.get("overclaim_risk", "unknown")).strip() or "unknown"
+        magnitude = str(claim.get("practical_magnitude", "")).strip()
+        summary = str(claim.get("summary", "")).strip() or "No summary recorded."
+        evidence_refs = claim.get("evidence_refs")
+        if isinstance(evidence_refs, list):
+            evidence = ", ".join(f"`{item}`" for item in evidence_refs if isinstance(item, str)) or "none"
+        else:
+            evidence = "none"
+        lines.append(
+            f"- `{claim_id}` {kind}/{status}, baseline={baseline}, practical_context={context}; "
+            f"overclaim_risk={overclaim}; evidence: {evidence}; "
+            f"magnitude: {magnitude or 'not recorded'}; summary: {summary}"
+        )
+    if len(claim_list) > limit:
+        lines.append(f"- {len(claim_list) - limit} additional claim(s) omitted from packet.")
+    lines.extend(
+        [
+            "",
+            "Use this structured handoff first. Open raw result sections only to verify material claims, resolve "
+            "contradictions, or calibrate wording.",
             "",
         ]
     )

@@ -196,17 +196,29 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
         "outputs/reviewer_calibration_profile.md",
     }
 
-    init_names = {item["check"] for item in init_required_checks("case-a", "round-a", paths, round_dir, {})}
-    check_names = check_required_checks(paths, round_dir, {})
+    manifest = {
+        "supporting_work_artifacts": [
+            {
+                "path": "work/quantitative_claims.json",
+                "kind": "structured_data",
+                "artifact_sha256": "0" * 64,
+            }
+        ]
+    }
+
+    init_names = {item["check"] for item in init_required_checks("case-a", "round-a", paths, round_dir, manifest)}
+    check_names = check_required_checks(paths, round_dir, manifest)
 
     assert "check-code-consistency" in init_names
     assert "check-code-quality-review" in init_names
     assert "check-revision-diff" in init_names
     assert "check-opponent-calibration-profile" in init_names
+    assert "check-evaluation-claims" in init_names
     assert "check-code-consistency" in check_names
     assert "check-code-quality-review" in check_names
     assert "check-revision-diff" in check_names
     assert "check-opponent-calibration-profile" in check_names
+    assert "check-evaluation-claims" in check_names
 
 
 def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: Path) -> None:

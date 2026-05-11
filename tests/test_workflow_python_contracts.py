@@ -2,6 +2,7 @@ import ast
 import io
 import json
 import tarfile
+import tomllib
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -92,6 +93,10 @@ def cli_python_sources() -> dict[str, str]:
 def workflow_runtime_deps() -> set[str]:
     tree = build_tree("scripts/BUILD")
     return set(assignment_literal(tree, "WORKFLOW_CLI_RUNTIME_DEPS"))
+
+
+def codex_agent_config() -> dict[str, object]:
+    return tomllib.loads((REPO_ROOT / ".codex/config.toml").read_text(encoding="utf-8"))
 
 
 def shell_loop_body(text: str, header: str) -> str:
@@ -240,6 +245,115 @@ def test_agent_coverage_code_trigger_uses_archive_entries_before_filename(tmp_pa
     assert specs["code_quality"].trigger == "code evidence is available and feeds a final/synthesis artifact"
 
 
+def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    thesis_text = round_dir / "extracted" / "thesis.txt"
+    quantitative = round_dir / "work" / "quantitative_claims.json"
+    final_output.parent.mkdir(parents=True)
+    thesis_text.parent.mkdir(parents=True)
+    quantitative.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    thesis_text.write_text("Metric claim.\n", encoding="utf-8")
+    quantitative.write_text(
+        json.dumps(
+            {
+                "schema_version": "quantitative-claims-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-11T00:00:00Z",
+                "producer_type": "agent",
+                "producer_role": "quantitative-claims-reviewer",
+                "producer_agent": "agent-q",
+                "authorization_note": "Authorized in current request.",
+                "source_refs": ["extracted/thesis.txt"],
+                "claims": [
+                    {
+                        "claim_id": "Q1",
+                        "summary": "Reported metric needs context.",
+                        "kind": "metric",
+                        "status": "needs_context",
+                        "unit": "not_verifiable",
+                        "baseline_status": "missing",
+                        "practical_context": "weak",
+                        "scale_context": "Metric scale is not verifiable from the available evidence.",
+                        "sample_context": "Sample size is not verifiable from the available evidence.",
+                        "practical_magnitude": "Practical magnitude is not verifiable from the available evidence.",
+                        "overclaim_risk": "moderate",
+                        "reproducibility_refs": [],
+                        "evidence_refs": ["extracted/thesis.txt"],
+                        "requires_reviewer_verification": True,
+                    }
+                ],
+                "limitations": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    final_hash = agent_coverage.sha256_file(final_output)
+    quantitative_hash = agent_coverage.sha256_file(quantitative)
+    manifest = {
+        "inputs": [],
+        "supporting_work_artifacts": [
+            {
+                "path": "work/quantitative_claims.json",
+                "kind": "structured_data",
+                "artifact_sha256": quantitative_hash,
+                "schema_version": "quantitative-claims-v1",
+                "producer_role": "quantitative-claims-reviewer",
+                "producer_agent": "agent-q",
+            }
+        ],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "artifact_sha256": final_hash,
+                "skills": ["thesis-supervisor-feedback-review"],
+                "generated_by": [{"role": "thesis-supervisor-feedback-review", "agent": "reviewer-a"}],
+                "independent_review": {
+                    "reviewer_role": "thesis-supervisor-feedback-review",
+                    "reviewer_agent": "reviewer-b",
+                    "reviewed_hash": final_hash,
+                },
+            }
+        ],
+    }
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert specs["quantitative_claims"].skill == "thesis-quantitative-claims-review"
+    assert coverage is not None
+    role = next(item for item in coverage["roles"] if item["role"] == "quantitative_claims")
+    assert role["output_evidence"] == ["work/quantitative_claims.json"]
+    assert role["generator_role"] == "quantitative-claims-reviewer"
+    assert role["generator_agent"] == "agent-q"
+    assert errors == []
+    assert warnings == []
+
+    human_manifest = dict(manifest)
+    supporting_records = manifest["supporting_work_artifacts"]
+    assert isinstance(supporting_records, list)
+    supporting_record = supporting_records[0]
+    assert isinstance(supporting_record, dict)
+    human_supporting = [dict(supporting_record)]
+    human_supporting[0]["producer_type"] = "human"
+    human_supporting[0]["producer_agent"] = None
+    human_manifest["supporting_work_artifacts"] = human_supporting
+    human_coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, human_manifest)
+    assert human_coverage is not None
+    human_errors, human_warnings = agent_coverage.validate_coverage(
+        human_coverage, human_manifest, "case-a", "round-a", round_dir
+    )
+    human_role = next(item for item in human_coverage["roles"] if item["role"] == "quantitative_claims")
+
+    assert human_role["generator_agent"] == "human_reviewer"
+    assert human_errors == []
+    assert human_warnings == []
+
+
 def test_workflow_tool_pex_targets_match_command_module_map() -> None:
     pex_targets = workflow_pex_targets()
 
@@ -274,6 +388,33 @@ def test_output_artifact_registry_is_shared_by_manifest_and_case_doctor() -> Non
         "outputs/reference_report_comparison.md",
         "outputs/opponent_reading_packet.md",
     }
+
+
+def test_codex_agent_profiles_register_tracked_configs() -> None:
+    config = codex_agent_config()
+    agents = config["agents"]
+    assert isinstance(agents, dict)
+    expected = {
+        "thesis_text_reviewer",
+        "thesis_code_consistency_reviewer",
+        "thesis_code_quality_reviewer",
+        "thesis_quantitative_claims_reviewer",
+        "thesis_evidence_calibrator",
+    }
+    assert expected <= set(agents)
+    for profile in expected:
+        profile_config = agents[profile]
+        assert isinstance(profile_config, dict)
+        config_file = profile_config["config_file"]
+        assert isinstance(config_file, str)
+        assert (REPO_ROOT / ".codex" / config_file).is_file()
+
+    quantitative_config = tomllib.loads(
+        (REPO_ROOT / ".codex/agents/thesis-quantitative-claims-reviewer.toml").read_text(encoding="utf-8")
+    )
+    assert quantitative_config["model"] == "gpt-5.5"
+    assert quantitative_config["model_reasoning_effort"] == "xhigh"
+    assert quantitative_config["sandbox_mode"] == "workspace-write"
 
 
 def test_workflow_command_modules_have_sources_runtime_deps_and_wrappers() -> None:

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
@@ -57,6 +58,44 @@ def write_materiality(round_dir: Path, role: str) -> None:
         phase="non_final",
         generated_at="2026-05-11T00:00:00Z",
     )
+
+
+def write_quantitative_claims(round_dir: Path) -> None:
+    (round_dir / "extracted").mkdir(exist_ok=True)
+    (round_dir / "extracted" / "thesis.txt").write_text("Metric claim.\n", encoding="utf-8")
+    payload = {
+        "schema_version": "quantitative-claims-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-11T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "quantitative-claims-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Current request explicitly authorized agents.",
+        "source_refs": ["extracted/thesis.txt"],
+        "claims": [
+            {
+                "claim_id": "Q1",
+                "summary": "Reported percentage lacks a baseline.",
+                "kind": "metric",
+                "status": "needs_context",
+                "unit": "%",
+                "baseline_status": "missing",
+                "practical_context": "weak",
+                "scale_context": "Percentage denominator is not explicit.",
+                "sample_context": "Sample size is not stated.",
+                "practical_magnitude": "Magnitude is not interpreted against a user-visible impact.",
+                "overclaim_risk": "moderate",
+                "reproducibility_refs": [],
+                "evidence_refs": ["extracted/thesis.txt"],
+                "requires_reviewer_verification": True,
+            }
+        ],
+        "limitations": [],
+    }
+    path = round_dir / "work" / "quantitative_claims.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def test_generate_supervisor_packets_starts_with_mandatory_base_only(tmp_path: Path) -> None:
@@ -254,6 +293,38 @@ def test_supervisor_packet_renders_materiality_next_actions(tmp_path: Path) -> N
     assert "## Materiality Next Actions" in text
     assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
     assert "thesis-quantitative-claims-review" in text
+    assert "use it with the materiality next action to author the structured handoff" in text
+
+    written = generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    assert "quantitative_claims.md" in {path.name for path in written}
+
+
+def test_supervisor_packet_consumes_quantitative_claims_handoff(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_quantitative_claims(round_dir)
+
+    written = generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    names = {path.name for path in written}
+    text = (round_dir / "work" / "supervisor_packets" / "synthesis.md").read_text(encoding="utf-8")
+
+    assert "quantitative_claims.md" in names
+    assert "## Quantitative Claims Handoff" in text
+    assert "Status counts: needs_context=1" in text
+    assert "`Q1` metric/needs_context, baseline=missing, practical_context=weak; overclaim_risk=moderate" in text
+    assert "magnitude: Magnitude is not interpreted against a user-visible impact." in text
+    assert "Open raw result sections only to verify material claims" in text
 
 
 def test_supervisor_packet_includes_previous_feedback_index(tmp_path: Path) -> None:

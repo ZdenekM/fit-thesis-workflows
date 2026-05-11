@@ -198,6 +198,10 @@ def test_validate_quantitative_claims_requires_enum_values(tmp_path: Path) -> No
                 "unit": "%",
                 "baseline_status": "stated",
                 "practical_context": "marketing",
+                "scale_context": "Percentage denominator is stated.",
+                "sample_context": "Sample size is stated.",
+                "practical_magnitude": "Magnitude is interpreted against a stated baseline.",
+                "overclaim_risk": "low",
                 "reproducibility_refs": [],
                 "evidence_refs": ["extracted/thesis.txt"],
                 "requires_reviewer_verification": True,
@@ -224,6 +228,10 @@ def test_validate_quantitative_claims_requires_evidence_anchor(tmp_path: Path) -
                 "status": "needs_context",
                 "baseline_status": "missing",
                 "practical_context": "weak",
+                "scale_context": "Metric scale is unclear.",
+                "sample_context": "Sample size is not stated.",
+                "practical_magnitude": "Magnitude is not interpreted.",
+                "overclaim_risk": "moderate",
                 "reproducibility_refs": [],
                 "evidence_refs": [],
                 "requires_reviewer_verification": True,
@@ -235,6 +243,36 @@ def test_validate_quantitative_claims_requires_evidence_anchor(tmp_path: Path) -
     errors = validate_structured_evidence_artifact(round_dir, "work/quantitative_claims.json")
 
     assert any("evidence_refs must not be empty" in error for error in errors)
+
+
+def test_validate_quantitative_claims_requires_semantic_context_fields(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = {
+        **common_fields("quantitative-claims-v1"),
+        "claims": [
+            {
+                "claim_id": "Q1",
+                "summary": "Metric claim.",
+                "kind": "metric",
+                "status": "needs_context",
+                "baseline_status": "missing",
+                "practical_context": "weak",
+                "reproducibility_refs": [],
+                "evidence_refs": ["extracted/thesis.txt"],
+                "requires_reviewer_verification": True,
+            }
+        ],
+    }
+    write_json(round_dir / "work" / "quantitative_claims.json", payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/quantitative_claims.json")
+
+    assert any("unit must be non-empty str" in error for error in errors)
+    assert any("scale_context must be non-empty str" in error for error in errors)
+    assert any("sample_context must be non-empty str" in error for error in errors)
+    assert any("practical_magnitude must be non-empty str" in error for error in errors)
+    assert any("overclaim_risk must be one of" in error for error in errors)
 
 
 def test_validate_structured_evidence_artifact_rejects_backslash_path(tmp_path: Path) -> None:

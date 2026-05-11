@@ -347,6 +347,12 @@ def required_checks(
             f"scripts/check-code-quality-review {case_id} {round_id}",
             ["outputs/code_quality_review.md"],
         )
+    if supporting_work_artifact_present(manifest, "work/quantitative_claims.json"):
+        add(
+            "check-evaluation-claims",
+            f"scripts/check-evaluation-claims {case_id} {round_id}",
+            ["work/quantitative_claims.json"],
+        )
     if "outputs/revision_diff.md" in artifact_paths:
         add(
             "check-revision-diff",
@@ -369,6 +375,13 @@ def required_checks(
     checks[-1]["status"] = "not_applicable"
     checks[-1]["notes"] = "This command is the closeout gate itself; run it after review metadata has been recorded."
     return checks
+
+
+def supporting_work_artifact_present(manifest: dict[str, Any], rel_path: str) -> bool:
+    records = manifest.get("supporting_work_artifacts")
+    if not isinstance(records, list):
+        return False
+    return any(isinstance(record, dict) and record.get("path") == rel_path for record in records)
 
 
 def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -559,6 +572,11 @@ def main() -> int:
         "workflow_limitations": limitations,
         "artifacts": artifacts,
     }
+    work_artifacts = merge_supporting_work_artifacts(
+        existing.get("supporting_work_artifacts"),
+        collect_work_artifacts(round_dir),
+    )
+    manifest["supporting_work_artifacts"] = work_artifacts
     add_artifact_refs(manifest)
 
     existing_coverage = load_json_object(round_dir / COVERAGE_REL)

@@ -22,6 +22,7 @@ from thesis_review_workflow.review_packets import (
     path_list,
     previous_feedback_index,
     prune_inactive_packets,
+    quantitative_claims_handoff_section,
     role_is_active,
     status_list,
     text_list,
@@ -39,6 +40,7 @@ ADVISORY_ARTIFACTS = (
     "work/current_evidence_snapshot.json",
     "work/assignment_coverage_agent.json",
     "work/code_reproducibility.json",
+    "work/quantitative_claims.json",
     "work/media_presence_inventory.jsonl",
     "work/figure_media/visual_inventory.jsonl",
     "work/code_workspace.md",
@@ -205,6 +207,39 @@ PACKET_ROLES = (
         activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
+        key="quantitative_claims",
+        title="Quantitative Claims Review",
+        skill="thesis-quantitative-claims-review",
+        expected_output="work/quantitative_claims.json",
+        mission=(
+            "Sanity-check material quantitative, evaluation, experiment, metric, performance, and result claims "
+            "before student-facing synthesis."
+        ),
+        focus=(
+            "unit and scale interpretation",
+            "baseline, comparator, sample-size, and practical-magnitude context",
+            "reproducibility and evidence anchors",
+            "overclaim risk and proportionate student action",
+        ),
+        role_inputs=(
+            "work/quantitative_claims.json",
+            "work/review_materiality/index.json",
+            "work/code_reproducibility.json",
+            "outputs/code_consistency.md",
+            "outputs/figure_media_review.md",
+        ),
+        constraints=(
+            "Write or update only the structured `work/quantitative_claims.json` contract.",
+            "Do not infer metric meaning from deterministic raw-text matching; use semantic review with evidence "
+            "anchors.",
+            "Keep wording proportionate: unsupported or context-poor numbers should become limitations or student "
+            "actions.",
+        ),
+        activation="existing_artifact_or_next_action",
+        activation_paths=("work/quantitative_claims.json",),
+        activation_workflow_profile="supervisor_feedback",
+    ),
+    PacketRole(
         key="evidence_calibration",
         title="Evidence Labels And Student-Action Calibration",
         skill="thesis-supervisor-feedback-review",
@@ -217,6 +252,7 @@ PACKET_ROLES = (
             "limitations that must remain visible",
         ),
         role_inputs=(
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -229,6 +265,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=(
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -286,6 +323,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=(
+            "work/quantitative_claims.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -348,6 +386,7 @@ def render_packet(
             round_id=round_id,
             workflow_profile="supervisor_feedback",
         ),
+        quantitative_claims_handoff_section(round_dir, case_id=case_id, round_id=round_id),
         late_communications_section(round_dir),
     ]
     if role.key == "code_quality":

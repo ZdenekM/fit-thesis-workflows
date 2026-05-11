@@ -25,6 +25,10 @@ config_file = "agents/thesis-code-consistency-reviewer.toml"
 description = "Reviews implementation architecture, maintainability, runtime risks, tests, and developer evidence."
 config_file = "agents/thesis-code-quality-reviewer.toml"
 
+[agents.thesis_quantitative_claims_reviewer]
+description = "Reviews quantitative/result claims for units, baseline, practical context, reproducibility, and overclaim risk."
+config_file = "agents/thesis-quantitative-claims-reviewer.toml"
+
 [agents.thesis_evidence_calibrator]
 description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
 config_file = "agents/thesis-evidence-calibrator.toml"

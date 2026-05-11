@@ -259,11 +259,13 @@ Out of scope:
 
 ### Slice 5 - Quantitative Claims Review Contract
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): add quantitative claims review contract`
 - Expected paths:
   - `.agents/skills/thesis-quantitative-claims-review/SKILL.md`
   - `.codex/agents/thesis-quantitative-claims-reviewer.toml`
+  - `.codex/config.toml`
+  - `BUILD`
   - `AGENTS.md`
   - `docs/agent-scheduling.md`
   - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
@@ -272,11 +274,19 @@ Out of scope:
   - `src/thesis_review_workflow/agent_coverage.py`
   - `src/thesis_review_workflow/supervisor_packets.py`
   - `src/thesis_review_workflow/opponent_packets.py`
+  - `src/thesis_review_workflow/review_packets.py`
   - `src/thesis_review_workflow/cli/check_evaluation_claims.py`
+  - `src/thesis_review_workflow/cli/check_review_manifest.py`
+  - `src/thesis_review_workflow/cli/init_review_manifest.py`
+  - `src/thesis_review_workflow/work_artifacts.py`
   - `tests/test_structured_evidence.py`
   - `tests/test_evaluation_claims_helpers.py`
   - `tests/test_supervisor_packets.py`
   - `tests/test_opponent_packets.py`
+  - `tests/test_review_manifest_helpers.py`
+  - `tests/test_work_artifacts.py`
+  - `tests/test_workflow_python_contracts.py`
+  - `tests/BUILD`
 - Tasks:
   - Add a repo-local skill or template that tells a quantitative reviewer how to
     author `work/quantitative_claims.json`.
@@ -372,6 +382,20 @@ Out of scope:
   import validation; the writer now requires manifest-backed passed helper
   checks with current target hashes, rejects canonical role overrides, and
   manifest import uses the stricter manifest-aware approval validator.
+- 2026-05-11: Slice 5 added the `thesis-quantitative-claims-review` skill and
+  `thesis_quantitative_claims_reviewer` profile pinned to `gpt-5.5`/`xhigh`,
+  expanded the quantitative JSON schema to require unit, scale/sample context,
+  practical magnitude, overclaim risk, baseline, practical context,
+  reproducibility refs, and evidence anchors, and added compact quantitative
+  handoff rendering to supervisor/opponent packets. Agent review found missing
+  Codex profile registration, circular first-authoring packet activation, weak
+  schema enforcement, human-producer coverage failure, and missing
+  `check-evaluation-claims` manifest closeout coverage. The fixes register the
+  profile, activate the quantitative packet from materiality next actions as
+  well as existing artifacts, support human-produced handoffs in agent coverage,
+  require `check-evaluation-claims` when `work/quantitative_claims.json` is
+  recorded, and add Pants sandbox resources for `.codex` profile contract
+  tests.
 
 ## Decision Log
 
@@ -395,6 +419,10 @@ Out of scope:
   widened later.
 - 2026-05-11: README helper documentation must stay below the chat-first quick
   path.
+- 2026-05-11: Quantitative first authoring is driven by materiality
+  `next_actions` plus the quantitative skill, not by deterministic prose scans.
+  Once `work/quantitative_claims.json` exists, synthesis packets consume the
+  compact structured handoff first.
 
 ## Risks
 

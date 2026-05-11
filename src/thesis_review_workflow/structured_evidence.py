@@ -48,6 +48,7 @@ QUANTITATIVE_CLAIM_KINDS = {"metric", "experiment", "performance", "scale", "cou
 QUANTITATIVE_CLAIM_STATUSES = {"plausible", "needs_context", "unsupported", "inconsistent", "not_verifiable"}
 BASELINE_STATUSES = {"stated", "missing", "not_applicable", "not_verifiable"}
 PRACTICAL_CONTEXT_STATUSES = {"sufficient", "weak", "missing", "not_applicable", "not_verifiable"}
+OVERCLAIM_RISK_STATUSES = {"low", "moderate", "high", "not_applicable", "not_verifiable"}
 OPPONENT_TRACE_REVIEW_STATUSES = {"accepted"}
 OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
@@ -361,10 +362,13 @@ def _validate_quantitative_claims(loaded: dict[str, Any], rel_path: str, errors:
         _require_nonempty_string(item, "summary", prefix, errors)
         _require_enum(item, "kind", QUANTITATIVE_CLAIM_KINDS, prefix, errors)
         _require_enum(item, "status", QUANTITATIVE_CLAIM_STATUSES, prefix, errors)
+        _require_nonempty_string(item, "unit", prefix, errors)
         _require_enum(item, "baseline_status", BASELINE_STATUSES, prefix, errors)
         _require_enum(item, "practical_context", PRACTICAL_CONTEXT_STATUSES, prefix, errors)
-        if "unit" in item and not isinstance(item["unit"], str):
-            errors.append(f"{prefix}: unit must be str")
+        _require_nonempty_string(item, "scale_context", prefix, errors)
+        _require_nonempty_string(item, "sample_context", prefix, errors)
+        _require_nonempty_string(item, "practical_magnitude", prefix, errors)
+        _require_enum(item, "overclaim_risk", OVERCLAIM_RISK_STATUSES, prefix, errors)
         _require_list(item, "reproducibility_refs", prefix, errors)
         _require_nonempty_list(item, "evidence_refs", prefix, errors)
         _require_bool(item, "requires_reviewer_verification", prefix, errors)

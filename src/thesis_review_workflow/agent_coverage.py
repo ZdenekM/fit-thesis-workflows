@@ -110,6 +110,7 @@ GITHUB_MARKERS = (
     "inputs/github/",
     "work/github-intake/",
 )
+QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
 
 
 @dataclass(frozen=True)
@@ -151,11 +152,15 @@ def load_json_object(path: Path) -> dict[str, Any] | None:
 def artifact_by_path(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     artifacts = manifest.get("artifacts")
-    if not isinstance(artifacts, list):
-        return result
-    for artifact in artifacts:
-        if isinstance(artifact, dict) and isinstance(artifact.get("path"), str):
-            result[artifact["path"]] = artifact
+    if isinstance(artifacts, list):
+        for artifact in artifacts:
+            if isinstance(artifact, dict) and isinstance(artifact.get("path"), str):
+                result[artifact["path"]] = artifact
+    work_artifacts = manifest.get("supporting_work_artifacts")
+    if isinstance(work_artifacts, list):
+        for artifact in work_artifacts:
+            if isinstance(artifact, dict) and isinstance(artifact.get("path"), str):
+                result.setdefault(artifact["path"], artifact)
     return result
 
 
@@ -303,6 +308,18 @@ def github_evidence_present(round_dir: Path, manifest: dict[str, Any]) -> bool:
     return False
 
 
+def quantitative_claims_present(round_dir: Path, manifest: dict[str, Any]) -> bool:
+    if (round_dir / QUANTITATIVE_CLAIMS_REL).is_file():
+        return True
+    records = manifest.get("supporting_work_artifacts")
+    if not isinstance(records, list):
+        return False
+    for item in records:
+        if isinstance(item, dict) and item.get("path") == QUANTITATIVE_CLAIMS_REL:
+            return True
+    return False
+
+
 def media_evidence_present(round_dir: Path) -> bool:
     candidate_bases = (
         round_dir / "inputs" / "media",
@@ -393,6 +410,15 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             final_paths,
         )
 
+    if final_paths and quantitative_claims_present(round_dir, manifest):
+        specs["quantitative_claims"] = RoleSpec(
+            "quantitative_claims",
+            "structured quantitative claims artifact feeds a final/synthesis artifact",
+            "thesis-quantitative-claims-review",
+            QUANTITATIVE_CLAIMS_REL,
+            final_paths,
+        )
+
     if final_paths and media_evidence_present(round_dir):
         specs["figure_media"] = RoleSpec(
             "figure_media",
@@ -452,6 +478,13 @@ def first_recorded_generator(artifact: dict[str, Any] | None) -> tuple[str, str]
         return "not_recorded", "not_recorded"
     generated = artifact.get("generated_by")
     if not isinstance(generated, list):
+        role = str(artifact.get("producer_role", "")).strip() or "not_recorded"
+        raw_agent = artifact.get("producer_agent")
+        agent = raw_agent.strip() if isinstance(raw_agent, str) and raw_agent.strip() else "not_recorded"
+        if agent == "not_recorded" and artifact.get("producer_type") == "human":
+            agent = "human_reviewer"
+        if role != "not_recorded" or agent != "not_recorded":
+            return role, agent
         return "not_recorded", "not_recorded"
     fallback = ("not_recorded", "not_recorded")
     for item in generated:

@@ -225,6 +225,9 @@ Nejběžnější výstupy jsou:
   strukturovaná mapa splnění bodů zadání,
 - `work/evidence_requirements.json` - agentem nebo člověkem připravený
   strukturovaný přehled požadované, dostupné a slabé evidence,
+- `work/quantitative_claims.json` - agentem nebo člověkem připravený
+  strukturovaný handoff pro kvantitativní/result claimy, jednotky, baseline,
+  praktický kontext a reprodukovatelnost,
 - `work/media_presence_inventory.jsonl` - strukturální inventář nalezených
   media souborů podle cesty a přípony,
 - `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
@@ -399,6 +402,12 @@ Poradní příprava pro oponentské review:
 `scripts/check-assignment-coverage`, `scripts/check-evidence-presence` a
 `scripts/check-evaluation-claims` spouštějte až po vytvoření příslušných
 strukturovaných artefaktů autorizovaným agentem nebo člověkem.
+Kvantitativní/result claimy vytváří skill
+`thesis-quantitative-claims-review` do `work/quantitative_claims.json`;
+syntéza čte nejdřív packetový `## Quantitative Claims Handoff` a plné výsledky
+otevírá jen pro ověření materiálního tvrzení nebo kalibraci formulace. Pokud
+text/code/figure agent najde důležitý metrický claim jen v prose, pošle ho do
+tohoto skillu; deterministické skripty nemají rozšiřovat raw-text heuristiky.
 
 ```bash
 scripts/check-assignment-coverage <case-id>

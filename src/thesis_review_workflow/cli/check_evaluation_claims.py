@@ -43,6 +43,18 @@ def render_counts(counts: dict[str, int]) -> str:
     return ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
 
 
+def review_attention_count(claims: list[Any]) -> int:
+    attention_statuses = {"needs_context", "unsupported", "inconsistent", "not_verifiable"}
+    attention_overclaim = {"moderate", "high", "not_verifiable"}
+    total = 0
+    for item in claims:
+        if not isinstance(item, dict):
+            continue
+        if item.get("status") in attention_statuses or item.get("overclaim_risk") in attention_overclaim:
+            total += 1
+    return total
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scripts/check-evaluation-claims",
@@ -98,6 +110,11 @@ def main(argv: list[str]) -> int:
     context_counts = count_field_values(claim_list, "practical_context")
     if context_counts:
         print(f"Practical-context statuses: {render_counts(context_counts)}")
+    overclaim_counts = count_field_values(claim_list, "overclaim_risk")
+    if overclaim_counts:
+        print(f"Overclaim-risk statuses: {render_counts(overclaim_counts)}")
+    print(f"Synthesis attention claims: {review_attention_count(claim_list)}")
+    print("Synthesis handoff: consume the structured claim summaries before opening raw result text.")
     print("Quantitative claims structured artifact check passed")
     return 0
 

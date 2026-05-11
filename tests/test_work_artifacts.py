@@ -54,6 +54,8 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
 
     by_path = {record["path"]: record for record in records}
     assert by_path["work/assignment_coverage_agent.json"]["schema_version"] == "assignment-coverage-agent-v1"
+    assert by_path["work/assignment_coverage_agent.json"]["producer_role"] == "assignment-coverage-reviewer"
+    assert by_path["work/assignment_coverage_agent.json"]["producer_agent"] == "agent-a"
     assert by_path["work/assignment_coverage_agent.json"]["artifact_sha256"]
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
@@ -95,6 +97,53 @@ def test_validate_supporting_work_artifacts_rejects_stale_hash_and_wrong_case(tm
 
     assert any("artifact_sha256 is stale" in error for error in errors)
     assert any("case_id does not match requested case" in error for error in errors)
+
+
+def test_collect_supporting_work_artifacts_records_human_producer_identity(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "quantitative_claims.json",
+        {
+            "schema_version": "quantitative-claims-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-11T00:00:00Z",
+            "producer_type": "human",
+            "producer_role": "quantitative-claims-reviewer",
+            "producer_agent": None,
+            "human_reviewer_note": "Reviewed by operator.",
+            "source_refs": ["inputs/results.csv"],
+            "claims": [
+                {
+                    "claim_id": "Q1",
+                    "summary": "Synthetic metric claim.",
+                    "kind": "metric",
+                    "status": "needs_context",
+                    "unit": "ms",
+                    "baseline_status": "missing",
+                    "practical_context": "weak",
+                    "scale_context": "Latency scale is a single synthetic value.",
+                    "sample_context": "Synthetic result file is the sample context.",
+                    "practical_magnitude": "Magnitude is not interpreted against a baseline.",
+                    "overclaim_risk": "moderate",
+                    "reproducibility_refs": ["inputs/results.csv"],
+                    "evidence_refs": ["inputs/results.csv"],
+                    "requires_reviewer_verification": True,
+                }
+            ],
+            "limitations": [],
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    quantitative = {record["path"]: record for record in records}["work/quantitative_claims.json"]
+
+    assert quantitative["producer_type"] == "human"
+    assert quantitative["producer_role"] == "quantitative-claims-reviewer"
+    assert quantitative["producer_agent"] == "human_reviewer"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
 
 
 def test_validate_supporting_work_artifacts_requires_hash_and_payload_fields(tmp_path: Path) -> None:

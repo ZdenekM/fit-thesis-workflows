@@ -40,6 +40,10 @@ def quantitative_claims(case_id: str = "case-a") -> dict[str, object]:
                 "unit": "%",
                 "baseline_status": "missing",
                 "practical_context": "weak",
+                "scale_context": "Percentage denominator is not explicit.",
+                "sample_context": "Sample size is not stated.",
+                "practical_magnitude": "Magnitude is not interpreted against a user-visible impact.",
+                "overclaim_risk": "moderate",
                 "reproducibility_refs": [],
                 "evidence_refs": ["extracted/thesis.txt"],
                 "requires_reviewer_verification": True,
@@ -49,8 +53,13 @@ def quantitative_claims(case_id: str = "case-a") -> dict[str, object]:
                 "summary": "Experiment result is not verifiable.",
                 "kind": "experiment",
                 "status": "not_verifiable",
+                "unit": "not_verifiable",
                 "baseline_status": "not_verifiable",
                 "practical_context": "not_verifiable",
+                "scale_context": "No scale context is verifiable from the available evidence.",
+                "sample_context": "No sample context is verifiable from the available evidence.",
+                "practical_magnitude": "No practical magnitude is verifiable from the available evidence.",
+                "overclaim_risk": "not_verifiable",
                 "reproducibility_refs": [],
                 "evidence_refs": ["extracted/thesis.txt"],
                 "requires_reviewer_verification": True,
@@ -75,6 +84,9 @@ def test_check_evaluation_claims_validates_structured_artifact(tmp_path: Path, m
     assert "Claim statuses: needs_context=1, not_verifiable=1" in output
     assert "Baseline statuses: missing=1, not_verifiable=1" in output
     assert "Practical-context statuses: not_verifiable=1, weak=1" in output
+    assert "Overclaim-risk statuses: moderate=1, not_verifiable=1" in output
+    assert "Synthesis attention claims: 2" in output
+    assert "Synthesis handoff: consume the structured claim summaries" in output
     assert "Quantitative claims structured artifact check passed" in output
 
 
