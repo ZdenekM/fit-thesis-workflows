@@ -18,6 +18,7 @@ python_source(name="check_opponent_materials", source="check_opponent_materials.
 python_source(name="check_opponent_report", source="check_opponent_report.py")
 python_source(name="check_private", source="check_private.py")
 python_source(name="check_review_manifest", source="check_review_manifest.py")
+python_source(name="check_review_wave", source="check_review_wave.py")
 python_source(name="check_reviewer_profile", source="check_reviewer_profile.py")
 python_source(name="check_revision_diff", source="check_revision_diff.py")
 python_source(name="check_round_ready", source="check_round_ready.py")

@@ -290,6 +290,10 @@ case_id="${case_prefix}_valid_en"
 make_case "$case_id" "Student feedback language: en"
 write_valid_en_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 expect_success "valid English feedback passes" "$repo_root/scripts/check-feedback-output" "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/work"
+write_valid_en_feedback "$repo_root/cases/$case_id/rounds/round-a/work/feedback_student_draft.md"
+expect_success "valid English draft artifact passes" "$repo_root/scripts/check-feedback-output" \
+  --artifact work/feedback_student_draft.md "$case_id"
 
 case_id="${case_prefix}_explicit_round"
 make_case "$case_id" "Student feedback language: cs" "round-b" "no"
@@ -302,6 +306,11 @@ feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 write_valid_cs_feedback "$feedback"
 replace_text "$feedback" "Datum kontroly: 29. 4. 2026" "Datum kontroly: YYYY-MM-DD"
 expect_failure "placeholder date fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_unsafe_artifact"
+make_case "$case_id" "Student feedback language: cs"
+expect_failure "unsafe artifact path fails" "$repo_root/scripts/check-feedback-output" \
+  --artifact ../feedback_student.md "$case_id"
 
 case_id="${case_prefix}_invalid_date"
 make_case "$case_id" "Student feedback language: cs"

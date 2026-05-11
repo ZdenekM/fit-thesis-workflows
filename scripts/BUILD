@@ -19,6 +19,7 @@ shell_sources(
         "check-opponent-report",
         "check-private",
         "check-review-manifest",
+        "check-review-wave",
         "check-reviewer-profile",
         "check-revision-diff",
         "check-round-ready",
@@ -62,6 +63,7 @@ shell_sources(
         "smoke-private",
         "smoke-register-review-artifact",
         "smoke-review-manifest",
+        "smoke-review-wave",
         "smoke-reviewer-profile",
         "smoke-tooling",
         "smoke-typography-formal",
@@ -96,6 +98,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_opponent_report",
     "src/thesis_review_workflow/cli:check_private",
     "src/thesis_review_workflow/cli:check_review_manifest",
+    "src/thesis_review_workflow/cli:check_review_wave",
     "src/thesis_review_workflow/cli:check_reviewer_profile",
     "src/thesis_review_workflow/cli:check_revision_diff",
     "src/thesis_review_workflow/cli:check_round_ready",
@@ -294,6 +297,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-review-manifest",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_review_wave_tool",
+    entry_point="thesis_review_workflow.cli.check_review_wave:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-review-wave",
     tags=["workflow-tool"],
 )
 

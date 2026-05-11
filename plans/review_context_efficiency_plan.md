@@ -659,7 +659,7 @@ shape but must not include real case content.
 
 ### Slice 2 - Shared Wave Output Gate
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): add review wave output gate`
 - Expected paths:
   - `src/thesis_review_workflow/review_wave_gate.py`
@@ -1030,6 +1030,21 @@ shape but must not include real case content.
   `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, TOML
   parsing for `.codex/config.toml` and `.codex/agents/*.toml`, and untracked
   plan whitespace check.
+- 2026-05-11: Completed Slice 2. Added `scripts/check-review-wave` backed by
+  `review_wave_gate.py`, built-in supervisor/opponent wave specs, JSON custom
+  specs, ignored-case whitespace checks, draft-path feedback validation via
+  `--artifact`, approval-record hash/verdikt validation, and packaging registry
+  coverage. Agent review found approval-record gaps; fixes require approved
+  verdicts, safe reviewed paths, existing review-basis files, and current
+  reviewed/basis hashes. Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_wave_gate.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-review-wave`, `scripts/smoke-feedback-language`,
+  `scripts/smoke-feedback-output`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, and
+  `pants run :omen` (grade A, overall score 91.03; existing hotspots outside
+  the new wave-gate files).
 
 ## Decision Log
 

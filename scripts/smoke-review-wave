@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__review_wave_smoke_$$"
+created_cases=()
+out_file="/tmp/review-wave-smoke.$$.out"
+err_file="/tmp/review-wave-smoke.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_case"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+
+cat >"$round_dir/work/evidence.md" <<'EOF'
+# Synthetic Evidence
+
+## Synthesis Handoff
+
+- Use this synthetic finding only for smoke validation.
+EOF
+
+cat >"$round_dir/work/wave.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "smoke",
+  "outputs": [
+    {
+      "role": "synthetic",
+      "path": "work/evidence.md",
+      "handoff_required": true
+    }
+  ]
+}
+EOF
+
+expect_success "custom wave passes" "$repo_root/scripts/check-review-wave" --spec work/wave.json "$case_id"
+expect_output "Review wave check passed: custom:smoke"
+
+cat >"$round_dir/work/wave-missing.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "missing",
+  "outputs": [
+    {
+      "role": "missing",
+      "path": "work/missing.md"
+    }
+  ]
+}
+EOF
+
+expect_failure "missing output fails" "$repo_root/scripts/check-review-wave" --spec work/wave-missing.json "$case_id"
+expect_output "missing expected output"
+
+printf '# Bad whitespace \n' >"$round_dir/work/bad.md"
+cat >"$round_dir/work/wave-whitespace.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "whitespace",
+  "outputs": [
+    {
+      "role": "bad",
+      "path": "work/bad.md"
+    }
+  ]
+}
+EOF
+
+expect_failure "trailing whitespace fails" "$repo_root/scripts/check-review-wave" --spec work/wave-whitespace.json "$case_id"
+expect_output "trailing whitespace"
+
+mkdir -p "$round_dir/outputs" "$round_dir/work/reviews"
+cat >"$round_dir/outputs/feedback_student.md" <<'EOF'
+# Reviewed Feedback
+EOF
+cat >"$round_dir/work/feedback_student_draft.md" <<'EOF'
+# Draft Feedback
+EOF
+python3 - "$round_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+
+
+def digest(rel_path: str) -> str:
+    return hashlib.sha256((round_dir / rel_path).read_bytes()).hexdigest()
+
+
+def write_json(rel_path: str, payload: dict[str, object]) -> None:
+    path = round_dir / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+write_json(
+    "work/reviews/feedback_student_review.json",
+    {
+        "workflow_profile": "supervisor_feedback",
+        "reviewer_role": "thesis-supervisor-feedback-review",
+        "verdict": "approved",
+        "reviewed_artifact_path": "outputs/feedback_student.md",
+        "reviewed_artifact_sha256": digest("outputs/feedback_student.md"),
+        "review_basis_path": "work/feedback_student_draft.md",
+        "review_basis_sha256": digest("work/feedback_student_draft.md"),
+        "checks_observed": ["check-feedback-output"],
+        "limitations": [],
+        "timestamp": "2026-05-11T12:00:00Z",
+    },
+)
+write_json(
+    "work/reviews/feedback_student_rejected.json",
+    {
+        "workflow_profile": "supervisor_feedback",
+        "reviewer_role": "thesis-supervisor-feedback-review",
+        "verdict": "rejected",
+        "reviewed_artifact_path": "outputs/feedback_student.md",
+        "reviewed_artifact_sha256": digest("outputs/feedback_student.md"),
+        "review_basis_path": "work/missing_basis.md",
+        "review_basis_sha256": "0" * 64,
+        "checks_observed": [],
+        "limitations": [],
+        "timestamp": "2026-05-11T12:00:00Z",
+    },
+)
+PY
+
+cat >"$round_dir/work/wave-approval.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "approval",
+  "outputs": [
+    {
+      "role": "feedback_review",
+      "path": "outputs/feedback_student.md",
+      "approval_record": {
+        "path": "work/reviews/feedback_student_review.json",
+        "reviewed_artifact_path": "outputs/feedback_student.md"
+      }
+    }
+  ]
+}
+EOF
+
+expect_success "approval record passes" "$repo_root/scripts/check-review-wave" --spec work/wave-approval.json "$case_id"
+expect_output "approval record shape passed"
+
+cat >"$round_dir/work/wave-approval-rejected.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "approval-rejected",
+  "outputs": [
+    {
+      "role": "feedback_review",
+      "path": "outputs/feedback_student.md",
+      "approval_record": "work/reviews/feedback_student_rejected.json"
+    }
+  ]
+}
+EOF
+
+expect_failure "rejected approval record fails" "$repo_root/scripts/check-review-wave" \
+  --spec work/wave-approval-rejected.json "$case_id"
+expect_output "verdict must be approved/pass"
+expect_output "review basis is missing"
+
+cat >"$round_dir/work/wave-approval-unsafe.json" <<'EOF'
+{
+  "workflow": "custom",
+  "wave": "approval-unsafe",
+  "outputs": [
+    {
+      "role": "feedback_review",
+      "path": "outputs/feedback_student.md",
+      "approval_record": {
+        "path": "work/reviews/feedback_student_review.json",
+        "reviewed_artifact_path": "../escape.md"
+      }
+    }
+  ]
+}
+EOF
+
+expect_failure "unsafe reviewed artifact path fails" "$repo_root/scripts/check-review-wave" \
+  --spec work/wave-approval-unsafe.json "$case_id"
+expect_output "approval_record.reviewed_artifact_path"
+
+rm -f "$out_file" "$err_file"
+echo "Review wave smoke passed"

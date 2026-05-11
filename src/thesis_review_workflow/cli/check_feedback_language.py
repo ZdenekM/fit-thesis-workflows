@@ -7,6 +7,7 @@ import sys
 
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root, resolve_round
 from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.paths import is_safe_round_relative_path
 
 CS_REQUIRED_HEADINGS = [
     "# Zpětná vazba k aktuální verzi práce",
@@ -57,8 +58,8 @@ EN_REQUIRED_HEADINGS = [
 
 def usage() -> str:
     return (
-        "Usage: scripts/check-feedback-language [--config-only] CASE_ID [ROUND_ID]\n\n"
-        "Checks outputs/feedback_student.md heading structure against Student feedback language in case.md.\n"
+        "Usage: scripts/check-feedback-language [--config-only] [--artifact REL_PATH] CASE_ID [ROUND_ID]\n\n"
+        "Checks feedback heading structure against Student feedback language in case.md.\n"
         "Use --config-only to validate case.md before feedback output exists."
     )
 
@@ -83,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Check feedback heading language against case metadata.",
     )
     parser.add_argument("--config-only", action="store_true")
+    parser.add_argument(
+        "--artifact",
+        default="outputs/feedback_student.md",
+        help="round-relative feedback artifact path",
+    )
     parser.add_argument("case_id")
     parser.add_argument("round_id", nargs="?")
     return parser
@@ -113,8 +119,14 @@ def main(argv: list[str]) -> int:
         )
         return 1
     if args.config_only:
+        if args.artifact != "outputs/feedback_student.md":
+            print("--artifact cannot be used with --config-only", file=sys.stderr)
+            return 2
         print(f"Feedback language config OK: {language}")
         return 0
+    if not is_safe_round_relative_path(args.artifact):
+        print("--artifact must be a safe round-relative path", file=sys.stderr)
+        return 2
 
     try:
         round_id = resolve_round(case_dir, args.round_id)
@@ -129,10 +141,10 @@ def main(argv: list[str]) -> int:
     if not round_dir.is_dir():
         print(f"Round does not exist: cases/{args.case_id}/rounds/{round_id}", file=sys.stderr)
         return 1
-    feedback = round_dir / "outputs" / "feedback_student.md"
+    feedback = round_dir / args.artifact
     if not feedback.is_file():
         print(
-            f"Missing feedback output: cases/{args.case_id}/rounds/{round_id}/outputs/feedback_student.md",
+            f"Missing feedback output: cases/{args.case_id}/rounds/{round_id}/{args.artifact}",
             file=sys.stderr,
         )
         return 1

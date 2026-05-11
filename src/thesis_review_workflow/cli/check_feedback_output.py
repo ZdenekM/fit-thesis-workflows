@@ -11,6 +11,7 @@ from typing import TypedDict
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.markdown_utils import is_delimiter_row, section_body, split_table_row
+from thesis_review_workflow.paths import is_safe_round_relative_path
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -195,7 +196,7 @@ GENERIC_CHECKLIST = {
 
 
 def usage() -> str:
-    return "Usage: scripts/check-feedback-output CASE_ID [ROUND_ID]"
+    return "Usage: scripts/check-feedback-output [--artifact REL_PATH] CASE_ID [ROUND_ID]"
 
 
 def repo_root() -> Path:
@@ -229,9 +230,9 @@ def read_language(case_md: Path) -> str:
     return language
 
 
-def run_language_check(root: Path, case_id: str, round_id: str, errors: list[str]) -> None:
+def run_language_check(root: Path, case_id: str, round_id: str, artifact: str, errors: list[str]) -> None:
     result = subprocess.run(
-        resolve_repo_command(root, ["scripts/check-feedback-language", case_id, round_id]),
+        resolve_repo_command(root, ["scripts/check-feedback-language", "--artifact", artifact, case_id, round_id]),
         cwd=root,
         text=True,
         encoding="utf-8",
@@ -502,13 +503,22 @@ def check_czech_diacritics(text: str, lines: list[str], errors: list[str], warni
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) == 2 and argv[1] in {"-h", "--help"}:
+    args = argv[1:]
+    if args == ["-h"] or args == ["--help"]:
         print(usage())
         return 0
-    if len(argv) not in {2, 3}:
+    artifact = "outputs/feedback_student.md"
+    if args[:1] == ["--artifact"]:
+        if len(args) < 2:
+            die_usage("--artifact requires a round-relative path.")
+        artifact = args[1]
+        args = args[2:]
+    if len(args) not in {1, 2}:
         die_usage("Expected CASE_ID and optional ROUND_ID.")
+    if not is_safe_round_relative_path(artifact):
+        die_usage("--artifact must be a safe round-relative path.")
 
-    case_id = argv[1]
+    case_id = args[0]
     validate_id("CASE_ID", case_id)
     root = repo_root()
     case_dir = root / "cases" / case_id
@@ -521,7 +531,7 @@ def main(argv: list[str]) -> int:
         print(f"ERROR: Missing case metadata: cases/{case_id}/case.md", file=sys.stderr)
         return 1
 
-    round_id = argv[2] if len(argv) == 3 else ""
+    round_id = args[1] if len(args) == 2 else ""
     if round_id:
         validate_id("ROUND_ID", round_id)
     else:
@@ -541,10 +551,10 @@ def main(argv: list[str]) -> int:
         return 1
 
     round_dir = case_dir / "rounds" / round_id
-    feedback = round_dir / "outputs" / "feedback_student.md"
+    feedback = round_dir / artifact
     if not feedback.is_file():
         print(
-            f"ERROR: Missing feedback output: cases/{case_id}/rounds/{round_id}/outputs/feedback_student.md",
+            f"ERROR: Missing feedback output: cases/{case_id}/rounds/{round_id}/{artifact}",
             file=sys.stderr,
         )
         return 1
@@ -552,7 +562,7 @@ def main(argv: list[str]) -> int:
     errors: list[str] = []
     warnings: list[str] = []
     run_supervisor_ready(root, case_id, round_id, errors)
-    run_language_check(root, case_id, round_id, errors)
+    run_language_check(root, case_id, round_id, artifact, errors)
 
     text = feedback.read_text(encoding="utf-8")
     lines = text.splitlines()

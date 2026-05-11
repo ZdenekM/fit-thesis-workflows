@@ -132,6 +132,10 @@ case_id="${case_prefix}_en"
 make_case "$case_id" "Student feedback language: en"
 write_en_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 expect_success "English headings pass" "$repo_root/scripts/check-feedback-language" "$case_id"
+mkdir -p "$repo_root/cases/$case_id/rounds/round-a/work"
+write_en_feedback "$repo_root/cases/$case_id/rounds/round-a/work/feedback_student_draft.md"
+expect_success "English draft artifact headings pass" "$repo_root/scripts/check-feedback-language" \
+  --artifact work/feedback_student_draft.md "$case_id"
 
 case_id="${case_prefix}_cs_with_en"
 make_case "$case_id" "Student feedback language: cs"
@@ -154,6 +158,8 @@ expect_failure "unsupported language fails in config-only mode" "$repo_root/scri
 case_id="${case_prefix}_missing_feedback"
 make_case "$case_id" "Student feedback language: cs"
 expect_failure "missing feedback output fails" "$repo_root/scripts/check-feedback-language" "$case_id"
+expect_failure "unsafe artifact path fails" "$repo_root/scripts/check-feedback-language" \
+  --artifact ../feedback_student.md "$case_id"
 
 case_id="${case_prefix}_explicit_round"
 make_case "$case_id" "Student feedback language: cs" "round-b" "no"
