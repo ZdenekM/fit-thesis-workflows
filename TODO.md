@@ -28,12 +28,6 @@
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
    - Reuse `scripts/prepare-supervisor-packets`, `scripts/check-review-wave`, and structured `work/reviews/feedback_student_review.json` provenance rather than adding a parallel supervisor-specific review registry.
    - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
-- [ ] Execute the remaining context-efficiency follow-up plan in `plans/review_context_followup_plan.md`.
-   - Add deterministic authoring for `work/current_evidence_snapshot.json` so drift-prone evidence does not have to be reconstructed in prompts.
-   - Bridge materiality decisions to concrete GitHub/quantitative next actions before packet generation and synthesis.
-   - Add a helper for writing validated `work/reviews/*_review.json` approval records from exact reviewed artifact and review-basis paths.
-   - Add a quantitative-claims review contract for `work/quantitative_claims.json`.
-   - Centralize output artifact metadata before adding more reviewed output classes if duplication starts blocking helper work.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 

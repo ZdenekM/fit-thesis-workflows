@@ -1,6 +1,6 @@
 # Review Context Follow-Up Plan
 
-Status: active
+Status: completed
 Created: 2026-05-11
 
 ## Goal
@@ -313,7 +313,7 @@ Out of scope:
 
 ### Slice 6 - Documentation, TODO Reconciliation, And Archive
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): close review context follow-up`
 - Expected paths:
   - `README.md`
@@ -423,6 +423,9 @@ Out of scope:
   `next_actions` plus the quantitative skill, not by deterministic prose scans.
   Once `work/quantitative_claims.json` exists, synthesis packets consume the
   compact structured handoff first.
+- 2026-05-11: Slice 6 removed the completed follow-up item from `TODO.md`,
+  documented `work/quantitative_claims.json` in the opponent workflow, ran final
+  hygiene and Omen, and archived this completed plan.
 
 ## Risks
 
@@ -440,12 +443,60 @@ Out of scope:
 
 ## Final Audit
 
-Not run yet. Before archiving this plan, record:
+Completed on 2026-05-11.
 
-- implementation slices completed or explicitly deferred;
-- agent-review findings and fixes;
-- exact commands run for each slice;
-- whether supervisor closeout consumed the new helper outputs;
-- whether opponent closeout consumed the new helper outputs;
-- residual risks around stale snapshots, materiality false negatives, manual
-  exceptions, and Windows command-surface coverage.
+- Implementation slices completed: Slice 1 artifact registry, Slice 2 current
+  evidence snapshot authoring, Slice 3 materiality next actions, Slice 4 review
+  approval writer, Slice 5 quantitative claims review contract, and Slice 6
+  documentation/TODO/archive. Nothing in this plan was explicitly deferred.
+- Agent-review findings fixed:
+  - Slice 1: closeout metadata validation and coverage registry consumers.
+  - Slice 2: deleted refs, stale negative statuses, and unsafe snapshot hashing.
+  - Slice 3: stale next actions, source freshness, missing-index bypass,
+    raw-GitHub-URL routing, and weak typed limitations.
+  - Slice 4: self-certified checks, manifest requirement drift, reviewer-role
+    override, and weak manifest import validation.
+  - Slice 5: missing Codex profile registration, circular first-authoring
+    packet activation, shallow quantitative schema, human-producer coverage
+    failure, missing `check-evaluation-claims` manifest coverage, and Pants
+    sandbox resources for `.codex` profile tests.
+- Slice-level verification included the targeted pytest/Pants/smoke/private
+  checks listed in each slice, plus agent re-review before commits.
+- Final commands run:
+  - `pants fmt ::`
+  - `pants lint ::`
+  - `pants check ::`
+  - `scripts/check-private`
+  - `scripts/check-scripts`
+  - `pants run :omen`
+  - `git diff --check`
+  - `git status --short --untracked-files=all`
+- Omen evidence:
+  - MCP `changes(count=5)` classified the quantitative Slice 5 commit as
+    medium risk due to breadth and historically volatile workflow files; no
+    concrete blocker was reported.
+  - MCP `complexity(path=src/thesis_review_workflow, threshold=12)` and
+    `deadcode(path=src/thesis_review_workflow)` returned no indexed items in
+    this session.
+  - `pants run :omen` completed with Grade A / Overall Score 91.16. It reported
+    known code-health hotspots, especially `check_review_manifest.py`,
+    `structured_evidence.py`, `init_review_manifest.py`, `review_materiality.py`,
+    and `work_artifacts.py`, but no smells, no SATD, no critical issue count in
+    the aggregate summary, and no slice-blocking failure.
+- Supervisor closeout has not been implemented by this plan; it remains owned
+  by `plans/supervisor_workflow_closeout_plan.md`. Supervisor packets and wave
+  gates now consume current evidence snapshots, materiality next actions,
+  review approvals, and quantitative claims handoffs.
+- Opponent closeout and packets now consume the same helper outputs, and
+  `docs/opponent-review-workflow.md` documents the quantitative claims handoff
+  plus `check-evaluation-claims`.
+- Residual risks:
+  - current-evidence snapshots can still become stale if operators do not
+    refresh them after late artifact edits;
+  - materiality false negatives remain possible for prose-only claims, by
+    design, and must be routed by semantic text/code/figure agents rather than
+    deterministic raw-text scans;
+  - manual typed exceptions remain a trust boundary and must stay explicit in
+    `work/review_manifest.json`;
+  - native Windows runtime proof remains open in `TODO.md` and was not solved by
+    this context-efficiency plan.

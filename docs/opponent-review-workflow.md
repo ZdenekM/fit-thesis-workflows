@@ -37,6 +37,12 @@ musí připravit autorizovaný text/assignment agent nebo člověk jako struktur
 mapu bodů zadání proti dostupné evidenci. Potom spusťte
 `scripts/check-assignment-coverage`; skript artefakt jen ověřuje, nevyvozuje
 splnění zadání z volného textu a nerozhoduje známku.
+Kvantitativní/result claimy jsou stejný typ semantického handoffu:
+`work/quantitative_claims.json` připraví autorizovaný
+`thesis-quantitative-claims-review` agent nebo člověk, potom spusťte
+`scripts/check-evaluation-claims`. Deterministické skripty nerozšiřujte o
+raw-text heuristiky pro význam metrik; prose-only metrické claimy má do tohoto
+skillu směrovat textový, code nebo figure/media agent.
 
 Tyto artefakty jsou poradní. Chybějící evidence je riziko nebo požadavek na
 ruční ověření, ne automatický důkaz, že je tvrzení práce nepravdivé.
@@ -72,6 +78,7 @@ evidenci:
 - `outputs/code_consistency.md`
 - `outputs/code_quality_review.md`
 - `outputs/github_code_intake.md`
+- `work/quantitative_claims.json`
 - `outputs/literature_citation_review.md`
 - `outputs/figure_media_review.md`
 - `outputs/typography_formal_review.md`
@@ -84,6 +91,7 @@ Pro jádrové code/revision artefakty existují strukturální validátory:
 scripts/check-revision-diff <case-id> [round-id]
 scripts/check-code-consistency <case-id> [round-id]
 scripts/check-code-quality-review <case-id> [round-id]
+scripts/check-evaluation-claims <case-id> [round-id]
 ```
 
 Validátory hlídají tvar, konkrétní evidence odkazy, omezení, review status,
@@ -126,8 +134,9 @@ pak spadne jako stale hash.
 Approval record se neuzavírá ruční opravou hashe. Po materiální úpravě znovu
 spusťte review nebo zapište explicitní typovanou výjimku a omezení.
 
-Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`
-nebo `outputs/revision_diff.md`, manifest closeout vyžaduje příslušný
+Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`,
+`outputs/revision_diff.md` nebo manifestem registrované
+`work/quantitative_claims.json`, manifest closeout vyžaduje příslušný
 strukturální validátor jako passed helper check.
 Kalibrační výstupy `outputs/reference_report_comparison.md` a
 `outputs/opponent_reading_packet.md` jsou internal-only, ale closeout pro ně
