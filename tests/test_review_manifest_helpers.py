@@ -853,7 +853,7 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
                 "reviewed_artifact_sha256": sha256_file(output),
                 "review_basis_path": "work/feedback_student_draft.md",
                 "review_basis_sha256": sha256_file(draft),
-                "checks_observed": ["check-feedback-output"],
+                "checks_observed": ["check-supervisor-ready", "check-feedback-language", "check-feedback-output"],
                 "limitations": ["Synthetic limitation."],
                 "timestamp": "2026-05-11T00:00:00Z",
             }
@@ -883,6 +883,20 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
         review_basis_path="",
         notes="",
     )
+    output_hash = sha256_file(output)
+    manifest["helper_checks"] = [
+        {
+            "check": name,
+            "command": f"scripts/{name} case-a round-a",
+            "target_artifacts": ["outputs/feedback_student.md"],
+            "target_sha256": {"outputs/feedback_student.md": output_hash},
+            "status": "passed",
+            "checked_at": "2026-05-11T00:00:00Z",
+            "exit_code": 0,
+            "notes": "Synthetic passed check.",
+        }
+        for name in ("check-supervisor-ready", "check-feedback-language", "check-feedback-output")
+    ]
 
     apply_review_approval_records(manifest, round_dir)
     review = manifest["artifacts"][0]["independent_review"]

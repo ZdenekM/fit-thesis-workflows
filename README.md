@@ -412,6 +412,7 @@ scripts/check-review-materiality --workflow opponent_review <case-id>
 scripts/prepare-opponent-packets <case-id>
 scripts/check-review-wave --workflow supervisor_feedback --wave draft <case-id>
 scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
+scripts/write-review-approval --profile supervisor-feedback --reviewer-agent <agent-id> <case-id>
 ```
 
 `scripts/check-review-materiality` nepíše verdikty o kvalitě práce. Z
@@ -424,6 +425,11 @@ vyřešené. Typed limitation pro takovou akci patří do
 `work/review_manifest.json` jako strukturovaný záznam s
 `trigger: materiality_next_action`, `scope`, `type`, `required_for`,
 `description`, `impact`, `status` a `accepted_by` nebo `reviewer_role`.
+
+`scripts/write-review-approval` zapisuje pouze pass/approved záznam po skutečné
+nezávislé kontrole. Pro kanonické profily vyplní správnou dvojici
+reviewed-artifact/review-basis a hash binding; neřeší obsahovou kontrolu místo
+review agenta.
 
 Časté finální kontroly:
 

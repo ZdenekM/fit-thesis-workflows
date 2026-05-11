@@ -66,6 +66,7 @@ shell_sources(
         "smoke-supervisor-packets",
         "smoke-private",
         "smoke-register-review-artifact",
+        "smoke-review-approval",
         "smoke-review-manifest",
         "smoke-review-wave",
         "smoke-reviewer-profile",
@@ -73,6 +74,7 @@ shell_sources(
         "smoke-typography-formal",
         "supervisor-deadline",
         "update-current-evidence-snapshot",
+        "write-review-approval",
     ],
 )
 
@@ -126,6 +128,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:supervisor_deadline",
     "src/thesis_review_workflow/cli:update_current_evidence_snapshot",
+    "src/thesis_review_workflow/cli:write_review_approval",
 ]
 
 pex_binary(
@@ -535,5 +538,15 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/update-current-evidence-snapshot",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="write_review_approval_tool",
+    entry_point="thesis_review_workflow.cli.write_review_approval:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/write-review-approval",
     tags=["workflow-tool"],
 )

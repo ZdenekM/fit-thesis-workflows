@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__review_approval_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+
+cleanup() {
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/outputs" "$round_dir/work"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+cat >"$round_dir/outputs/feedback_student.md" <<'EOF'
+# Reviewed Feedback
+
+Toto je synteticky text pro smoke test. Obsahuje vice vet, aby checker nemusel
+resit prazdny nebo prilis kratky vystup. Text nema soukroma data.
+EOF
+cat >"$round_dir/work/feedback_student_draft.md" <<'EOF'
+# Draft Feedback
+
+Toto je synteticky draft pro smoke test. Obsahuje vice vet, aby checker nemusel
+resit prazdny nebo prilis kratky vystup.
+EOF
+
+mkdir -p "$round_dir/work/review_materiality"
+cat >"$round_dir/work/review_materiality/index.json" <<EOF
+{
+  "case_id": "$case_id",
+  "decisions": [],
+  "generated_at": "2026-05-11T12:00:00Z",
+  "next_actions": [],
+  "phase": "non_final",
+  "producer_role": "smoke-review-approval",
+  "round_id": "$round_id",
+  "schema_version": "review-materiality-index-v1",
+  "workflow_profile": "supervisor_feedback"
+}
+EOF
+
+"$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/tmp/review-approval-smoke.out
+
+python3 - "$round_dir/work/review_manifest.json" "$round_dir/outputs/feedback_student.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+output_path = pathlib.Path(sys.argv[2])
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+output_hash = hashlib.sha256(output_path.read_bytes()).hexdigest()
+for check in manifest["helper_checks"]:
+    if check["check"] in {"check-supervisor-ready", "check-feedback-language", "check-feedback-output"}:
+        check["status"] = "passed"
+        check["checked_at"] = "2026-05-11T12:00:00Z"
+        check["exit_code"] = 0
+        check["target_sha256"] = {"outputs/feedback_student.md": output_hash}
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+
+"$repo_root/scripts/write-review-approval" \
+  --profile supervisor-feedback \
+  --reviewer-agent approval-smoke-reviewer \
+  --check check-supervisor-ready \
+  --check check-feedback-language \
+  --check check-feedback-output \
+  --timestamp 2026-05-11T12:00:00Z \
+  "$case_id" "$round_id" >/tmp/review-approval-smoke.out
+
+if ! grep -Fq "review-approval-v1" /tmp/review-approval-smoke.out; then
+  cat /tmp/review-approval-smoke.out >&2
+  exit 1
+fi
+
+if "$repo_root/scripts/write-review-approval" \
+  --profile supervisor-feedback \
+  --reviewer-agent approval-smoke-reviewer \
+  --check check-supervisor-ready \
+  --check check-feedback-language \
+  --check check-feedback-output \
+  --blocking-findings-count 1 \
+  "$case_id" "$round_id" >/tmp/review-approval-smoke.out 2>&1; then
+  echo "Expected blocking findings approval write to fail" >&2
+  cat /tmp/review-approval-smoke.out >&2
+  exit 1
+fi
+
+"$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/tmp/review-approval-smoke.out
+
+python3 - "$round_dir/work/review_manifest.json" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+artifacts = {item["path"]: item for item in manifest["artifacts"]}
+review = artifacts["outputs/feedback_student.md"]["independent_review"]
+assert review["approval_record_path"] == "work/reviews/feedback_student_review.json"
+assert review["reviewer_agent"] == "approval-smoke-reviewer"
+supporting = {item["path"] for item in manifest["supporting_work_artifacts"]}
+assert "work/reviews/feedback_student_review.json" in supporting
+PY
+
+rm -f /tmp/review-approval-smoke.out
+echo "Review approval smoke passed"

@@ -4,13 +4,60 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_registry import output_spec
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
+REVIEW_APPROVAL_SCHEMA = "review-approval-v1"
 APPROVED_VERDICTS = {"approved", "pass"}
 REVIEW_APPROVAL_GLOB = "work/reviews/*_review.json"
+FINAL_REVIEW_SCOPES = {"sendable_final", "standalone_final"}
+
+
+@dataclass(frozen=True)
+class ReviewApprovalProfile:
+    profile: str
+    workflow_profile: str
+    approval_path: str
+    reviewed_artifact_path: str
+    review_basis_candidates: tuple[str, ...]
+    reviewer_role: str
+    required_checks: tuple[str, ...]
+    review_basis_required: bool = False
+
+
+APPROVAL_PROFILES = {
+    "supervisor-feedback": ReviewApprovalProfile(
+        profile="supervisor-feedback",
+        workflow_profile="supervisor_feedback",
+        approval_path="work/reviews/feedback_student_review.json",
+        reviewed_artifact_path="outputs/feedback_student.md",
+        review_basis_candidates=("work/feedback_student_draft.md",),
+        reviewer_role="thesis-supervisor-feedback-review",
+        required_checks=("check-supervisor-ready", "check-feedback-language", "check-feedback-output"),
+    ),
+    "opponent-materials": ReviewApprovalProfile(
+        profile="opponent-materials",
+        workflow_profile="opponent_review",
+        approval_path="work/reviews/opponent_materials_review.json",
+        reviewed_artifact_path="outputs/oponent_podklady_revidovane.md",
+        review_basis_candidates=("work/oponent_podklady_draft.md",),
+        reviewer_role="thesis-opponent-materials-review",
+        required_checks=("check-round-ready", "check-opponent-materials", "check-opponent-report"),
+    ),
+    "opponent-report-review": ReviewApprovalProfile(
+        profile="opponent-report-review",
+        workflow_profile="opponent_report_review",
+        approval_path="work/reviews/opponent_report_review.json",
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        review_basis_candidates=("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
+        reviewer_role="thesis-opponent-report-review",
+        required_checks=("check-opponent-report",),
+    ),
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -34,6 +81,198 @@ def is_review_approval_path(rel_path: str) -> bool:
 def require_review_approval_path(rel_path: str) -> None:
     if not is_review_approval_path(rel_path):
         raise ValueError(f"review approval path must match {REVIEW_APPROVAL_GLOB}: {rel_path}")
+
+
+def resolve_review_basis(round_dir: Path, profile: ReviewApprovalProfile, explicit_basis: str) -> str:
+    if explicit_basis:
+        if not is_safe_round_relative_path(explicit_basis):
+            raise ValueError("review basis path must be relative inside the round")
+        if profile.review_basis_candidates and explicit_basis not in profile.review_basis_candidates:
+            choices = ", ".join(profile.review_basis_candidates)
+            raise ValueError(f"review basis for {profile.profile} must be one of: {choices}")
+        if not (round_dir / explicit_basis).is_file():
+            raise ValueError(f"review basis file does not exist: {explicit_basis}")
+        return explicit_basis
+    for candidate in profile.review_basis_candidates:
+        if (round_dir / candidate).is_file():
+            return candidate
+    if profile.review_basis_required:
+        raise ValueError(f"--review-basis is required for {profile.profile}")
+    choices = ", ".join(profile.review_basis_candidates)
+    raise ValueError(f"no review basis exists for {profile.profile}; expected one of: {choices}")
+
+
+def validate_required_checks(
+    *,
+    required_checks: tuple[str, ...],
+    checks_observed: list[str],
+    rel_path: str,
+    round_dir: Path,
+    reviewed_artifact_path: str,
+    manifest: dict[str, Any] | None,
+) -> list[str]:
+    errors: list[str] = []
+    missing = sorted(set(required_checks) - set(checks_observed))
+    for check in missing:
+        errors.append(f"{rel_path}: missing required observed check: {check}")
+    if required_checks and not manifest:
+        errors.append(f"{rel_path}: review manifest is required to verify required observed checks")
+        return errors
+    if manifest is None:
+        return errors
+    helper_checks = manifest.get("helper_checks")
+    if not isinstance(helper_checks, list):
+        return errors
+    for item in helper_checks:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("check")
+        if name not in required_checks:
+            continue
+        if item.get("status") != "passed":
+            errors.append(f"{rel_path}: helper check {name} must be passed before approval")
+        if item.get("exit_code") != 0:
+            errors.append(f"{rel_path}: helper check {name} must record exit_code 0")
+        if not str(item.get("checked_at", "")).strip():
+            errors.append(f"{rel_path}: helper check {name} must record checked_at")
+        targets = item.get("target_artifacts")
+        if not isinstance(targets, list) or reviewed_artifact_path not in targets:
+            errors.append(f"{rel_path}: helper check {name} must target {reviewed_artifact_path}")
+            continue
+        recorded_hashes = item.get("target_sha256")
+        target = round_dir / reviewed_artifact_path
+        if not isinstance(recorded_hashes, dict):
+            errors.append(f"{rel_path}: helper check {name} must record target_sha256")
+        else:
+            recorded = recorded_hashes.get(reviewed_artifact_path)
+            if not isinstance(recorded, str) or not recorded:
+                errors.append(f"{rel_path}: helper check {name} missing target hash for {reviewed_artifact_path}")
+            elif target.is_file() and recorded != sha256_file(target):
+                errors.append(f"{rel_path}: helper check {name} target hash is stale for {reviewed_artifact_path}")
+    seen = {item.get("check") for item in helper_checks if isinstance(item, dict)}
+    for check in sorted(set(required_checks) - {item for item in seen if isinstance(item, str)}):
+        errors.append(f"{rel_path}: missing manifest helper check record: {check}")
+    return errors
+
+
+def reviewer_matches_generator(
+    manifest: dict[str, Any] | None,
+    *,
+    reviewed_artifact_path: str,
+    reviewer_agent: str,
+) -> bool:
+    if not manifest:
+        return False
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return False
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or artifact.get("path") != reviewed_artifact_path:
+            continue
+        if artifact.get("review_scope") not in FINAL_REVIEW_SCOPES:
+            return False
+        generated = artifact.get("generated_by")
+        if not isinstance(generated, list):
+            return False
+        for record in generated:
+            if not isinstance(record, dict):
+                continue
+            generator_agent = str(record.get("agent", "")).strip()
+            if (
+                generator_agent
+                and generator_agent not in {"manual", "not_recorded"}
+                and generator_agent == reviewer_agent
+            ):
+                return True
+    return False
+
+
+def build_review_approval_payload(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    workflow_profile: str,
+    reviewer_role: str,
+    reviewer_agent: str,
+    verdict: str,
+    blocking_findings_count: int,
+    reviewed_artifact_path: str,
+    review_basis_path: str,
+    checks_observed: list[str],
+    limitations: list[str],
+    timestamp: str,
+    human_reviewer: str = "",
+    notes: str = "",
+    used_findings: str = "",
+    manifest: dict[str, Any] | None = None,
+    required_checks: tuple[str, ...] = (),
+    approval_path: str = "work/reviews/review_record_review.json",
+) -> dict[str, Any]:
+    if verdict.strip().lower() not in APPROVED_VERDICTS:
+        raise ValueError("review approval records are pass-only; keep failed reviews as findings, not approval JSON")
+    if blocking_findings_count != 0:
+        raise ValueError("approved/pass review approval records require blocking_findings_count=0")
+    if not reviewer_agent.strip():
+        raise ValueError("reviewer_agent or human reviewer identifier is required")
+    if reviewer_matches_generator(
+        manifest,
+        reviewed_artifact_path=reviewed_artifact_path,
+        reviewer_agent=reviewer_agent,
+    ):
+        raise ValueError("reviewer identity matches the recorded generator for this final artifact")
+    for label, rel_path in (
+        ("reviewed_artifact_path", reviewed_artifact_path),
+        ("review_basis_path", review_basis_path),
+    ):
+        if not is_safe_round_relative_path(rel_path):
+            raise ValueError(f"{label} must be relative inside the round")
+        if not (round_dir / rel_path).is_file():
+            raise ValueError(f"{label} file does not exist: {rel_path}")
+    payload: dict[str, Any] = {
+        "schema_version": REVIEW_APPROVAL_SCHEMA,
+        "case_id": case_id,
+        "round_id": round_id,
+        "workflow_profile": workflow_profile,
+        "reviewer_role": reviewer_role,
+        "reviewer_agent": reviewer_agent,
+        "verdict": verdict.strip().lower(),
+        "blocking_findings_count": blocking_findings_count,
+        "reviewed_artifact_path": reviewed_artifact_path,
+        "reviewed_artifact_sha256": sha256_file(round_dir / reviewed_artifact_path),
+        "review_basis_path": review_basis_path,
+        "review_basis_sha256": sha256_file(round_dir / review_basis_path),
+        "checks_observed": checks_observed,
+        "limitations": limitations,
+        "timestamp": timestamp,
+    }
+    if human_reviewer:
+        payload["human_reviewer"] = human_reviewer
+    if notes:
+        payload["notes"] = notes
+    if used_findings:
+        payload["used_findings"] = used_findings
+    errors = validate_required_checks(
+        required_checks=required_checks,
+        checks_observed=checks_observed,
+        rel_path=approval_path,
+        round_dir=round_dir,
+        reviewed_artifact_path=reviewed_artifact_path,
+        manifest=manifest,
+    )
+    errors.extend(
+        validate_review_approval_payload(
+            payload,
+            approval_path,
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            reviewed_artifact_path=reviewed_artifact_path,
+        )
+    )
+    if errors:
+        raise ValueError("; ".join(errors))
+    return payload
 
 
 def load_review_approval(round_dir: Path, rel_path: str) -> tuple[dict[str, Any] | None, list[str]]:
@@ -96,6 +335,9 @@ def validate_review_approval_payload(
     reviewed_artifact_path: str | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    schema = payload.get("schema_version")
+    if schema not in {None, REVIEW_APPROVAL_SCHEMA}:
+        errors.append(f"{rel_path}: schema_version must be {REVIEW_APPROVAL_SCHEMA}")
     _require_string(payload, "workflow_profile", rel_path, errors)
     _require_string(payload, "reviewer_role", rel_path, errors)
     _require_string(payload, "timestamp", rel_path, errors)
@@ -152,6 +394,69 @@ def validate_review_approval_payload(
         for index, item in enumerate(limitations, start=1):
             if not isinstance(item, str):
                 errors.append(f"{rel_path}: limitations item {index} must be a string")
+    return errors
+
+
+def canonical_profile_for_artifact(reviewed_artifact_path: str) -> ReviewApprovalProfile | None:
+    for profile in APPROVAL_PROFILES.values():
+        if profile.reviewed_artifact_path == reviewed_artifact_path:
+            return profile
+    return None
+
+
+def validate_review_approval_with_manifest(
+    payload: dict[str, Any],
+    rel_path: str,
+    round_dir: Path,
+    *,
+    manifest: dict[str, Any],
+    case_id: str | None = None,
+    round_id: str | None = None,
+    reviewed_artifact_path: str | None = None,
+) -> list[str]:
+    errors = validate_review_approval_payload(
+        payload,
+        rel_path,
+        round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        reviewed_artifact_path=reviewed_artifact_path,
+    )
+    reviewed_path = payload.get("reviewed_artifact_path")
+    if not isinstance(reviewed_path, str):
+        return errors
+    profile = canonical_profile_for_artifact(reviewed_path)
+    if profile is not None:
+        if rel_path != profile.approval_path:
+            errors.append(f"{rel_path}: canonical approval path must be {profile.approval_path}")
+        if payload.get("workflow_profile") != profile.workflow_profile:
+            errors.append(f"{rel_path}: workflow_profile must be {profile.workflow_profile}")
+        if payload.get("reviewer_role") != profile.reviewer_role:
+            errors.append(f"{rel_path}: reviewer_role must be {profile.reviewer_role}")
+        basis = payload.get("review_basis_path")
+        if basis not in profile.review_basis_candidates:
+            choices = ", ".join(profile.review_basis_candidates)
+            errors.append(f"{rel_path}: review_basis_path must be one of: {choices}")
+        checks = string_list(payload.get("checks_observed"))
+        errors.extend(
+            validate_required_checks(
+                required_checks=profile.required_checks,
+                checks_observed=checks,
+                rel_path=rel_path,
+                round_dir=round_dir,
+                reviewed_artifact_path=reviewed_path,
+                manifest=manifest,
+            )
+        )
+    elif output_spec(Path(reviewed_path).name) is not None:
+        errors.append(f"{rel_path}: no canonical approval profile for known artifact {reviewed_path}")
+    reviewer_agent = str(payload.get("reviewer_agent", "")).strip()
+    if reviewer_agent and reviewer_matches_generator(
+        manifest,
+        reviewed_artifact_path=reviewed_path,
+        reviewer_agent=reviewer_agent,
+    ):
+        errors.append(f"{rel_path}: reviewer identity matches the recorded generator")
     return errors
 
 

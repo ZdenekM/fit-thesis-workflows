@@ -16,7 +16,7 @@ from thesis_review_workflow.review_approvals import (
     load_review_approval,
     review_record_from_approval,
     string_list,
-    validate_review_approval_payload,
+    validate_review_approval_with_manifest,
 )
 from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 
@@ -366,10 +366,11 @@ def apply_review_approval_records(manifest: dict[str, Any], round_dir: Path) -> 
         payload, load_errors = load_review_approval(round_dir, rel_path)
         if load_errors or payload is None:
             continue
-        errors = validate_review_approval_payload(
+        errors = validate_review_approval_with_manifest(
             payload,
             rel_path,
             round_dir,
+            manifest=manifest,
             case_id=case_id if isinstance(case_id, str) else None,
             round_id=round_id if isinstance(round_id, str) else None,
         )

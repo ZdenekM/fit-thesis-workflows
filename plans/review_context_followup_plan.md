@@ -208,7 +208,7 @@ Out of scope:
 
 ### Slice 4 - Review Approval Authoring Helper
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): add review approval writer`
 - Expected paths:
   - `src/thesis_review_workflow/review_approvals.py`
@@ -364,6 +364,14 @@ Out of scope:
   current artifacts/limitations, hash-binds decision sources, ignores raw note
   URLs for hard materiality, validates current snapshots when present, and
   requires a typed materiality limitation contract.
+- 2026-05-11: Slice 4 added `scripts/write-review-approval`, full command/PEX
+  routing, approval schema helpers, canonical pass-only profiles, tests, and a
+  smoke that verifies `init-review-manifest` imports the record as supporting
+  work. Slice review found self-certified required checks, drift from manifest
+  check requirements, overridable canonical reviewer roles, and weak manifest
+  import validation; the writer now requires manifest-backed passed helper
+  checks with current target hashes, rejects canonical role overrides, and
+  manifest import uses the stricter manifest-aware approval validator.
 
 ## Decision Log
 

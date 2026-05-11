@@ -45,3 +45,4 @@ python_source(name="prepare_supervisor_packets", source="prepare_supervisor_pack
 python_source(name="register_review_artifact", source="register_review_artifact.py")
 python_source(name="supervisor_deadline", source="supervisor_deadline.py")
 python_source(name="update_current_evidence_snapshot", source="update_current_evidence_snapshot.py")
+python_source(name="write_review_approval", source="write_review_approval.py")
