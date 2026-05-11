@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_prefix="__current_evidence_snapshot_smoke_$$"
+created_cases=()
+out_file="/tmp/current-evidence-snapshot.$$.out"
+err_file="/tmp/current-evidence-snapshot.$$.err"
+
+cleanup() {
+  local case_id
+  rm -f "$out_file" "$err_file"
+  for case_id in "${created_cases[@]}"; do
+    rm -rf "$repo_root/cases/$case_id"
+  done
+}
+trap cleanup EXIT
+
+make_case() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  created_cases+=("$case_id")
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/outputs" \
+    "$repo_root/cases/$case_id/rounds/$round_id/work/reviews" \
+    "$repo_root/cases/$case_id/rounds/$round_id/notes"
+  {
+    echo "Work type: BP"
+    echo "Academic year: 2025/2026"
+    echo "Reviewer profile: default"
+  } >"$repo_root/cases/$case_id/case.md"
+  echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+}
+
+expect_success_contains() {
+  local name="$1"
+  local needle="$2"
+  shift 2
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local needle="$2"
+  shift 2
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected failure to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+case_id="${case_prefix}_case"
+make_case "$case_id"
+round_dir="$repo_root/cases/$case_id/rounds/round-a"
+printf '%s\n' '# GitHub intake' >"$round_dir/outputs/github_code_intake.md"
+mkdir -p "$round_dir/outputs/github-dir"
+printf '%s\n' '{"schema_version":"review-manifest-v1"}' >"$round_dir/work/review_manifest.json"
+printf '%s\n' 'late note fixture' >"$round_dir/notes/late-communications.md"
+
+expect_success_contains "snapshot writes known and explicit refs" \
+  "Current evidence snapshot update passed" \
+  "$repo_root/scripts/update-current-evidence-snapshot" "$case_id" \
+  --source-ref notes/missing-late-note.md \
+  --limitation "notes/missing-late-note.md=Expected but not available in this round." \
+  --not-readiness-relevant notes/late-communications.md
+
+snapshot="$round_dir/work/current_evidence_snapshot.json"
+test -f "$snapshot"
+python3 - "$snapshot" "$round_dir/outputs/github_code_intake.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+snapshot = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+github = pathlib.Path(sys.argv[2])
+github_hash = hashlib.sha256(github.read_bytes()).hexdigest()
+items = {item["path"]: item for item in snapshot["items"]}
+assert items["outputs/github_code_intake.md"]["sha256"] == github_hash
+assert items["notes/missing-late-note.md"]["status"] == "missing"
+assert "notes/missing-late-note.md" not in snapshot["source_refs"]
+assert items["notes/late-communications.md"]["readiness_relevant"] is False
+PY
+
+printf '%s\n' '# Changed GitHub intake' >"$round_dir/outputs/github_code_intake.md"
+expect_success_contains "snapshot refreshes changed hash" \
+  "Current evidence snapshot update passed" \
+  "$repo_root/scripts/update-current-evidence-snapshot" "$case_id"
+python3 - "$snapshot" "$round_dir/outputs/github_code_intake.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+snapshot = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+github_hash = hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest()
+items = {item["path"]: item for item in snapshot["items"]}
+assert items["outputs/github_code_intake.md"]["sha256"] == github_hash
+assert items["notes/late-communications.md"]["readiness_relevant"] is False
+PY
+
+rm -f "$round_dir/outputs/github_code_intake.md"
+expect_success_contains "snapshot refresh keeps deleted tracked ref as missing" \
+  "Current evidence snapshot update passed" \
+  "$repo_root/scripts/update-current-evidence-snapshot" "$case_id"
+python3 - "$snapshot" <<'PY'
+import json
+import pathlib
+import sys
+
+snapshot = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+items = {item["path"]: item for item in snapshot["items"]}
+assert items["outputs/github_code_intake.md"]["status"] == "missing"
+assert "sha256" not in items["outputs/github_code_intake.md"]
+PY
+
+expect_success_contains "directory refs are recorded as invalid without hashing" \
+  "Current evidence snapshot update passed" \
+  "$repo_root/scripts/update-current-evidence-snapshot" "$case_id" --source-ref outputs/github-dir
+python3 - "$snapshot" <<'PY'
+import json
+import pathlib
+import sys
+
+snapshot = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+items = {item["path"]: item for item in snapshot["items"]}
+assert items["outputs/github-dir"]["status"] == "invalid"
+assert "sha256" not in items["outputs/github-dir"]
+PY
+
+echo "Current evidence snapshot smoke passed"

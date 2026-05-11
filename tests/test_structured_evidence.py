@@ -7,6 +7,8 @@ from thesis_review_workflow.structured_evidence import (
     CURRENT_EVIDENCE_SNAPSHOT_REL,
     OPPONENT_REPORT_TRACE_REL,
     REQUIRED_OPPONENT_IS_ITEM_IDS,
+    build_current_evidence_snapshot_payload,
+    current_evidence_default_source_refs,
     validate_structured_evidence_artifact,
 )
 
@@ -321,6 +323,131 @@ def test_validate_current_evidence_snapshot_rejects_stale_hash_and_unsafe_path(t
 
     assert any("sha256 is stale for work/code_workspace.md" in error for error in errors)
     assert any("path must be under inputs/, extracted/, notes/, work/, or outputs/" in error for error in errors)
+
+
+def test_validate_current_evidence_snapshot_rejects_negative_status_for_existing_file(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    source = write_text(round_dir, "work/code_workspace.md")
+    payload = {
+        **common_fields("current-evidence-snapshot-v1"),
+        "source_refs": [],
+        "items": [
+            {
+                "item_id": "code-workspace",
+                "path": "work/code_workspace.md",
+                "status": "missing",
+                "freshness": "not_checked",
+                "recorded_at": "2026-05-11T00:00:00Z",
+                "readiness_relevant": True,
+                "limitations": [],
+            },
+            {
+                "item_id": "code-workspace-invalid",
+                "path": "work/code_workspace.md",
+                "status": "invalid",
+                "sha256": sha256_file(source),
+                "freshness": "stale",
+                "recorded_at": "2026-05-11T00:00:00Z",
+                "readiness_relevant": True,
+                "limitations": [],
+            },
+        ],
+    }
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, CURRENT_EVIDENCE_SNAPSHOT_REL)
+
+    assert any("path marked missing but file exists or is invalid" in error for error in errors)
+    assert any("path marked invalid but file is present" in error for error in errors)
+
+
+def test_build_current_evidence_snapshot_refreshes_hash_and_preserves_annotations(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    source = write_text(round_dir, "outputs/github_code_intake.md", "old\n")
+    existing_payload = {
+        **common_fields("current-evidence-snapshot-v1"),
+        "source_refs": ["outputs/github_code_intake.md"],
+        "items": [
+            {
+                "item_id": "current-evidence-outputs-github-code-intake-md",
+                "path": "outputs/github_code_intake.md",
+                "status": "present",
+                "sha256": sha256_file(source),
+                "freshness": "current",
+                "recorded_at": "2026-05-10T00:00:00Z",
+                "readiness_relevant": False,
+                "limitations": ["Preserve this note."],
+            }
+        ],
+    }
+    source.write_text("new\n", encoding="utf-8")
+
+    payload = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-11T00:00:00Z",
+        source_refs=["outputs/github_code_intake.md"],
+        existing_payload=existing_payload,
+    )
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, payload)
+
+    item = payload["items"][0]
+    assert item["sha256"] == sha256_file(source)
+    assert item["limitations"] == ["Preserve this note."]
+    assert item["readiness_relevant"] is False
+    assert validate_structured_evidence_artifact(round_dir, CURRENT_EVIDENCE_SNAPSHOT_REL) == []
+
+
+def test_build_current_evidence_snapshot_records_missing_explicit_ref_without_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+
+    payload = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-11T00:00:00Z",
+        source_refs=["notes/missing-late-note.md"],
+        limitations_by_path={"notes/missing-late-note.md": ["Operator expected a late note, but it is absent."]},
+    )
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, payload)
+
+    assert payload["source_refs"] == []
+    assert payload["items"][0]["status"] == "missing"
+    assert "sha256" not in payload["items"][0]
+    assert validate_structured_evidence_artifact(round_dir, CURRENT_EVIDENCE_SNAPSHOT_REL) == []
+
+
+def test_build_current_evidence_snapshot_rejects_unsafe_source_refs_before_hashing(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    outside = tmp_path / "private.txt"
+    outside.write_text("private\n", encoding="utf-8")
+
+    try:
+        build_current_evidence_snapshot_payload(
+            round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            generated_at="2026-05-11T00:00:00Z",
+            source_refs=["../private.txt"],
+        )
+    except ValueError as exc:
+        assert "safe round-relative ref" in str(exc)
+    else:
+        raise AssertionError("unsafe snapshot source ref was accepted")
+
+
+def test_current_evidence_default_source_refs_expands_review_records(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_text(round_dir, "work/review_manifest.json", "{}\n")
+    write_text(round_dir, "work/reviews/feedback_student_review.json", "{}\n")
+
+    refs = current_evidence_default_source_refs(round_dir)
+
+    assert "work/review_manifest.json" in refs
+    assert "work/reviews/feedback_student_review.json" in refs
+    assert "outputs/github_code_intake.md" not in refs
 
 
 def trace_payload(source_hash: str) -> dict[str, object]:

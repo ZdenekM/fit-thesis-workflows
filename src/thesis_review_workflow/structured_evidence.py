@@ -53,6 +53,26 @@ OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", 
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
 CURRENT_EVIDENCE_ITEM_STATUSES = {"present", "missing", "invalid", "unavailable", "not_applicable"}
 CURRENT_EVIDENCE_FRESHNESS_STATUSES = {"current", "stale", "not_checked", "not_applicable"}
+CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
+    "work/code_workspace.md",
+    "work/serena_roots.json",
+    "work/code_reproducibility.json",
+    "work/review_manifest.json",
+    "work/agent_coverage.json",
+    "work/quantitative_claims.json",
+    "outputs/github_code_intake.md",
+    "outputs/feedback_student.md",
+    "work/feedback_student_draft.md",
+    "outputs/oponent_podklady.md",
+    "outputs/oponent_podklady_revidovane.md",
+    "work/oponent_podklady_draft.md",
+    "work/opponent_report_trace.json",
+    "work/oponent_posudek_draft.md",
+    "notes/operator-late-communications.md",
+    "notes/late-communications.md",
+    "notes/round-notes.md",
+)
+CURRENT_EVIDENCE_REVIEW_RECORD_GLOB = "work/reviews/*_review.json"
 REQUIRED_OPPONENT_IS_ITEM_IDS = {
     "assignment_difficulty",
     "assignment_fulfillment",
@@ -64,6 +84,129 @@ REQUIRED_OPPONENT_IS_ITEM_IDS = {
     "result_usability",
     "overall_assessment",
 }
+
+
+def current_evidence_default_source_refs(
+    round_dir: Path,
+    *,
+    include_missing_known: bool = False,
+) -> list[str]:
+    refs: list[str] = []
+    for rel_path in CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS:
+        if include_missing_known or (round_dir / rel_path).exists():
+            refs.append(rel_path)
+    review_dir = round_dir / "work" / "reviews"
+    if review_dir.is_dir():
+        refs.extend(
+            path.relative_to(round_dir).as_posix()
+            for path in sorted(review_dir.glob("*_review.json"))
+            if path.is_file()
+        )
+    return sorted(dict.fromkeys(refs))
+
+
+def build_current_evidence_snapshot_payload(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    source_refs: list[str],
+    producer_role: str = "update-current-evidence-snapshot",
+    producer_agent: str = "update-current-evidence-snapshot",
+    existing_payload: dict[str, Any] | None = None,
+    limitations_by_path: dict[str, list[str]] | None = None,
+    readiness_relevant_by_path: dict[str, bool] | None = None,
+) -> dict[str, Any]:
+    existing_items = existing_payload.get("items") if isinstance(existing_payload, dict) else None
+    existing_by_path: dict[str, dict[str, Any]] = {}
+    if isinstance(existing_items, list):
+        for item in existing_items:
+            if isinstance(item, dict) and isinstance(item.get("path"), str):
+                existing_by_path[item["path"]] = item
+    limitations_by_path = limitations_by_path or {}
+    readiness_relevant_by_path = readiness_relevant_by_path or {}
+
+    items: list[dict[str, Any]] = []
+    source_refs_present: list[str] = []
+    for rel_path in sorted(dict.fromkeys(source_refs)):
+        if not _is_allowed_round_ref(rel_path):
+            raise ValueError(f"current evidence source ref must be a safe round-relative ref: {rel_path}")
+        item = _current_evidence_item(
+            round_dir,
+            rel_path,
+            generated_at=generated_at,
+            existing=existing_by_path.get(rel_path),
+            limitations=limitations_by_path.get(rel_path),
+            readiness_relevant=readiness_relevant_by_path.get(rel_path),
+        )
+        items.append(item)
+        if item["status"] == "present":
+            source_refs_present.append(rel_path)
+    return {
+        "schema_version": STRUCTURED_EVIDENCE_SCHEMAS[CURRENT_EVIDENCE_SNAPSHOT_REL],
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": generated_at,
+        "producer_type": "agent",
+        "producer_role": producer_role,
+        "producer_agent": producer_agent,
+        "authorization_note": "Deterministic helper generated hash-bound current evidence state.",
+        "source_refs": source_refs_present,
+        "items": items,
+        "limitations": [],
+    }
+
+
+def _current_evidence_item(
+    round_dir: Path,
+    rel_path: str,
+    *,
+    generated_at: str,
+    existing: dict[str, Any] | None,
+    limitations: list[str] | None,
+    readiness_relevant: bool | None,
+) -> dict[str, Any]:
+    previous_limitations = existing.get("limitations") if isinstance(existing, dict) else None
+    if limitations is not None:
+        item_limitations = limitations
+    elif isinstance(previous_limitations, list):
+        item_limitations = [item for item in previous_limitations if isinstance(item, str)]
+    else:
+        item_limitations = []
+    if (
+        readiness_relevant is None
+        and isinstance(existing, dict)
+        and isinstance(existing.get("readiness_relevant"), bool)
+    ):
+        readiness_relevant = bool(existing["readiness_relevant"])
+    path = round_dir / rel_path
+    if path.is_file():
+        status = "present"
+        freshness = "current"
+    elif path.exists():
+        status = "invalid"
+        freshness = "stale"
+    else:
+        status = "missing"
+        freshness = "not_checked"
+    item: dict[str, Any] = {
+        "item_id": _current_evidence_item_id(rel_path),
+        "path": rel_path,
+        "status": status,
+        "freshness": freshness,
+        "recorded_at": generated_at,
+        "readiness_relevant": True if readiness_relevant is None else readiness_relevant,
+        "limitations": item_limitations,
+    }
+    if status == "present":
+        item["sha256"] = sha256_file(path)
+    return item
+
+
+def _current_evidence_item_id(rel_path: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "-", rel_path).strip("-").lower()
+    return f"current-evidence-{cleaned or 'item'}"
 
 
 def validate_structured_evidence_artifact(
@@ -339,19 +482,30 @@ def _validate_current_evidence_snapshot(
         _require_list(item, "limitations", prefix, errors)
         _require_nonempty_string(item, "recorded_at", prefix, errors)
         sha256 = item.get("sha256")
+        target = (
+            round_dir / path
+            if round_dir is not None and isinstance(path, str) and _is_allowed_round_ref(path)
+            else None
+        )
         if status == "present":
             if not isinstance(sha256, str) or not SHA256_RE.fullmatch(sha256):
                 errors.append(f"{prefix}: sha256 must be a 64-character hex string when status is present")
-            elif round_dir is not None and isinstance(path, str) and _is_allowed_round_ref(path):
-                target = round_dir / path
+            elif target is not None:
                 if target.is_file():
                     if sha256_file(target) != sha256:
                         errors.append(f"{prefix}: sha256 is stale for {path}")
                 else:
-                    errors.append(f"{prefix}: path marked present but file is missing: {path}")
+                    errors.append(f"{prefix}: path marked present but file is missing or invalid: {path}")
         elif sha256 is not None:
             if not isinstance(sha256, str) or not SHA256_RE.fullmatch(sha256):
                 errors.append(f"{prefix}: sha256 must be a 64-character hex string when recorded")
+        if target is not None:
+            if status == "missing" and target.exists():
+                errors.append(f"{prefix}: path marked missing but file exists or is invalid: {path}")
+            if status == "invalid" and target.is_file():
+                errors.append(f"{prefix}: path marked invalid but file is present: {path}")
+            if status == "invalid" and not target.exists():
+                errors.append(f"{prefix}: path marked invalid but file is missing: {path}")
 
 
 def _validate_calibration_context(

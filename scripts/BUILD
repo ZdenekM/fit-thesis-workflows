@@ -46,6 +46,7 @@ shell_sources(
         "smoke-bootstrap-case",
         "smoke-case-doctor",
         "smoke-code-reproducibility",
+        "smoke-current-evidence-snapshot",
         "smoke-evidence-presence",
         "smoke-evaluation-claims",
         "smoke-feedback-language",
@@ -71,6 +72,7 @@ shell_sources(
         "smoke-tooling",
         "smoke-typography-formal",
         "supervisor-deadline",
+        "update-current-evidence-snapshot",
     ],
 )
 
@@ -123,6 +125,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:prepare_supervisor_packets",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:supervisor_deadline",
+    "src/thesis_review_workflow/cli:update_current_evidence_snapshot",
 ]
 
 pex_binary(
@@ -522,5 +525,15 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/supervisor-deadline",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="update_current_evidence_snapshot_tool",
+    entry_point="thesis_review_workflow.cli.update_current_evidence_snapshot:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/update-current-evidence-snapshot",
     tags=["workflow-tool"],
 )

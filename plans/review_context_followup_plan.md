@@ -118,7 +118,7 @@ Out of scope:
 
 ### Slice 2 - Current Evidence Snapshot Authoring
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): add current evidence snapshot helper`
 - Expected paths:
   - `src/thesis_review_workflow/structured_evidence.py`
@@ -347,6 +347,13 @@ Out of scope:
   summaries, and agent-coverage final-output sets to the registry, and added
   registry contract tests. Slice review found missing closeout metadata
   validation and missed coverage consumers; both were fixed.
+- 2026-05-11: Slice 2 added `scripts/update-current-evidence-snapshot` with
+  full workflow command/PEX coverage. The helper writes and validates
+  `work/current_evidence_snapshot.json`, recomputes hashes on every run,
+  preserves explicit annotations, carries deleted tracked refs as `missing`,
+  records directory refs as `invalid` without hashing them, and rejects unsafe
+  refs before reading. Slice review found dropped deleted refs, stale negative
+  statuses, and unsafe builder hashing; all were fixed.
 
 ## Decision Log
 

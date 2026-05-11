@@ -49,6 +49,7 @@ WORKFLOW_COMMAND_MODULES = {
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
     "supervisor-deadline": "thesis_review_workflow.cli.supervisor_deadline",
+    "update-current-evidence-snapshot": "thesis_review_workflow.cli.update_current_evidence_snapshot",
 }
 
 

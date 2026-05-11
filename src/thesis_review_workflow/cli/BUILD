@@ -44,3 +44,4 @@ python_source(name="prepare_opponent_packets", source="prepare_opponent_packets.
 python_source(name="prepare_supervisor_packets", source="prepare_supervisor_packets.py")
 python_source(name="register_review_artifact", source="register_review_artifact.py")
 python_source(name="supervisor_deadline", source="supervisor_deadline.py")
+python_source(name="update_current_evidence_snapshot", source="update_current_evidence_snapshot.py")
