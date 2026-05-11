@@ -144,6 +144,46 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
     assert any("check_refs item 1 is not a manifest helper check" in error for error in errors)
 
 
+def test_review_manifest_validates_known_output_metadata_against_registry(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "code_quality_review.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Code Quality\n", encoding="utf-8")
+    manifest = {
+        "schema_version": "review-manifest-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [],
+        "supporting_work_artifacts": [],
+        "workflow_limitations": [],
+        "artifacts": [
+            {
+                "path": "outputs/code_quality_review.md",
+                "artifact_sha256": sha256_file(output),
+                "artifact_type": "generated_markdown",
+                "review_scope": "standalone_final",
+                "skills": [],
+                "generated_by": [{"role": "not_recorded", "agent": "not_recorded", "contribution": "generation"}],
+                "independent_review": {"status": "not_recorded"},
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+        "helper_checks": [],
+    }
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, False, errors, [])
+
+    assert "outputs/code_quality_review.md: artifact_type must be code_quality_review" in errors
+    assert "outputs/code_quality_review.md: skills must be ['thesis-code-quality-review']" in errors
+    assert any("review_scope must be one of covered_by_synthesis, internal_only" in error for error in errors)
+
+
 def test_review_manifest_requires_internal_evidence_validators_when_artifacts_exist(tmp_path: Path) -> None:
     from thesis_review_workflow.cli.check_review_manifest import required_checks as check_required_checks
     from thesis_review_workflow.cli.init_review_manifest import required_checks as init_required_checks

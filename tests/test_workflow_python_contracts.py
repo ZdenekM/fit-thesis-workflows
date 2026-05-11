@@ -7,6 +7,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from thesis_review_workflow import agent_coverage, code_workspace
+from thesis_review_workflow.artifact_registry import (
+    closeout_independent_review_required_paths,
+    final_output_paths,
+    known_output_labels,
+    opponent_final_output_paths,
+    output_defaults,
+)
+from thesis_review_workflow.case_doctor_summary import FINAL_OUTPUTS, KNOWN_OUTPUTS
 from thesis_review_workflow.cli.package_workflow_tools import workflow_tool_names_from_peek_payload
 from thesis_review_workflow.commands import WORKFLOW_COMMAND_MODULES
 from thesis_review_workflow.paths import is_safe_round_relative_path
@@ -241,6 +249,31 @@ def test_workflow_tool_pex_targets_match_command_module_map() -> None:
         assert target["dependencies"] == "WORKFLOW_CLI_RUNTIME_DEPS"
         assert target["entry_point"] == f"{module}:console_main"
         assert target["output_path"] == f"workflow-tools/pex/{tool_name}"
+
+
+def test_output_artifact_registry_is_shared_by_manifest_and_case_doctor() -> None:
+    assert KNOWN_OUTPUTS == known_output_labels()
+    assert FINAL_OUTPUTS >= {
+        "feedback_student.md",
+        "oponent_podklady_revidovane.md",
+        "feedback_k_posudku.md",
+    }
+    assert agent_coverage.FINAL_OUTPUTS == final_output_paths()
+    assert agent_coverage.OPPONENT_FINAL_OUTPUTS == opponent_final_output_paths()
+    assert output_defaults("outputs/pr_contribution_review.md") == (
+        "pr_contribution_review",
+        ["thesis-github-code-intake"],
+        "internal_only",
+    )
+    assert output_defaults("outputs/demo_artifacts_review.md") == (
+        "demo_artifacts_review",
+        [],
+        "internal_only",
+    )
+    assert closeout_independent_review_required_paths() == {
+        "outputs/reference_report_comparison.md",
+        "outputs/opponent_reading_packet.md",
+    }
 
 
 def test_workflow_command_modules_have_sources_runtime_deps_and_wrappers() -> None:

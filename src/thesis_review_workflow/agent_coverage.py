@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_registry import final_output_paths, opponent_final_output_paths
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 COVERAGE_REL = Path("work/agent_coverage.json")
@@ -28,15 +29,8 @@ LIMITATION_TYPES = {
 }
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
-FINAL_OUTPUTS = {
-    "outputs/feedback_student.md",
-    "outputs/oponent_podklady_revidovane.md",
-    "outputs/feedback_k_posudku.md",
-}
-OPPONENT_FINAL_OUTPUTS = {
-    "outputs/oponent_podklady_revidovane.md",
-    "outputs/feedback_k_posudku.md",
-}
+FINAL_OUTPUTS = final_output_paths()
+OPPONENT_FINAL_OUTPUTS = opponent_final_output_paths()
 MEDIA_SUFFIXES = {
     ".png",
     ".jpg",

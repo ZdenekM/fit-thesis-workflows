@@ -18,6 +18,12 @@ from thesis_review_workflow.agent_coverage import (
     load_json_object,
     write_coverage,
 )
+from thesis_review_workflow.artifact_registry import (
+    explicit_internal_review_filenames,
+    internal_evidence_filenames,
+    output_defaults,
+    output_spec,
+)
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -32,69 +38,8 @@ from thesis_review_workflow.review_manifest import apply_review_approval_records
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
-
-OUTPUT_TYPES = {
-    "feedback_student.md": (
-        "supervisor_feedback",
-        ("thesis-supervisor-feedback", "thesis-supervisor-feedback-review"),
-        "sendable_final",
-    ),
-    "revision_diff.md": ("revision_diff", ("thesis-revision-diff",), "internal_only"),
-    "github_code_intake.md": ("github_code_intake", ("thesis-github-code-intake",), "internal_only"),
-    "code_consistency.md": ("code_consistency", ("thesis-code-consistency",), "internal_only"),
-    "code_quality_review.md": ("code_quality_review", ("thesis-code-quality-review",), "internal_only"),
-    "literature_citation_review.md": (
-        "literature_citation_review",
-        ("thesis-literature-citation-review",),
-        "internal_only",
-    ),
-    "figure_media_review.md": ("figure_media_review", ("thesis-figure-media-review",), "internal_only"),
-    "typography_formal_review.md": ("typography_formal_review", ("thesis-typography-formal-review",), "internal_only"),
-    "oponent_podklady.md": ("opponent_materials_draft", ("thesis-opponent-materials",), "draft_only"),
-    "oponent_podklady_revidovane.md": (
-        "opponent_materials_reviewed",
-        ("thesis-opponent-materials", "thesis-opponent-materials-review"),
-        "standalone_final",
-    ),
-    "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
-    "reference_report_comparison.md": (
-        "reference_report_comparison",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-    "opponent_reading_packet.md": (
-        "opponent_reading_packet",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-    "reviewer_calibration_profile.md": (
-        "opponent_reviewer_calibration_profile",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-    "demo_artifacts_review.md": ("demo_artifacts_review", (), "internal_only"),
-    "pr_contribution_review.md": ("pr_contribution_review", ("thesis-github-code-intake",), "internal_only"),
-}
-
-INTERNAL_EVIDENCE = {
-    "revision_diff.md",
-    "github_code_intake.md",
-    "code_consistency.md",
-    "code_quality_review.md",
-    "literature_citation_review.md",
-    "figure_media_review.md",
-    "typography_formal_review.md",
-    "reference_report_comparison.md",
-    "opponent_reading_packet.md",
-    "reviewer_calibration_profile.md",
-    "demo_artifacts_review.md",
-    "pr_contribution_review.md",
-}
-REQUIRE_STANDALONE_REVIEW = {
-    "reference_report_comparison.md",
-    "opponent_reading_packet.md",
-    "reviewer_calibration_profile.md",
-}
+INTERNAL_EVIDENCE = internal_evidence_filenames()
+REQUIRE_STANDALONE_REVIEW = explicit_internal_review_filenames()
 
 
 def now_utc() -> str:
@@ -184,14 +129,14 @@ def load_existing(path: Path) -> dict[str, Any]:
 
 
 def artifact_defaults(filename: str, synthesis: str | None) -> tuple[str, tuple[str, ...], str, str, str]:
-    artifact_type, skills, scope = OUTPUT_TYPES.get(filename, ("generated_markdown", (), "internal_only"))
+    artifact_type, skills, scope = output_defaults(filename)
     covered_by = ""
     used_findings = ""
     if filename in INTERNAL_EVIDENCE and filename not in REQUIRE_STANDALONE_REVIEW and synthesis:
         scope = "covered_by_synthesis"
         covered_by = synthesis
         used_findings = "not_recorded"
-    return artifact_type, skills, scope, covered_by, used_findings
+    return artifact_type, tuple(skills), scope, covered_by, used_findings
 
 
 def default_review(scope: str, covered_by: str, used_findings: str) -> dict[str, Any]:
@@ -297,12 +242,13 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
                 "Review status was reconstructed after artifact creation; confirm independent review before reuse."
             ]
 
+        spec = output_spec(filename)
         entry = {
             "path": rel_path,
-            "artifact_type": previous.get("artifact_type") or artifact_type,
+            "artifact_type": artifact_type if spec is not None else previous.get("artifact_type") or artifact_type,
             "artifact_sha256": current_hash,
             "review_scope": effective_scope,
-            "skills": previous.get("skills") or list(skills),
+            "skills": list(skills) if spec is not None else previous.get("skills") or list(skills),
             "generated_by": previous.get("generated_by") or [default_agent()],
             "independent_review": review,
             "helper_checks": previous.get("helper_checks") or [],

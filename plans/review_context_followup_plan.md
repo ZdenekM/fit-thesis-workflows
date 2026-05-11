@@ -1,6 +1,6 @@
 # Review Context Follow-Up Plan
 
-Status: planned
+Status: active
 Created: 2026-05-11
 
 ## Goal
@@ -51,8 +51,7 @@ In scope:
   paths;
 - add a dedicated quantitative-claims skill/template for
   `work/quantitative_claims.json`;
-- centralize output artifact metadata if the new helpers would otherwise extend
-  the existing duplication;
+- centralize output artifact metadata before adding more helper behavior;
 - keep all generated artifacts under ignored round workspaces.
 
 Out of scope:
@@ -71,6 +70,13 @@ Out of scope:
   substrings.
 - Snapshot and approval helpers should be Windows-aware Python CLI surfaces with
   packaged launchers, not POSIX-only scripts.
+- New operator commands must satisfy the full workflow command surface:
+  `WORKFLOW_COMMAND_MODULES`, `src/thesis_review_workflow/cli/BUILD`,
+  `scripts/BUILD` runtime deps, `pex_binary(tags=["workflow-tool"])`, POSIX
+  wrappers, and packaged `.cmd`/`.ps1` launchers.
+- README edits must keep the top path chat-first. New helper commands belong
+  under diagnostics, helper reference, or under-the-hood sections, not as the
+  primary supervisor/opponent prompt path.
 - Approval helper output is a provenance convenience, not a substitute for the
   independent reviewer actually reading the artifact.
 - Materiality remains advisory for optional roles. A materiality decision may
@@ -82,19 +88,28 @@ Out of scope:
 
 ### Slice 1 - Plan Review And Artifact Registry Audit
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): plan review context follow-up`
 - Expected paths:
   - `plans/review_context_followup_plan.md`
   - `TODO.md`
+  - `src/thesis_review_workflow/artifact_registry.py`
   - `src/thesis_review_workflow/review_manifest.py`
   - `src/thesis_review_workflow/cli/init_review_manifest.py`
+  - `src/thesis_review_workflow/cli/check_review_manifest.py`
+  - `src/thesis_review_workflow/case_doctor_summary.py`
+  - `tests/test_review_manifest_helpers.py`
+  - `tests/test_workflow_python_contracts.py`
 - Tasks:
   - Review this plan with agents before implementation.
-  - Decide whether output artifact metadata should be centralized before adding
-    more artifact types.
-  - If centralization is needed, define a shared registry used by manifest
-    initialization and incremental registration.
+  - Create a shared output-artifact registry before adding more artifact types.
+  - Make manifest initialization, incremental registration, manifest closeout,
+    and case-doctor output summaries consume the shared registry.
+  - Preserve current special cases: synthesis-covered internal evidence,
+    calibrated internal evidence requiring independent review, final/sendable
+    scopes, demo artifact review, and PR contribution review.
+  - Add contract tests proving output types, scopes, skills, labels, and
+    independent-review requirements are single-sourced.
   - Keep the existing supervisor closeout plan as the command-bundle owner.
 - Verification:
   - `scripts/check-private`
@@ -108,6 +123,7 @@ Out of scope:
 - Expected paths:
   - `src/thesis_review_workflow/structured_evidence.py`
   - `src/thesis_review_workflow/cli/update_current_evidence_snapshot.py`
+  - `src/thesis_review_workflow/cli/BUILD`
   - `src/thesis_review_workflow/commands.py`
   - `scripts/update-current-evidence-snapshot`
   - `scripts/BUILD`
@@ -116,11 +132,19 @@ Out of scope:
   - `scripts/smoke-current-evidence-snapshot`
 - Tasks:
   - Add a helper that writes `work/current_evidence_snapshot.json` from explicit
-    round-relative source refs and known structured inputs such as GitHub intake,
-    late notes, existing reviewed outputs, report trace, and approval records.
-  - Hash-bind every source ref and reject unsafe paths.
-  - Add an update mode that preserves still-current entries and removes stale
-    entries only when the operator or calling command requests refresh.
+    round-relative file source refs and known structured inputs such as GitHub
+    intake outputs, late notes, existing reviewed outputs, report trace, and
+    approval records.
+  - Hash-bind every file source ref and reject unsafe paths. Directory evidence
+    must either expand to bounded per-file entries or use an explicit tree-hash
+    schema added to the validator in this slice.
+  - Recompute hashes/status for all known refs on every write. Preserve operator
+    annotations and limitations, not stale `present` hashes. Changed files must
+    become current with a new hash; missing files must become `missing`/`invalid`
+    with the previous hash removed or moved to explicit notes.
+  - Never semantically summarize free-form late notes; include only
+    round-relative path, hash, status, freshness, and explicit operator/agent
+    limitations.
   - Package the command for POSIX and generated Windows launchers.
 - Verification:
   - `pants fmt ::`
@@ -141,6 +165,7 @@ Out of scope:
   - `src/thesis_review_workflow/review_materiality.py`
   - `src/thesis_review_workflow/supervisor_packets.py`
   - `src/thesis_review_workflow/opponent_packets.py`
+  - `src/thesis_review_workflow/review_packets.py`
   - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
   - `.agents/skills/thesis-opponent-materials/SKILL.md`
   - `README.md`
@@ -148,11 +173,23 @@ Out of scope:
   - `tests/test_supervisor_packets.py`
   - `tests/test_opponent_packets.py`
 - Tasks:
+  - Add a durable materiality next-action contract, either as
+    `work/review_materiality/next_actions.json` or as `next_actions[]` inside
+    `work/review_materiality/index.json`.
+  - Each next action must record role, workflow profile, required artifact path,
+    source refs and hashes, missing/stale reason, command or skill to run,
+    severity, and any typed limitation that resolves the action without the
+    artifact.
   - Make `github_intake` materiality surface a concrete next action when GitHub
-    evidence exists but `outputs/github_code_intake.md` is missing or stale.
+    evidence exists but `outputs/github_code_intake.md` is missing or stale by
+    a validator-backed source-hash check.
   - Make `quantitative_claims` materiality surface a concrete next action when
     quantitative review is material but `work/quantitative_claims.json` is
     missing or stale.
+  - Render unresolved next actions in supervisor and opponent packets.
+  - Refuse final/synthesis wave readiness for unresolved material
+    GitHub/quantitative actions unless a current artifact or typed limitation is
+    recorded.
   - Decide whether these roles need generated packets or clearer packet-prep
     warnings; avoid optional packet sprawl if a next-action diagnostic is
     cleaner.
@@ -176,6 +213,7 @@ Out of scope:
 - Expected paths:
   - `src/thesis_review_workflow/review_approvals.py`
   - `src/thesis_review_workflow/cli/write_review_approval.py`
+  - `src/thesis_review_workflow/cli/BUILD`
   - `src/thesis_review_workflow/commands.py`
   - `scripts/write-review-approval`
   - `scripts/BUILD`
@@ -186,13 +224,26 @@ Out of scope:
 - Tasks:
   - Add a helper that writes `work/reviews/<name>_review.json` for a reviewed
     artifact and exact review basis.
-  - Support canonical profiles for supervisor feedback, opponent materials, and
-    opponent report review, plus an explicit custom mode for standalone final
-    evidence.
+  - Support canonical pass-only profiles for supervisor feedback, opponent
+    materials, and opponent report review, plus an explicit custom mode for
+    standalone final evidence.
+  - Hard-code canonical reviewed-artifact and review-basis paths/checks:
+    supervisor `outputs/feedback_student.md` from
+    `work/feedback_student_draft.md`; opponent materials
+    `outputs/oponent_podklady_revidovane.md` from
+    `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`;
+    opponent report review from the exact human/report draft used as basis.
   - Require reviewer role, reviewer agent or human identifier, verdict,
     blocking finding count, observed checks, limitations, and timestamp.
-  - Reject `approved/pass` with non-zero blocking findings.
+  - Include `schema_version`, `case_id`, and `round_id` in the written record.
+  - Reject pass records with non-zero blocking findings; failed reviews should
+    remain draft/review findings, not approval JSON.
+  - Refuse approval if required observed checks are absent or stale when those
+    check records exist, and refuse reviewer identity that matches the recorded
+    generator identity for final/sendable artifacts.
   - Validate the written record immediately with the existing approval validator.
+  - Smoke-test that `init-review-manifest` imports the record and registers it
+    as supporting work.
 - Verification:
   - `pants fmt ::`
   - `pants lint src/thesis_review_workflow:: tests:: scripts::`
@@ -212,24 +263,40 @@ Out of scope:
 - Proposed commit message: `docs(workflow): add quantitative claims review contract`
 - Expected paths:
   - `.agents/skills/thesis-quantitative-claims-review/SKILL.md`
+  - `.codex/agents/thesis-quantitative-claims-reviewer.toml`
+  - `AGENTS.md`
+  - `docs/agent-scheduling.md`
   - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
   - `.agents/skills/thesis-opponent-materials/SKILL.md`
   - `README.md`
+  - `src/thesis_review_workflow/agent_coverage.py`
+  - `src/thesis_review_workflow/supervisor_packets.py`
+  - `src/thesis_review_workflow/opponent_packets.py`
   - `src/thesis_review_workflow/cli/check_evaluation_claims.py`
   - `tests/test_structured_evidence.py`
+  - `tests/test_evaluation_claims_helpers.py`
+  - `tests/test_supervisor_packets.py`
+  - `tests/test_opponent_packets.py`
 - Tasks:
   - Add a repo-local skill or template that tells a quantitative reviewer how to
     author `work/quantitative_claims.json`.
   - Keep the review semantic and evidence-bound: units, scale, baseline,
     sample size, practical magnitude, reproducibility, and overclaim risk.
+  - Require `gpt-5.5`/`xhigh` for the semantic quantitative reviewer.
+  - Add the skill to repo skill routing and wave/agent scheduling guidance.
   - Ensure synthesis packets consume the compact quantitative handoff rather
     than rereading full result sections.
+  - Make `work/quantitative_claims.json` required when quantitative materiality
+    feeds a final/synthesis artifact unless a typed limitation resolves the
+    next action.
   - Avoid making deterministic checks infer metric meaning from raw text.
 - Verification:
   - `pants fmt ::`
   - `pants lint src/thesis_review_workflow:: tests::`
   - `pants check src/thesis_review_workflow:: tests::`
   - `pants test tests/test_structured_evidence.py`
+  - `pants test tests/test_evaluation_claims_helpers.py tests/test_supervisor_packets.py tests/test_opponent_packets.py`
+  - `scripts/smoke-evaluation-claims`
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
@@ -269,6 +336,17 @@ Out of scope:
   snapshot authoring, materiality-to-action routing, manual approval-record
   authoring, quantitative-claims review authoring, and duplicated output
   artifact metadata.
+- 2026-05-11: Started execution. Initial agent review found blockers in
+  artifact registry centralization, command-surface coverage, materiality
+  next-action durability, quantitative role routing, approval helper boundaries,
+  snapshot refresh semantics, README placement, and missing plan closeout
+  sections. Slice 1 is in progress.
+- 2026-05-11: Slice 1 centralized output artifact metadata in
+  `src/thesis_review_workflow/artifact_registry.py`, wired manifest
+  initialization, incremental registration, manifest closeout, case-doctor
+  summaries, and agent-coverage final-output sets to the registry, and added
+  registry contract tests. Slice review found missing closeout metadata
+  validation and missed coverage consumers; both were fixed.
 
 ## Decision Log
 
@@ -279,6 +357,19 @@ Out of scope:
   important, but broader than this follow-up's context-friction scope.
 - 2026-05-11: Treat approval-record writing as a convenience around an actual
   independent review, not as proof that a review happened.
+- 2026-05-11: Artifact metadata centralization is mandatory in Slice 1 because
+  output artifact metadata already drifted between manifest initialization,
+  incremental registration, manifest closeout, and case-doctor summaries.
+- 2026-05-11: Snapshot helpers must recompute current hashes on every write and
+  preserve annotations only; stale `present` hashes are invalid by the existing
+  validator.
+- 2026-05-11: Materiality will use next-action diagnostics instead of adding
+  GitHub and quantitative packet files by default.
+- 2026-05-11: Approval records remain pass-only provenance records. Failed
+  reviews stay as draft/review findings unless the schema is intentionally
+  widened later.
+- 2026-05-11: README helper documentation must stay below the chat-first quick
+  path.
 
 ## Risks
 

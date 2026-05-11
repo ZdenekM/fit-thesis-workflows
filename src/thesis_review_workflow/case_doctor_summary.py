@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_registry import final_output_filenames, known_output_labels
 from thesis_review_workflow.paths import rel_round
 
 MAX_LIST = 12
@@ -69,28 +70,8 @@ CODE_SUFFIXES = {
     ".m",
     ".jl",
 }
-KNOWN_OUTPUTS = {
-    "feedback_student.md": "supervisor feedback",
-    "revision_diff.md": "revision diff",
-    "github_code_intake.md": "GitHub code intake",
-    "code_consistency.md": "text-code consistency",
-    "code_quality_review.md": "code quality/design review",
-    "literature_citation_review.md": "literature/citation review",
-    "figure_media_review.md": "figure/media review",
-    "typography_formal_review.md": "typography/formal review",
-    "oponent_podklady.md": "opponent materials draft",
-    "oponent_podklady_revidovane.md": "reviewed opponent materials",
-    "feedback_k_posudku.md": "opponent report review",
-    "reference_report_comparison.md": "reference report comparison",
-    "opponent_reading_packet.md": "opponent reading packet",
-    "demo_artifacts_review.md": "demo artifact review",
-    "pr_contribution_review.md": "PR contribution review",
-}
-FINAL_OUTPUTS = {
-    "feedback_student.md",
-    "oponent_podklady_revidovane.md",
-    "feedback_k_posudku.md",
-}
+KNOWN_OUTPUTS = known_output_labels()
+FINAL_OUTPUTS = final_output_filenames()
 
 
 @dataclass(frozen=True)

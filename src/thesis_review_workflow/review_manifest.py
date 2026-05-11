@@ -7,6 +7,9 @@ import re
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_registry import explicit_internal_review_filenames
+from thesis_review_workflow.artifact_registry import output_defaults as registry_output_defaults
+from thesis_review_workflow.artifact_registry import output_spec
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import (
     REVIEW_APPROVAL_GLOB,
@@ -20,52 +23,7 @@ from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 MANIFEST_REL = Path("work/review_manifest.json")
 SCHEMA_VERSION = "review-manifest-v1"
 CHECK_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
-REQUIRE_STANDALONE_REVIEW_FILENAMES = {
-    "reference_report_comparison.md",
-    "opponent_reading_packet.md",
-    "reviewer_calibration_profile.md",
-}
-
-OUTPUT_TYPES = {
-    "feedback_student.md": (
-        "supervisor_feedback",
-        ("thesis-supervisor-feedback", "thesis-supervisor-feedback-review"),
-        "sendable_final",
-    ),
-    "revision_diff.md": ("revision_diff", ("thesis-revision-diff",), "internal_only"),
-    "github_code_intake.md": ("github_code_intake", ("thesis-github-code-intake",), "internal_only"),
-    "code_consistency.md": ("code_consistency", ("thesis-code-consistency",), "internal_only"),
-    "code_quality_review.md": ("code_quality_review", ("thesis-code-quality-review",), "internal_only"),
-    "literature_citation_review.md": (
-        "literature_citation_review",
-        ("thesis-literature-citation-review",),
-        "internal_only",
-    ),
-    "figure_media_review.md": ("figure_media_review", ("thesis-figure-media-review",), "internal_only"),
-    "typography_formal_review.md": ("typography_formal_review", ("thesis-typography-formal-review",), "internal_only"),
-    "oponent_podklady.md": ("opponent_materials_draft", ("thesis-opponent-materials",), "draft_only"),
-    "oponent_podklady_revidovane.md": (
-        "opponent_materials_reviewed",
-        ("thesis-opponent-materials", "thesis-opponent-materials-review"),
-        "standalone_final",
-    ),
-    "feedback_k_posudku.md": ("opponent_report_review", ("thesis-opponent-report-review",), "standalone_final"),
-    "reference_report_comparison.md": (
-        "reference_report_comparison",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-    "opponent_reading_packet.md": (
-        "opponent_reading_packet",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-    "reviewer_calibration_profile.md": (
-        "opponent_reviewer_calibration_profile",
-        ("historical-opponent-calibration",),
-        "internal_only",
-    ),
-}
+REQUIRE_STANDALONE_REVIEW_FILENAMES = explicit_internal_review_filenames()
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -143,9 +101,7 @@ def validate_round_rel_values(label: str, values: list[str], *, allow_checks: bo
 
 
 def output_defaults(rel_path: str) -> tuple[str, list[str], str]:
-    filename = Path(rel_path).name
-    artifact_type, skills, scope = OUTPUT_TYPES.get(filename, ("generated_markdown", (), "internal_only"))
-    return artifact_type, list(skills), scope
+    return registry_output_defaults(rel_path)
 
 
 def generated_record(role: str, agent: str, contribution: str, notes: str) -> dict[str, str]:
@@ -262,10 +218,14 @@ def upsert_output_artifact(
     if review_basis_path:
         basis_path = validate_artifact_rel_path(review_basis_path, round_dir)
         review_basis_sha256 = sha256_file(basis_path)
-    existing["artifact_type"] = existing.get("artifact_type") or artifact_type
+    if output_spec(rel_path) is None:
+        existing["artifact_type"] = existing.get("artifact_type") or artifact_type
+        existing["skills"] = existing.get("skills") or skills
+    else:
+        existing["artifact_type"] = artifact_type
+        existing["skills"] = skills
     existing["artifact_sha256"] = current_hash
     existing["review_scope"] = scope
-    existing["skills"] = existing.get("skills") or skills
     existing["generated_by"] = append_unique_generated(
         existing.get("generated_by"),
         generated_record(role, agent, contribution, notes),

@@ -13,6 +13,11 @@ from typing import Any
 
 from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present
 from thesis_review_workflow.agent_coverage import coverage_required
+from thesis_review_workflow.artifact_registry import (
+    closeout_independent_review_required_paths,
+    output_spec,
+    review_basis_candidates,
+)
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -49,10 +54,7 @@ KNOWN_REVIEW_STATUSES = REVIEWED_STATUSES | {
 }
 KNOWN_CHECK_STATUSES = {"passed", "failed", "not_run", "not_recorded", "not_applicable"}
 FINAL_SCOPES = {"sendable_final", "standalone_final"}
-INDEPENDENT_REVIEW_REQUIRED_OUTPUTS = {
-    "outputs/reference_report_comparison.md",
-    "outputs/opponent_reading_packet.md",
-}
+INDEPENDENT_REVIEW_REQUIRED_OUTPUTS = closeout_independent_review_required_paths()
 
 
 def sha256_file(path: Path) -> str:
@@ -513,11 +515,7 @@ def artifact_review_ok(
     if require_complete and scope in FINAL_SCOPES and status in REVIEWED_STATUSES:
         review_basis_path = review.get("review_basis_path")
         review_basis_sha256 = review.get("review_basis_sha256")
-        basis_candidates = {
-            "outputs/feedback_student.md": ("work/feedback_student_draft.md",),
-            "outputs/oponent_podklady_revidovane.md": ("work/oponent_podklady_draft.md",),
-            "outputs/feedback_k_posudku.md": ("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
-        }.get(str(path), ())
+        basis_candidates = review_basis_candidates(str(path))
         default_basis = next((candidate for candidate in basis_candidates if (round_dir / candidate).is_file()), None)
         if default_basis and (round_dir / default_basis).is_file():
             basis = validate_rel_path(f"{path}: review_basis_path", review_basis_path, round_dir, errors)
@@ -581,6 +579,19 @@ def check_artifacts(
     artifact_paths = set(artifacts_by_path)
 
     for path_value, artifact, artifact_path in pending:
+        spec = output_spec(path_value)
+        if spec is not None:
+            if artifact.get("artifact_type") != spec.artifact_type:
+                errors.append(f"{path_value}: artifact_type must be {spec.artifact_type}")
+            if artifact.get("skills") != list(spec.skills):
+                errors.append(f"{path_value}: skills must be {list(spec.skills)}")
+            scope = artifact.get("review_scope")
+            allowed_scopes = {spec.review_scope}
+            if spec.internal_evidence and not spec.explicit_internal_review:
+                allowed_scopes.add("covered_by_synthesis")
+            if scope not in allowed_scopes:
+                rendered = ", ".join(sorted(allowed_scopes))
+                errors.append(f"{path_value}: review_scope must be one of {rendered}")
         if artifact_path and artifact_path.is_file():
             current_hash = sha256_file(artifact_path)
             recorded_hash = artifact.get("artifact_sha256")
