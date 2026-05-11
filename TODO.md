@@ -28,6 +28,12 @@
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
    - Reuse `scripts/prepare-supervisor-packets`, `scripts/check-review-wave`, and structured `work/reviews/feedback_student_review.json` provenance rather than adding a parallel supervisor-specific review registry.
    - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
+- [ ] Execute the remaining context-efficiency follow-up plan in `plans/review_context_followup_plan.md`.
+   - Add deterministic authoring for `work/current_evidence_snapshot.json` so drift-prone evidence does not have to be reconstructed in prompts.
+   - Bridge materiality decisions to concrete GitHub/quantitative next actions before packet generation and synthesis.
+   - Add a helper for writing validated `work/reviews/*_review.json` approval records from exact reviewed artifact and review-basis paths.
+   - Add a quantitative-claims review contract for `work/quantitative_claims.json`.
+   - Centralize output artifact metadata before adding more reviewed output classes if duplication starts blocking helper work.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 
@@ -51,6 +57,7 @@
    - Distinguish rendered-PDF evidence from source-asset evidence and record whether media content was actually inspected.
    - Route unresolved visual interpretation or result-graph quality issues to the figure/media and evaluation-claim review paths.
 - [ ] Add video/demo artifact intake and lightweight review workflow for supervisor and opponent cases.
+   - Include an evidence-mode matrix that separates real hardware, real data, simulation/virtual twins, static code inspection, logs, videos, and unverified claims so synthesis does not have to reconstruct this distinction repeatedly.
    - Detect assignment-required video/demo artifacts from `notes/assignment.md`, assignment PDFs, and submitted inputs; classify each artifact as required, optional, missing, present-uninspected, metadata-checked, sampled, fully watched, or not playable.
    - Add a cheap first pass for video files: file hash, duration, codec, audio presence, resolution/aspect ratio, sampled thumbnails, black-bar/crop/aspect anomalies, and obvious unreadable/silent/corrupt media signals.
    - Store reusable operator evidence in a structured artifact such as `work/media/video_inventory.jsonl` plus sampled frames under `work/media/`, and summarize reviewable conclusions in `outputs/demo_artifacts_review.md` when the demo is material.

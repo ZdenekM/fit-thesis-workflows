@@ -1,6 +1,6 @@
 # Thesis Review Context Efficiency Plan
 
-Status: active
+Status: done
 Created: 2026-05-11
 
 ## Goal
@@ -1218,15 +1218,62 @@ shape but must not include real case content.
 
 ## Final Audit
 
-Not run yet. Before archiving this plan, record:
+Completed on 2026-05-11 and archived after all seven slices landed.
 
-- implementation slices completed or explicitly deferred;
-- plan-review findings and fixes;
-- exact commands run for each slice;
-- whether `scripts/supervisor-preflight` / `scripts/supervisor-closeout` work
-  consumed the integration points here;
-- whether `scripts/opponent-preflight` / `scripts/opponent-closeout` consumed
-  the integration points here;
-- residual risks, especially around handoff summary loss, materiality false
-  negatives, stale opponent trace state, generated report draft boundaries, and
-  Windows command-surface coverage.
+Slice commits:
+
+- `3287b16 docs(workflow): plan thesis review context efficiency`
+- `97a7659 feat(workflow): add review wave output gate`
+- `7ed0bbd feat(workflow): add synthesis handoff summaries`
+- `2e5d3b1 feat(workflow): scaffold review role packets`
+- `13e713c feat(workflow): add review evidence materiality gates`
+- `15cc496 feat(workflow): streamline review provenance registration`
+- `58ad143 docs(workflow): document packet-first review flow`
+
+Agent review loops were used on the plan and implementation slices. Material
+fixes included stricter materiality sequencing, draft versus final wave gates,
+hash-bound approval records, zero-blocking approval semantics, closeout-mode
+approval-record requirements, stale-hash behavior, and opponent-facing leak
+boundaries.
+
+Verification was run slice-by-slice and recorded in the `Progress` section.
+The final closeout pass after Slice 7 ran:
+
+- `scripts/check-private`
+- `scripts/check-scripts`
+- `git diff --check`
+
+Heavier gates run during the implementation slices included:
+
+- `pants fmt ::`
+- `pants lint src/thesis_review_workflow:: tests:: scripts::`
+- `pants check src/thesis_review_workflow:: tests:: scripts::`
+- targeted `pants test ...` suites for wave gates, internal evidence,
+  packet generation, materiality, manifest helpers, work artifacts, opponent
+  report checks, and workflow command contracts;
+- `scripts/smoke-review-wave`
+- `scripts/smoke-supervisor-packets`
+- `scripts/smoke-opponent-packets`
+- `scripts/smoke-package-workflow-tools`
+- `scripts/smoke-agent-coverage`
+- `scripts/smoke-review-manifest`
+- `scripts/smoke-opponent-report`
+- `pants run :omen`
+- direct Omen MCP checks during code-quality-sensitive slices.
+
+Supervisor preflight/closeout command implementation remains owned by
+`plans/supervisor_workflow_closeout_plan.md`; this plan added the packet,
+approval-record, manifest, and wave-gate integration contracts it should reuse.
+Existing `scripts/opponent-closeout` consumes the integration points indirectly
+through `scripts/init-review-manifest --run-checks`,
+`scripts/check-agent-coverage`, `scripts/check-review-manifest
+--require-complete`, `scripts/check-opponent-materials`, and
+`scripts/check-opponent-report`.
+
+Residual context-efficiency opportunities found by the final audit were not
+implemented in this plan. They were moved into
+`plans/review_context_followup_plan.md` and TODO: deterministic authoring for
+`work/current_evidence_snapshot.json`, a materiality-to-action bridge for
+GitHub/quantitative roles, a helper for writing review approval records, a
+quantitative-claims skill/template, and eventual output-artifact registry
+unification.
