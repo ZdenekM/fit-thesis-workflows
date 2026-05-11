@@ -717,7 +717,7 @@ shape but must not include real case content.
 
 ### Slice 3 - Synthesis Handoff Contract
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): add synthesis handoff summaries`
 - Expected paths:
   - `.agents/skills/thesis-code-consistency/SKILL.md`
@@ -729,6 +729,7 @@ shape but must not include real case content.
   - `.agents/skills/thesis-opponent-materials/SKILL.md`
   - `.agents/skills/thesis-opponent-materials-review/SKILL.md`
   - `.agents/skills/thesis-opponent-report-review/SKILL.md`
+  - `.agents/skills/thesis-revision-diff/SKILL.md`
   - `src/thesis_review_workflow/internal_evidence_validators.py`
   - `tests/test_internal_evidence_validators.py`
 - Tasks:
@@ -1045,6 +1046,21 @@ shape but must not include real case content.
   `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, and
   `pants run :omen` (grade A, overall score 91.03; existing hotspots outside
   the new wave-gate files).
+- 2026-05-11: Completed Slice 3. Added `## Synthesis Handoff` templates to
+  internal evidence skills, taught supervisor and opponent synthesis/review
+  skills to read handoffs first, and added optional `--require-synthesis-handoff`
+  / `--warn-synthesis-handoff` validation for internal evidence artifacts.
+  Agent review found handoff-contract bypasses; fixes now parse required
+  bullet fields, reject blank copied templates, reject exact field-label
+  placeholder values, require concrete anchors/limitations/calibration/action
+  values, and keep warn mode advisory. Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_internal_evidence_validators.py`,
+  `scripts/smoke-internal-evidence-validators`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, and `pants run :omen` (grade A,
+  overall score 90.85; existing critical/high hotspots remain outside this
+  slice's new logic).
 
 ## Decision Log
 

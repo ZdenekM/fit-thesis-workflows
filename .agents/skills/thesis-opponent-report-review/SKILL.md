@@ -61,6 +61,11 @@ When reviewing `work/oponent_posudek_draft.md`, first run
 issues to fix or explicitly return to the user before IS submission. Do not
 review an uncalibrated helper draft as if it were a final human report.
 
+When evidence artifacts include `## Synthesis Handoff`, use that handoff as the
+first entrypoint for report risk, suggested rewrite, confidence/limitation, and
+point/grade consistency impact. Open the full evidence only for material
+verification, contradiction checks, or contested report wording.
+
 ## Review Loop
 
 This skill is the independent review pass for a human-drafted opponent report. If agent authorization is missing, ask before writing final sendable review feedback or rewriting the report. If an agent later rewrites the report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.

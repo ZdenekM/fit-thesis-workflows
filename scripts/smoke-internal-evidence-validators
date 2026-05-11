@@ -77,6 +77,16 @@ Static review only; no submitted code was executed.
 
 Reviewed by downstream synthesis for the findings used in opponent materials.
 
+## Synthesis Handoff
+
+- Workflow/audience: supervisor_feedback and opponent_materials.
+- Use in synthesis: cite `work/code/project/README.md` for the import workflow claim.
+- Do not overstate: do not claim runtime behavior was verified.
+- P0/P1 anchors: `work/code/project/results.csv` and chapter 4.
+- Limitations/manual checks: no submitted code was executed; verify page 42 if needed.
+- Calibration: final-submission check; keep this as report-confidence limitation.
+- Supervisor action / opponent impact: ask for calculation evidence or carry a cautious report limitation.
+
 ## Rucni kontroly
 
 - Verify page 42 in the rendered PDF if the exact metric is needed.
@@ -110,6 +120,16 @@ The README mentions `pytest`, but no submitted code was executed by this validat
 ## Review Status
 
 Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Synthesis Handoff
+
+- Workflow/audience: supervisor_feedback and opponent_materials.
+- Use in synthesis: cite `work/code/project/src/app.py` as the validation risk.
+- Do not overstate: do not claim the application is non-functional from static review alone.
+- P0/P1 anchors: `work/code/project/src/app.py` and `work/code/project/README.md`.
+- Limitations/manual checks: no submitted code was executed; confirm final evaluation impact.
+- Calibration: late-stage implementation review; keep as maintainability risk unless runtime failure is proven.
+- Supervisor action / opponent impact: add boundary tests or record a maintainability/report-confidence limitation.
 
 ## Rucni kontroly
 
@@ -149,14 +169,77 @@ The new metric claim on page 42 still needs calculation evidence.
 
 Reviewed by downstream synthesis for the findings used in opponent materials.
 
+## Synthesis Handoff
+
+- Workflow/audience: supervisor_feedback.
+- Use in synthesis: cite `outputs/feedback_student.md` and `work/code/project/README.md` for progress tracking.
+- Do not overstate: do not claim the metric source is fully resolved.
+- P0/P1 anchors: page 42 and `inputs/code.zip`.
+- Limitations/manual checks: confirm the rendered PDF metric source.
+- Calibration: revision feedback follow-up before final supervisor synthesis.
+- Supervisor action / opponent impact: ask for the exact metric source before final feedback.
+
 ## Items Requiring Manual Check
 
 - Confirm the exact metric source in the rendered PDF.
 EOF
 
 expect_success "code consistency validator" "$repo_root/scripts/check-code-consistency" "$case_id"
+expect_success "code consistency synthesis handoff validator" \
+  "$repo_root/scripts/check-code-consistency" --require-synthesis-handoff "$case_id"
 expect_success "code quality validator" "$repo_root/scripts/check-code-quality-review" "$case_id"
+expect_success "code quality synthesis handoff validator" \
+  "$repo_root/scripts/check-code-quality-review" --require-synthesis-handoff "$case_id"
 expect_success "revision diff validator" "$repo_root/scripts/check-revision-diff" "$case_id"
+expect_success "revision diff synthesis handoff validator" \
+  "$repo_root/scripts/check-revision-diff" --require-synthesis-handoff "$case_id"
+
+cat >"$round_dir/outputs/code_quality_review.md" <<'EOF'
+# Internal Code Quality Review
+
+## Rozsah kontroly
+
+Reviewed `work/code/project/src/app.py`.
+
+## Technicky prehled implementace
+
+Small prototype.
+
+## Hlavni technicka rizika
+
+`work/code/project/src/app.py` has a validation risk.
+
+## Testy, smoke testy a reprodukovatelnost
+
+Limitation: no submitted code was executed.
+
+## README, build a vyvojarska dokumentace
+
+`work/code/project/README.md` was inspected.
+
+## Review Status
+
+Reviewed.
+
+## Synthesis Handoff
+
+- Workflow/audience:
+- Use in synthesis:
+- Do not overstate:
+- P0/P1 anchors:
+- Limitations/manual checks:
+- Calibration:
+- Supervisor action / opponent impact:
+
+## Rucni kontroly
+
+None remain.
+EOF
+
+expect_failure_contains "required synthesis handoff rejects blank template" "empty synthesis handoff field" \
+  "$repo_root/scripts/check-code-quality-review" --require-synthesis-handoff "$case_id"
+expect_success "advisory synthesis handoff warns on blank template" \
+  "$repo_root/scripts/check-code-quality-review" --warn-synthesis-handoff "$case_id"
 
 printf '\nTODO: placeholder\n' >>"$round_dir/outputs/revision_diff.md"
 expect_failure_contains "revision diff rejects placeholder" "placeholder" "$repo_root/scripts/check-revision-diff" "$case_id"

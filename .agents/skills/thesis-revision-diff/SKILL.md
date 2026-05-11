@@ -97,6 +97,16 @@ Write `outputs/revision_diff.md` in the newer round:
 
 ## Review Status
 
+## Synthesis Handoff
+
+- Workflow/audience:
+- Use in synthesis:
+- Do not overstate:
+- P0/P1 anchors:
+- Limitations/manual checks:
+- Calibration:
+- Supervisor action / opponent impact:
+
 ## Items Requiring Manual Check
 ```
 

@@ -129,6 +129,16 @@ Write `outputs/code_quality_review.md` when used as a standalone artifact:
 
 ## Review Status
 
+## Synthesis Handoff
+
+- Workflow/audience:
+- Use in synthesis:
+- Do not overstate:
+- P0/P1 anchors:
+- Limitations/manual checks:
+- Calibration:
+- Supervisor action / opponent impact:
+
 ## Rucni kontroly
 ```
 

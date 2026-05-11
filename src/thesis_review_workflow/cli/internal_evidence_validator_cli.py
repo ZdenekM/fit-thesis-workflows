@@ -17,6 +17,9 @@ from thesis_review_workflow.paths import rel_repo
 
 def build_parser(prog: str, description: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, description=description)
+    handoff = parser.add_mutually_exclusive_group()
+    handoff.add_argument("--require-synthesis-handoff", action="store_true")
+    handoff.add_argument("--warn-synthesis-handoff", action="store_true")
     parser.add_argument("case_id")
     parser.add_argument("round_id", nargs="?")
     return parser
@@ -32,7 +35,12 @@ def run(profile_key: str, prog: str, description: str, argv: list[str] | None = 
     profile = PROFILES[profile_key]
     artifact_path = round_dir / profile.relative_path
 
-    result = validate_artifact_path(artifact_path, profile)
+    result = validate_artifact_path(
+        artifact_path,
+        profile,
+        require_synthesis_handoff=args.require_synthesis_handoff,
+        warn_synthesis_handoff=args.warn_synthesis_handoff,
+    )
     for warning in result.warnings:
         print(f"WARNING: {warning}")
     if not result.ok:

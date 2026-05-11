@@ -103,7 +103,13 @@ instead of spawning every role at once. The concurrency limit must not remove
 required role coverage, typography/formal limitations when needed, or the
 independent review pass.
 
-The synthesis step must integrate findings into one coherent operator artifact.
+The synthesis step must read each available `## Synthesis Handoff` first and
+open the full evidence artifact only for grade-impacting verification,
+contradiction checks, confidence-label calibration, or reviewer challenges.
+Translate low-level diagnostics into report impact, grading/IS calibration, or
+manual-check language; do not leak supervisor-style student-action wording into
+opponent materials. The synthesis step must integrate findings into one
+coherent operator artifact.
 
 ## Severity
 

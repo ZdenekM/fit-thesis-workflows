@@ -57,6 +57,12 @@ materials as an agent before preserving grade-impacting claims. Do not let raw
 keyword or token matches decide final opponent-materials wording; require
 evidence anchors or structured review artifacts.
 
+When challenging or preserving a synthesized finding, read the relevant
+`## Synthesis Handoff` first, then open the full evidence artifact only when the
+handoff is ambiguous, grade-impacting, contradicted, or missing necessary
+anchors. Preserve do-not-overstate and limitation guidance in reviewed
+materials.
+
 ## Agent Final Response Contract
 
 When acting as a workflow agent, write full reviewed materials and trace updates

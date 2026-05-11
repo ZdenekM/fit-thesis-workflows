@@ -24,6 +24,7 @@ class ArtifactProfile:
     relative_path: Path
     title_aliases: tuple[str, ...]
     required_sections: tuple[RequiredSection, ...]
+    synthesis_handoff_aliases: tuple[str, ...] = ("Synthesis Handoff",)
 
 
 @dataclass(frozen=True)
@@ -87,9 +88,44 @@ LIMITATION_RE = re.compile(
     r"omezen[aiyeo]?|omezeni|limit[uy]?|"
     r"not verified|not checked|not executed|no submitted code was executed|"
     r"neoveren[ao]?|neprover[ei]n[ao]?|nespusten[ao]?|"
-    r"manual check|rucni kontrol|requires manual|verify|overit|overeni"
+    r"manual check|rucni kontrol|requires manual|verify|confirm|overit|overeni"
     r")\b",
     re.IGNORECASE,
+)
+HANDOFF_WORKFLOW_RE = re.compile(
+    r"\b(workflow|audience|profile|supervisor|opponent|standalone|"
+    r"supervisor_feedback|opponent_materials|opponent_report_review|standalone_internal)\b",
+    re.IGNORECASE,
+)
+HANDOFF_USE_RE = re.compile(
+    r"\b(use|cite|include|carry|ask|record|synthesis|student action|report|grade|impact|pouzit|synt[eé]z)\b",
+    re.IGNORECASE,
+)
+HANDOFF_OVERSTATE_RE = re.compile(r"\b(overstate|do not|neprehan|nepřehán|nepouz|nepouž|not to use)\b", re.IGNORECASE)
+HANDOFF_ACTION_RE = re.compile(
+    r"\b(student|action|opponent|report|grade|manual check|feedback|posudek)\b", re.IGNORECASE
+)
+HANDOFF_CALIBRATION_RE = re.compile(
+    r"\b(calibration|phase|stage|deadline|round|final|draft|points?|grade|calibrat|f[aá]z|bod|zn[aá]mk)\b",
+    re.IGNORECASE,
+)
+HANDOFF_FIELD_RE = re.compile(r"^\s*[-*]\s*(?P<label>[^:\n]{1,80}):\s*(?P<value>.*)\s*$")
+HANDOFF_FIELD_ALIASES = (
+    ("workflow/audience", ("workflow/audience", "workflow", "audience")),
+    ("use in synthesis", ("use in synthesis", "use", "synthesis use")),
+    ("do not overstate", ("do not overstate", "do-not-overstate", "overstatement limit")),
+    ("p0/p1 anchors", ("p0/p1 anchors", "p0 p1 anchors", "anchors", "evidence anchors")),
+    ("limitations/manual checks", ("limitations/manual checks", "limitations", "manual checks")),
+    ("calibration", ("calibration", "phase/report calibration", "report calibration", "phase calibration")),
+    (
+        "supervisor action / opponent impact",
+        (
+            "supervisor action / opponent impact",
+            "supervisor action",
+            "opponent impact",
+            "student action or opponent impact",
+        ),
+    ),
 )
 
 
@@ -216,6 +252,47 @@ def nonempty_section(body: list[str]) -> bool:
     return any(line.strip() and not re.fullmatch(r"[\s|:-]+", line) for line in body)
 
 
+def handoff_field_alias_map() -> dict[str, str]:
+    return {
+        normalize_heading(alias): field_label for field_label, aliases in HANDOFF_FIELD_ALIASES for alias in aliases
+    }
+
+
+def handoff_aliases_for_field(field_label: str) -> set[str]:
+    return {
+        normalize_heading(alias)
+        for label, aliases in HANDOFF_FIELD_ALIASES
+        if label == field_label
+        for alias in aliases
+    }
+
+
+def is_placeholder_handoff_value(field_label: str, value: str) -> bool:
+    return normalize_heading(value) in handoff_aliases_for_field(field_label)
+
+
+def extract_handoff_fields(body: list[str]) -> tuple[set[str], dict[str, str]]:
+    aliases = handoff_field_alias_map()
+    present: set[str] = set()
+    values: dict[str, list[str]] = {}
+    current_field: str | None = None
+    for line in body:
+        match = HANDOFF_FIELD_RE.match(line)
+        if match:
+            current_field = aliases.get(normalize_heading(match.group("label")))
+            if current_field is None:
+                continue
+            present.add(current_field)
+            value = match.group("value").strip()
+            if value:
+                values.setdefault(current_field, []).append(value)
+            continue
+        stripped = line.strip()
+        if current_field and stripped:
+            values.setdefault(current_field, []).append(stripped)
+    return present, {field: "\n".join(parts).strip() for field, parts in values.items()}
+
+
 def check_title(profile: ArtifactProfile, lines: list[str], errors: list[str]) -> None:
     present = {normalize_heading(title) for title in heading_titles(lines, level=1)}
     expected = {normalize_heading(title) for title in profile.title_aliases}
@@ -263,13 +340,83 @@ def check_text_hygiene(text: str, errors: list[str]) -> None:
         errors.append("artifact contains an exact case workspace path; use round-relative paths instead")
 
 
-def validate_artifact_text(text: str, profile: ArtifactProfile) -> ValidationResult:
+def check_synthesis_handoff(
+    profile: ArtifactProfile,
+    lines: list[str],
+    errors: list[str],
+    warnings: list[str],
+    *,
+    require_synthesis_handoff: bool,
+    warn_synthesis_handoff: bool,
+) -> None:
+    if not require_synthesis_handoff and not warn_synthesis_handoff:
+        return
+    target = errors if require_synthesis_handoff else warnings
+
+    title, body = section_body_by_alias(lines, profile.synthesis_handoff_aliases)
+    if title is None:
+        message = f"missing synthesis handoff section: {', '.join(profile.synthesis_handoff_aliases)}"
+        target.append(message)
+        return
+    if not nonempty_section(body):
+        target.append(f"empty synthesis handoff section: ## {title}")
+        return
+
+    present_fields, field_values = extract_handoff_fields(body)
+    expected_fields = [field_label for field_label, _aliases in HANDOFF_FIELD_ALIASES]
+    for field in expected_fields:
+        if field not in present_fields:
+            target.append(f"missing synthesis handoff field: {field}")
+        elif not field_values.get(field):
+            target.append(f"empty synthesis handoff field: {field}")
+        elif is_placeholder_handoff_value(field, field_values[field]):
+            target.append(f"placeholder synthesis handoff field value: {field}")
+
+    workflow = field_values.get("workflow/audience", "")
+    use = field_values.get("use in synthesis", "")
+    overstate = field_values.get("do not overstate", "")
+    anchors = field_values.get("p0/p1 anchors", "")
+    limitations = field_values.get("limitations/manual checks", "")
+    calibration = field_values.get("calibration", "")
+    action = field_values.get("supervisor action / opponent impact", "")
+
+    if anchors and not has_concrete_anchor(anchors):
+        target.append(f"synthesis handoff field lacks concrete evidence anchor: p0/p1 anchors in ## {title}")
+    if limitations and not LIMITATION_RE.search(limitations):
+        target.append(f"synthesis handoff field must state limitations or manual checks: ## {title}")
+    if workflow and not HANDOFF_WORKFLOW_RE.search(workflow):
+        target.append(f"synthesis handoff field must state workflow or audience: ## {title}")
+    if use and not HANDOFF_USE_RE.search(use):
+        target.append(f"synthesis handoff field must state how to use the finding: ## {title}")
+    if overstate and not HANDOFF_OVERSTATE_RE.search(overstate):
+        target.append(f"synthesis handoff field must state what not to overstate: ## {title}")
+    if action and not HANDOFF_ACTION_RE.search(action):
+        target.append(f"synthesis handoff field must state student action or opponent impact: ## {title}")
+    if calibration and not HANDOFF_CALIBRATION_RE.search(calibration):
+        target.append(f"synthesis handoff field must state phase or report calibration: ## {title}")
+
+
+def validate_artifact_text(
+    text: str,
+    profile: ArtifactProfile,
+    *,
+    require_synthesis_handoff: bool = False,
+    warn_synthesis_handoff: bool = False,
+) -> ValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
     lines = text.splitlines()
 
     check_title(profile, lines, errors)
     check_required_sections(profile, lines, errors, warnings)
+    check_synthesis_handoff(
+        profile,
+        lines,
+        errors,
+        warnings,
+        require_synthesis_handoff=require_synthesis_handoff,
+        warn_synthesis_handoff=warn_synthesis_handoff,
+    )
     check_text_hygiene(text, errors)
     if not has_concrete_anchor(text):
         errors.append("artifact contains no concrete evidence anchors")
@@ -279,7 +426,18 @@ def validate_artifact_text(text: str, profile: ArtifactProfile) -> ValidationRes
     return ValidationResult(tuple(errors), tuple(warnings))
 
 
-def validate_artifact_path(path: Path, profile: ArtifactProfile) -> ValidationResult:
+def validate_artifact_path(
+    path: Path,
+    profile: ArtifactProfile,
+    *,
+    require_synthesis_handoff: bool = False,
+    warn_synthesis_handoff: bool = False,
+) -> ValidationResult:
     if not path.is_file():
         return ValidationResult((f"missing artifact: {profile.relative_path.as_posix()}",), ())
-    return validate_artifact_text(path.read_text(encoding="utf-8", errors="replace"), profile)
+    return validate_artifact_text(
+        path.read_text(encoding="utf-8", errors="replace"),
+        profile,
+        require_synthesis_handoff=require_synthesis_handoff,
+        warn_synthesis_handoff=warn_synthesis_handoff,
+    )

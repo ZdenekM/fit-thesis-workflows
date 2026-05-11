@@ -172,6 +172,16 @@ Write `outputs/figure_media_review.md`:
 
 ## Downstream Use
 
+## Synthesis Handoff
+
+- Workflow/audience:
+- Use in synthesis:
+- Do not overstate:
+- P0/P1 anchors:
+- Limitations/manual checks:
+- Calibration:
+- Supervisor action / opponent impact:
+
 ## Review Status
 
 ## Manual Checks

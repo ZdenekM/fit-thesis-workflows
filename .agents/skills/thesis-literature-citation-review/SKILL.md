@@ -126,6 +126,16 @@ Use this section only for supervisor mode or when an opponent needs to record a
 missing-area risk. Separate new-source suggestions from already-cited-source
 relevance checks.
 
+## Synthesis Handoff
+
+- Workflow/audience:
+- Use in synthesis:
+- Do not overstate:
+- P0/P1 anchors:
+- Limitations/manual checks:
+- Calibration:
+- Supervisor action / opponent impact:
+
 ## Review Status
 
 ## Manual Checks
