@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, sha256_file, validate_wave
+from thesis_review_workflow.review_approvals import sha256_file
+from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, validate_wave
 
 
 def make_round(tmp_path: Path) -> Path:
@@ -81,11 +82,12 @@ def test_approval_record_is_hash_bound_to_reviewed_artifact_and_basis(tmp_path: 
     output.write_text("# Reviewed\n", encoding="utf-8")
     basis.write_text("# Draft\n", encoding="utf-8")
     write_json(
-        round_dir / "work" / "review.json",
+        round_dir / "work" / "reviews" / "feedback_student_review.json",
         {
             "workflow_profile": "supervisor_feedback",
             "reviewer_role": "thesis-supervisor-feedback-review",
             "verdict": "approved",
+            "blocking_findings_count": 0,
             "reviewed_artifact_path": "outputs/feedback_student.md",
             "reviewed_artifact_sha256": sha256_file(output),
             "review_basis_path": "work/feedback_student_draft.md",
@@ -106,7 +108,7 @@ def test_approval_record_is_hash_bound_to_reviewed_artifact_and_basis(tmp_path: 
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
                     "approval_record": {
-                        "path": "work/review.json",
+                        "path": "work/reviews/feedback_student_review.json",
                         "reviewed_artifact_path": "outputs/feedback_student.md",
                     },
                 }
@@ -131,7 +133,7 @@ def test_approval_record_is_hash_bound_to_reviewed_artifact_and_basis(tmp_path: 
         case_id="case-a",
         round_id="round-a",
     )
-    assert any("reviewed artifact hash is stale" in error for error in stale.errors)
+    assert any("reviewed_artifact_sha256 is stale" in error for error in stale.errors)
 
 
 def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Path) -> None:
@@ -140,11 +142,12 @@ def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Pa
     output.parent.mkdir()
     output.write_text("# Reviewed\n", encoding="utf-8")
     write_json(
-        round_dir / "work" / "review.json",
+        round_dir / "work" / "reviews" / "feedback_student_review.json",
         {
             "workflow_profile": "supervisor_feedback",
             "reviewer_role": "thesis-supervisor-feedback-review",
             "verdict": "rejected",
+            "blocking_findings_count": 1,
             "reviewed_artifact_path": "outputs/feedback_student.md",
             "reviewed_artifact_sha256": sha256_file(output),
             "review_basis_path": "work/missing_basis.md",
@@ -164,7 +167,7 @@ def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Pa
                 {
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
-                    "approval_record": "work/review.json",
+                    "approval_record": "work/reviews/feedback_student_review.json",
                 }
             ],
         },
@@ -179,7 +182,58 @@ def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Pa
     )
 
     assert any("verdict must be approved/pass" in error for error in result.errors)
-    assert any("review basis is missing" in error for error in result.errors)
+    assert any("review_basis_path points to a missing file" in error for error in result.errors)
+
+
+def test_approval_record_rejects_approved_with_blocking_findings(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    output = round_dir / "outputs" / "feedback_student.md"
+    basis = round_dir / "work" / "feedback_student_draft.md"
+    output.parent.mkdir()
+    basis.parent.mkdir()
+    output.write_text("# Reviewed\n", encoding="utf-8")
+    basis.write_text("# Draft\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "reviews" / "feedback_student_review.json",
+        {
+            "workflow_profile": "supervisor_feedback",
+            "reviewer_role": "thesis-supervisor-feedback-review",
+            "verdict": "approved",
+            "blocking_findings_count": 1,
+            "reviewed_artifact_path": "outputs/feedback_student.md",
+            "reviewed_artifact_sha256": sha256_file(output),
+            "review_basis_path": "work/feedback_student_draft.md",
+            "review_basis_sha256": sha256_file(basis),
+            "checks_observed": ["check-feedback-output"],
+            "limitations": ["Blocking issue remains."],
+            "timestamp": "2026-05-11T12:00:00Z",
+        },
+    )
+    spec_path = round_dir / "work" / "wave.json"
+    write_json(
+        spec_path,
+        {
+            "workflow": "custom",
+            "wave": "review",
+            "outputs": [
+                {
+                    "role": "feedback_review",
+                    "path": "outputs/feedback_student.md",
+                    "approval_record": "work/reviews/feedback_student_review.json",
+                }
+            ],
+        },
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        load_wave_spec(spec_path),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("blocking_findings_count 0" in error for error in result.errors)
 
 
 def test_approval_record_spec_rejects_unsafe_reviewed_artifact_path(tmp_path: Path) -> None:
@@ -195,7 +249,7 @@ def test_approval_record_spec_rejects_unsafe_reviewed_artifact_path(tmp_path: Pa
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
                     "approval_record": {
-                        "path": "work/review.json",
+                        "path": "work/reviews/feedback_student_review.json",
                         "reviewed_artifact_path": "../escape.md",
                     },
                 }

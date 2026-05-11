@@ -23,6 +23,7 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -352,6 +353,8 @@ def artifact_review_ok(
     manifest: dict[str, Any],
     artifacts_by_path: dict[str, dict[str, Any]],
     round_dir: Path,
+    case_id: str,
+    round_id: str,
     require_complete: bool,
     errors: list[str],
     warnings: list[str],
@@ -389,6 +392,26 @@ def artifact_review_ok(
             errors.append(f"{path}: reviewed status requires independent_review.reviewed_hash")
         elif reviewed_hash != artifact.get("artifact_sha256"):
             errors.append(f"{path}: review is stale_after_edit; reviewed_hash does not match current artifact_sha256")
+        approval_required = require_complete and scope in FINAL_SCOPES
+        approval_record_path = review.get("approval_record_path")
+        if approval_record_path:
+            if not isinstance(approval_record_path, str) or not is_review_approval_path(approval_record_path):
+                errors.append(f"{path}: approval_record_path must match work/reviews/*_review.json")
+            else:
+                validate_rel_path(f"{path}: approval_record_path", approval_record_path, round_dir, errors)
+                if approval_record_path not in record_paths(manifest.get("supporting_work_artifacts")):
+                    errors.append(f"{path}: approval_record_path is not recorded in supporting_work_artifacts")
+                if isinstance(path, str):
+                    for error in validate_review_approval_artifact(
+                        round_dir,
+                        approval_record_path,
+                        case_id=case_id,
+                        round_id=round_id,
+                        reviewed_artifact_path=path,
+                    ):
+                        errors.append(f"{path}: {error}")
+        elif approval_required:
+            errors.append(f"{path}: final/sendable artifact requires independent_review.approval_record_path")
     elif scope in FINAL_SCOPES:
         if require_complete:
             errors.append(f"{path}: final/sendable artifact must have a recorded independent review in closeout mode")
@@ -516,6 +539,8 @@ def artifact_review_ok(
 
 def check_artifacts(
     manifest: dict[str, Any],
+    case_id: str,
+    round_id: str,
     round_dir: Path,
     require_complete: bool,
     errors: list[str],
@@ -600,6 +625,8 @@ def check_artifacts(
             manifest,
             artifacts_by_path,
             round_dir,
+            case_id,
+            round_id,
             require_complete,
             errors,
             warnings,
@@ -665,7 +692,7 @@ def check_manifest(
     if limitations is not None and not isinstance(limitations, list):
         errors.append("workflow_limitations must be a list")
 
-    artifact_paths = check_artifacts(manifest, round_dir, require_complete, errors, warnings)
+    artifact_paths = check_artifacts(manifest, case_id, round_id, round_dir, require_complete, errors, warnings)
     check_helper_checks(
         manifest.get("helper_checks"),
         required_checks(artifact_paths, round_dir, manifest),

@@ -891,19 +891,25 @@ shape but must not include real case content.
 
 ### Slice 6 - Closeout Integration And Role Registration
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): streamline review provenance registration`
 - Expected paths:
   - `plans/supervisor_workflow_closeout_plan.md`
   - `docs/opponent-review-workflow.md`
+  - `scripts/smoke-agent-coverage`
+  - `scripts/smoke-review-manifest`
+  - `scripts/smoke-opponent-report`
   - `src/thesis_review_workflow/cli/opponent_closeout.py`
   - `src/thesis_review_workflow/cli/check_review_manifest.py`
   - `src/thesis_review_workflow/review_manifest.py`
+  - `src/thesis_review_workflow/review_approvals.py`
+  - `src/thesis_review_workflow/review_wave_gate.py`
   - `src/thesis_review_workflow/agent_coverage.py`
   - `src/thesis_review_workflow/structured_evidence.py`
   - `src/thesis_review_workflow/work_artifacts.py`
   - `tests/test_opponent_report.py`
   - `tests/test_review_manifest_helpers.py`
+  - `tests/test_review_wave_gate.py`
   - `tests/test_structured_evidence.py`
   - `tests/test_work_artifacts.py`
 - Tasks:
@@ -954,6 +960,7 @@ shape but must not include real case content.
   - `scripts/smoke-opponent-report`
   - `scripts/check-private`
   - `scripts/check-scripts`
+  - `pants run :omen`
   - `git diff --check`
 
 ### Slice 7 - Documentation And Operator Flow
@@ -1104,6 +1111,29 @@ shape but must not include real case content.
   `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, and
   `pants run :omen` (grade A, overall score 90.97; reported hotspots are
   existing broader workflow modules).
+- 2026-05-11: Completed Slice 6. Added a shared
+  `work/reviews/*_review.json` approval-record validator, auto-imported valid
+  approvals into `work/review_manifest.json`, collected approval records as
+  supporting work artifacts, required structured approval records for
+  closeout-mode final artifacts, rejected `approved/pass` reviews with blocking
+  findings, and updated supervisor/opponent closeout docs and smoke fixtures to
+  use the same hash-bound contract. Human opponent report calibration remains
+  validated through the canonical report draft text and
+  `scripts/check-opponent-report`; no separate structural
+  `human_calibration` object was added in this slice. Agent review found two
+  blockers; fixes now require approval records in closeout mode and enforce
+  zero blocking findings for approval. Verification passed: `PYTHONPATH=src
+  python -m pytest tests/test_review_wave_gate.py
+  tests/test_review_manifest_helpers.py tests/test_work_artifacts.py -q`,
+  `pants fmt ::`, `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_opponent_report.py tests/test_review_manifest_helpers.py
+  tests/test_review_wave_gate.py tests/test_structured_evidence.py
+  tests/test_work_artifacts.py`, `scripts/smoke-agent-coverage`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-opponent-report`,
+  `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, direct
+  Omen MCP checks, and `pants run :omen` (grade A, overall score 91.16;
+  reported hotspots are existing broader workflow modules).
 
 ## Decision Log
 

@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_approvals import (
+    REVIEW_APPROVAL_GLOB,
+    load_review_approval,
+    review_record_from_approval,
+    string_list,
+    validate_review_approval_payload,
+)
 from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -385,6 +392,49 @@ def register_artifact(
         feeds=feeds,
         notes=notes,
     )
+
+
+def apply_review_approval_records(manifest: dict[str, Any], round_dir: Path) -> None:
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return
+    case_id = manifest.get("case_id")
+    round_id = manifest.get("round_id")
+    by_reviewed_path: dict[str, tuple[str, dict[str, Any]]] = {}
+    for approval_path in sorted(round_dir.glob(REVIEW_APPROVAL_GLOB)):
+        rel_path = approval_path.relative_to(round_dir).as_posix()
+        payload, load_errors = load_review_approval(round_dir, rel_path)
+        if load_errors or payload is None:
+            continue
+        errors = validate_review_approval_payload(
+            payload,
+            rel_path,
+            round_dir,
+            case_id=case_id if isinstance(case_id, str) else None,
+            round_id=round_id if isinstance(round_id, str) else None,
+        )
+        if errors:
+            continue
+        reviewed_path = payload.get("reviewed_artifact_path")
+        if isinstance(reviewed_path, str):
+            by_reviewed_path[reviewed_path] = (rel_path, payload)
+
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_path = artifact.get("path")
+        if not isinstance(artifact_path, str):
+            continue
+        approval = by_reviewed_path.get(artifact_path)
+        if approval is None:
+            continue
+        approval_rel_path, payload = approval
+        artifact["independent_review"] = review_record_from_approval(payload, approval_rel_path)
+        limitations = artifact.get("limitations")
+        existing_limitations = (
+            [item for item in limitations if isinstance(item, str)] if isinstance(limitations, list) else []
+        )
+        artifact["limitations"] = append_unique(existing_limitations, string_list(payload.get("limitations")))
 
 
 def merge_supporting_work_artifacts(

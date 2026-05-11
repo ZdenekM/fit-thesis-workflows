@@ -28,7 +28,7 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
-from thesis_review_workflow.review_manifest import merge_supporting_work_artifacts
+from thesis_review_workflow.review_manifest import apply_review_approval_records, merge_supporting_work_artifacts
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -628,6 +628,7 @@ def main() -> int:
     checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths, round_dir, manifest))
     manifest["helper_checks"] = checks
     add_artifact_refs(manifest)
+    apply_review_approval_records(manifest, round_dir)
 
     write_manifest(manifest_path, manifest)
     if args.run_checks:

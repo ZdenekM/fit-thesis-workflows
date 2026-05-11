@@ -96,6 +96,14 @@ Supervisor closeout should hard-fail on:
 - `scripts/check-scripts`;
 - `git diff --check`.
 
+Supervisor closeout should consume structured provenance prepared by
+`scripts/init-review-manifest --run-checks`, not parse review-agent prose. For
+reviewed supervisor feedback this means `work/reviews/feedback_student_review.json`
+is the integration contract: it hash-binds `outputs/feedback_student.md`, the
+review basis draft, reviewer role, verdict, observed checks, and limitations.
+Material edits after that record is written must surface as stale hashes in the
+manifest gate.
+
 Supervisor closeout should print every underlying command before running it and
 show pass/fail status for each one.
 

@@ -9,12 +9,17 @@ from thesis_review_workflow.cli.check_review_manifest import (
 )
 from thesis_review_workflow.cli.init_review_manifest import merge_checks, output_artifacts
 from thesis_review_workflow.review_manifest import (
+    apply_review_approval_records,
     ensure_manifest,
     merge_supporting_work_artifacts,
     output_defaults,
     register_artifact,
 )
-from thesis_review_workflow.work_artifacts import sha256_file
+from thesis_review_workflow.work_artifacts import (
+    collect_supporting_work_artifacts,
+    sha256_file,
+    validate_supporting_work_artifacts,
+)
 
 
 def test_review_manifest_validates_supporting_work_artifact_schema(tmp_path: Path) -> None:
@@ -784,6 +789,325 @@ def test_register_final_artifact_records_review_basis(tmp_path: Path) -> None:
 
     assert review["review_basis_path"] == "work/feedback_student_draft.md"
     assert review["review_basis_sha256"] == sha256_file(draft)
+
+
+def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    approval = round_dir / "work" / "reviews" / "feedback_student_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    output.write_text("# Reviewed feedback\n", encoding="utf-8")
+    draft.write_text("# Draft feedback\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "supervisor_feedback",
+                "reviewer_role": "thesis-supervisor-feedback-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/feedback_student.md",
+                "reviewed_artifact_sha256": sha256_file(output),
+                "review_basis_path": "work/feedback_student_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["check-feedback-output"],
+                "limitations": ["Synthetic limitation."],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = ensure_manifest({}, "case-a", "round-a")
+    register_artifact(
+        manifest,
+        round_dir,
+        "outputs/feedback_student.md",
+        role="thesis-supervisor-feedback",
+        agent="generator-agent",
+        contribution="generation",
+        review_scope="sendable_final",
+        review_status="not_recorded",
+        reviewer_role="not_recorded",
+        reviewer_agent="not_recorded",
+        reviewed_at="",
+        limitation=[],
+        feeds=[],
+        input_refs=[],
+        evidence_refs=[],
+        check_refs=[],
+        used_findings="",
+        review_basis_path="",
+        notes="",
+    )
+
+    apply_review_approval_records(manifest, round_dir)
+    review = manifest["artifacts"][0]["independent_review"]
+
+    assert review["status"] == "reviewed"
+    assert review["reviewer_role"] == "thesis-supervisor-feedback-review"
+    assert review["reviewer_agent"] == "review-agent"
+    assert review["reviewed_hash"] == sha256_file(output)
+    assert review["review_basis_path"] == "work/feedback_student_draft.md"
+    assert review["approval_record_path"] == "work/reviews/feedback_student_review.json"
+    assert manifest["artifacts"][0]["limitations"] == ["Synthetic limitation."]
+
+
+def test_review_approval_records_are_collected_and_hash_validated(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    draft = round_dir / "work" / "oponent_podklady_draft.md"
+    approval = round_dir / "work" / "reviews" / "opponent_materials_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    output.write_text("# Reviewed materials\n", encoding="utf-8")
+    draft.write_text("# Draft materials\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "opponent_review",
+                "reviewer_role": "thesis-opponent-materials-review",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/oponent_podklady_revidovane.md",
+                "reviewed_artifact_sha256": sha256_file(output),
+                "review_basis_path": "work/oponent_podklady_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["check-opponent-materials"],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    rel_paths = {record["path"] for record in records}
+    assert "work/reviews/opponent_materials_review.json" in rel_paths
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+    output.write_text("# Edited reviewed materials\n", encoding="utf-8")
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("reviewed_artifact_sha256 is stale" in error for error in errors)
+
+
+def test_review_manifest_requires_approval_record_as_supporting_work_artifact(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    approval = round_dir / "work" / "reviews" / "feedback_student_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    output.write_text("# Reviewed feedback\n", encoding="utf-8")
+    draft.write_text("# Draft feedback\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "supervisor_feedback",
+                "reviewer_role": "thesis-supervisor-feedback-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/feedback_student.md",
+                "reviewed_artifact_sha256": sha256_file(output),
+                "review_basis_path": "work/feedback_student_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["check-feedback-output"],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": "review-manifest-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [],
+        "supporting_work_artifacts": [],
+        "workflow_limitations": [],
+        "helper_checks": [],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "artifact_type": "supervisor_feedback",
+                "artifact_sha256": sha256_file(output),
+                "review_scope": "sendable_final",
+                "skills": [],
+                "generated_by": [
+                    {
+                        "role": "thesis-supervisor-feedback",
+                        "agent": "generator-agent",
+                        "contribution": "generation",
+                    }
+                ],
+                "independent_review": {
+                    "status": "reviewed",
+                    "reviewer_role": "thesis-supervisor-feedback-review",
+                    "reviewer_agent": "review-agent",
+                    "reviewed_at": "2026-05-11T00:00:00Z",
+                    "reviewed_hash": sha256_file(output),
+                    "review_basis_path": "work/feedback_student_draft.md",
+                    "review_basis_sha256": sha256_file(draft),
+                    "approval_record_path": "work/reviews/feedback_student_review.json",
+                },
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+    }
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, False, errors, [])
+
+    assert any("approval_record_path is not recorded in supporting_work_artifacts" in error for error in errors)
+
+
+def test_review_manifest_closeout_requires_structured_approval_record(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "custom_final.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Reviewed final\n", encoding="utf-8")
+    current_hash = sha256_file(output)
+    manifest = {
+        "schema_version": "review-manifest-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [],
+        "supporting_work_artifacts": [],
+        "workflow_limitations": [],
+        "helper_checks": [],
+        "artifacts": [
+            {
+                "path": "outputs/custom_final.md",
+                "artifact_type": "custom_final",
+                "artifact_sha256": current_hash,
+                "review_scope": "standalone_final",
+                "skills": [],
+                "generated_by": [
+                    {
+                        "role": "custom-generator",
+                        "agent": "generator-agent",
+                        "contribution": "generation",
+                    }
+                ],
+                "independent_review": {
+                    "status": "reviewed",
+                    "reviewer_role": "custom-reviewer",
+                    "reviewer_agent": "review-agent",
+                    "reviewed_at": "2026-05-11T00:00:00Z",
+                    "reviewed_hash": current_hash,
+                },
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+    }
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert any("requires independent_review.approval_record_path" in error for error in errors)
+
+
+def test_review_manifest_rejects_unrelated_approval_record(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "custom_final.md"
+    other = round_dir / "outputs" / "other_final.md"
+    draft = round_dir / "work" / "custom_draft.md"
+    approval = round_dir / "work" / "reviews" / "custom_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    output.write_text("# Reviewed final\n", encoding="utf-8")
+    other.write_text("# Other final\n", encoding="utf-8")
+    draft.write_text("# Draft\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "custom",
+                "reviewer_role": "custom-reviewer",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/other_final.md",
+                "reviewed_artifact_sha256": sha256_file(other),
+                "review_basis_path": "work/custom_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["custom-check"],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": "review-manifest-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "manifest_path": "work/review_manifest.json",
+        "inputs": [],
+        "extracted_artifacts": [],
+        "notes": [],
+        "supporting_work_artifacts": [
+            {
+                "path": "work/reviews/custom_review.json",
+                "kind": "structured_data",
+                "artifact_sha256": sha256_file(approval),
+            }
+        ],
+        "workflow_limitations": [],
+        "helper_checks": [],
+        "artifacts": [
+            {
+                "path": "outputs/custom_final.md",
+                "artifact_type": "custom_final",
+                "artifact_sha256": sha256_file(output),
+                "review_scope": "standalone_final",
+                "skills": [],
+                "generated_by": [
+                    {
+                        "role": "custom-generator",
+                        "agent": "generator-agent",
+                        "contribution": "generation",
+                    }
+                ],
+                "independent_review": {
+                    "status": "reviewed",
+                    "reviewer_role": "custom-reviewer",
+                    "reviewer_agent": "review-agent",
+                    "reviewed_at": "2026-05-11T00:00:00Z",
+                    "reviewed_hash": sha256_file(output),
+                    "approval_record_path": "work/reviews/custom_review.json",
+                },
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+    }
+    errors: list[str] = []
+
+    check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
+
+    assert any("reviewed_artifact_path must be outputs/custom_final.md" in error for error in errors)
 
 
 def test_register_covered_by_synthesis_sets_evidence_hash(tmp_path: Path) -> None:

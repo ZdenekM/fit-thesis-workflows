@@ -216,11 +216,46 @@ complete_manifest_for_smoke() {
 import json
 import pathlib
 import sys
+import hashlib
 
 path = pathlib.Path(sys.argv[1])
 manifest = json.loads(path.read_text(encoding="utf-8"))
+round_dir = path.parent.parent
+
+def sha256_file(file_path):
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 for artifact in manifest["artifacts"]:
     if artifact["path"] == "outputs/oponent_podklady_revidovane.md":
+        basis_path = "work/oponent_podklady_draft.md"
+        approval_record_path = "work/reviews/opponent_materials_review.json"
+        basis = round_dir / basis_path
+        basis.parent.mkdir(parents=True, exist_ok=True)
+        if not basis.is_file():
+            basis.write_text("# Smoke opponent materials draft\n", encoding="utf-8")
+        approval = round_dir / approval_record_path
+        approval.parent.mkdir(parents=True, exist_ok=True)
+        approval_payload = {
+            "case_id": manifest["case_id"],
+            "round_id": manifest["round_id"],
+            "workflow_profile": "opponent_review",
+            "reviewer_role": "thesis-opponent-materials-review",
+            "reviewer_agent": "opponent-materials-reviewer",
+            "verdict": "approved",
+            "blocking_findings_count": 0,
+            "reviewed_artifact_path": "outputs/oponent_podklady_revidovane.md",
+            "reviewed_artifact_sha256": artifact["artifact_sha256"],
+            "review_basis_path": basis_path,
+            "review_basis_sha256": sha256_file(basis),
+            "checks_observed": ["check-opponent-materials"],
+            "limitations": ["None."],
+            "timestamp": "2026-05-04T00:01:00Z",
+        }
+        approval.write_text(json.dumps(approval_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         artifact["generated_by"] = [
             {
                 "role": "thesis-opponent-materials",
@@ -239,6 +274,9 @@ for artifact in manifest["artifacts"]:
             "used_findings": "",
             "exception": "",
             "notes": "Smoke review passed.",
+            "review_basis_path": basis_path,
+            "review_basis_sha256": approval_payload["review_basis_sha256"],
+            "approval_record_path": approval_record_path,
         }
         artifact["limitations"] = ["None."]
 for check in manifest["helper_checks"]:

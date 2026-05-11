@@ -115,13 +115,64 @@ mark_review_manifest_ready() {
 import json
 import pathlib
 import sys
+import hashlib
 
 path = pathlib.Path(sys.argv[1])
 manifest = json.loads(path.read_text(encoding="utf-8"))
+round_dir = path.parent.parent
+
+def sha256_file(file_path):
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+def final_review_paths(artifact):
+    rel_path = artifact["path"]
+    artifact_type = artifact["artifact_type"]
+    if rel_path == "outputs/feedback_student.md":
+        return "supervisor_feedback", "work/feedback_student_draft.md", "work/reviews/feedback_student_review.json"
+    if rel_path == "outputs/oponent_podklady_revidovane.md":
+        return "opponent_review", "work/oponent_podklady_draft.md", "work/reviews/opponent_materials_review.json"
+    if rel_path == "outputs/feedback_k_posudku.md":
+        return "opponent_report_review", "work/oponent_posudek_draft.md", "work/reviews/opponent_report_review.json"
+    safe_name = artifact_type.replace("/", "_").replace(" ", "_")
+    return artifact_type, f"work/reviews/{safe_name}_basis.md", f"work/reviews/{safe_name}_review.json"
+
 for artifact in manifest["artifacts"]:
     skills = artifact.get("skills") or [artifact["artifact_type"]]
     generator_role = skills[0]
     reviewer_role = skills[-1] if len(skills) > 1 else f'{skills[0]}-review'
+    review_basis_path = ""
+    review_basis_sha256 = ""
+    approval_record_path = ""
+    if artifact.get("review_scope") in {"sendable_final", "standalone_final"}:
+        workflow_profile, review_basis_path, approval_record_path = final_review_paths(artifact)
+        basis = round_dir / review_basis_path
+        basis.parent.mkdir(parents=True, exist_ok=True)
+        if not basis.is_file():
+            basis.write_text(f'# Smoke review basis for {artifact["path"]}\n', encoding="utf-8")
+        approval = round_dir / approval_record_path
+        approval.parent.mkdir(parents=True, exist_ok=True)
+        approval_payload = {
+            "case_id": manifest["case_id"],
+            "round_id": manifest["round_id"],
+            "workflow_profile": workflow_profile,
+            "reviewer_role": reviewer_role,
+            "reviewer_agent": f'{artifact["artifact_type"]}-reviewer',
+            "verdict": "approved",
+            "blocking_findings_count": 0,
+            "reviewed_artifact_path": artifact["path"],
+            "reviewed_artifact_sha256": artifact["artifact_sha256"],
+            "review_basis_path": review_basis_path,
+            "review_basis_sha256": sha256_file(basis),
+            "checks_observed": ["smoke-review"],
+            "limitations": ["None."],
+            "timestamp": "2026-05-04T00:01:00Z",
+        }
+        approval.write_text(json.dumps(approval_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        review_basis_sha256 = approval_payload["review_basis_sha256"]
     artifact["generated_by"] = [
         {
             "role": generator_role,
@@ -140,6 +191,9 @@ for artifact in manifest["artifacts"]:
         "used_findings": "",
         "exception": "",
         "notes": "Smoke review passed.",
+        "review_basis_path": review_basis_path,
+        "review_basis_sha256": review_basis_sha256,
+        "approval_record_path": approval_record_path,
     }
     artifact["limitations"] = ["None."]
 path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

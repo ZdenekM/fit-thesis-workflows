@@ -106,6 +106,18 @@ scripts/check-agent-coverage <case-id> [round-id]
 scripts/check-review-manifest --require-complete <case-id> [round-id]
 ```
 
+Nezávislé finální review se do closeoutu nepřenáší jen závěrečnou zprávou
+agenta. Review agent nebo člověk zapíše strukturovaný approval record pod
+`work/reviews/*_review.json`, typicky
+`work/reviews/opponent_materials_review.json` pro
+`outputs/oponent_podklady_revidovane.md` a
+`work/reviews/opponent_report_review.json` pro review posudku. Záznam musí
+obsahovat verdict, počet blokujících nálezů, reviewer roli, hash revidovaného
+artefaktu, hash review basis, pozorované kontroly a omezení. `init-review-manifest`
+ho automaticky sesbírá jako supporting work artefakt a propíše aktuální review
+metadata do manifestu; pozdější úprava revidovaného artefaktu nebo review basis
+pak spadne jako stale hash.
+
 Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`
 nebo `outputs/revision_diff.md`, manifest closeout vyžaduje příslušný
 strukturální validátor jako passed helper check.

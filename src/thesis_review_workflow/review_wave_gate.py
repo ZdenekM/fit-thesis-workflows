@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 from dataclasses import dataclass, field
@@ -11,9 +10,9 @@ from typing import Any
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_approvals import require_review_approval_path, validate_review_approval_artifact
 
 DEFAULT_HANDOFF_HEADING = "## Synthesis Handoff"
-APPROVED_VERDICTS = {"approved", "pass", "passed", "accepted"}
 
 
 @dataclass(frozen=True)
@@ -62,14 +61,6 @@ class GateResult:
         self.passed.extend(other.passed)
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _safe_rel_path(value: str, *, label: str) -> str:
     if not is_safe_round_relative_path(value):
         raise ValueError(f"{label} must be a safe round-relative path: {value}")
@@ -93,19 +84,23 @@ def _approval_from_json(value: Any) -> ApprovalRecordExpectation | None:
     if value in (None, "", False):
         return None
     if isinstance(value, str):
-        return ApprovalRecordExpectation(_safe_rel_path(value, label="approval_record"))
+        path = _safe_rel_path(value, label="approval_record")
+        require_review_approval_path(path)
+        return ApprovalRecordExpectation(path)
     if not isinstance(value, dict):
         raise ValueError("approval_record must be a path string or object")
-    path = value.get("path")
-    if not isinstance(path, str):
+    approval_path_value = value.get("path")
+    if not isinstance(approval_path_value, str):
         raise ValueError("approval_record.path must be a string")
     reviewed = value.get("reviewed_artifact_path", "")
     if reviewed is not None and not isinstance(reviewed, str):
         raise ValueError("approval_record.reviewed_artifact_path must be a string")
     if reviewed:
         _safe_rel_path(reviewed, label="approval_record.reviewed_artifact_path")
+    safe_path = _safe_rel_path(approval_path_value, label="approval_record.path")
+    require_review_approval_path(safe_path)
     return ApprovalRecordExpectation(
-        _safe_rel_path(path, label="approval_record.path"),
+        safe_path,
         reviewed_artifact_path=reviewed or "",
     )
 
@@ -435,75 +430,22 @@ def validate_approval_record(
     expected: ExpectedOutput,
     selected_path: str,
     result: GateResult,
+    *,
+    case_id: str,
+    round_id: str,
 ) -> None:
     approval = expected.approval_record
     if approval is None:
         return
-    approval_path = round_dir / approval.path
-    if not approval_path.is_file():
-        result.errors.append(f"{expected.role}: missing approval record: {approval.path}")
-        return
-    try:
-        payload = json.loads(approval_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        result.errors.append(f"{expected.role}: invalid approval record JSON {approval.path}: {exc.msg}")
-        return
-    if not isinstance(payload, dict):
-        result.errors.append(f"{expected.role}: approval record must be a JSON object: {approval.path}")
-        return
-
-    required_fields = (
-        "workflow_profile",
-        "reviewer_role",
-        "verdict",
-        "reviewed_artifact_path",
-        "reviewed_artifact_sha256",
-        "review_basis_path",
-        "review_basis_sha256",
-        "checks_observed",
-        "limitations",
-        "timestamp",
-    )
-    for field_name in required_fields:
-        if field_name not in payload:
-            result.errors.append(f"{expected.role}: approval record missing field {field_name}: {approval.path}")
-
-    verdict = payload.get("verdict")
-    if not isinstance(verdict, str) or verdict.strip().lower() not in APPROVED_VERDICTS:
-        result.errors.append(
-            f"{expected.role}: approval record verdict must be approved/pass, got {verdict!r}: {approval.path}"
-        )
-
-    reviewed_path = payload.get("reviewed_artifact_path")
     expected_reviewed = approval.reviewed_artifact_path or selected_path
-    if reviewed_path != expected_reviewed:
-        result.errors.append(
-            f"{expected.role}: approval record reviewed_artifact_path must be {expected_reviewed}, got {reviewed_path}"
-        )
-    if isinstance(reviewed_path, str) and not is_safe_round_relative_path(reviewed_path):
-        result.errors.append(f"{expected.role}: approval reviewed_artifact_path is not round-relative: {reviewed_path}")
-    reviewed_file = round_dir / expected_reviewed
-    if not reviewed_file.is_file():
-        result.errors.append(f"{expected.role}: approval reviewed artifact is missing: {expected_reviewed}")
-    elif payload.get("reviewed_artifact_sha256") != sha256_file(reviewed_file):
-        result.errors.append(f"{expected.role}: approval record reviewed artifact hash is stale: {approval.path}")
-
-    basis_path = payload.get("review_basis_path")
-    if not isinstance(basis_path, str) or not basis_path:
-        result.errors.append(f"{expected.role}: approval record review_basis_path must be a non-empty string")
-    elif not is_safe_round_relative_path(basis_path):
-        result.errors.append(f"{expected.role}: approval review_basis_path is not round-relative: {basis_path}")
-    else:
-        basis_file = round_dir / basis_path
-        if not basis_file.is_file():
-            result.errors.append(f"{expected.role}: approval review basis is missing: {basis_path}")
-        elif payload.get("review_basis_sha256") != sha256_file(basis_file):
-            result.errors.append(f"{expected.role}: approval record review basis hash is stale: {approval.path}")
-
-    if not isinstance(payload.get("checks_observed"), list):
-        result.errors.append(f"{expected.role}: approval record checks_observed must be a list: {approval.path}")
-    if not isinstance(payload.get("limitations"), list):
-        result.errors.append(f"{expected.role}: approval record limitations must be a list: {approval.path}")
+    for error in validate_review_approval_artifact(
+        round_dir,
+        approval.path,
+        case_id=case_id,
+        round_id=round_id,
+        reviewed_artifact_path=expected_reviewed,
+    ):
+        result.errors.append(f"{expected.role}: {error}")
 
     if result.ok:
         result.passed.append(f"{expected.role}: approval record shape passed: {approval.path}")
@@ -525,7 +467,7 @@ def validate_expected_output(
     check_nonempty(round_dir, selected_path, expected.role, result)
     check_handoff(round_dir, selected_path, expected, result, require_handoffs=require_handoffs)
     check_whitespace(round_dir, paths_for_hygiene(selected_path, expected), expected.role, result)
-    validate_approval_record(round_dir, expected, selected_path, result)
+    validate_approval_record(round_dir, expected, selected_path, result, case_id=case_id, round_id=round_id)
     for check in expected.checks:
         rendered = render_check_args(check.args, case_id=case_id, round_id=round_id, selected_path=selected_path)
         run_check_command(

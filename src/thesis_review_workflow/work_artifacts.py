@@ -13,6 +13,7 @@ from thesis_review_workflow.opponent_calibration import (
     validate_opponent_calibration_artifact,
 )
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
 
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
@@ -62,6 +63,7 @@ WORK_ARTIFACT_GLOBS = (
     "work/opponent_packets/*.md",
     "work/supervisor_packets/*.md",
     "work/review_materiality/*.json",
+    "work/reviews/*.json",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",
     "work/calibration/*.json",
@@ -193,6 +195,15 @@ def validate_supporting_work_artifacts(
         expected_schemas = KNOWN_JSON_ARTIFACT_SCHEMAS.get(rel_path)
         if expected_schemas:
             validate_json_work_artifact(path, rel_path, expected_schemas, round_dir, case_id, round_id, errors)
+        elif is_review_approval_path(rel_path):
+            errors.extend(
+                validate_review_approval_artifact(
+                    round_dir,
+                    rel_path,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
         elif is_opponent_calibration_artifact(rel_path):
             errors.extend(
                 validate_opponent_calibration_artifact(
