@@ -153,11 +153,8 @@ PACKET_ROLES = (
             "Use PDF/source-asset inspection status when making visual-content claims.",
         ),
         activation="existing_artifact",
-        activation_paths=(
-            "work/media_presence_inventory.jsonl",
-            "work/figure_media/visual_inventory.jsonl",
-            "work/review_materiality/figure_media.json",
-        ),
+        activation_paths=("work/review_materiality/figure_media.json",),
+        activation_workflow_profile="opponent_review",
     ),
     PacketRole(
         key="literature_citation",
@@ -181,6 +178,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/literature_citation.json",),
+        activation_workflow_profile="opponent_review",
     ),
     PacketRole(
         key="typography_formal",
@@ -204,6 +202,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/typography_formal.json",),
+        activation_workflow_profile="opponent_review",
     ),
     PacketRole(
         key="evidence_calibration",

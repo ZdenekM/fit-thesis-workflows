@@ -152,11 +152,8 @@ PACKET_ROLES = (
             "Convert visual issues into the smallest useful student action.",
         ),
         activation="existing_artifact",
-        activation_paths=(
-            "work/media_presence_inventory.jsonl",
-            "work/figure_media/visual_inventory.jsonl",
-            "work/review_materiality/figure_media.json",
-        ),
+        activation_paths=("work/review_materiality/figure_media.json",),
+        activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
         key="literature_citation",
@@ -180,6 +177,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/literature_citation.json",),
+        activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
         key="typography_formal",
@@ -203,6 +201,7 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/typography_formal.json",),
+        activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
         key="evidence_calibration",

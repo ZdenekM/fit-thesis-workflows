@@ -837,7 +837,7 @@ shape but must not include real case content.
 
 ### Slice 5 - Materiality Gates For Optional Evidence Roles
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): add review evidence materiality gates`
 - Expected paths:
   - `src/thesis_review_workflow/review_materiality.py`
@@ -851,9 +851,10 @@ shape but must not include real case content.
   - Add a deterministic advisory gate that recommends whether figure/media,
     typography/formal, literature/citation, GitHub intake, and quantitative
     claim roles are material for the selected workflow profile.
-  - Base routing on phase, explicit notes, assignment requirements, structured
-    manifests, existing output artifacts, media/code/GitHub artifact classes,
-    and validated generated evidence, not semantic raw-text keyword decisions.
+  - Base routing on explicit phase/operator flags, assignment requirements,
+    structured manifests, existing output artifacts, media/code/GitHub artifact
+    classes, and validated generated evidence, not semantic raw-text keyword
+    decisions.
   - Treat assignment-required presentation video/demo artifacts as a narrow
     media materiality trigger: verify existence/access/evidence boundary without
     escalating to a broad visual audit unless thesis figures or visual claims
@@ -881,8 +882,9 @@ shape but must not include real case content.
   - `pants fmt ::`
   - `pants lint src/thesis_review_workflow:: tests:: scripts::`
   - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_review_materiality.py`
+  - `pants test tests/test_review_materiality.py tests/test_supervisor_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py tests/test_work_artifacts.py`
   - `scripts/smoke-package-workflow-tools`
+  - `pants run :omen`
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
@@ -1082,6 +1084,26 @@ shape but must not include real case content.
   `scripts/check-scripts`, `git diff --check`, direct Omen MCP availability
   check, and `pants run :omen` (grade A, overall score 90.65; reported
   hotspots are existing broader workflow modules).
+- 2026-05-11: Completed Slice 5. Added `scripts/check-review-materiality`,
+  advisory `work/review_materiality/index.json` decisions, role-specific
+  materiality JSON files for packet activation, package registry coverage, and
+  synthetic tests for text-only, final, code-bearing, media/video, figure-heavy,
+  opponent, GitHub/quantitative, and stale optional-packet cases. Agent review
+  found materiality bypasses; fixes now require `figure_media` packets to
+  activate only from `work/review_materiality/figure_media.json`, bind
+  materiality files to the consuming workflow profile, and remove free-text
+  phase inference so supervisor `auto` stays non-final unless the operator
+  passes `--phase final`. Verification passed: `PYTHONPATH=src python -m pytest
+  tests/test_review_materiality.py tests/test_supervisor_packets.py
+  tests/test_opponent_packets.py -q`, `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_review_materiality.py tests/test_supervisor_packets.py
+  tests/test_opponent_packets.py tests/test_workflow_python_contracts.py
+  tests/test_work_artifacts.py`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, and
+  `pants run :omen` (grade A, overall score 90.97; reported hotspots are
+  existing broader workflow modules).
 
 ## Decision Log
 

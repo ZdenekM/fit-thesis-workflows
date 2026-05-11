@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.supervisor_packets import PACKET_ROLES, generate_packets, render_packet
 
 DEADLINE_CONTEXT = """Supervisor deadline context
@@ -37,6 +38,27 @@ def make_round(tmp_path: Path) -> Path:
     return round_dir
 
 
+def write_materiality(round_dir: Path, role: str) -> None:
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role=role,
+                recommendation="material",
+                scope="explicit_request",
+                impact="student-action priority",
+                reason="test materiality decision",
+                source_refs=(f"operator-request:{role}",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="non_final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+
 def test_generate_supervisor_packets_starts_with_mandatory_base_only(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
 
@@ -62,6 +84,7 @@ def test_supervisor_packets_emit_code_and_structured_optional_packets_only_when_
     (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
     (round_dir / "work" / "figure_media").mkdir(parents=True)
     (round_dir / "work" / "figure_media" / "visual_inventory.jsonl").write_text("{}\n", encoding="utf-8")
+    write_materiality(round_dir, "figure_media")
     (round_dir / "outputs").mkdir()
     (round_dir / "outputs" / "typography_formal_review.md").write_text("# Typography\n", encoding="utf-8")
 
@@ -122,9 +145,8 @@ def test_supervisor_code_reproducibility_artifact_alone_does_not_activate_code_p
 
 def test_supervisor_inactive_optional_packets_are_pruned(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
-    (round_dir / "work" / "figure_media").mkdir(parents=True)
-    inventory = round_dir / "work" / "figure_media" / "visual_inventory.jsonl"
-    inventory.write_text("{}\n", encoding="utf-8")
+    materiality = round_dir / "work" / "review_materiality" / "figure_media.json"
+    write_materiality(round_dir, "figure_media")
 
     generate_packets(
         "case-a",
@@ -135,7 +157,7 @@ def test_supervisor_inactive_optional_packets_are_pruned(tmp_path: Path) -> None
     )
     assert (round_dir / "work" / "supervisor_packets" / "figure_media.md").is_file()
 
-    inventory.unlink()
+    materiality.unlink()
     generate_packets(
         "case-a",
         "round-a",
@@ -147,10 +169,42 @@ def test_supervisor_inactive_optional_packets_are_pruned(tmp_path: Path) -> None
     assert not (round_dir / "work" / "supervisor_packets" / "figure_media.md").exists()
 
 
+def test_supervisor_ignores_opponent_materiality_profile(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="material",
+                scope="opponent_is_item",
+                impact="opponent report defensibility",
+                reason="opponent-only materiality decision",
+                source_refs=("workflow-profile:opponent_review",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    written = generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    names = {path.name for path in written}
+
+    assert "figure_media.md" not in names
+
+
 def test_supervisor_optional_materiality_paths_are_role_specific(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
-    (round_dir / "work" / "review_materiality").mkdir(parents=True)
-    (round_dir / "work" / "review_materiality" / "literature_citation.json").write_text("{}\n", encoding="utf-8")
+    write_materiality(round_dir, "literature_citation")
 
     written = generate_packets(
         "case-a",

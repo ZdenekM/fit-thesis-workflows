@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.review_materiality import is_materiality_decision_path, validate_review_materiality_artifact
 from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
     validate_structured_evidence_artifact,
@@ -72,6 +73,7 @@ class PacketRole:
     reasoning: str = SEMANTIC_REASONING
     model_note: str = "Semantic reviewer role; keep on gpt-5.5/xhigh unless the operator changes the policy."
     activation_check: tuple[str, ...] = ()
+    activation_workflow_profile: str | None = None
 
 
 def rel_status(
@@ -80,10 +82,21 @@ def rel_status(
     *,
     case_id: str | None = None,
     round_id: str | None = None,
+    materiality_workflow_profile: str | None = None,
 ) -> str:
     path = round_dir / rel_path
     if not path.exists():
         return "missing"
+    if is_materiality_decision_path(rel_path):
+        errors = validate_review_materiality_artifact(
+            round_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
+            workflow_profile=materiality_workflow_profile,
+        )
+        if errors:
+            return "invalid"
     if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
         errors = validate_structured_evidence_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id)
         if errors:
@@ -97,11 +110,19 @@ def existing_paths(
     *,
     case_id: str | None = None,
     round_id: str | None = None,
+    materiality_workflow_profile: str | None = None,
 ) -> list[str]:
     return [
         rel_path
         for rel_path in rel_paths
-        if rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id) == "present"
+        if rel_status(
+            round_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
+            materiality_workflow_profile=materiality_workflow_profile,
+        )
+        == "present"
     ]
 
 
@@ -213,7 +234,15 @@ def role_is_active(
         return has_code_evidence(round_dir)
     if role.activation == "existing_artifact":
         paths = role.activation_paths or role.role_inputs
-        return bool(existing_paths(round_dir, paths, case_id=case_id, round_id=round_id))
+        return bool(
+            existing_paths(
+                round_dir,
+                paths,
+                case_id=case_id,
+                round_id=round_id,
+                materiality_workflow_profile=role.activation_workflow_profile,
+            )
+        )
     if role.activation == "check":
         if case_id is None or round_id is None or not role.activation_check:
             return False

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import PACKET_ROLES, generate_packets, render_packet
+from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 
 
 def write_assignment_coverage(round_dir: Path, *, valid: bool = True) -> None:
@@ -36,6 +37,27 @@ def write_assignment_coverage(round_dir: Path, *, valid: bool = True) -> None:
         "limitations": [],
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def write_materiality(round_dir: Path, role: str) -> None:
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role=role,
+                recommendation="material",
+                scope="explicit_request",
+                impact="opponent report defensibility",
+                reason="test materiality decision",
+                source_refs=(f"operator-request:{role}",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
 
 
 def test_generate_packets_writes_all_role_files(tmp_path: Path) -> None:
@@ -75,6 +97,7 @@ def test_generate_packets_emits_code_and_structured_optional_packets_only_when_t
     (round_dir / "work" / "figure_media").mkdir(parents=True)
     (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
     (round_dir / "work" / "figure_media" / "visual_inventory.jsonl").write_text("{}\n", encoding="utf-8")
+    write_materiality(round_dir, "figure_media")
     (round_dir / "outputs").mkdir()
     (round_dir / "outputs" / "literature_citation_review.md").write_text("# Literature\n", encoding="utf-8")
 
@@ -129,15 +152,14 @@ def test_inactive_optional_packets_are_pruned(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
-    (round_dir / "work" / "figure_media").mkdir(parents=True)
     (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
-    inventory = round_dir / "work" / "figure_media" / "visual_inventory.jsonl"
-    inventory.write_text("{}\n", encoding="utf-8")
+    materiality = round_dir / "work" / "review_materiality" / "figure_media.json"
+    write_materiality(round_dir, "figure_media")
 
     generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     assert (round_dir / "work" / "opponent_packets" / "figure_media.md").is_file()
 
-    inventory.unlink()
+    materiality.unlink()
     generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
 
     assert not (round_dir / "work" / "opponent_packets" / "figure_media.md").exists()
@@ -147,9 +169,8 @@ def test_optional_materiality_paths_are_role_specific(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
-    (round_dir / "work" / "review_materiality").mkdir(parents=True)
     (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
-    (round_dir / "work" / "review_materiality" / "typography_formal.json").write_text("{}\n", encoding="utf-8")
+    write_materiality(round_dir, "typography_formal")
 
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     names = {path.name for path in written}

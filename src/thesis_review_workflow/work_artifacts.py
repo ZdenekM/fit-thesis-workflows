@@ -61,6 +61,7 @@ WORK_ARTIFACT_GLOBS = (
     "work/agent_*.md",
     "work/opponent_packets/*.md",
     "work/supervisor_packets/*.md",
+    "work/review_materiality/*.json",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",
     "work/calibration/*.json",
