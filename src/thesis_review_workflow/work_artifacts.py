@@ -20,6 +20,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/evidence_requirements.json": {"evidence-requirements-v1"},
     "work/quantitative_claims.json": {"quantitative-claims-v1"},
     "work/opponent_report_trace.json": {"opponent-report-trace-v1"},
+    "work/current_evidence_snapshot.json": {"current-evidence-snapshot-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
 }
 
@@ -28,6 +29,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/evidence_requirements.json": {"requirements": list},
     "work/quantitative_claims.json": {"claims": list},
     "work/opponent_report_trace.json": {"is_items": list, "defense_questions": list, "uncertainty_items": list},
+    "work/current_evidence_snapshot.json": {"items": list},
     "work/code_reproducibility.json": {"classification": str},
 }
 
@@ -46,6 +48,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/evidence_requirements.json",
     "work/quantitative_claims.json",
     "work/opponent_report_trace.json",
+    "work/current_evidence_snapshot.json",
     "work/opponent_calibration_use.json",
     "work/opponent_calibration_advisory.json",
     "work/opponent_report_revision_request.json",
@@ -57,6 +60,7 @@ EXPLICIT_WORK_ARTIFACTS = (
 WORK_ARTIFACT_GLOBS = (
     "work/agent_*.md",
     "work/opponent_packets/*.md",
+    "work/supervisor_packets/*.md",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",
     "work/calibration/*.json",

@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__supervisor_packets_smoke_$$"
+round_id="round-b"
+prev_round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+prev_round_dir="$repo_root/cases/$case_id/rounds/$prev_round_id"
+out_file="/tmp/supervisor-packets-smoke.$$.out"
+err_file="/tmp/supervisor-packets-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/inputs/submitted-src" "$round_dir/extracted" "$round_dir/work"
+mkdir -p "$prev_round_dir/outputs"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+Deadline mode: standard
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+- Implement and evaluate a synthetic thesis-review helper.
+
+## Private Assignment Notes For Student
+
+- Synthetic private note.
+EOF
+printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
+printf '# Previous feedback\n' >"$prev_round_dir/outputs/feedback_student.md"
+printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
+printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
+
+expect_success "prepare supervisor packets" "$repo_root/scripts/prepare-supervisor-packets" "$case_id"
+expect_output "Supervisor packets: 4"
+
+packet_dir="$round_dir/work/supervisor_packets"
+test -f "$packet_dir/text_assignment.md"
+test -f "$packet_dir/code_consistency.md"
+test -f "$packet_dir/code_quality.md"
+test -f "$packet_dir/current_evidence_snapshot.md"
+test ! -f "$packet_dir/figure_media.md"
+test ! -f "$packet_dir/literature_citation.md"
+test ! -f "$packet_dir/typography_formal.md"
+
+grep -Fq "Schema version: \`supervisor-feedback-packet-v1\`" "$packet_dir/text_assignment.md"
+grep -Fq "Official deadline: 2026-05-13" "$packet_dir/text_assignment.md"
+grep -Fq "round \`round-a\`: \`outputs/feedback_student.md\`" "$packet_dir/text_assignment.md"
+grep -Fq "\`inputs/submitted-src/\`" "$packet_dir/code_quality.md"
+grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
+grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
+
+echo "Supervisor packets smoke passed"

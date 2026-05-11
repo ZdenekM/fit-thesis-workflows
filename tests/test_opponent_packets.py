@@ -54,14 +54,108 @@ def test_generate_packets_writes_all_role_files(tmp_path: Path) -> None:
 
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
 
-    assert len(written) == len(PACKET_ROLES)
+    assert [path.name for path in written] == ["text_structure_assignment.md", "current_evidence_snapshot.md"]
     assert (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").is_file()
     text = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(encoding="utf-8")
     assert "Schema version: `opponent-review-packet-v1`" in text
+    assert "Recommended model: `gpt-5.5`" in text
+    assert "Recommended reasoning: `xhigh`" in text
     assert "`case.md` (present)" in text
     assert "`profiles/default.md` (present)" in text
     assert "`work/assignment_coverage_agent.json` (present)" in text
     assert str(tmp_path) not in text
+
+
+def test_generate_packets_emits_code_and_structured_optional_packets_only_when_triggered(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "figure_media").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "work" / "figure_media" / "visual_inventory.jsonl").write_text("{}\n", encoding="utf-8")
+    (round_dir / "outputs").mkdir()
+    (round_dir / "outputs" / "literature_citation_review.md").write_text("# Literature\n", encoding="utf-8")
+
+    written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+
+    assert "code_consistency.md" in names
+    assert "code_quality.md" in names
+    assert "figure_media.md" in names
+    assert "literature_citation.md" not in names
+    assert "typography_formal.md" not in names
+
+    code_quality = (round_dir / "work" / "opponent_packets" / "code_quality.md").read_text(encoding="utf-8")
+    assert "## Omen Advisory Static Analysis" in code_quality
+    assert "not an operator prerequisite" in code_quality
+
+
+def test_code_packets_require_prepared_code_workspace_not_raw_archive(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "inputs" / "thesis-source.zip").write_text("not necessarily submitted code\n", encoding="utf-8")
+
+    written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+
+    assert "code_consistency.md" not in names
+    assert "code_quality.md" not in names
+
+
+def test_code_reproducibility_artifact_alone_does_not_activate_code_packets(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "work" / "code_reproducibility.json").write_text(
+        '{"classification": "no_code_evidence"}\n',
+        encoding="utf-8",
+    )
+
+    written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+
+    assert "code_consistency.md" not in names
+    assert "code_quality.md" not in names
+
+
+def test_inactive_optional_packets_are_pruned(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "work" / "figure_media").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    inventory = round_dir / "work" / "figure_media" / "visual_inventory.jsonl"
+    inventory.write_text("{}\n", encoding="utf-8")
+
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    assert (round_dir / "work" / "opponent_packets" / "figure_media.md").is_file()
+
+    inventory.unlink()
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+
+    assert not (round_dir / "work" / "opponent_packets" / "figure_media.md").exists()
+
+
+def test_optional_materiality_paths_are_role_specific(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "work" / "review_materiality").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "work" / "review_materiality" / "typography_formal.json").write_text("{}\n", encoding="utf-8")
+
+    written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+
+    assert "typography_formal.md" in names
+    assert "literature_citation.md" not in names
 
 
 def test_packet_marks_invalid_structured_artifact_as_limitation(tmp_path: Path) -> None:
@@ -104,6 +198,7 @@ def test_packet_includes_synthesis_review_contract(tmp_path: Path) -> None:
 
     assert "Run an independent thesis-opponent-materials-review pass" in text
     assert "work/oponent_podklady_draft.md" in text
+    assert "Recommended model: `gpt-5.5`" in text
 
 
 def test_packet_lists_input_directories(tmp_path: Path) -> None:
@@ -124,3 +219,29 @@ def test_packets_use_role_owned_expected_outputs() -> None:
     ]
 
     assert vague == []
+
+
+def test_check_activated_roles_use_shape_gates() -> None:
+    checks = {role.key: role.activation_check for role in PACKET_ROLES if role.activation == "check"}
+
+    assert checks["materials_review"] == (
+        "check-review-wave",
+        "--workflow",
+        "opponent_materials",
+        "--wave",
+        "draft",
+    )
+    assert checks["report_trace"] == (
+        "check-review-wave",
+        "--workflow",
+        "opponent_materials",
+        "--wave",
+        "reviewed",
+    )
+    assert checks["report_review"] == (
+        "check-review-wave",
+        "--workflow",
+        "opponent_report",
+        "--wave",
+        "draft",
+    )

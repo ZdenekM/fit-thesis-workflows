@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from thesis_review_workflow.structured_evidence import (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
     OPPONENT_REPORT_TRACE_REL,
     REQUIRED_OPPONENT_IS_ITEM_IDS,
     validate_structured_evidence_artifact,
@@ -250,6 +251,76 @@ def test_validate_structured_evidence_artifact_rejects_unknown_path(tmp_path: Pa
     errors = validate_structured_evidence_artifact(round_dir, "work/unknown.json")
 
     assert errors == ["work/unknown.json: unknown structured evidence artifact path"]
+
+
+def test_validate_current_evidence_snapshot_accepts_hash_bound_items(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    source = write_text(round_dir, "work/code_workspace.md")
+    payload = {
+        **common_fields("current-evidence-snapshot-v1"),
+        "source_refs": ["work/code_workspace.md"],
+        "items": [
+            {
+                "item_id": "code-workspace",
+                "path": "work/code_workspace.md",
+                "status": "present",
+                "sha256": sha256_file(source),
+                "freshness": "current",
+                "recorded_at": "2026-05-11T00:00:00Z",
+                "readiness_relevant": True,
+                "limitations": [],
+            }
+        ],
+    }
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        CURRENT_EVIDENCE_SNAPSHOT_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_current_evidence_snapshot_rejects_stale_hash_and_unsafe_path(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    source = write_text(round_dir, "work/code_workspace.md")
+    payload = {
+        **common_fields("current-evidence-snapshot-v1"),
+        "source_refs": ["work/code_workspace.md"],
+        "items": [
+            {
+                "item_id": "code-workspace",
+                "path": "work/code_workspace.md",
+                "status": "present",
+                "sha256": "0" * 64,
+                "freshness": "current",
+                "recorded_at": "2026-05-11T00:00:00Z",
+                "readiness_relevant": True,
+                "limitations": [],
+            },
+            {
+                "item_id": "private",
+                "path": "/home/private/work.json",
+                "status": "missing",
+                "freshness": "not_checked",
+                "recorded_at": "2026-05-11T00:00:00Z",
+                "readiness_relevant": False,
+                "limitations": [],
+            },
+        ],
+    }
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, payload)
+    source.write_text("changed\n", encoding="utf-8")
+
+    errors = validate_structured_evidence_artifact(round_dir, CURRENT_EVIDENCE_SNAPSHOT_REL)
+
+    assert any("sha256 is stale for work/code_workspace.md" in error for error in errors)
+    assert any("path must be under inputs/, extracted/, notes/, work/, or outputs/" in error for error in errors)
 
 
 def trace_payload(source_hash: str) -> dict[str, object]:

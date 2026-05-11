@@ -216,6 +216,10 @@ EOF
 
 "$tmp_repo/dist/workflow-tools/bin/check-round-ready" "${case_prefix}_sourceless" >/dev/null
 "$tmp_repo/dist/workflow-tools/bin/check-supervisor-ready" "${case_prefix}_sourceless" >/dev/null
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/prepare-supervisor-packets" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/prepare-opponent-packets" "${case_prefix}_sourceless"
+test -f "$sourceless_round_dir/work/supervisor_packets/text_assignment.md"
+test -f "$sourceless_round_dir/work/opponent_packets/text_structure_assignment.md"
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/case-doctor" "${case_prefix}_sourceless"
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-feedback-output" "${case_prefix}_sourceless"
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-opponent-materials" "${case_prefix}_sourceless"

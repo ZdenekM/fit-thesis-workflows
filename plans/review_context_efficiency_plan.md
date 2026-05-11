@@ -758,7 +758,7 @@ shape but must not include real case content.
 
 ### Slice 4 - Packet Scaffolding And Workflow Adapters
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): scaffold review role packets`
 - Expected paths:
   - `src/thesis_review_workflow/supervisor_packets.py`
@@ -826,10 +826,11 @@ shape but must not include real case content.
   - `pants fmt ::`
   - `pants lint src/thesis_review_workflow:: tests:: scripts::`
   - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_supervisor_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`
+  - `pants test tests/test_supervisor_packets.py tests/test_opponent_packets.py tests/test_structured_evidence.py tests/test_work_artifacts.py tests/test_workflow_python_contracts.py tests/test_review_wave_gate.py`
   - `scripts/smoke-supervisor-packets`
   - `scripts/smoke-opponent-packets`
   - `scripts/smoke-package-workflow-tools`
+  - `pants run :omen`
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
@@ -1061,6 +1062,26 @@ shape but must not include real case content.
   `scripts/check-scripts`, `git diff --check`, and `pants run :omen` (grade A,
   overall score 90.85; existing critical/high hotspots remain outside this
   slice's new logic).
+- 2026-05-11: Completed Slice 4. Added shared packet helpers,
+  `work/supervisor_packets/` generation, supervisor packet CLI/packaging,
+  extended opponent packets, `work/current_evidence_snapshot.json` validation,
+  packet artifact collection, and smoke coverage for both direct and packaged
+  command surfaces. Agent review found three activation blockers; fixes now
+  require prepared code workspace/manifest evidence for code packets, use
+  flagged `check-review-wave` invocations for downstream review packets, and
+  activate opponent report review only after the opponent-report draft wave
+  passes. Verification passed: `PYTHONPATH=src python -m pytest
+  tests/test_supervisor_packets.py tests/test_opponent_packets.py -q`,
+  `pants fmt ::`, `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_supervisor_packets.py tests/test_opponent_packets.py
+  tests/test_structured_evidence.py tests/test_work_artifacts.py
+  tests/test_workflow_python_contracts.py tests/test_review_wave_gate.py`,
+  `scripts/smoke-supervisor-packets`, `scripts/smoke-opponent-packets`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, direct Omen MCP availability
+  check, and `pants run :omen` (grade A, overall score 90.65; reported
+  hotspots are existing broader workflow modules).
 
 ## Decision Log
 

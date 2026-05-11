@@ -14,6 +14,7 @@ ASSIGNMENT_COVERAGE_REL = "work/assignment_coverage_agent.json"
 EVIDENCE_REQUIREMENTS_REL = "work/evidence_requirements.json"
 QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
+CURRENT_EVIDENCE_SNAPSHOT_REL = "work/current_evidence_snapshot.json"
 OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
 OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
 OPPONENT_REPORT_REVISION_REQUEST_REL = "work/opponent_report_revision_request.json"
@@ -25,6 +26,7 @@ STRUCTURED_EVIDENCE_SCHEMAS: dict[str, str] = {
     EVIDENCE_REQUIREMENTS_REL: "evidence-requirements-v1",
     QUANTITATIVE_CLAIMS_REL: "quantitative-claims-v1",
     OPPONENT_REPORT_TRACE_REL: "opponent-report-trace-v1",
+    CURRENT_EVIDENCE_SNAPSHOT_REL: "current-evidence-snapshot-v1",
 }
 
 ALLOWED_REF_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
@@ -49,6 +51,8 @@ PRACTICAL_CONTEXT_STATUSES = {"sufficient", "weak", "missing", "not_applicable",
 OPPONENT_TRACE_REVIEW_STATUSES = {"accepted"}
 OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
+CURRENT_EVIDENCE_ITEM_STATUSES = {"present", "missing", "invalid", "unavailable", "not_applicable"}
+CURRENT_EVIDENCE_FRESHNESS_STATUSES = {"current", "stale", "not_checked", "not_applicable"}
 REQUIRED_OPPONENT_IS_ITEM_IDS = {
     "assignment_difficulty",
     "assignment_fulfillment",
@@ -122,6 +126,8 @@ def validate_structured_evidence_payload(
         _validate_quantitative_claims(loaded, rel_path, errors)
     elif rel_path == OPPONENT_REPORT_TRACE_REL:
         _validate_opponent_report_trace(loaded, rel_path, round_dir, case_id, round_id, errors)
+    elif rel_path == CURRENT_EVIDENCE_SNAPSHOT_REL:
+        _validate_current_evidence_snapshot(loaded, rel_path, round_dir, errors)
 
     _validate_refs(
         loaded,
@@ -298,6 +304,54 @@ def _validate_opponent_report_trace(
             round_id,
             errors,
         )
+
+
+def _validate_current_evidence_snapshot(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    items = _require_list(loaded, "items", rel_path, errors)
+    if not isinstance(items, list):
+        return
+    item_ids: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: items item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        item_id = item.get("item_id")
+        if isinstance(item_id, str):
+            if item_id in item_ids:
+                errors.append(f"{prefix}: duplicate item_id {item_id}")
+            item_ids.add(item_id)
+        _require_nonempty_string(item, "item_id", prefix, errors)
+        path = item.get("path")
+        if not isinstance(path, str) or not path:
+            errors.append(f"{prefix}: path must be non-empty str")
+        elif not _is_allowed_round_ref(path):
+            errors.append(f"{prefix}: path must be under inputs/, extracted/, notes/, work/, or outputs/")
+        status = item.get("status")
+        _require_enum(item, "status", CURRENT_EVIDENCE_ITEM_STATUSES, prefix, errors)
+        _require_enum(item, "freshness", CURRENT_EVIDENCE_FRESHNESS_STATUSES, prefix, errors)
+        _require_bool(item, "readiness_relevant", prefix, errors)
+        _require_list(item, "limitations", prefix, errors)
+        _require_nonempty_string(item, "recorded_at", prefix, errors)
+        sha256 = item.get("sha256")
+        if status == "present":
+            if not isinstance(sha256, str) or not SHA256_RE.fullmatch(sha256):
+                errors.append(f"{prefix}: sha256 must be a 64-character hex string when status is present")
+            elif round_dir is not None and isinstance(path, str) and _is_allowed_round_ref(path):
+                target = round_dir / path
+                if target.is_file():
+                    if sha256_file(target) != sha256:
+                        errors.append(f"{prefix}: sha256 is stale for {path}")
+                else:
+                    errors.append(f"{prefix}: path marked present but file is missing: {path}")
+        elif sha256 is not None:
+            if not isinstance(sha256, str) or not SHA256_RE.fullmatch(sha256):
+                errors.append(f"{prefix}: sha256 must be a 64-character hex string when recorded")
 
 
 def _validate_calibration_context(

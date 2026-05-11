@@ -60,6 +60,7 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 - Synthetic private note.
 EOF
 printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
+printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
 python3 - "$round_dir/work/assignment_coverage_agent.json" "$case_id" "$round_id" <<'PY'
 import json
 import pathlib
@@ -98,18 +99,25 @@ PY
 printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
 
 expect_success "prepare opponent packets" "$repo_root/scripts/prepare-opponent-packets" "$case_id"
-expect_output "Opponent packets: 8"
+expect_output "Opponent packets: 4"
 
 packet_dir="$round_dir/work/opponent_packets"
 test -f "$packet_dir/text_structure_assignment.md"
 test -f "$packet_dir/code_consistency.md"
-test -f "$packet_dir/synthesis.md"
+test -f "$packet_dir/code_quality.md"
+test -f "$packet_dir/current_evidence_snapshot.md"
+test ! -f "$packet_dir/figure_media.md"
+test ! -f "$packet_dir/literature_citation.md"
+test ! -f "$packet_dir/typography_formal.md"
 
-grep -Fq "Schema version: \`opponent-review-packet-v1\`" "$packet_dir/synthesis.md"
-grep -Fq "\`case.md\` (present)" "$packet_dir/synthesis.md"
-grep -Fq "\`profiles/default.md\` (present)" "$packet_dir/synthesis.md"
+grep -Fq "Schema version: \`opponent-review-packet-v1\`" "$packet_dir/text_structure_assignment.md"
+grep -Fq "\`case.md\` (present)" "$packet_dir/text_structure_assignment.md"
+grep -Fq "\`profiles/default.md\` (present)" "$packet_dir/text_structure_assignment.md"
 grep -Fq "\`work/assignment_coverage_agent.json\` (present)" "$packet_dir/text_structure_assignment.md"
 grep -Fq "\`inputs/submitted-src/\`" "$packet_dir/code_quality.md"
 grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
+grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 
 echo "Opponent packets smoke passed"

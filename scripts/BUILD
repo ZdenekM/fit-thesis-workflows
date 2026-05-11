@@ -38,6 +38,7 @@ shell_sources(
         "package-workflow-tools",
         "prepare-code-workspace",
         "prepare-opponent-packets",
+        "prepare-supervisor-packets",
         "register-review-artifact",
         "smoke-agent-coverage",
         "smoke-assignment-coverage",
@@ -60,6 +61,7 @@ shell_sources(
         "smoke-opponent-report",
         "smoke-package-workflow-tools",
         "smoke-prepare-code-workspace",
+        "smoke-supervisor-packets",
         "smoke-private",
         "smoke-register-review-artifact",
         "smoke-review-manifest",
@@ -116,6 +118,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:opponent_preflight",
     "src/thesis_review_workflow/cli:prepare_code_workspace",
     "src/thesis_review_workflow/cli:prepare_opponent_packets",
+    "src/thesis_review_workflow/cli:prepare_supervisor_packets",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:supervisor_deadline",
 ]
@@ -477,6 +480,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-opponent-packets",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="prepare_supervisor_packets_tool",
+    entry_point="thesis_review_workflow.cli.prepare_supervisor_packets:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/prepare-supervisor-packets",
     tags=["workflow-tool"],
 )
 

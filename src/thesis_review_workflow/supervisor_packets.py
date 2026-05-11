@@ -1,4 +1,4 @@
-"""Role-specific packet generation for opponent-review agents."""
+"""Role-specific packet generation for supervisor-feedback agents."""
 
 from __future__ import annotations
 
@@ -14,10 +14,12 @@ from thesis_review_workflow.review_packets import (
     current_evidence_snapshot_section,
     existing_paths,
     extracted_text_paths,
+    first_nonempty_lines,
     generated_role_paths,
     late_communications_section,
     omen_advisory_section,
     path_list,
+    previous_feedback_index,
     prune_inactive_packets,
     role_is_active,
     status_list,
@@ -25,17 +27,16 @@ from thesis_review_workflow.review_packets import (
     top_level_paths,
 )
 
-PACKET_DIR_REL = Path("work/opponent_packets")
-SCHEMA_VERSION = "opponent-review-packet-v1"
+PACKET_DIR_REL = Path("work/supervisor_packets")
+SCHEMA_VERSION = "supervisor-feedback-packet-v1"
 BASE_INPUTS = (
     "notes/assignment.md",
-    "notes/opponent-intake.md",
     "notes/round-notes.md",
+    "outputs/revision_diff.md",
 )
 ADVISORY_ARTIFACTS = (
     "work/current_evidence_snapshot.json",
     "work/assignment_coverage_agent.json",
-    "work/evidence_requirements.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
     "work/figure_media/visual_inventory.jsonl",
@@ -52,27 +53,27 @@ ADVISORY_ARTIFACTS = (
 
 PACKET_ROLES = (
     PacketRole(
-        key="text_structure_assignment",
-        title="Text Structure And Assignment Coverage",
-        skill="thesis-opponent-materials",
-        expected_output="work/opponent_packets/text_structure_assignment_findings.md",
+        key="text_assignment",
+        title="Text And Assignment Coverage",
+        skill="thesis-supervisor-feedback",
+        expected_output="work/supervisor_packets/text_assignment_findings.md",
         mission=(
-            "Assess rendered-thesis structure, assignment fulfillment, and IS-item relevance " "for opponent synthesis."
+            "Assess thesis structure, assignment coverage, contribution clarity, and phase-fit for student feedback."
         ),
         focus=(
-            "point-by-point assignment coverage",
-            "chapter and section structure",
-            "clarity of contribution and thesis map",
-            "fair defense questions tied to assignment scope",
+            "assignment coverage and missing submission evidence",
+            "thesis structure and reader orientation",
+            "contribution clarity",
+            "student-facing priority of remaining work",
         ),
         role_inputs=(
-            "work/assignment_coverage_agent.json",
+            "notes/assignment.md",
             "outputs/revision_diff.md",
+            "work/assignment_coverage_agent.json",
         ),
         constraints=(
-            "Treat assignment coverage as advisory; final grade calibration remains with synthesis "
-            "and the human opponent.",
-            "Do not turn heading polish into a grade-impacting issue unless it materially harms orientation.",
+            "Translate findings into actions the student can still take in the current phase.",
+            "Do not repeat prior feedback mechanically; use revision diff or previous feedback index when available.",
         ),
     ),
     PacketRole(
@@ -81,14 +82,13 @@ PACKET_ROLES = (
         skill="thesis-code-consistency",
         expected_output="outputs/code_consistency.md",
         mission=(
-            "Check whether thesis claims are supported by submitted code, README, configs, tests, "
-            "and result artifacts."
+            "Check whether thesis claims are supported by submitted code, README, configs, tests, and result artifacts."
         ),
         focus=(
             "implemented-feature claims",
-            "experiment and metric claims that depend on code or data",
+            "metric and experiment claims that depend on code or data",
             "static reproducibility classification",
-            "missing or contradictory code evidence",
+            "student-facing fixes for unsupported claims",
         ),
         role_inputs=(
             "work/code_workspace.md",
@@ -122,7 +122,6 @@ PACKET_ROLES = (
         ),
         constraints=(
             "Separate implementation quality from thesis text-code mismatch.",
-            "Do not punish a thesis prototype for not being a production system; calibrate to assignment scope.",
             "Use Omen MCP as advisory static-analysis evidence when available, never as an operator prerequisite.",
         ),
         activation="code",
@@ -133,13 +132,13 @@ PACKET_ROLES = (
         skill="thesis-figure-media-review",
         expected_output="outputs/figure_media_review.md",
         mission=(
-            "Inspect figure, table, screenshot, result-image, diagram, and media evidence that "
-            "affects opponent claims."
+            "Inspect figure, table, screenshot, result-image, diagram, and media evidence that affects student "
+            "feedback."
         ),
         focus=(
             "visual evidence for result and functionality claims",
             "caption and nearby-text claim alignment",
-            "presence versus inspected visual content",
+            "presentation video/demo evidence boundaries",
             "figure/media changes between rounds",
         ),
         role_inputs=(
@@ -150,7 +149,7 @@ PACKET_ROLES = (
         ),
         constraints=(
             "Do not treat inventoried-only media as visually verified evidence.",
-            "Use PDF/source-asset inspection status when making visual-content claims.",
+            "Convert visual issues into the smallest useful student action.",
         ),
         activation="existing_artifact",
         activation_paths=(
@@ -164,20 +163,20 @@ PACKET_ROLES = (
         title="Literature And Citation Evidence",
         skill="thesis-literature-citation-review",
         expected_output="outputs/literature_citation_review.md",
-        mission="Check literature relevance, source availability, citation support, and defensibility of cited claims.",
+        mission="Check cited literature relevance, source availability, and claim support for student feedback.",
         focus=(
             "unsupported literature-backed claims",
             "missing or inaccessible sources",
-            "citation relevance to assignment and contribution",
-            "overstated novelty or state-of-the-art claims",
+            "relevance of cited sources to thesis contribution",
+            "phase-appropriate literature fixes",
         ),
         role_inputs=(
             "outputs/literature_citation_review.md",
             "outputs/revision_diff.md",
         ),
         constraints=(
-            "For opponent work, review relevance and defensibility; do not write supervisor-style literature coaching.",
-            "State source-access limitations explicitly.",
+            "Suggest new literature only when it addresses a clear thesis gap.",
+            "Keep citation feedback actionable and phase-appropriate.",
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/literature_citation.json",),
@@ -187,11 +186,11 @@ PACKET_ROLES = (
         title="Typography And Formal Presentation",
         skill="thesis-typography-formal-review",
         expected_output="outputs/typography_formal_review.md",
-        mission="Assess repeated formal, typography, language, and presentation patterns relevant to opponent wording.",
+        mission="Assess repeated formal, typography, language, and presentation patterns relevant to student action.",
         focus=(
             "late-stage formal presentation risk",
             "language-calibrated repeated typography patterns",
-            "thesis readability and professional presentation",
+            "readability and professional presentation",
             "manual checks for layout-sensitive evidence",
         ),
         role_inputs=(
@@ -200,29 +199,24 @@ PACKET_ROLES = (
         ),
         constraints=(
             "Summarize repeated patterns, not a line-by-line typo inventory.",
-            "Calibrate by thesis language and final-submission phase.",
+            "Prioritize issues that can still affect submission quality or opponent perception.",
         ),
         activation="existing_artifact",
         activation_paths=("work/review_materiality/typography_formal.json",),
     ),
     PacketRole(
         key="evidence_calibration",
-        title="Evidence Labels And Severity Calibration",
-        skill="thesis-opponent-materials-review",
-        expected_output="work/opponent_packets/evidence_calibration_findings.md",
-        mission=(
-            "Check whether evidence labels, risk severity, strengths, limitations, and grading " "calibration are fair."
-        ),
+        title="Evidence Labels And Student-Action Calibration",
+        skill="thesis-supervisor-feedback-review",
+        expected_output="work/supervisor_packets/evidence_calibration_findings.md",
+        mission="Check whether evidence labels, severity, limitations, and student-action priority are fair.",
         focus=(
+            "P0/P1 priority calibration",
             "confidence-label correctness",
-            "severity and grade-impact calibration",
-            "strengths supported by evidence",
-            "manual checks before writing the final report",
+            "action-budget realism",
+            "limitations that must remain visible",
         ),
         role_inputs=(
-            "work/assignment_coverage_agent.json",
-            "work/evidence_requirements.json",
-            "work/code_reproducibility.json",
             "outputs/code_consistency.md",
             "outputs/code_quality_review.md",
             "outputs/figure_media_review.md",
@@ -231,7 +225,7 @@ PACKET_ROLES = (
         ),
         constraints=(
             "Do not manufacture certainty; lower confidence or mark manual checks when evidence is incomplete.",
-            "Keep grading calibration as intervals and rationale, not precise point verdicts.",
+            "Keep final-sprint feedback focused on actions with realistic payoff.",
         ),
         activation="existing_artifact",
         activation_paths=(
@@ -247,18 +241,19 @@ PACKET_ROLES = (
         title="Current Evidence Snapshot",
         skill="mechanical-validator-backed-helper",
         expected_output="work/current_evidence_snapshot.json",
-        mission="Capture drift-prone evidence identity, hashes, freshness notes, and limitations for opponent roles.",
+        mission=(
+            "Capture drift-prone evidence identity, hashes, freshness notes, and limitations for supervisor feedback."
+        ),
         focus=(
             "current code and GitHub intake identity",
-            "reviewed materials, trace, draft, and approval-record hashes",
-            "late communications and targeted diagnostic notes",
-            "freshness limitations that synthesis must preserve",
+            "targeted smoke-test or diagnostic notes",
+            "late communications",
+            "freshness limitations that feedback must preserve",
         ),
         role_inputs=(
             "work/current_evidence_snapshot.json",
             "outputs/github_code_intake.md",
             "work/review_manifest.json",
-            "work/opponent_report_trace.json",
         ),
         constraints=(
             "Do not make semantic quality claims; record structured state and explicit limitations only.",
@@ -273,20 +268,21 @@ PACKET_ROLES = (
     ),
     PacketRole(
         key="synthesis",
-        title="Opponent Materials Synthesis",
-        skill="thesis-opponent-materials",
-        expected_output="work/oponent_podklady_draft.md",
-        mission="Integrate role findings into coherent internal opponent materials for independent review.",
+        title="Supervisor Feedback Synthesis",
+        skill="thesis-supervisor-feedback",
+        expected_output="work/feedback_student_draft.md",
+        mission="Integrate role findings into a coherent student-facing supervisor feedback draft.",
         focus=(
-            "assignment fulfillment",
-            "evidence ledger and IS-item coverage",
-            "technical correctness and realization output",
-            "balanced strengths, risks, defense questions, and grading calibration",
+            "minimal useful student actions",
+            "assignment coverage and technical truth",
+            "previous-feedback deltas",
+            "phase and deadline calibration",
         ),
         role_inputs=ADVISORY_ARTIFACTS,
         constraints=(
-            "Do not write the final IS-ready opponent report.",
-            "Run an independent thesis-opponent-materials-review pass before treating materials as ready.",
+            "Do not leave the operator with separate reviewer notes only.",
+            "Write the draft to work/feedback_student_draft.md and run independent supervisor-feedback review before "
+            "final output.",
         ),
         activation="existing_artifact",
         activation_paths=(
@@ -299,89 +295,47 @@ PACKET_ROLES = (
         ),
     ),
     PacketRole(
-        key="materials_review",
-        title="Opponent Materials Independent Review",
-        skill="thesis-opponent-materials-review",
-        expected_output="outputs/oponent_podklady_revidovane.md",
-        mission="Review and harden drafted internal opponent materials before trace/report work.",
+        key="final_review",
+        title="Supervisor Feedback Independent Review",
+        skill="thesis-supervisor-feedback-review",
+        expected_output="outputs/feedback_student.md",
+        mission="Review and harden a supervisor feedback draft into final sendable Markdown.",
         focus=(
-            "evidence-label correctness",
-            "grade-impacting claim support",
-            "confidence and limitation preservation",
-            "reviewed-materials readiness for trace generation",
+            "P0/P1 evidence support",
+            "student-facing tone and actionability",
+            "language setting",
+            "stale or overconfident claims",
         ),
         role_inputs=(
-            "work/oponent_podklady_draft.md",
-            "outputs/oponent_podklady.md",
-            "work/reviews/opponent_materials_review.json",
+            "work/feedback_student_draft.md",
+            "work/reviews/feedback_student_review.json",
         ),
         constraints=(
-            "Start from a non-empty draft/materials artifact that passed the relevant shape gate.",
-            "Record or refresh a structured review record before downstream trace/report use.",
+            "Do not write final feedback without checking the current draft path.",
+            "Material edits after review reopen the artifact as draft.",
         ),
         activation="check",
-        activation_check=("check-review-wave", "--workflow", "opponent_materials", "--wave", "draft"),
-    ),
-    PacketRole(
-        key="report_trace",
-        title="Opponent Report Trace",
-        skill="mechanical-validator-backed-helper",
-        expected_output="work/opponent_report_trace.json",
-        mission="Prepare or refresh the structured opponent report trace from reviewed materials.",
-        focus=(
-            "reviewed-materials path and hash",
-            "IS-item formulations",
-            "defense questions",
-            "uncertainty ledger and manual checks",
-        ),
-        role_inputs=(
-            "outputs/oponent_podklady_revidovane.md",
-            "work/reviews/opponent_materials_review.json",
-            "work/opponent_report_trace.json",
-        ),
-        constraints=(
-            "Packetization must not replace the trace with prose summaries.",
-            "Do not treat a report draft as ready without current trace validation.",
-        ),
-        activation="check",
-        activation_check=("check-review-wave", "--workflow", "opponent_materials", "--wave", "reviewed"),
-        model=MECHANICAL_MODEL,
-        reasoning=MECHANICAL_REASONING,
-        model_note="Mechanical helper role; Spark is acceptable only for trace/status assembly checked by validators.",
-    ),
-    PacketRole(
-        key="report_review",
-        title="Opponent Report Review",
-        skill="thesis-opponent-report-review",
-        expected_output="outputs/feedback_k_posudku.md",
-        mission="Review a calibrated human opponent-report draft before IS submission.",
-        focus=(
-            "point/comment consistency",
-            "evidence and tone defensibility",
-            "manual checks before submission",
-            "report rewrite suggestions only when needed",
-        ),
-        role_inputs=(
-            "work/oponent_posudek_draft.md",
-            "work/opponent_report_trace.json",
-            "work/reviews/opponent_report_review.json",
-        ),
-        constraints=(
-            "Do not review an uncalibrated helper draft as final human report text.",
-            "If an agent rewrites report prose, run a fresh independent report review.",
-        ),
-        activation="check",
-        activation_check=("check-review-wave", "--workflow", "opponent_report", "--wave", "draft"),
+        activation_check=("check-review-wave", "--workflow", "supervisor_feedback", "--wave", "draft"),
     ),
 )
 
 
-def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Path, role: PacketRole) -> str:
+def render_packet(
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    round_dir: Path,
+    role: PacketRole,
+    *,
+    deadline_context: str,
+) -> str:
     case_dir = round_dir.parents[1]
     repo_root = round_dir.parents[3]
     inputs = top_level_paths(round_dir, "inputs")
     notes = top_level_paths(round_dir, "notes")
     extracted = extracted_text_paths(round_dir)
+    assignment_summary = first_nonempty_lines(round_dir / "notes" / "assignment.md")
+    previous_feedback = previous_feedback_index(round_dir)
     role_existing = existing_paths(round_dir, role.role_inputs, case_id=case_id, round_id=round_id)
     advisory_existing = existing_paths(round_dir, ADVISORY_ARTIFACTS, case_id=case_id, round_id=round_id)
     role_constraints = COMMON_CONSTRAINTS + role.constraints
@@ -392,10 +346,11 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
     ]
     if role.key == "code_quality":
         optional_sections.append(omen_advisory_section(round_dir))
+    rendered_deadline = deadline_context.strip() or "Deadline context unresolved; run `scripts/supervisor-deadline`."
 
     return "\n".join(
         [
-            f"# Opponent Reviewer Packet: {role.title}",
+            f"# Supervisor Feedback Packet: {role.title}",
             "",
             f"Schema version: `{SCHEMA_VERSION}`",
             f"Case: `{case_id}`",
@@ -425,6 +380,26 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "## Reviewer Profile Inputs",
             "",
             status_list(repo_root, PROFILE_INPUTS),
+            "## Assignment Summary",
+            "",
+            text_list(assignment_summary),
+            "## Supervisor Deadline Context",
+            "",
+            "```text",
+            rendered_deadline,
+            "```",
+            "",
+            "## Previous Feedback Index",
+            "",
+            text_list(previous_feedback),
+            "## Prepared Code Roots",
+            "",
+            status_list(
+                round_dir,
+                ("work/code_workspace.md", "work/serena_roots.json", "work/code_reproducibility.json"),
+                case_id=case_id,
+                round_id=round_id,
+            ),
             "## Available Round Inputs",
             "",
             path_list(inputs),
@@ -443,18 +418,18 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "## Missing Role Inputs To Treat As Limitations",
             "",
             path_list([rel_path for rel_path in role.role_inputs if rel_path not in role_existing]),
-            "## Opponent Report And IS Calibration",
+            "## Final-Sprint Action Budget",
             "",
-            "- Preserve confidence labels and manual checks in any grade-impacting finding.",
-            "- Use reviewed-materials and trace hashes from structured artifacts when report readiness depends on "
-            "freshness.",
-            "- Defense questions must point back to assignment, thesis, code, or reviewed-material evidence.",
+            "- Use the deadline calibration above to keep feedback focused on blockers, assignment coverage, "
+            "technical truth, and submission artifacts.",
+            "- Prefer one concrete action over several low-level diagnostics unless the raw detail is needed for "
+            "technical truth.",
             "",
             "## Open Full Artifacts Only If Needed",
             "",
             "- Start from `## Synthesis Handoff` sections when available.",
-            "- Open full evidence artifacts for material verification, contradictions, confidence-label calibration, "
-            "or reviewer challenges.",
+            "- Open full evidence artifacts for P0/P1 verification, contradictions, reviewer challenges, or "
+            "technical-truth checks.",
             "",
             "## Constraints",
             "",
@@ -462,15 +437,22 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             *optional_sections,
             "## Review Handoff",
             "",
-            "- Return concise findings with evidence anchors and limitations.",
+            "- Return concise findings with evidence anchors, limitations, and the smallest useful student action.",
             "- Prefer tables only when they make coverage or severity easier to audit.",
-            "- Keep the synthesis artifact coherent; do not paste raw packet boilerplate into final prose.",
+            "- Do not paste raw packet boilerplate into student-facing feedback.",
             "",
         ]
     )
 
 
-def generate_packets(case_id: str, round_id: str, generated_at: str, round_dir: Path) -> list[Path]:
+def generate_packets(
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    round_dir: Path,
+    *,
+    deadline_context: str,
+) -> list[Path]:
     packet_dir = round_dir / PACKET_DIR_REL
     packet_dir.mkdir(parents=True, exist_ok=True)
     prune_inactive_packets(packet_dir, PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
@@ -479,6 +461,16 @@ def generate_packets(case_id: str, round_id: str, generated_at: str, round_dir: 
         if not role_is_active(round_dir, role, case_id=case_id, round_id=round_id):
             continue
         path = packet_dir / f"{role.key}.md"
-        path.write_text(render_packet(case_id, round_id, generated_at, round_dir, role), encoding="utf-8")
+        path.write_text(
+            render_packet(
+                case_id,
+                round_id,
+                generated_at,
+                round_dir,
+                role,
+                deadline_context=deadline_context,
+            ),
+            encoding="utf-8",
+        )
         written.append(path)
     return written

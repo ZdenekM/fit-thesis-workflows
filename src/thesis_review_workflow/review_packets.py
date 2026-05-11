@@ -1,0 +1,332 @@
+"""Shared helpers for role-specific review packet generation."""
+
+from __future__ import annotations
+
+import hashlib
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.structured_evidence import (
+    STRUCTURED_EVIDENCE_SCHEMAS,
+    validate_structured_evidence_artifact,
+)
+
+SEMANTIC_MODEL = "gpt-5.5"
+SEMANTIC_REASONING = "xhigh"
+MECHANICAL_MODEL = "gpt-5.3-codex-spark"
+MECHANICAL_REASONING = "high"
+
+CASE_INPUTS = ("case.md",)
+PROFILE_INPUTS = (
+    "profiles/default.md",
+    "profiles/local/default.md",
+)
+COMMON_CONSTRAINTS = (
+    "Use only case-local or round-relative paths in notes and outputs.",
+    "State missing, unavailable, or uninspected evidence as a limitation; do not infer failure from absence.",
+    "Use confidence labels for important claims: [FAKT], [INTERPRETACE], [ODHAD], [NEOVERENO], [K RUCNI KONTROLE].",
+    "Do not move private case inputs, generated outputs, or submitted code into tracked repository paths.",
+)
+SNAPSHOT_SOURCE_PATHS = (
+    "work/current_evidence_snapshot.json",
+    "work/code_workspace.md",
+    "work/serena_roots.json",
+    "work/review_manifest.json",
+    "work/agent_coverage.json",
+    "outputs/github_code_intake.md",
+    "outputs/oponent_podklady_revidovane.md",
+    "work/opponent_report_trace.json",
+    "work/oponent_posudek_draft.md",
+    "work/reviews/feedback_student_review.json",
+    "work/reviews/opponent_materials_review.json",
+    "work/reviews/opponent_report_review.json",
+)
+LATE_COMMUNICATION_PATHS = (
+    "notes/operator-late-communications.md",
+    "notes/late-communications.md",
+    "notes/round-notes.md",
+    "work/current_evidence_snapshot.json",
+)
+CODE_WORKSPACE_PATHS = (
+    "work/code_workspace.md",
+    "work/serena_roots.json",
+    "work/code/.prepare-code-workspace-manifest.json",
+)
+
+
+@dataclass(frozen=True)
+class PacketRole:
+    key: str
+    title: str
+    skill: str
+    expected_output: str
+    mission: str
+    focus: tuple[str, ...]
+    role_inputs: tuple[str, ...]
+    constraints: tuple[str, ...]
+    activation: str = "mandatory"
+    activation_paths: tuple[str, ...] = ()
+    model: str = SEMANTIC_MODEL
+    reasoning: str = SEMANTIC_REASONING
+    model_note: str = "Semantic reviewer role; keep on gpt-5.5/xhigh unless the operator changes the policy."
+    activation_check: tuple[str, ...] = ()
+
+
+def rel_status(
+    round_dir: Path,
+    rel_path: str,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> str:
+    path = round_dir / rel_path
+    if not path.exists():
+        return "missing"
+    if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
+        errors = validate_structured_evidence_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id)
+        if errors:
+            return "invalid"
+    return "present"
+
+
+def existing_paths(
+    round_dir: Path,
+    rel_paths: tuple[str, ...],
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    return [
+        rel_path
+        for rel_path in rel_paths
+        if rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id) == "present"
+    ]
+
+
+def top_level_paths(round_dir: Path, rel_dir: str, *, limit: int = 12) -> list[str]:
+    directory = round_dir / rel_dir
+    if not directory.is_dir():
+        return []
+    paths = sorted(path for path in directory.iterdir() if path.is_file() or (path.is_dir() and not path.is_symlink()))
+    rendered: list[str] = []
+    for path in paths[:limit]:
+        suffix = "/" if path.is_dir() else ""
+        rendered.append(f"{rel_dir}/{path.name}{suffix}")
+    return rendered
+
+
+def extracted_text_paths(round_dir: Path, *, limit: int = 8) -> list[str]:
+    extracted = round_dir / "extracted"
+    if not extracted.is_dir():
+        return []
+    paths = sorted(path for path in extracted.rglob("*.txt") if path.is_file())
+    return [path.relative_to(round_dir).as_posix() for path in paths[:limit]]
+
+
+def path_list(lines: list[str]) -> str:
+    if not lines:
+        return "- none detected\n"
+    return "".join(f"- `{line}`\n" for line in lines)
+
+
+def text_list(lines: list[str]) -> str:
+    if not lines:
+        return "- none\n"
+    return "".join(f"- {line}\n" for line in lines)
+
+
+def status_list(
+    round_dir: Path,
+    paths: tuple[str, ...],
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> str:
+    return "".join(
+        f"- `{rel_path}` ({rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id)})\n"
+        for rel_path in paths
+    )
+
+
+def sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def hash_status_list(
+    round_dir: Path,
+    paths: tuple[str, ...],
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> str:
+    lines: list[str] = []
+    for rel_path in paths:
+        status = rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id)
+        digest = sha256_file(round_dir / rel_path)
+        hash_text = f", sha256={digest}" if digest else ""
+        lines.append(f"- `{rel_path}` ({status}{hash_text})")
+    return "\n".join(lines) + "\n"
+
+
+def has_code_evidence(round_dir: Path) -> bool:
+    return any((round_dir / rel_path).exists() for rel_path in CODE_WORKSPACE_PATHS)
+
+
+def check_passes(root: Path, args: tuple[str, ...], *, case_id: str, round_id: str) -> bool:
+    if not root.is_dir():
+        return False
+    command_args = [item.format(case_id=case_id, round_id=round_id) for item in args]
+    if case_id not in command_args and round_id not in command_args:
+        command_args = [*command_args, case_id, round_id]
+    completed = subprocess.run(
+        resolve_repo_command(root, command_args),
+        cwd=root,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=repo_command_environment(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def role_is_active(
+    round_dir: Path,
+    role: PacketRole,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> bool:
+    if role.activation == "mandatory":
+        return True
+    if role.activation == "code":
+        return has_code_evidence(round_dir)
+    if role.activation == "existing_artifact":
+        paths = role.activation_paths or role.role_inputs
+        return bool(existing_paths(round_dir, paths, case_id=case_id, round_id=round_id))
+    if role.activation == "check":
+        if case_id is None or round_id is None or not role.activation_check:
+            return False
+        return check_passes(round_dir.parents[3], role.activation_check, case_id=case_id, round_id=round_id)
+    raise ValueError(f"Unknown packet activation mode: {role.activation}")
+
+
+def prune_inactive_packets(
+    packet_dir: Path,
+    roles: tuple[PacketRole, ...],
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+) -> None:
+    for role in roles:
+        if role_is_active(round_dir, role, case_id=case_id, round_id=round_id):
+            continue
+        path = packet_dir / f"{role.key}.md"
+        if path.is_file():
+            path.unlink()
+
+
+def generated_role_paths(
+    roles: tuple[PacketRole, ...],
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+) -> list[str]:
+    return [f"{role.key}.md" for role in roles if role_is_active(round_dir, role, case_id=case_id, round_id=round_id)]
+
+
+def first_nonempty_lines(path: Path, *, limit: int = 5) -> list[str]:
+    if not path.is_file():
+        return []
+    lines: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line == "-":
+            continue
+        lines.append(line)
+        if len(lines) >= limit:
+            break
+    return lines
+
+
+def previous_feedback_index(round_dir: Path, *, limit: int = 8) -> list[str]:
+    case_dir = round_dir.parents[1]
+    current_round = round_dir.name
+    rounds_dir = case_dir / "rounds"
+    if not rounds_dir.is_dir():
+        return []
+    entries: list[str] = []
+    for candidate in sorted(rounds_dir.iterdir()):
+        if candidate.name == current_round:
+            continue
+        feedback = candidate / "outputs" / "feedback_student.md"
+        if feedback.is_file():
+            entries.append(f"round `{candidate.name}`: `outputs/feedback_student.md`")
+        if len(entries) >= limit:
+            break
+    return entries
+
+
+def current_evidence_snapshot_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
+    review_records = tuple(
+        path.relative_to(round_dir).as_posix()
+        for path in sorted((round_dir / "work" / "reviews").glob("*.json"))
+        if path.is_file()
+    )
+    paths = SNAPSHOT_SOURCE_PATHS + review_records
+    return "\n".join(
+        [
+            "## Current Evidence Snapshot",
+            "",
+            hash_status_list(round_dir, paths, case_id=case_id, round_id=round_id),
+            "Markdown packets render this snapshot for orientation only. Readiness-critical hashes or freshness facts "
+            "must come from `work/current_evidence_snapshot.json`, review records, manifests, traces, or other "
+            "structured/hash-bound artifacts.",
+            "",
+        ]
+    )
+
+
+def omen_advisory_section(round_dir: Path) -> str:
+    paths = (
+        "work/current_evidence_snapshot.json",
+        "work/code_quality_omen.md",
+        "work/code_quality_omen.json",
+    )
+    return "\n".join(
+        [
+            "## Omen Advisory Static Analysis",
+            "",
+            "Omen MCP is useful for code-quality reviewer confidence but is not an operator prerequisite or a "
+            "standalone verdict.",
+            status_list(round_dir, paths),
+            "If Omen was run, map its signals back to concrete code evidence and thesis defensibility before using "
+            "them.",
+            "",
+        ]
+    )
+
+
+def late_communications_section(round_dir: Path) -> str:
+    return "\n".join(
+        [
+            "## Late Communications And Diagnostics",
+            "",
+            status_list(round_dir, LATE_COMMUNICATION_PATHS),
+            "Use late-breaking notes only as references when they are case-local, registered, or registerable as "
+            "supporting work artifacts.",
+            "",
+        ]
+    )
