@@ -965,7 +965,7 @@ shape but must not include real case content.
 
 ### Slice 7 - Documentation And Operator Flow
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `docs(workflow): document packet-first review flow`
 - Expected paths:
   - `README.md`
@@ -973,6 +973,7 @@ shape but must not include real case content.
   - `docs/opponent-review-workflow.md`
   - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
   - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
+  - `.agents/skills/thesis-github-code-intake/SKILL.md`
   - `.agents/skills/thesis-opponent-materials/SKILL.md`
   - `.agents/skills/thesis-opponent-materials-review/SKILL.md`
   - `.agents/skills/thesis-opponent-report-review/SKILL.md`
@@ -1134,6 +1135,18 @@ shape but must not include real case content.
   `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, direct
   Omen MCP checks, and `pants run :omen` (grade A, overall score 91.16;
   reported hotspots are existing broader workflow modules).
+- 2026-05-11: Completed Slice 7. Kept `README.md` chat-first while adding
+  concise operator guidance for supervisor/opponent packets, wave gates,
+  structured approval records, stale-review handling, and the rule that
+  checker/file-system evidence outranks an agent's chat claim. Updated
+  scheduling docs, opponent workflow docs, supervisor/opponent/GitHub skills,
+  and TODO so packet generation is framed as context reduction, not reduced
+  role coverage or a replacement for independent review. Agent review found
+  three documentation blockers; fixes now make opponent-facing leak boundaries
+  unconditional, make stale reviewed outputs draft again unless re-reviewed or
+  explicitly excepted, and require opponent-report approval records to hash the
+  exact reviewed report draft. Verification passed: `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

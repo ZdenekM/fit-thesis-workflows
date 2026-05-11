@@ -36,7 +36,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 8. Verify that assignment fulfillment is assessed point by point.
 9. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
 10. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.
-11. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, or CI links into opponent-facing prose unless they are necessary and access-safe; summarize them as evidence patterns.
+11. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, CI links, review-thread details, internal packet paths, manifest hashes, local workspace paths, or generated-draft state into opponent-facing prose; summarize them as evidence patterns.
 12. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts or by an explicit scope entry naming inspected paths and limitations. If not, repair the materials or state the limitation.
 13. If literature/citation review was used or literature relevance is grade-impacting, verify that relevance and citation-support claims are backed by `outputs/literature_citation_review.md` or explicit source limitations. Do not add supervisor-style coaching on new literature.
 14. If figure/media review was used or visual evidence is grade-impacting, verify that claims are backed by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status and suitable claim alignment. Do not turn an `inventoried_only` item into a visual-content claim, and do not expose cache hashes or reuse metadata in opponent-facing prose.
@@ -47,7 +47,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 19. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
 20. After writing `outputs/oponent_podklady_revidovane.md`, create or update `work/opponent_report_trace.json` with the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty ledger, current reviewed-materials hash, producer metadata, and evidence refs. This trace is the only deterministic input for `scripts/draft-opponent-report`; do not leave report drafting to token matching over reviewed Markdown.
 21. Run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable. If `scripts/draft-opponent-report` is needed, run it only after the trace validates.
-22. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+22. After writing `outputs/oponent_podklady_revidovane.md`, write or update `work/reviews/opponent_materials_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Free-Text Boundary
 
@@ -79,6 +79,11 @@ Return only:
 
 The main session must verify file claims with expected-output checks before
 relying on them.
+
+For reviewed opponent materials, the main session should verify the reviewed
+wave with `scripts/check-review-wave --workflow opponent_materials --wave reviewed`.
+If a chat final message says the output was written but the wave gate fails,
+trust the gate and repair the file or approval record.
 
 ## Model And Reasoning
 

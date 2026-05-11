@@ -8,6 +8,7 @@
    - New or changed operator workflow commands must keep the command-surface contract in `docs/workflow-command-surface.md`: Python CLI, Pants/PEX target, generated `.cmd`/`.ps1` launchers, and targeted test or smoke coverage.
 - [ ] Continue deterministic tests as workflow validators and helper contracts grow.
    - The highest-risk reliability helpers now have focused pytest coverage; keep adding pure tests for new validators, manifest/coverage rules, and planned case-format or supervisor-closeout helpers.
+   - Reuse the existing packet, wave-gate, materiality, and `work/reviews/*_review.json` approval-record tests as the pattern for future context-efficiency helpers.
    - Keep large end-to-end smoke scripts available for operator confidence, but do not make every heavy smoke part of the default fast gate.
    - Every new helper must land with focused anonymized fixtures under tracked fixture paths; never copy real `cases/` artifacts into test data.
 - [ ] Implement the read-only case-data contract and migration dry-run from `plans/case_format_migration_contract_plan.md`.
@@ -25,6 +26,7 @@
 - [ ] Implement the supervisor-feedback preflight and closeout bundle from `plans/supervisor_workflow_closeout_plan.md`.
    - Preflight should run readiness checks, `scripts/case-doctor`, code workspace preparation when code exists, and assignment/metadata sanity checks.
    - Closeout should run manifest initialization/update, agent coverage, feedback language/output checks, private-data checks, script checks, and whitespace/diff hygiene.
+   - Reuse `scripts/prepare-supervisor-packets`, `scripts/check-review-wave`, and structured `work/reviews/feedback_student_review.json` provenance rather than adding a parallel supervisor-specific review registry.
    - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.

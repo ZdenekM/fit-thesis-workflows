@@ -53,10 +53,15 @@ Příkaz vytvoří `work/opponent_packets/*.md` pro role jako assignment/text, c
 consistency, code quality, figure/media, literature, typography a synthesis.
 Packet obsahuje autoritativní vstupy, dostupné work/output artefakty, očekávané
 role-owned výstupy a známá omezení. Nenahrazuje skill ani evidence pravidla,
-jen zmenšuje prompt drift mezi agenty.
+jen zmenšuje prompt drift mezi agenty. Packet generation snižuje opakované
+čtení kontextu, ale nesnižuje povinné role, nezávislé review ani manifest
+coverage.
 
 Pokud se po vygenerování packetů změní zadání, evidence requirements,
 reprodukovatelnost nebo výstupy interních review, packety přegenerujte.
+Po každé hlavní vlně použijte odpovídající `scripts/check-review-wave` profil.
+Když agent tvrdí, že artefakt zapsal, ale gate ho nenajde nebo odmítne,
+rozhoduje file systém a checker.
 
 ## Evidence Outputs
 
@@ -118,6 +123,9 @@ ho automaticky sesbírá jako supporting work artefakt a propíše aktuální re
 metadata do manifestu; pozdější úprava revidovaného artefaktu nebo review basis
 pak spadne jako stale hash.
 
+Approval record se neuzavírá ruční opravou hashe. Po materiální úpravě znovu
+spusťte review nebo zapište explicitní typovanou výjimku a omezení.
+
 Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`
 nebo `outputs/revision_diff.md`, manifest closeout vyžaduje příslušný
 strukturální validátor jako passed helper check.
@@ -178,3 +186,11 @@ scripts/opponent-closeout <case-id> [round-id]
 
 Closeout znovu projde revidované podklady, report trace, případný report draft,
 manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
+
+## Opponent-Facing Boundary
+
+Oponentské podklady a posudek nesmí do prose pro oponenta nebo IS propouštět
+interní packet paths, manifest hashe, private URLs, raw PR metadata,
+review-thread detaily, lokální workspace cesty ani stav generated draftu.
+Používejte je pouze jako interní evidenci a do report-facing textu převádějte
+jen věcné závěry, jistotu, omezení a ruční kontroly.

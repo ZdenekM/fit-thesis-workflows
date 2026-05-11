@@ -53,6 +53,11 @@ Review the report as a report, not as the student's thesis. Check:
 6. Whether strong parts of the work are included where supported.
 7. Whether defense questions are fair, answerable, and focused.
 8. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
+9. Whether report-facing prose leaks internal packet paths, manifest hashes,
+   private URLs, raw PR metadata, review-thread details, local workspace paths,
+   or generated-draft state. Remove those classes of internal evidence from the
+   report text and convert them into evidence-backed conclusions, limitations,
+   or manual checks.
 
 Do not soften the report automatically. The goal is accuracy, fairness, evidence, and consistency.
 
@@ -70,7 +75,14 @@ verification, contradiction checks, or contested report wording.
 
 This skill is the independent review pass for a human-drafted opponent report. If agent authorization is missing, ask before writing final sendable review feedback or rewriting the report. If an agent later rewrites the report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
-After writing or revising `outputs/feedback_k_posudku.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+After writing or revising `outputs/feedback_k_posudku.md`, write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report draft reviewed: normally `work/oponent_posudek_draft.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+
+Use `scripts/check-review-wave --workflow opponent_report --wave draft` for the
+generated report draft, and `scripts/check-review-wave --workflow
+opponent_report_review --wave final` after writing `outputs/feedback_k_posudku.md`.
+If a wave, manifest, or approval check contradicts the agent's final message,
+trust the checker and repair the draft, review output, or approval record before
+treating the report review as usable.
 
 ## Agent Final Response Contract
 

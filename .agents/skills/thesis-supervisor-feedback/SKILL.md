@@ -56,6 +56,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
+Before spawning role-split agents, run `scripts/prepare-supervisor-packets <case-id> [round-id]` when practical and use `work/supervisor_packets/*.md` as compact role handoffs. Packets reduce repeated context; they do not replace this skill, role coverage, independent review, or manifest validation.
 13. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, baseline/comparator status, practical context, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean.
 14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
 15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
@@ -63,7 +64,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 17. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
 18. Prioritize issues by impact on current phase. Do not list every possible improvement.
 19. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
-20. After the final output and checks exist, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles and any unavailable evidence in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. For every internal evidence artifact marked `covered_by_synthesis`, record a compact `used_findings` summary and evidence hash. If the final Markdown changes after review, refresh the manifest and rerun the independent review as needed.
+20. After the final output and checks exist, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles and any unavailable evidence in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. For every internal evidence artifact marked `covered_by_synthesis`, record a compact `used_findings` summary and evidence hash. If the final Markdown changes after review, the output is draft again: rerun independent review and refresh `work/reviews/feedback_student_review.json`, or record an explicit typed exception/limitation accepted by closeout. Manifest refresh alone is insufficient.
 
 ## Free-Text Boundary
 
@@ -140,6 +141,11 @@ Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
 workflow agents, use 1 on memory-constrained machines, and run roles in waves
 instead of spawning every role at once. The concurrency limit must not remove
 required role coverage or the independent review pass.
+
+Use `scripts/check-review-wave --workflow supervisor_feedback --wave draft`
+after draft generation and `--wave final` after the review pass when the expected
+files should exist. If the gate contradicts an agent's final message, trust the
+file/checker result and repair the artifact.
 
 The synthesis step must read each available `## Synthesis Handoff` first and
 open the full evidence artifact only for P0/P1 verification, contradiction

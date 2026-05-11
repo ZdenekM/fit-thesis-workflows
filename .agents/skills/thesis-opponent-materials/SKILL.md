@@ -32,7 +32,7 @@ cases/<case-id>/rounds/<round-id>/
 6. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
 7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
 8. When quantitative, evaluation, experiment, metric, performance, or result claims matter to opponent synthesis, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, baseline/comparator status, practical context, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean.
-9. Run `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change.
+9. Run `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change. Packets reduce repeated context; they do not replace this skill, required role coverage, independent review, or manifest validation.
 10. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
@@ -62,7 +62,7 @@ cases/<case-id>/rounds/<round-id>/
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
 18. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
 19. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
-20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles, covered evidence artifacts, checks, limitations, and compact `used_findings` summaries for each evidence artifact covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If reviewed materials change afterward, refresh the manifest and rerun the independent review as needed.
+20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles, covered evidence artifacts, checks, limitations, and compact `used_findings` summaries for each evidence artifact covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If reviewed materials change afterward, the materials are draft again: rerun independent review and refresh `work/reviews/opponent_materials_review.json`, or record an explicit typed exception/limitation accepted by closeout. Manifest refresh alone is insufficient.
 
 ## Free-Text Boundary
 
@@ -103,6 +103,11 @@ instead of spawning every role at once. The concurrency limit must not remove
 required role coverage, typography/formal limitations when needed, or the
 independent review pass.
 
+Use `scripts/check-review-wave --workflow opponent_materials --wave draft`
+after draft generation and `--wave reviewed` after the independent review pass.
+If the gate contradicts an agent's final message, trust the file/checker result
+and repair the artifact or approval record.
+
 The synthesis step must read each available `## Synthesis Handoff` first and
 open the full evidence artifact only for grade-impacting verification,
 contradiction checks, confidence-label calibration, or reviewer challenges.
@@ -110,6 +115,11 @@ Translate low-level diagnostics into report impact, grading/IS calibration, or
 manual-check language; do not leak supervisor-style student-action wording into
 opponent materials. The synthesis step must integrate findings into one
 coherent operator artifact.
+
+Do not leak internal packet paths, manifest hashes, private URLs, raw PR
+metadata, review-thread details, local workspace paths, or generated-draft state
+into opponent-facing prose. Convert them into evidence-backed findings,
+confidence labels, limitations, and manual checks.
 
 ## Severity
 

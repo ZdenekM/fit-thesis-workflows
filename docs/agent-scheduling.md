@@ -63,6 +63,23 @@ Standalone evidence workflows can use the same pattern with fewer waves: one
 generator role, then a different reviewer role if the artifact will be relied on
 as final standalone evidence.
 
+## Packet And Wave Gates
+
+`work/supervisor_packets/*.md` and `work/opponent_packets/*.md` are compact
+handoffs for spawned agents. They reduce repeated context and prompt drift; they
+do not reduce required role coverage, skill obligations, independent review, or
+manifest/coverage checks.
+
+After a role wave, run the relevant `scripts/check-review-wave` profile before
+using agent claims from the chat transcript. If an agent says it wrote a file but
+the expected file is missing, empty, stale, or fails whitespace/approval-record
+validation, trust the file system and checker result. The next step is to repair
+or regenerate the artifact, not to rely on the agent final message.
+
+Structured final-review approval records belong under `work/reviews/*_review.json`.
+They are part of closeout provenance: a material edit after approval requires a
+fresh review or an explicit typed exception, never a manual hash adjustment.
+
 ## Non-Negotiables
 
 - Required roles remain required even when the concurrency limit is 1.

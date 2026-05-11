@@ -229,8 +229,12 @@ Nejběžnější výstupy jsou:
   media souborů podle cesty a přípony,
 - `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
   kódového podkladu bez spouštění studentského kódu,
+- `work/supervisor_packets/*.md` - stručné role-specific podklady pro agentní
+  vlny studentské zpětné vazby,
 - `work/opponent_packets/*.md` - stručné role-specific podklady pro agentní
   review vlny,
+- `work/reviews/*_review.json` - strukturovaný approval record nezávislého
+  finálního review s hashem revidovaného artefaktu a review basis,
 - `work/review_manifest.json` - interní manifest vstupů, výstupů, helper checků,
   skillů, rolí agentů, review stavu, hashů výstupů a omezení,
 - `work/agent_coverage.json` - interní role matrix pro povinné agentní role,
@@ -275,10 +279,12 @@ použitých zjištění.
 Po vytvoření nebo úpravě výstupů má agent obnovit `work/review_manifest.json`.
 Manifest je uložený v ignorovaném round workspace, protože obsahuje case-specific
 názvy souborů a workflow omezení. Review verdikt je svázaný s hashem výstupu;
-když se Markdown po review změní, validátor to označí jako stale review. Strict
-closeout nebere finální nebo odesílatelný výstup jako hotový, dokud manifest
-neobsahuje review status, reviewer roli, čas review a hash přesně té verze
-souboru, která má být použita.
+když se Markdown po review změní, validátor to označí jako stale review.
+Finální nebo odesílatelný výstup navíc potřebuje aktuální
+`work/reviews/*_review.json`, který hashově váže revidovaný soubor i review
+basis. Strict closeout nebere takový výstup jako hotový, dokud manifest
+neobsahuje review status, reviewer roli, čas review, approval record a hash
+přesně té verze souboru, která má být použita.
 
 Pokud dostupné vstupy vyžadují specializované role, `scripts/init-review-manifest`
 založí nebo obnoví generovaný `work/agent_coverage.json`. Zdroj pravdy pro
@@ -315,6 +321,13 @@ vlnách: příprava, text/code consistency, code quality plus
 figure/literature/typography podle triggerů, kalibrace, syntéza a nakonec
 nezávislé review jiným agentem. Přesná procedura je v
 `docs/agent-scheduling.md`.
+
+`work/supervisor_packets/*.md` a `work/opponent_packets/*.md` jsou interní
+role handoffy, které zmenšují prompt a omezují drift mezi agenty. Nemění
+povinné role, skill pravidla ani manifest/coverage kontrolu. Pokud agent tvrdí,
+že očekávaný soubor zapsal, ale `scripts/check-review-wave` nebo jiný checker
+říká opak, věřte souboru a checkeru: agent má artefakt opravit nebo znovu
+vygenerovat, ne jen upravit závěrečnou zprávu v chatu.
 
 Když je v roundu kód, supervisor feedback a oponentské podklady mají použít
 kontrolu souladu textu s kódem i kontrolu kvality implementace, nebo výslovně
@@ -392,7 +405,9 @@ scripts/check-assignment-coverage <case-id>
 scripts/check-evidence-presence <case-id>
 scripts/check-code-reproducibility <case-id>
 scripts/check-evaluation-claims <case-id>
+scripts/prepare-supervisor-packets <case-id>
 scripts/prepare-opponent-packets <case-id>
+scripts/check-review-wave --workflow supervisor_feedback --wave draft <case-id>
 scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
 ```
 
@@ -413,6 +428,12 @@ scripts/init-review-manifest --run-checks <case-id>
 scripts/check-agent-coverage <case-id>
 scripts/check-review-manifest --require-complete <case-id>
 ```
+
+Když closeout hlásí stale review hash, approval record nebo review-basis hash,
+neopravujte hash ručně. Buď vraťte artefakt do draft stavu a spusťte nové
+nezávislé review, nebo zapište výslovnou typovanou výjimku s omezením. U
+odesílatelných a standalone finálních artefaktů musí approval record odpovídat
+aktuálnímu souboru, jinak je review neplatné.
 
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 

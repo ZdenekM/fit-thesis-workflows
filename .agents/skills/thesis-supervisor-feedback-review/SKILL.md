@@ -37,7 +37,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 10. Verify that previous feedback is not repeated after it has been addressed.
 11. Check that text-code mismatch claims cite both the thesis-side and code-side evidence.
 12. Check that code-quality/design claims cite concrete code paths, configs, README/build docs, tests, or missing artifacts, and are not just style preferences.
-13. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, or CI links into student-facing prose unless they are necessary and access-safe; summarize them as action items.
+13. If GitHub repo/PR evidence was used, verify that claims are backed by `outputs/github_code_intake.md` or explicit limitations, and that PR-based wording separates upstream baseline from student-owned contribution. Do not paste raw PR comment bodies, reviewer usernames, private URLs, branch names, CI links, review-thread details, manifest hashes, local workspace paths, or generated-draft state into student-facing prose; summarize them as action items.
 14. If code exists, verify that both code-consistency and code-quality/design review are visibly evidenced by standalone internal artifacts. In the student-facing output, keep only student-actionable summaries and important limitations.
 15. If literature/citation review was used or literature relevance is a priority, verify that claims are supported by `outputs/literature_citation_review.md` or explicit source limitations. Keep only student-actionable, phase-appropriate items in student-facing feedback.
 16. If figure/media review was used or visual evidence is a priority, verify that visual-content claims are supported by `outputs/figure_media_review.md` or `work/figure_media/visual_inventory.jsonl` with `pdf_inspected` or `source_asset_checked` status, and that the used item has suitable claim alignment for the surrounding text claim. Keep only student-actionable, phase-appropriate items in student-facing feedback, and do not expose cache hashes or reuse metadata.
@@ -50,7 +50,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 23. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
 24. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
 25. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
-26. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this independent review pass in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. The reviewed hash must match the final `outputs/feedback_student.md`; each `covered_by_synthesis` evidence artifact needs a compact `used_findings` summary for the findings actually used in the final feedback.
+26. After writing `outputs/feedback_student.md`, write or update `work/reviews/feedback_student_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this independent review pass in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. The reviewed hash must match the final `outputs/feedback_student.md`; each `covered_by_synthesis` evidence artifact needs a compact `used_findings` summary for the findings actually used in the final feedback.
 27. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 28. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 
@@ -85,6 +85,11 @@ Return only:
 
 The main session must verify file claims with expected-output checks before
 relying on them.
+
+For final supervisor feedback, the main session should verify the review wave
+with `scripts/check-review-wave --workflow supervisor_feedback --wave final`.
+If a chat final message says the output was written but the wave gate fails,
+trust the gate and repair the file or approval record.
 
 ## Model And Reasoning
 

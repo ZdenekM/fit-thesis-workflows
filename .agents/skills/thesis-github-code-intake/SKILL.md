@@ -139,9 +139,10 @@ changes introduced in PR #N" or "The PR has unresolved review/CI evidence that
 needs to be addressed or explained before final submission."
 
 Do not paste raw PR comment bodies, reviewer usernames, private PR URLs, branch
-names, or CI links into student-facing/opponent-facing prose unless they are
-necessary, access-safe, and phrased as actionable evidence. Summarize review
-discussion as issue patterns and cite the internal evidence privately.
+names, CI links, review-thread details, manifest hashes, local workspace paths,
+or generated-draft state into student-facing or opponent-facing prose. Keep
+those details in internal evidence; summarize review discussion as issue
+patterns and cite the internal evidence privately.
 
 ## Review Loop
 
