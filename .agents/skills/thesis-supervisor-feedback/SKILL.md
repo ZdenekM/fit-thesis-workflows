@@ -166,6 +166,34 @@ The synthesis step must integrate findings into the student-facing artifact. Do 
 - Mark indirect conclusions as estimates or risks.
 - For quantitative/evaluation results, do not stop at checking whether a metric is present. Sanity-check whether the values are plausible in the thesis domain, whether the improvement is practically meaningful, whether the baseline/comparator and sample size are clear, whether the calculation is reproducible, and whether the conclusion is not stronger than the evidence.
 
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full draft or evidence content to the
+owned round files and keep the chat final response compact. Do not paste full
+Markdown artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
+
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort for this semantic
+workflow. In the current Codex setup, use `gpt-5.5` with `xhigh` reasoning when
+that choice is exposed. Packet prompts generated for this skill must carry the
+same requirement. Do not downshift to Spark or another low-cost model for the
+first or only pass over thesis text, submitted code, evidence artifacts,
+synthesis drafts, final feedback, or sendable wording. Mechanical helper
+summaries may use cheaper models only when validator-backed and consumed by a
+high-reasoning semantic pass.
+
 ## Output
 
 Write `outputs/feedback_student.md` in the configured student feedback language. Agent-generated drafts go first to `work/feedback_student_draft.md`; the review pass writes `outputs/feedback_student.md`.

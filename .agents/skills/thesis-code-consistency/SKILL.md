@@ -65,6 +65,34 @@ When this artifact is generated as standalone output, it is draft evidence until
 
 After writing or revising `outputs/code_consistency.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the artifact is standalone final evidence or only covered by a downstream synthesis review. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full evidence content to the owned round
+file and keep the chat final response compact. Do not paste full Markdown
+artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
+
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort for this semantic
+workflow. In the current repo-local Codex profile this role is pinned to
+`gpt-5.5` with `model_reasoning_effort = "xhigh"`. Packet prompts generated for
+this skill must carry the same requirement. Do not downshift to Spark or another
+low-cost model for the first or only pass over thesis claims, code evidence,
+reproducibility, or text-code mismatch findings. Mechanical helper summaries may
+use cheaper models only when validator-backed and consumed by a high-reasoning
+semantic pass.
+
 ## Output
 
 Write `outputs/code_consistency.md` when used as a standalone artifact:

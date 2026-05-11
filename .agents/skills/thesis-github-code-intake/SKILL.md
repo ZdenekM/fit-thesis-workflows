@@ -100,6 +100,19 @@ Typical user-provided inputs:
    Static inspection, git metadata, diffs, README/config/test inventory, and CI
    metadata are safe default actions.
 
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort when this intake
+will feed supervisor feedback, opponent materials, code consistency, code
+quality, or final standalone evidence. In the current Codex setup, use
+`gpt-5.5` with `xhigh` reasoning when that choice is exposed. Packet prompts
+generated for this skill must carry the same requirement. Do not downshift to
+Spark or another low-cost model for the first or only pass over PR scope,
+student contribution boundaries, GitHub-vs-archive authority, review/CI
+limitations, or synthesis implications. Mechanical helper summaries may use
+cheaper models only when validator-backed and consumed by a high-reasoning
+semantic pass.
+
 ## Output
 
 The helper writes ignored case-local evidence:
@@ -142,6 +155,23 @@ After writing or revising `outputs/github_code_intake.md`, run
 is standalone final evidence or only covered by downstream synthesis. Before
 relying on it, run `scripts/check-review-manifest --require-complete <case-id>
 [round-id]`.
+
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full intake evidence to the owned round
+files and keep the chat final response compact. Do not paste full Markdown
+artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
 
 ## Limits Of V1
 

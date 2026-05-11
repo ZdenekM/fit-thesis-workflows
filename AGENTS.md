@@ -39,6 +39,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 - Use `scripts/case-doctor <case-id> [round-id]` as a read-only operator snapshot when orienting in a case or checking what is missing; it summarizes state but does not replace required workflow gates.
 - Supervisor feedback, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
+- Use the strongest available model and high reasoning effort for semantic thesis-review roles that read thesis text, submitted code, evidence, synthesis drafts, or final/reviewable artifacts. Lower-cost models such as Spark are acceptable only for mechanical, validator-backed helper roles and must not be the sole basis for evidence claims, grading/report calibration, or sendable wording.
 
 ## Command Routing
 
@@ -65,6 +66,8 @@ Use these repo-local skills as the primary workflow definitions:
 When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
 Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
+
+For code quality review, use the Omen MCP server when available as an advisory static-analysis signal for complexity, dead code, churn, and ownership risk. Omen absence or failure must be recorded as a limitation, not treated as an operator-facing workflow blocker; normal supervisor/opponent use must not require Omen.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
 When changing workflow docs or skills, scan `WORKFLOW_MEMORY.md` for reusable

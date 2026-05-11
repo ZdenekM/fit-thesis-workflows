@@ -23,6 +23,22 @@ The runtime default is enforced in `.codex/config.toml` with
 `agents.job_max_runtime_seconds = 3600`. Keep this document aligned with that
 config if the project default changes.
 
+## Model And Reasoning Defaults
+
+Quality-critical thesis-review roles should use the strongest available model
+and reasoning effort. The tracked thesis reviewer profiles under `.codex/agents/`
+therefore default to `gpt-5.5` with `model_reasoning_effort = "xhigh"` for text
+review, code consistency, code quality, and evidence calibration.
+
+Do not downshift semantic roles that read thesis text, submitted code,
+evidence artifacts, synthesis drafts, or final/reviewable outputs. Cheaper
+models such as `gpt-5.3-codex-spark` are candidates only for mechanical,
+validator-backed helper roles such as packet inventory summaries, expected-file
+checks, or manifest-shape triage. Any Spark-produced helper output must be
+validated by deterministic checks and reviewed by a high-reasoning semantic role
+before it can affect evidence claims, grading/report calibration, or sendable
+wording.
+
 ## Wave Pattern
 
 Run agents in waves and let each wave finish before starting the next one. Do

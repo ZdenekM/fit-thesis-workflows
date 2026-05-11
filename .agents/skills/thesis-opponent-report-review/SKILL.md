@@ -67,6 +67,34 @@ This skill is the independent review pass for a human-drafted opponent report. I
 
 After writing or revising `outputs/feedback_k_posudku.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full review feedback or report rewrites
+to the owned round files and keep the chat final response compact. Do not paste
+full Markdown artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
+
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort for this semantic
+review workflow. In the current Codex setup, use `gpt-5.5` with `xhigh`
+reasoning when that choice is exposed. Packet prompts generated for this skill
+must carry the same requirement. Do not downshift to Spark or another low-cost
+model for the first or only pass over report drafts, reviewed materials,
+opponent trace state, point/grade consistency, tone, fairness, or report
+rewrites. Mechanical helper summaries may use cheaper models only when
+validator-backed and consumed by a high-reasoning semantic pass.
+
 ## Output
 
 Write `outputs/feedback_k_posudku.md`:

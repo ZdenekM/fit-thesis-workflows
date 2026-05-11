@@ -41,8 +41,9 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
    - testing strategy, smoke-test workflow, and reproducibility for a reviewer,
    - README/developer documentation and installation/build instructions,
    - whether comments explain non-obvious logic without replacing clear code.
-8. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
-9. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
+8. When the Omen MCP server is available, use it as an advisory static-analysis layer over the prepared code roots or changed contribution paths. Prefer targeted complexity, dead-code, churn, and ownership checks that help validate maintainability and reviewer-confidence risks. Do not require Omen for operator use; if it is unavailable or cannot inspect the submitted code root, record that limitation and continue with normal static review.
+9. Run only simple local checks when they are documented, bounded, and do not need missing external data, credentials, services, models, or long execution.
+10. Classify findings by severity and phase. In early drafts, prefer design direction and test plan feedback. In final checks, focus on issues that affect defensibility, runtime correctness, reviewer confidence, or grading.
 
 ## Evidence Rules
 
@@ -55,6 +56,7 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 - For README, reproducibility, and smoke-test evidence: `thesis-code-consistency` checks whether thesis claims are supported by artifacts; this skill checks whether the submitted implementation is reviewable and maintainable independent of thesis claims. Cross-reference only when the same evidence affects both.
 - Avoid low-value style nits unless they are repeated, confuse the implementation, or affect maintainability.
 - Do not reward noisy comments. Prefer clear code plus useful comments around non-obvious decisions.
+- Treat Omen MCP findings as signals to verify against concrete code, not as standalone verdicts. Cite the code path/function and explain the maintainability or defensibility impact; do not expose Omen internals in student-facing prose unless the student needs a concrete action.
 
 ## Severity
 
@@ -68,6 +70,34 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 After writing or revising `outputs/code_quality_review.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the artifact is standalone final evidence or only covered by a downstream synthesis review. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full evidence content to the owned round
+file and keep the chat final response compact. Do not paste full Markdown
+artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
+
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort for this semantic
+workflow. In the current repo-local Codex profile this role is pinned to
+`gpt-5.5` with `model_reasoning_effort = "xhigh"`. Packet prompts generated for
+this skill must carry the same requirement. Do not downshift to Spark or another
+low-cost model for the first or only pass over implementation design,
+maintainability, runtime risk, reviewer-confidence findings, or Omen-informed
+interpretation. Mechanical helper summaries may use cheaper models only when
+validator-backed and consumed by a high-reasoning semantic pass.
 
 ## Output
 

@@ -1,7 +1,8 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 # Repository-level Codex profile.
-# Inherit global model/reasoning defaults, but keep thesis workflow delegation
-# bounded so role-split reviews do not exhaust RAM.
+# Keep thesis workflow delegation bounded so role-split reviews do not exhaust
+# RAM. Semantic thesis reviewer profiles explicitly pin high-quality
+# model/reasoning defaults in .codex/agents/.
 
 [features]
 multi_agent = true

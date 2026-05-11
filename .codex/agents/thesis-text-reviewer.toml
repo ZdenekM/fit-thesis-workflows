@@ -1,5 +1,6 @@
 description = "Reviews thesis text structure, assignment coverage, contribution clarity, and phase fit."
-model = "gpt-5.4"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 approval_policy = "never"
 

@@ -1,5 +1,6 @@
 description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
-model = "gpt-5.4"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 approval_policy = "never"
 

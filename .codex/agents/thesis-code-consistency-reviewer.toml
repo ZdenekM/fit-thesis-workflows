@@ -1,5 +1,6 @@
 description = "Checks whether thesis claims are supported by submitted code, configs, tests, and reproducibility artifacts."
-model = "gpt-5.4"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 approval_policy = "never"
 

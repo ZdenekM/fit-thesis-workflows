@@ -36,11 +36,40 @@ If the user does not name rounds, compare the newest round with the previous one
 
 Use structured tools when available: `diff`, `git diff --no-index`, file lists, README/config inspection, and targeted text search. Do not rely on vague impressions when files are available.
 
+## Model And Reasoning
+
+Use the strongest available model with high reasoning effort for this semantic
+workflow when the diff will feed supervisor feedback, opponent materials, or
+final standalone evidence. In the current Codex setup, use `gpt-5.5` with
+`xhigh` reasoning when that choice is exposed. Packet prompts generated for this
+skill must carry the same requirement. Do not downshift to Spark or another
+low-cost model for the first or only pass over prior-feedback status, thesis/code
+changes, new risks, or synthesis implications. Mechanical helper summaries may
+use cheaper models only when validator-backed and consumed by a high-reasoning
+semantic pass.
+
 ## Review Loop
 
 When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 After writing or revising `outputs/revision_diff.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the diff is standalone final evidence or only covered by downstream synthesis. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+
+## Agent Final Response Contract
+
+When acting as a workflow agent, write full evidence content to the owned round
+file and keep the chat final response compact. Do not paste full Markdown
+artifacts that are already on disk.
+
+Return only:
+
+- files written or changed;
+- top 3-5 findings, verdicts, or risks;
+- commands/checks run;
+- explicit limitations;
+- whether expected output validation passed.
+
+The main session must verify file claims with expected-output checks before
+relying on them.
 
 ## Output
 
