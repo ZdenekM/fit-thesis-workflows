@@ -1,6 +1,6 @@
 # Theses Similarity Report Pipeline Plan
 
-Status: active
+Status: done
 Created: 2026-05-12
 
 ## Goal
@@ -362,10 +362,9 @@ Repeated-submission handling:
 
 ### Slice 5 - Operator Docs And Closeout Integration
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): document theses similarity reports`
 - Expected paths:
-  - `AGENTS.md`
   - `README.md`
   - `docs/agent-scheduling.md`
   - `docs/opponent-review-workflow.md`
@@ -448,6 +447,13 @@ Repeated-submission handling:
   tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py
   tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-12: Slice 5 implemented. Updated chat-first README examples,
+  operator artifact references, materiality/diagnostic command lists,
+  scheduling docs, opponent-facing boundaries, round-note template inputs, and
+  removed the completed Theses.cz TODO item. `AGENTS.md` routing and output
+  conventions were completed in Slice 4. Verification passed: `pants fmt ::`,
+  `pants lint ::`, `pants check ::`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 
@@ -467,6 +473,51 @@ Repeated-submission handling:
 
 ## Final Audit
 
-Not started. Before archiving, record the final implementation commits, all
-verification commands, skipped checks, native Windows evidence status for the
-new packaged commands, and any residual TODO items.
+Done on 2026-05-12.
+
+Implementation commits:
+
+- `93b2fb9 docs(workflow): plan theses similarity report intake`
+- `d7a0132 feat(workflow): import theses similarity reports`
+- `cbd9bc1 feat(workflow): validate theses similarity evidence`
+- `04ab1bd feat(workflow): review theses similarity reports`
+- final documentation/archive commit: `docs(workflow): document theses similarity reports`
+
+Verification commands run across the rollout:
+
+- `pants fmt ::`
+- `pants lint src/thesis_review_workflow:: tests:: scripts::`
+- `pants lint src/thesis_review_workflow:: tests::`
+- `pants lint ::`
+- `pants check src/thesis_review_workflow:: tests:: scripts::`
+- `pants check src/thesis_review_workflow:: tests::`
+- `pants check ::`
+- `pants test tests/test_theses_similarity.py tests/test_check_private.py`
+- `pants test tests/test_import_theses_report.py tests/test_workflow_python_contracts.py`
+- `pants test tests/test_theses_similarity.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_workflow_python_contracts.py tests/test_work_artifacts.py`
+- `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`
+- `scripts/smoke-import-theses-report`
+- `scripts/smoke-theses-similarity-report`
+- `scripts/smoke-review-manifest`
+- `scripts/smoke-package-workflow-tools`
+- `scripts/check-private`
+- `scripts/check-scripts`
+- `git diff --check`
+
+Skipped checks and residual risk:
+
+- No native Windows runtime was executed in this Linux checkout. The new command
+  surface is covered by PEX/launcher packaging generation and smoke checks, but
+  real Windows runtime proof remains governed by the existing P0 TODO.
+- The local real Theses.cz example PDFs stayed outside tracked files. Tracked
+  tests and smokes use synthetic fixtures only.
+
+Residual TODO items:
+
+- No Theses.cz-specific TODO remains. Future work, if any, should be opened as
+  a new narrowed TODO item from real operator use.
+
+Archive decision:
+
+- Move this completed plan to `plans/archive/` after the final documentation
+  commit.

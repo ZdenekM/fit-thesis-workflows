@@ -10,9 +10,9 @@ Typické použití není ruční volání skriptů. Typické použití je napsat
 
 ```text
 Přidej nový případ pro tuto BP. Přikládám zadání, PDF práce, zdrojový zip,
-kód a moje poznámky. Připrav studentovi zpětnou vazbu, použij agenty,
-zkontroluj soulad textu s kódem a kvalitu implementace a nálezy po review
-rovnou oprav.
+kód, moje poznámky a případně Theses.cz report podobnosti po odevzdání.
+Připrav studentovi zpětnou vazbu, použij agenty, zkontroluj soulad textu s
+kódem a kvalitu implementace a nálezy po review rovnou oprav.
 ```
 
 Výsledkem má být použitelný Markdown pro vedoucího nebo oponenta, ne jen
@@ -27,8 +27,8 @@ skill pravidlo nebo TODO pro budoucí helper.
 
 1. Otevřete chat s agentem v tomto repozitáři.
 2. Přiložte nebo uveďte cesty k souborům: zadání, aktuální PDF práce,
-   případně LaTeX/Overleaf zip, kód, starší feedback, návrh posudku nebo
-   vlastní poznámky.
+   případně LaTeX/Overleaf zip, kód, starší feedback, Theses.cz report
+   podobnosti po odevzdání, návrh posudku nebo vlastní poznámky.
 3. Napište, jaký výstup chcete: studentskou zpětnou vazbu, formální posudek
    vedoucího, oponentské podklady, revizní diff, kontrolu kódu, kontrolu
    citací, nebo review hotového posudku.
@@ -59,7 +59,8 @@ Reviewer profile: default
 Téma: <stručně>
 Moje poznámky k zadání: <co student měl dělat, kontext laboratoře, omezení>
 
-Přikládám zadání, aktuální PDF práce, případně zdrojový zip a kód.
+Přikládám zadání, aktuální PDF práce, případně zdrojový zip, kód a Theses.cz
+report podobnosti po odevzdání.
 Zpracuj studentskou zpětnou vazbu, použij agenty. Pokud je dostupný kód,
 zkontroluj soulad textu s kódem i kvalitu implementace. Výsledný feedback
 napiš tak, abych ho mohl poslat studentovi s minimální úpravou.
@@ -80,9 +81,10 @@ final-sprint feedback. Použij agenty, dej jim dost času, nálezy z review opra
 
 ```text
 Připrav interní oponentské podklady pro tuto BP/DP. Přikládám zadání, PDF,
-zdroje a kód. Použij agenty. Pokud je dostupný kód, zkontroluj soulad textu
-s kódem i kvalitu implementace. Výstup má být interní evidence pro oponenta,
-ne studentský feedback.
+zdroje, kód a případně Theses.cz report podobnosti po odevzdání. Použij
+agenty. Pokud je dostupný kód, zkontroluj soulad textu s kódem i kvalitu
+implementace. Výstup má být interní evidence pro oponenta, ne studentský
+feedback.
 ```
 
 ### Posudek vedoucího
@@ -249,6 +251,13 @@ Nejběžnější výstupy jsou:
   screenshotů, výsledkových grafů a jejich změn mezi revizemi,
 - `outputs/typography_formal_review.md` - interní pozdní kontrola typografie
   a formální stránky podle jazyka práce,
+- `work/theses_similarity/intake.json` - strukturální import Theses.cz reportu
+  podobnosti,
+- `work/theses_similarity/assessment.json` - kontextové posouzení shod a
+  syntézní akce připravené autorizovaným člověkem nebo agentem,
+- `outputs/theses_similarity_review.md` - interní review Theses.cz reportu,
+- `work/reviews/theses_similarity_review.json` - samostatný approval record pro
+  finální evidenční použití Theses.cz review,
 - `work/figure_media/visual_inventory.jsonl` - znovupoužitelný interní inventář
   vizuálních prvků a jejich popisů,
 - `work/assignment_coverage_agent.json` - agentem nebo člověkem připravená
@@ -305,11 +314,12 @@ oponentní closeout vyžadují i jejich strukturální validátory.
 
 Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consistency.md`,
 `code_quality_review.md`, `literature_citation_review.md`,
-`figure_media_review.md` nebo `typography_formal_review.md` je samostatně
-finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
-zapsaný. Pokud je použita jen jako podklad pro studentský feedback, formální
-posudek vedoucího nebo oponentské podklady, certifikuje ji až review dané
-syntézy, a to jen v rozsahu použitých zjištění.
+`figure_media_review.md`, `typography_formal_review.md` nebo
+`theses_similarity_review.md` je samostatně finální jen tehdy, když prošla
+vlastní evidenční review smyčkou a verdikt je zapsaný. Pokud je použita jen jako
+podklad pro studentský feedback, formální posudek vedoucího nebo oponentské
+podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu použitých
+zjištění.
 
 Po vytvoření nebo úpravě výstupů má agent obnovit `work/review_manifest.json`.
 Manifest je uložený v ignorovaném round workspace, protože obsahuje case-specific
@@ -345,6 +355,7 @@ Pro větší práci má agent rozdělit role, typicky:
 - kvalita kódu, design, runtime rizika a reprodukovatelnost,
 - literatura a citace, pokud jsou pro daný round důležité,
 - pozdní typografie a formální stránka, pokud jde o předfinální/final round,
+- Theses.cz report podobnosti, pokud byl po odevzdání importován,
 - kalibrace evidence a tvrzení,
 - syntéza do finálního Markdownu.
 
@@ -395,6 +406,15 @@ předložky/spojky na koncích řádků a LaTeX/`vlna` hinty, u anglických prac
 česko-slovenská pravidla nepoužívají a důraz je spíš na běžné editor/Overleaf
 kontroly a ruční final proofread. Studentovi se neposílá auditní seznam všech
 výskytů; do feedbacku patří shrnutý vzorec problému a doporučený postup opravy.
+
+Pokud je po odevzdání dostupný Theses.cz report podobnosti, importuje se
+explicitně do ignorovaného case workspace a posuzuje se samostatným interním
+workflow. Čistý nebo vysvětlený report se ve studentském feedbacku ani posudcích
+standardně nezmiňuje. Podezřelé, nevysvětlené nebo institucionálně důležité
+shody musí nejdřív projít kontextovým review; procento podobnosti samo o sobě
+není důkaz plagiátu, autorství ani důvod ke změně bodů. U druhého pokusu je
+vysoká shoda s první verzí téhož studenta normální kandidát na self-overlap a
+posuzuje se podle historie roundů a revizního diffu.
 
 ## Kdy požádat o diagnostiku
 
@@ -455,6 +475,8 @@ scripts/check-evidence-presence <case-id>
 scripts/check-code-reproducibility <case-id>
 scripts/check-evaluation-claims <case-id>
 scripts/update-current-evidence-snapshot <case-id>
+scripts/import-theses-report <case-id> /path/to/theses-report.pdf
+scripts/check-theses-similarity-report <case-id>
 scripts/check-review-materiality --workflow supervisor_feedback <case-id>
 scripts/prepare-supervisor-packets <case-id>
 scripts/check-review-materiality --workflow opponent_review <case-id>
@@ -467,10 +489,11 @@ scripts/write-review-approval --profile supervisor-feedback --reviewer-agent <ag
 `scripts/check-review-materiality` nepíše verdikty o kvalitě práce. Z
 existujících strukturovaných artefaktů a explicitních vstupů vytvoří poradní
 materiality index; jeho `next_actions` řeknou, že před syntézou chybí například
-`outputs/github_code_intake.md` nebo `work/quantitative_claims.json`, případně
-že je potřeba zapsat typed limitation. Packet generátory tyto akce zobrazují a
-wave gate je u synthesis/final vln považuje za blokující, dokud nejsou
-vyřešené. Typed limitation pro takovou akci patří do
+`outputs/github_code_intake.md`, `work/quantitative_claims.json` nebo
+`outputs/theses_similarity_review.md`, případně že je potřeba zapsat typed
+limitation. Packet generátory tyto akce zobrazují a wave gate je u
+synthesis/final vln považuje za blokující, dokud nejsou vyřešené. Typed
+limitation pro takovou akci patří do
 `work/review_manifest.json` jako strukturovaný záznam s
 `trigger: materiality_next_action`, `scope`, `type`, `required_for`,
 `description`, `impact`, `status` a `accepted_by` nebo `reviewer_role`.
@@ -493,6 +516,7 @@ scripts/check-code-consistency <case-id>
 scripts/check-code-quality-review <case-id>
 scripts/check-revision-diff <case-id>
 scripts/check-typography-formal <case-id>
+scripts/check-theses-similarity-report <case-id>
 scripts/init-review-manifest --run-checks <case-id>
 scripts/check-agent-coverage <case-id>
 scripts/check-review-manifest --require-complete <case-id>
@@ -516,6 +540,7 @@ scripts/prepare-code-workspace <case-id>
 scripts/draft-opponent-report <case-id>   # až po vytvoření work/opponent_report_trace.json
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
+scripts/import-theses-report <case-id> /path/to/theses-report.pdf
 ```
 
 `bootstrap-case` je konverzační importní/preflight helper pro nový nebo
@@ -642,6 +667,8 @@ Workflow definují repo skills v `.agents/skills/`:
   vizuální evidence, kontext tvrzení a změny mezi roundy,
 - `thesis-typography-formal-review` - pozdní typografie a formální stránka
   podle jazyka práce,
+- `thesis-theses-similarity-review` - interní interpretace Theses.cz reportu
+  podobnosti v kontextu case a roundů,
 - `thesis-opponent-materials` - interní podklady pro oponenta,
 - `thesis-opponent-materials-review` - review oponentských podkladů,
 - `thesis-opponent-report-review` - review draftu posudku.
@@ -740,6 +767,7 @@ scripts/smoke-feedback-output
 scripts/smoke-opponent-materials
 scripts/smoke-evaluation-claims
 scripts/smoke-typography-formal
+scripts/smoke-theses-similarity-report
 scripts/smoke-github-code-intake
 scripts/smoke-agent-coverage
 scripts/smoke-opponent-report

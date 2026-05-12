@@ -58,7 +58,8 @@ Typical supervisor/opponent waves:
 2. Evidence wave: text/assignment coverage plus code consistency when both are
    needed.
 3. Evidence wave: code quality plus quantitative claims, figure/media,
-   literature, or typography, depending on round triggers and available inputs.
+   literature, typography, or Theses.cz similarity-report review, depending on
+   round triggers and available inputs.
 4. Calibration wave: evidence/claim calibration or grading calibration when the
    workflow needs it.
 5. Synthesis: integrate findings into the draft or final Markdown artifact.

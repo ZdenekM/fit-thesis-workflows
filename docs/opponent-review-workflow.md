@@ -45,6 +45,14 @@ Kvantitativní/result claimy jsou stejný typ semantického handoffu:
 raw-text heuristiky pro význam metrik; prose-only metrické claimy má do tohoto
 skillu směrovat textový, code nebo figure/media agent.
 
+Theses.cz report podobnosti se importuje jen explicitně přes
+`scripts/import-theses-report <case-id> [round-id] REPORT.pdf`. Strukturální
+import a `scripts/check-theses-similarity-report` nevydávají verdikt o
+plagiátu, autorství ani bodech; podezřelé nebo nevysvětlené shody posuzuje
+autorizovaný `thesis-theses-similarity-review` agent v kontextu zadání,
+aktuální práce a předchozích roundů. Čistý, očekávaný self-overlap nebo
+vysvětlený report má zůstat v oponentské syntéze tichý.
+
 Tyto artefakty jsou poradní. Chybějící evidence je riziko nebo požadavek na
 ruční ověření, ne automatický důkaz, že je tvrzení práce nepravdivé.
 
@@ -57,7 +65,8 @@ scripts/prepare-opponent-packets <case-id> [round-id]
 ```
 
 Příkaz vytvoří `work/opponent_packets/*.md` pro role jako assignment/text, code
-consistency, code quality, figure/media, literature, typography a synthesis.
+consistency, code quality, figure/media, literature, typography, Theses.cz
+similarity a synthesis.
 Packet obsahuje autoritativní vstupy, dostupné work/output artefakty, očekávané
 role-owned výstupy a známá omezení. Nenahrazuje skill ani evidence pravidla,
 jen zmenšuje prompt drift mezi agenty. Packet generation snižuje opakované
@@ -83,6 +92,8 @@ evidenci:
 - `outputs/literature_citation_review.md`
 - `outputs/figure_media_review.md`
 - `outputs/typography_formal_review.md`
+- `outputs/theses_similarity_review.md`
+- `work/theses_similarity/assessment.json`
 - `outputs/reference_report_comparison.md`
 - `outputs/opponent_reading_packet.md`
 
@@ -93,6 +104,7 @@ scripts/check-revision-diff <case-id> [round-id]
 scripts/check-code-consistency <case-id> [round-id]
 scripts/check-code-quality-review <case-id> [round-id]
 scripts/check-evaluation-claims <case-id> [round-id]
+scripts/check-theses-similarity-report <case-id> [round-id]
 ```
 
 Validátory hlídají tvar, konkrétní evidence odkazy, omezení, review status,
@@ -201,6 +213,9 @@ manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
 
 Oponentské podklady a posudek nesmí do prose pro oponenta nebo IS propouštět
 interní packet paths, manifest hashe, private URLs, raw PR metadata,
-review-thread detaily, lokální workspace cesty ani stav generated draftu.
-Používejte je pouze jako interní evidenci a do report-facing textu převádějte
-jen věcné závěry, jistotu, omezení a ruční kontroly.
+review-thread detaily, raw Theses.cz report URLs/source internals, lokální
+workspace cesty ani stav generated draftu. Používejte je pouze jako interní
+evidenci a do report-facing textu převádějte jen věcné závěry, jistotu,
+omezení a ruční kontroly. Podobnostní report zmiňujte jen tehdy, když
+`outputs/theses_similarity_review.md` nese materiální nevyřešený nebo
+institucionálně potřebný závěr; čisté a vysvětlené reporty zůstávají tiché.

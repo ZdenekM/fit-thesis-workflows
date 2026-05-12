@@ -13,6 +13,7 @@ Purpose:
 - LaTeX sources:
 - Student code:
 - GitHub repo/PR:
+- Theses.cz similarity report:
 - README / docs:
 - Previous feedback:
 
