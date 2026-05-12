@@ -26,6 +26,7 @@ from thesis_review_workflow.supervisor_report import (
     SUPERVISOR_REPORT_REVIEWED_REL,
     confirmation_grade_points,
     extract_markdown_grade_points,
+    require_concrete_grade_points,
     trace_grade_points,
     validate_draft_metadata,
     validate_report_markdown,
@@ -88,6 +89,7 @@ def main(argv: list[str]) -> int:
         )
     )
     trace_payload = load_json_object(round_dir / SUPERVISOR_REPORT_TRACE_REL, errors)
+    trace_values = trace_grade_points(trace_payload) if trace_payload is not None else None
     feedback_history = round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL
     if feedback_history.is_file():
         errors.extend(
@@ -110,6 +112,9 @@ def main(argv: list[str]) -> int:
 
     reviewed_path = round_dir / SUPERVISOR_REPORT_REVIEWED_REL
     reviewed_grade_points = None
+    final_mode = reviewed_path.is_file() or args.require_reviewed or args.require_confirmation
+    if final_mode and trace_values is not None:
+        errors.extend(require_concrete_grade_points("supervisor report trace", trace_values))
     if reviewed_path.is_file():
         if not draft_exists:
             errors.append(f"reviewed supervisor report requires review-basis draft: {SUPERVISOR_REPORT_DRAFT_REL}")
@@ -123,7 +128,7 @@ def main(argv: list[str]) -> int:
                     "reviewed supervisor report",
                     reviewed_grade_points,
                     "supervisor report trace",
-                    trace_grade_points(trace_payload),
+                    trace_values,
                 )
             )
     elif args.require_reviewed or args.require_confirmation:
@@ -157,7 +162,7 @@ def main(argv: list[str]) -> int:
                         "supervisor report confirmation",
                         confirmation,
                         "supervisor report trace",
-                        trace_grade_points(trace_payload),
+                        trace_values,
                     )
                 )
     elif args.require_confirmation:

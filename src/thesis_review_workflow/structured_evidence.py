@@ -728,8 +728,10 @@ def _validate_supervisor_report_confirmation(
     points = loaded.get("points")
     if not isinstance(points, int) or points < 0 or points > 100:
         errors.append(f"{rel_path}: points must be int between 0 and 100")
-    _require_bool(loaded, "official_text_confirmed", rel_path, errors)
-    _require_bool(loaded, "student_comment_confirmed", rel_path, errors)
+    for field in ("official_text_confirmed", "student_comment_confirmed"):
+        _require_bool(loaded, field, rel_path, errors)
+        if loaded.get(field) is not True:
+            errors.append(f"{rel_path}: {field} must be true for confirmation")
     _require_bool(loaded, "ready_for_is", rel_path, errors)
     if loaded.get("ready_for_is") is not True:
         errors.append(f"{rel_path}: ready_for_is must be true for confirmation")

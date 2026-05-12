@@ -30,6 +30,7 @@ shell_sources(
         "check-supervisor-ready",
         "check-tooling",
         "check-typography-formal",
+        "confirm-supervisor-report",
         "draft-opponent-report",
         "draft-supervisor-report",
         "extract-pdf-text",
@@ -45,6 +46,7 @@ shell_sources(
         "prepare-supervisor-report-packets",
         "prepare-supervisor-packets",
         "register-review-artifact",
+        "supervisor-report-closeout",
         "smoke-agent-coverage",
         "smoke-assignment-coverage",
         "smoke-bootstrap-case",
@@ -122,6 +124,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_supervisor_ready",
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
+    "src/thesis_review_workflow/cli:confirm_supervisor_report",
     "src/thesis_review_workflow/cli:draft_opponent_report",
     "src/thesis_review_workflow/cli:draft_supervisor_report",
     "src/thesis_review_workflow/cli:extract_pdf_text",
@@ -136,6 +139,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:prepare_supervisor_report_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_packets",
     "src/thesis_review_workflow/cli:register_review_artifact",
+    "src/thesis_review_workflow/cli:supervisor_report_closeout",
     "src/thesis_review_workflow/cli:supervisor_deadline",
     "src/thesis_review_workflow/cli:update_current_evidence_snapshot",
     "src/thesis_review_workflow/cli:write_review_approval",
@@ -432,6 +436,16 @@ pex_binary(
 )
 
 pex_binary(
+    name="confirm_supervisor_report_tool",
+    entry_point="thesis_review_workflow.cli.confirm_supervisor_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/confirm-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="draft_opponent_report_tool",
     entry_point="thesis_review_workflow.cli.draft_opponent_report:console_main",
     dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
@@ -568,6 +582,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/register-review-artifact",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="supervisor_report_closeout_tool",
+    entry_point="thesis_review_workflow.cli.supervisor_report_closeout:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/supervisor-report-closeout",
     tags=["workflow-tool"],
 )
 

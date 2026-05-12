@@ -214,6 +214,17 @@ def confirmation_grade_points(confirmation: dict[str, object]) -> GradePoints:
     return GradePoints(normalized_grade, normalized_points, ())
 
 
+def require_concrete_grade_points(label: str, values: GradePoints) -> list[str]:
+    errors = list(values.errors)
+    if values.grade not in GRADE_VALUES:
+        errors.append(f"{label} requires concrete grade A-F")
+    if values.points is None:
+        errors.append(f"{label} requires concrete points 0-100")
+    elif values.points < 0 or values.points > 100:
+        errors.append(f"{label} points must be between 0 and 100")
+    return errors
+
+
 def validate_draft_metadata(text: str, round_dir: Path, errors: list[str]) -> None:
     trace_path = round_dir / SUPERVISOR_REPORT_TRACE_REL
     input_path = round_dir / SUPERVISOR_REPORT_INPUT_REL

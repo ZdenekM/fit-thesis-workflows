@@ -290,58 +290,20 @@ PY
 
 expect_failure "confirmation without reviewed report fails" \
   "$repo_root/scripts/check-supervisor-report" --require-confirmation "$case_id" "$round_id"
+rm "$round_dir/work/supervisor_report_confirmation.json"
 
 python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
-import hashlib
-import json
 import pathlib
 import sys
 
 round_dir = pathlib.Path(sys.argv[1])
-case_id = sys.argv[2]
-round_id = sys.argv[3]
-
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
 reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
 draft_rel = "work/vedouci_posudek_draft.md"
 draft = (round_dir / draft_rel).read_text(encoding="utf-8")
 (round_dir / reviewed_rel).write_text(draft.replace("# Návrh posudku vedoucího", "# Posudek vedoucího"), encoding="utf-8")
-common = {
-    "case_id": case_id,
-    "round_id": round_id,
-    "generated_at": "2026-05-12T00:00:00Z",
-    "producer_type": "agent",
-    "producer_role": "thesis-supervisor-report",
-    "producer_agent": "supervisor-report-smoke",
-    "authorization_note": "Synthetic smoke authorized.",
-    "source_refs": [reviewed_rel],
-    "limitations": [],
-}
-confirmation = {
-    **common,
-    "schema_version": "supervisor-report-confirmation-v1",
-    "source_refs": [reviewed_rel],
-    "reviewed_report_path": reviewed_rel,
-    "reviewed_report_sha256": sha(round_dir / reviewed_rel),
-    "grade": "B",
-    "points": 82,
-    "official_text_confirmed": True,
-    "student_comment_confirmed": True,
-    "ready_for_is": True,
-    "confirmed_by": "supervisor",
-    "confirmed_at": "2026-05-12T00:01:00Z",
-}
-(round_dir / "work/supervisor_report_confirmation.json").write_text(
-    json.dumps(confirmation, indent=2, ensure_ascii=False) + "\n",
-    encoding="utf-8",
-)
 PY
 
 expect_success "trace and draft check" "$repo_root/scripts/check-supervisor-report" "$case_id" "$round_id"
-expect_success "reviewed and confirmation check" \
-  "$repo_root/scripts/check-supervisor-report" --require-reviewed --require-confirmation "$case_id" "$round_id"
 
 expect_success "init manifest before approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
 mark_manifest_checks_passed
@@ -354,6 +316,14 @@ expect_success "write supervisor report approval" \
   "$case_id" "$round_id"
 expect_success "supervisor report final wave after approval" \
   "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave final "$case_id" "$round_id"
+expect_success "confirm supervisor report" \
+  "$repo_root/scripts/confirm-supervisor-report" \
+  --confirmed-by supervisor \
+  --confirmed-at "2026-05-12T00:01:00Z" \
+  --force \
+  "$case_id" "$round_id"
+expect_success "reviewed and confirmation check" \
+  "$repo_root/scripts/check-supervisor-report" --require-reviewed --require-confirmation "$case_id" "$round_id"
 expect_success "refresh manifest after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
 mark_manifest_checks_passed
 expect_success "apply approval after helper checks" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
@@ -363,6 +333,8 @@ mark_manifest_checks_passed
 expect_success "agent coverage after approval" "$repo_root/scripts/check-agent-coverage" "$case_id" "$round_id"
 expect_success "review manifest after approval" \
   "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" "$round_id"
+expect_success "supervisor report closeout" \
+  "$repo_root/scripts/supervisor-report-closeout" --skip-repo-hygiene "$case_id" "$round_id"
 
 python3 - "$round_dir/notes/supervisor-report-operator-input.md" <<'PY'
 import pathlib
