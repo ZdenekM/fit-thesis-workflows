@@ -49,6 +49,7 @@ WORKFLOW_COMMAND_MODULES = {
     "opponent-closeout": "thesis_review_workflow.cli.opponent_closeout",
     "opponent-preflight": "thesis_review_workflow.cli.opponent_preflight",
     "prepare-opponent-packets": "thesis_review_workflow.cli.prepare_opponent_packets",
+    "prepare-supervisor-report-packets": "thesis_review_workflow.cli.prepare_supervisor_report_packets",
     "prepare-supervisor-packets": "thesis_review_workflow.cli.prepare_supervisor_packets",
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",

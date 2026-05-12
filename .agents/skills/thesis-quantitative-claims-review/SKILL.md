@@ -33,8 +33,9 @@ cases/<case-id>/rounds/<round-id>/
 Prefer compact packet handoffs when available:
 
 - `work/supervisor_packets/quantitative_claims.md`
+- `work/supervisor_report_packets/quantitative_claims.md`
 - `work/opponent_packets/quantitative_claims.md`
-- `work/review_materiality/index.json`
+- `work/review_materiality/<workflow-profile>/index.json`
 - `work/current_evidence_snapshot.json`
 - `outputs/code_consistency.md`
 - `outputs/figure_media_review.md`

@@ -16,10 +16,15 @@ from thesis_review_workflow.structured_evidence import (
 )
 
 INDEX_REL = Path("work/review_materiality/index.json")
+PROFILE_DIRS = {
+    "supervisor_feedback": Path("work/review_materiality/supervisor_feedback"),
+    "supervisor_report": Path("work/review_materiality/supervisor_report"),
+    "opponent_review": Path("work/review_materiality/opponent_review"),
+}
 DECISION_SCHEMA = "review-materiality-decision-v1"
 INDEX_SCHEMA = "review-materiality-index-v1"
 
-WORKFLOW_PROFILES = {"supervisor_feedback", "opponent_review"}
+WORKFLOW_PROFILES = {"supervisor_feedback", "supervisor_report", "opponent_review"}
 PHASES = {"auto", "non_final", "final"}
 MATERIALITY_ROLES = (
     "code_consistency",
@@ -31,6 +36,11 @@ MATERIALITY_ROLES = (
     "quantitative_claims",
 )
 PACKET_ROLE_FILES = {
+    "figure_media": Path("work/review_materiality/supervisor_feedback/figure_media.json"),
+    "typography_formal": Path("work/review_materiality/supervisor_feedback/typography_formal.json"),
+    "literature_citation": Path("work/review_materiality/supervisor_feedback/literature_citation.json"),
+}
+LEGACY_PACKET_ROLE_FILES = {
     "figure_media": Path("work/review_materiality/figure_media.json"),
     "typography_formal": Path("work/review_materiality/typography_formal.json"),
     "literature_citation": Path("work/review_materiality/literature_citation.json"),
@@ -115,8 +125,31 @@ class MaterialityNextAction:
         return self.status == "unresolved"
 
 
+def profile_dir(workflow_profile: str) -> Path:
+    return PROFILE_DIRS.get(workflow_profile, Path("work") / "review_materiality" / workflow_profile)
+
+
+def profile_index_rel(workflow_profile: str) -> Path:
+    return profile_dir(workflow_profile) / "index.json"
+
+
+def role_file_for_profile(role: str, workflow_profile: str) -> Path | None:
+    if role not in PACKET_ROLE_FILES:
+        return None
+    return profile_dir(workflow_profile) / f"{role}.json"
+
+
 def is_materiality_decision_path(rel_path: str) -> bool:
-    return Path(rel_path) in PACKET_ROLE_FILES.values()
+    path = Path(rel_path)
+    return (
+        path in PACKET_ROLE_FILES.values()
+        or path in LEGACY_PACKET_ROLE_FILES.values()
+        or (
+            len(path.parts) == 4
+            and path.parts[:2] == ("work", "review_materiality")
+            and path.name in {f"{role}.json" for role in PACKET_ROLE_FILES}
+        )
+    )
 
 
 def role_file_for(role: str) -> Path | None:
@@ -234,7 +267,7 @@ def github_structured_refs(round_dir: Path) -> list[str]:
 def infer_phase(round_dir: Path, workflow_profile: str, requested_phase: str) -> str:
     if requested_phase != "auto":
         return requested_phase
-    if workflow_profile == "opponent_review":
+    if workflow_profile in {"opponent_review", "supervisor_report"}:
         return "final"
     _ = round_dir
     return "non_final"
@@ -254,6 +287,20 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "quantitative_claims": (
                 "grade-calibration impact: result claims need unit, baseline, magnitude, and reproducibility checks"
             ),
+            "code_consistency": "mandatory code-bearing review: text-code and reproducibility support",
+            "code_quality": (
+                "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
+            ),
+        }
+    elif workflow_profile == "supervisor_report":
+        impacts = {
+            "figure_media": "supervisor report defensibility: visual/result evidence and manual-check boundaries",
+            "typography_formal": "supervisor report context: final presentation risks that affect overall assessment",
+            "literature_citation": "supervisor report field: work with literature and source-use evidence",
+            "github_intake": (
+                "publication/open-source/contribution evidence before mentioning repository or PR activity"
+            ),
+            "quantitative_claims": "grade/points calibration: result claims need unit, baseline, and practical context",
             "code_consistency": "mandatory code-bearing review: text-code and reproducibility support",
             "code_quality": (
                 "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
@@ -465,7 +512,7 @@ def build_materiality_decisions(
                 reason="opponent workflow has IS/report calibration items for this role",
                 source_refs=["workflow-profile:opponent_review"],
             )
-    elif resolved_phase == "final":
+    elif workflow_profile == "supervisor_feedback" and resolved_phase == "final":
         merge_material(
             decisions,
             workflow_profile,
@@ -824,7 +871,7 @@ def write_materiality_decisions(
     generated_at: str,
     producer_role: str = "check-review-materiality",
 ) -> list[Path]:
-    materiality_dir = round_dir / "work" / "review_materiality"
+    materiality_dir = round_dir / profile_dir(workflow_profile)
     materiality_dir.mkdir(parents=True, exist_ok=True)
     next_actions = build_materiality_next_actions(
         round_dir,
@@ -855,12 +902,15 @@ def write_materiality_decisions(
         ],
         "next_actions": [next_action_payload(action) for action in next_actions],
     }
-    index_path = round_dir / INDEX_REL
+    index_path = round_dir / profile_index_rel(workflow_profile)
     index_path.write_text(json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     written.append(index_path)
 
     material_roles = {decision.role for decision in decisions if decision.material}
-    for role, rel_path in PACKET_ROLE_FILES.items():
+    for role in PACKET_ROLE_FILES:
+        rel_path = role_file_for_profile(role, workflow_profile)
+        if rel_path is None:
+            continue
         path = round_dir / rel_path
         if role not in material_roles:
             if path.is_file():
@@ -908,9 +958,15 @@ def validate_materiality_decision_payload(
     role = payload.get("role")
     if role not in MATERIALITY_ROLES:
         errors.append(f"{rel_path}: role must be one of {list(MATERIALITY_ROLES)}")
-    expected_path = PACKET_ROLE_FILES.get(role) if isinstance(role, str) else None
-    if expected_path is not None and expected_path.as_posix() != rel_path:
-        errors.append(f"{rel_path}: role {role} must be stored at {expected_path.as_posix()}")
+    if isinstance(role, str):
+        if expected_workflow_profile is not None:
+            expected_path = role_file_for_profile(role, expected_workflow_profile)
+            if expected_path is not None and expected_path.as_posix() != rel_path:
+                errors.append(f"{rel_path}: role {role} must be stored at {expected_path.as_posix()}")
+        elif role in PACKET_ROLE_FILES and Path(rel_path) not in LEGACY_PACKET_ROLE_FILES.values():
+            path = Path(rel_path)
+            if len(path.parts) != 4 or path.parts[0] != "work" or path.parts[1] != "review_materiality":
+                errors.append(f"{rel_path}: role {role} must be stored under work/review_materiality/<profile>/")
     if payload.get("recommendation") != "material":
         errors.append(f"{rel_path}: packet materiality decision files must have recommendation=material")
     for field in ("scope", "impact", "reason", "generated_at", "producer_role"):
@@ -988,28 +1044,29 @@ def load_review_materiality_index(
     round_id: str | None = None,
     workflow_profile: str | None = None,
 ) -> tuple[dict[str, Any] | None, list[str]]:
-    payload, load_errors = load_json_object(round_dir / INDEX_REL)
+    index_rel = profile_index_rel(workflow_profile) if workflow_profile else INDEX_REL
+    payload, load_errors = load_json_object(round_dir / index_rel)
     if payload is None:
         return None, load_errors
     errors: list[str] = []
     if payload.get("schema_version") != INDEX_SCHEMA:
-        errors.append(f"{INDEX_REL.as_posix()}: schema_version must be {INDEX_SCHEMA}")
+        errors.append(f"{index_rel.as_posix()}: schema_version must be {INDEX_SCHEMA}")
     if case_id is not None and payload.get("case_id") != case_id:
-        errors.append(f"{INDEX_REL.as_posix()}: case_id must be {case_id}")
+        errors.append(f"{index_rel.as_posix()}: case_id must be {case_id}")
     if round_id is not None and payload.get("round_id") != round_id:
-        errors.append(f"{INDEX_REL.as_posix()}: round_id must be {round_id}")
+        errors.append(f"{index_rel.as_posix()}: round_id must be {round_id}")
     profile = payload.get("workflow_profile")
     if profile not in WORKFLOW_PROFILES:
-        errors.append(f"{INDEX_REL.as_posix()}: workflow_profile must be one of {sorted(WORKFLOW_PROFILES)}")
+        errors.append(f"{index_rel.as_posix()}: workflow_profile must be one of {sorted(WORKFLOW_PROFILES)}")
     elif workflow_profile is not None and profile != workflow_profile:
-        errors.append(f"{INDEX_REL.as_posix()}: workflow_profile must be {workflow_profile}")
+        errors.append(f"{index_rel.as_posix()}: workflow_profile must be {workflow_profile}")
     decisions = payload.get("decisions")
     if not isinstance(decisions, list):
-        errors.append(f"{INDEX_REL.as_posix()}: decisions must be a list")
+        errors.append(f"{index_rel.as_posix()}: decisions must be a list")
     errors.extend(
         validate_materiality_next_actions_payload(
             payload.get("next_actions", []),
-            INDEX_REL.as_posix(),
+            index_rel.as_posix(),
             workflow_profile=workflow_profile,
         )
     )
@@ -1178,7 +1235,8 @@ def unresolved_required_next_actions(
     )
     if payload is None:
         if require_index and not errors:
-            errors = [f"{INDEX_REL.as_posix()}: missing; run check-review-materiality --workflow {workflow_profile}"]
+            index_rel = profile_index_rel(workflow_profile)
+            errors = [f"{index_rel.as_posix()}: missing; run check-review-materiality --workflow {workflow_profile}"]
         return [], errors
     current_actions, current_errors = _current_required_next_actions_from_index(
         round_dir,

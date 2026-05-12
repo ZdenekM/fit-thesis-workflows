@@ -32,8 +32,8 @@ Toto je synteticky draft pro smoke test. Obsahuje vice vet, aby checker nemusel
 resit prazdny nebo prilis kratky vystup.
 EOF
 
-mkdir -p "$round_dir/work/review_materiality"
-cat >"$round_dir/work/review_materiality/index.json" <<EOF
+mkdir -p "$round_dir/work/review_materiality/supervisor_feedback"
+cat >"$round_dir/work/review_materiality/supervisor_feedback/index.json" <<EOF
 {
   "case_id": "$case_id",
   "decisions": [],

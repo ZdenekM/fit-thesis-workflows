@@ -93,8 +93,10 @@ def test_text_only_supervisor_non_final_writes_only_index(tmp_path: Path) -> Non
         generated_at="2026-05-11T00:00:00Z",
     )
 
-    assert [path.relative_to(round_dir).as_posix() for path in written] == ["work/review_materiality/index.json"]
-    assert not (round_dir / "work" / "review_materiality" / "figure_media.json").exists()
+    assert [path.relative_to(round_dir).as_posix() for path in written] == [
+        "work/review_materiality/supervisor_feedback/index.json"
+    ]
+    assert not (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json").exists()
 
 
 def test_final_supervisor_phase_marks_typography_material(tmp_path: Path) -> None:
@@ -149,7 +151,9 @@ def test_code_workspace_marks_code_roles_without_optional_packet_files(tmp_path:
 
     assert errors == []
     assert {decision.role for decision in decisions if decision.material} == {"code_consistency", "code_quality"}
-    assert [path.relative_to(round_dir).as_posix() for path in written] == ["work/review_materiality/index.json"]
+    assert [path.relative_to(round_dir).as_posix() for path in written] == [
+        "work/review_materiality/supervisor_feedback/index.json"
+    ]
 
 
 def test_video_media_inventory_creates_narrow_figure_materiality(tmp_path: Path) -> None:
@@ -190,11 +194,11 @@ def test_video_media_inventory_creates_narrow_figure_materiality(tmp_path: Path)
     figure = next(decision for decision in decisions if decision.role == "figure_media")
     assert figure.material
     assert figure.scope == "presentation_demo_boundary"
-    assert (round_dir / "work" / "review_materiality" / "figure_media.json") in written
+    assert (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json") in written
     assert (
         validate_review_materiality_artifact(
             round_dir,
-            "work/review_materiality/figure_media.json",
+            "work/review_materiality/supervisor_feedback/figure_media.json",
             case_id="case-a",
             round_id="round-a",
         )
@@ -251,6 +255,25 @@ def test_opponent_profile_marks_report_defensibility_roles(tmp_path: Path) -> No
     assert "IS-item impact" in by_role["literature_citation"].impact
 
 
+def test_supervisor_report_profile_uses_final_phase_and_report_impacts(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        requested_roles=("literature_citation",),
+    )
+
+    assert errors == []
+    assert phase == "final"
+    by_role = {decision.role: decision for decision in decisions}
+    assert by_role["literature_citation"].material
+    assert "supervisor report field" in by_role["literature_citation"].impact
+    assert not by_role["typography_formal"].material
+
+
 def test_quantitative_claims_and_evaluation_tables_are_material_without_text_matching(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     (round_dir / "inputs").mkdir()
@@ -284,7 +307,9 @@ def test_material_quantitative_claims_create_next_action_when_handoff_missing(tm
         generated_at="2026-05-11T00:00:00Z",
     )
 
-    index = json.loads((round_dir / "work" / "review_materiality" / "index.json").read_text(encoding="utf-8"))
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json").read_text(encoding="utf-8")
+    )
     [action] = index["next_actions"]
     assert action["role"] == "quantitative_claims"
     assert action["required_artifact_path"] == "work/quantitative_claims.json"
@@ -412,7 +437,9 @@ def test_material_github_intake_next_action_resolves_with_typed_limitation(tmp_p
         generated_at="2026-05-11T00:00:00Z",
     )
 
-    index = json.loads((round_dir / "work" / "review_materiality" / "index.json").read_text(encoding="utf-8"))
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json").read_text(encoding="utf-8")
+    )
     assert index["next_actions"] == []
 
 
@@ -505,7 +532,7 @@ def test_cli_writes_and_prunes_role_files(tmp_path: Path, monkeypatch, capsys) -
         )
         == 0
     )
-    assert (round_dir / "work" / "review_materiality" / "typography_formal.json").is_file()
+    assert (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "typography_formal.json").is_file()
 
     assert (
         check_review_materiality.main(
@@ -524,4 +551,4 @@ def test_cli_writes_and_prunes_role_files(tmp_path: Path, monkeypatch, capsys) -
 
     output = capsys.readouterr().out
     assert "Review materiality check passed" in output
-    assert not (round_dir / "work" / "review_materiality" / "typography_formal.json").exists()
+    assert not (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "typography_formal.json").exists()

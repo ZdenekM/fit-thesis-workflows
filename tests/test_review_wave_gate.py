@@ -282,6 +282,19 @@ def test_builtin_profiles_keep_draft_and_post_review_gates_separate() -> None:
     opponent_reviewed = builtin_wave_spec("opponent-materials", "reviewed")
     assert opponent_reviewed.outputs[0].checks[0].args == ("check-opponent-materials",)
 
+    report_trace = builtin_wave_spec("supervisor-report", "trace")
+    assert report_trace.outputs[0].paths == ("work/supervisor_report_trace.json",)
+    assert report_trace.outputs[0].checks[0].args == ("check-supervisor-report",)
+
+    report_draft = builtin_wave_spec("supervisor-report", "draft")
+    assert report_draft.outputs[0].paths == ("work/vedouci_posudek_draft.md",)
+
+    report_final = builtin_wave_spec("supervisor-report", "final")
+    assert report_final.outputs[0].paths == ("outputs/vedouci_posudek_revidovany.md",)
+    assert report_final.outputs[0].checks[0].args == ("check-supervisor-report", "--require-reviewed")
+    assert report_final.outputs[0].approval_record is not None
+    assert report_final.outputs[0].approval_record.path == "work/reviews/supervisor_report_review.json"
+
 
 def test_wave_gate_blocks_unresolved_materiality_next_actions(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
@@ -335,4 +348,4 @@ def test_wave_gate_requires_materiality_index_for_synthesis_waves(tmp_path: Path
         round_id="round-a",
     )
 
-    assert any("work/review_materiality/index.json: missing" in error for error in result.errors)
+    assert any("work/review_materiality/supervisor_feedback/index.json: missing" in error for error in result.errors)

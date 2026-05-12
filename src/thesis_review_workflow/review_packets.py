@@ -45,9 +45,15 @@ SNAPSHOT_SOURCE_PATHS = (
     "outputs/oponent_podklady_revidovane.md",
     "work/opponent_report_trace.json",
     "work/oponent_posudek_draft.md",
+    "work/supervisor_report_feedback_history.json",
+    "work/supervisor_report_trace.json",
+    "work/vedouci_posudek_draft.md",
+    "outputs/vedouci_posudek_revidovany.md",
+    "work/supervisor_report_confirmation.json",
     "work/reviews/feedback_student_review.json",
     "work/reviews/opponent_materials_review.json",
     "work/reviews/opponent_report_review.json",
+    "work/reviews/supervisor_report_review.json",
 )
 LATE_COMMUNICATION_PATHS = (
     "notes/operator-late-communications.md",

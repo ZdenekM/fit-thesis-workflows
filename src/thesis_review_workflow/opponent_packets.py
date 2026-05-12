@@ -156,7 +156,7 @@ PACKET_ROLES = (
             "Use PDF/source-asset inspection status when making visual-content claims.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/figure_media.json",),
+        activation_paths=("work/review_materiality/opponent_review/figure_media.json",),
         activation_workflow_profile="opponent_review",
     ),
     PacketRole(
@@ -180,7 +180,7 @@ PACKET_ROLES = (
             "State source-access limitations explicitly.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/literature_citation.json",),
+        activation_paths=("work/review_materiality/opponent_review/literature_citation.json",),
         activation_workflow_profile="opponent_review",
     ),
     PacketRole(
@@ -204,7 +204,7 @@ PACKET_ROLES = (
             "Calibrate by thesis language and final-submission phase.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/typography_formal.json",),
+        activation_paths=("work/review_materiality/opponent_review/typography_formal.json",),
         activation_workflow_profile="opponent_review",
     ),
     PacketRole(
@@ -224,7 +224,7 @@ PACKET_ROLES = (
         ),
         role_inputs=(
             "work/quantitative_claims.json",
-            "work/review_materiality/index.json",
+            "work/review_materiality/opponent_review/index.json",
             "work/evidence_requirements.json",
             "work/code_reproducibility.json",
             "outputs/code_consistency.md",

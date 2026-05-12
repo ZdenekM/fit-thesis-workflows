@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__supervisor_report_packets_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/supervisor-report-packets-smoke.$$.out"
+err_file="/tmp/supervisor-report-packets-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/inputs/submitted-src" "$round_dir/extracted" "$round_dir/work"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+Deadline mode: standard
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+- Implement and evaluate a synthetic thesis-review helper.
+
+## Private Assignment Notes For Student
+
+- Synthetic private note.
+EOF
+cat >"$round_dir/notes/supervisor-report-operator-input.md" <<'EOF'
+# Supervisor Report Intake
+
+Typ prace: BP
+Datum pripravy posudku: 2026-05-12
+Reviewer profile: default
+
+## Informace k zadani
+
+Narocnost prace: stredni
+Spokojenost s dosazenymi vysledky: spokojen
+Splneni zadani: splneno
+
+## Prace s literaturou
+
+Aktivita studenta pri ziskavani materialu: primerena
+Jak student materialy vyuzival: vhodne
+Co je explicitne nezname / nehodnotit:
+
+## Aktivita behem reseni, konzultace, komunikace
+
+Aktivita a samostatnost: dobra
+Dodrzovani dohodnutych terminu: ano
+Prubezne konzultace: ano
+Pripravenost na konzultace: dobra
+Komunikace: bez problemu
+Co je explicitne nezname / nehodnotit:
+
+## Aktivita pri dokoncovani
+
+Dokonceni s predstihem: primerene
+Konzultace definitivniho obsahu: konzultovano
+Posledni faze prace: standardni
+Co je explicitne nezname / nehodnotit:
+
+## Celkove hodnoceni
+
+Navrhovana znamka: B
+Navrhovane body: 82
+
+## Publikacni cinnost, oceneni
+
+Publikace: nejsou
+Open-source zverejneni softwaru: nezverejneno
+Ohlasy: nejsou
+Oceneni: nejsou
+Pokud nic z toho neni, jak to formulovat: bez publikacni cinnosti
+
+## Komentar pro studenta
+
+Soukromy komentar viditelny studentovi v IS: dobra prace
+EOF
+printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
+printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
+
+expect_success "prepare supervisor report packets" "$repo_root/scripts/prepare-supervisor-report-packets" "$case_id"
+expect_output "Review materiality profile: supervisor_report"
+expect_output "Supervisor report packets: 4"
+
+packet_dir="$round_dir/work/supervisor_report_packets"
+test -f "$packet_dir/trace.md"
+test -f "$packet_dir/code_consistency.md"
+test -f "$packet_dir/code_quality.md"
+test -f "$packet_dir/current_evidence_snapshot.md"
+test ! -f "$packet_dir/report_review.md"
+
+grep -Fq "Schema version: \`supervisor-report-packet-v1\`" "$packet_dir/trace.md"
+grep -Fq "Expected output: \`work/supervisor_report_trace.json\`" "$packet_dir/trace.md"
+grep -Fq "Supervisor input is authoritative" "$packet_dir/trace.md"
+grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
+grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
+grep -Fq "## Materiality Next Actions" "$packet_dir/trace.md"
+
+echo "Supervisor report packets smoke passed"

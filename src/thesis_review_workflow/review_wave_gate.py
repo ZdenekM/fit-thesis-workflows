@@ -299,6 +299,52 @@ def builtin_wave_spec(workflow: str, wave: str) -> WaveSpec:
                 ),
             ),
         ),
+        (
+            "supervisor_report",
+            "trace",
+        ): WaveSpec(
+            workflow="supervisor_report",
+            wave="trace",
+            outputs=(
+                ExpectedOutput(
+                    role="supervisor_report_trace",
+                    paths=("work/supervisor_report_trace.json",),
+                    checks=(_check("check-supervisor-report"),),
+                ),
+            ),
+        ),
+        (
+            "supervisor_report",
+            "draft",
+        ): WaveSpec(
+            workflow="supervisor_report",
+            wave="draft",
+            outputs=(
+                ExpectedOutput(
+                    role="supervisor_report_draft",
+                    paths=("work/vedouci_posudek_draft.md",),
+                    checks=(_check("check-supervisor-report"),),
+                ),
+            ),
+        ),
+        (
+            "supervisor_report",
+            "final",
+        ): WaveSpec(
+            workflow="supervisor_report",
+            wave="final",
+            outputs=(
+                ExpectedOutput(
+                    role="supervisor_report_reviewed",
+                    paths=("outputs/vedouci_posudek_revidovany.md",),
+                    checks=(_check("check-supervisor-report", "--require-reviewed"),),
+                    approval_record=ApprovalRecordExpectation(
+                        "work/reviews/supervisor_report_review.json",
+                        reviewed_artifact_path="outputs/vedouci_posudek_revidovany.md",
+                    ),
+                ),
+            ),
+        ),
     }
     try:
         return specs[key]
@@ -542,6 +588,8 @@ def materiality_profile_for_wave(spec: WaveSpec) -> str | None:
     wave = spec.wave.replace("-", "_")
     if workflow == "supervisor_feedback" and wave in {"draft", "final"}:
         return "supervisor_feedback"
+    if workflow == "supervisor_report" and wave in {"trace", "draft", "final"}:
+        return "supervisor_report"
     if workflow == "opponent_materials" and wave in {"draft", "reviewed"}:
         return "opponent_review"
     return None

@@ -191,7 +191,7 @@ def test_inactive_optional_packets_are_pruned(tmp_path: Path) -> None:
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
     (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
-    materiality = round_dir / "work" / "review_materiality" / "figure_media.json"
+    materiality = round_dir / "work" / "review_materiality" / "opponent_review" / "figure_media.json"
     write_materiality(round_dir, "figure_media")
 
     generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)

@@ -402,7 +402,7 @@ Readiness levels should be explicit:
 
 ### Slice 5 - Materiality, Packets, And Review Waves
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): prepare supervisor report review waves`
 - Expected paths:
   - `src/thesis_review_workflow/review_materiality.py`
@@ -447,6 +447,7 @@ Readiness levels should be explicit:
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
+  - `pants run :omen`
 
 ### Slice 6 - Review, Manifest, Coverage, Confirmation, And Closeout
 
@@ -694,6 +695,19 @@ full historical feedback when those artifacts are already on disk.
   found no command-surface issues; semantic review found private-comment leak
   and visible metadata risks plus title/confirmation edge cases, all fixed
   before commit.
+- 2026-05-12: Implemented Slice 5 packet and wave preparation:
+  `prepare-supervisor-report-packets` creates compact role packets under
+  `work/supervisor_report_packets/`, reusing shared `PacketRole`, materiality,
+  current-evidence, quantitative-handoff, late-communication, generated-role
+  pruning, and Omen advisory sections. `supervisor_report` now has profile
+  scoped materiality under `work/review_materiality/supervisor_report/`, so it
+  does not clobber supervisor-feedback or opponent-review materiality. Review
+  wave gates cover trace, draft, and final report; the final wave requires the
+  independent `work/reviews/supervisor_report_review.json` approval record, not
+  only reviewed Markdown shape. Agent review found and prompted fixes for final
+  approval gating, optional prior-feedback labeling, and profile-scoped
+  materiality. Omen passed as developer hygiene with grade A / overall score
+  90.88 and existing shared-module hotspot warnings.
 
 ## Decision Log
 

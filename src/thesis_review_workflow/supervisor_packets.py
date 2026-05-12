@@ -155,7 +155,7 @@ PACKET_ROLES = (
             "Convert visual issues into the smallest useful student action.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/figure_media.json",),
+        activation_paths=("work/review_materiality/supervisor_feedback/figure_media.json",),
         activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
@@ -179,7 +179,7 @@ PACKET_ROLES = (
             "Keep citation feedback actionable and phase-appropriate.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/literature_citation.json",),
+        activation_paths=("work/review_materiality/supervisor_feedback/literature_citation.json",),
         activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
@@ -203,7 +203,7 @@ PACKET_ROLES = (
             "Prioritize issues that can still affect submission quality or opponent perception.",
         ),
         activation="existing_artifact",
-        activation_paths=("work/review_materiality/typography_formal.json",),
+        activation_paths=("work/review_materiality/supervisor_feedback/typography_formal.json",),
         activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
@@ -223,7 +223,7 @@ PACKET_ROLES = (
         ),
         role_inputs=(
             "work/quantitative_claims.json",
-            "work/review_materiality/index.json",
+            "work/review_materiality/supervisor_feedback/index.json",
             "work/code_reproducibility.json",
             "outputs/code_consistency.md",
             "outputs/figure_media_review.md",

@@ -244,7 +244,13 @@ payload = {
 (round_dir / trace_rel).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 
+expect_success "supervisor report materiality" \
+  "$repo_root/scripts/check-review-materiality" --workflow supervisor_report --phase final "$case_id" "$round_id"
+expect_success "supervisor report trace wave" \
+  "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave trace "$case_id" "$round_id"
 expect_success "draft supervisor report" "$repo_root/scripts/draft-supervisor-report" "$case_id" "$round_id"
+expect_success "supervisor report draft wave" \
+  "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave draft "$case_id" "$round_id"
 
 python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
 import json
@@ -346,6 +352,8 @@ expect_success "write supervisor report approval" \
   --check check-supervisor-report-ready \
   --check check-supervisor-report \
   "$case_id" "$round_id"
+expect_success "supervisor report final wave after approval" \
+  "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave final "$case_id" "$round_id"
 expect_success "refresh manifest after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
 mark_manifest_checks_passed
 expect_success "apply approval after helper checks" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"

@@ -184,7 +184,7 @@ def test_supervisor_code_reproducibility_artifact_alone_does_not_activate_code_p
 
 def test_supervisor_inactive_optional_packets_are_pruned(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
-    materiality = round_dir / "work" / "review_materiality" / "figure_media.json"
+    materiality = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json"
     write_materiality(round_dir, "figure_media")
 
     generate_packets(
