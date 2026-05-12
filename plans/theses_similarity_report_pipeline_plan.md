@@ -211,7 +211,7 @@ Repeated-submission handling:
 
 ### Slice 2 - Explicit Report Import Command
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): import theses similarity reports`
 - Expected paths:
   - `scripts/import-theses-report`
@@ -402,6 +402,22 @@ Repeated-submission handling:
   `theses-similarity-assessment-v1` validation, privacy guard coverage, and
   synthetic tests; reviewer findings tightened hash-bound judgment refs,
   passage anchors, materiality invariants, and numeric marker parsing.
+- 2026-05-12: Slice 2 started. Implementing the explicit import command,
+  workflow-tool packaging surface, and synthetic smoke coverage.
+- 2026-05-12: Slice 2 implemented and reviewed with two agents. Added
+  `import-theses-report`, PEX/launcher packaging, synthetic import smoke, and
+  tests for non-ASCII source filenames, explicit round selection,
+  case-insensitive collisions, symlink path escape refusal, sanitized `pdfinfo`
+  limitations, duplicate imports, and cleanup after extraction/publish failures.
+  Reviewer findings fixed symlink escape protection, publish cleanup,
+  sanitized `pdfinfo` limitation text, and parent-component case-fold collision
+  detection. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_import_theses_report.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-import-theses-report`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

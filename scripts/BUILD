@@ -37,6 +37,7 @@ shell_sources(
         "extract-pdf-text",
         "import-github-code",
         "import-round",
+        "import-theses-report",
         "init-review-manifest",
         "new-case",
         "opponent-closeout",
@@ -61,6 +62,7 @@ shell_sources(
         "smoke-figure-media-review",
         "smoke-github-code-intake",
         "smoke-internal-evidence-validators",
+        "smoke-import-theses-report",
         "smoke-opponent-calibration-case",
         "smoke-opponent-calibration-profile",
         "smoke-opponent-closeout",
@@ -133,6 +135,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:extract_pdf_text",
     "src/thesis_review_workflow/cli:import_github_code",
     "src/thesis_review_workflow/cli:import_round",
+    "src/thesis_review_workflow/cli:import_theses_report",
     "src/thesis_review_workflow/cli:init_review_manifest",
     "src/thesis_review_workflow/cli:new_case",
     "src/thesis_review_workflow/cli:opponent_closeout",
@@ -505,6 +508,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/import-round",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="import_theses_report_tool",
+    entry_point="thesis_review_workflow.cli.import_theses_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/import-theses-report",
     tags=["workflow-tool"],
 )
 

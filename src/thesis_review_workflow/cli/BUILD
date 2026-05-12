@@ -38,6 +38,7 @@ python_source(name="draft_supervisor_report", source="draft_supervisor_report.py
 python_source(name="extract_pdf_text", source="extract_pdf_text.py")
 python_source(name="import_github_code", source="import_github_code.py")
 python_source(name="import_round", source="import_round.py")
+python_source(name="import_theses_report", source="import_theses_report.py")
 python_source(name="init_review_manifest", source="init_review_manifest.py")
 python_source(name="internal_evidence_validator_cli", source="internal_evidence_validator_cli.py")
 python_source(name="new_case", source="new_case.py")

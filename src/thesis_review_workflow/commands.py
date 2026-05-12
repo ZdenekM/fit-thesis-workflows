@@ -48,6 +48,7 @@ WORKFLOW_COMMAND_MODULES = {
     "extract-pdf-text": "thesis_review_workflow.cli.extract_pdf_text",
     "import-github-code": "thesis_review_workflow.cli.import_github_code",
     "import-round": "thesis_review_workflow.cli.import_round",
+    "import-theses-report": "thesis_review_workflow.cli.import_theses_report",
     "init-review-manifest": "thesis_review_workflow.cli.init_review_manifest",
     "new-case": "thesis_review_workflow.cli.new_case",
     "opponent-closeout": "thesis_review_workflow.cli.opponent_closeout",
