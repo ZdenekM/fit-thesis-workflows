@@ -22,6 +22,11 @@ run repeatedly while working on a case. Each tool must have:
   `dist/workflow-tools/bin/<tool>.ps1`;
 - focused pytest or smoke coverage for the command contract.
 
+Supervisor-report commands follow the same operator-tool contract. In
+particular, `check-supervisor-report-ready` and `check-supervisor-report` must
+be available through the logical `scripts/<tool>` name in development checkouts
+and through generated `.cmd`/`.ps1` launchers after packaging.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a

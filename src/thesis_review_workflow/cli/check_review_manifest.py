@@ -199,6 +199,11 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
             targets.add("work/oponent_posudek_draft.md")
         return targets
+    if name == "check-supervisor-report":
+        targets = {"work/supervisor_report_trace.json", "outputs/vedouci_posudek_revidovany.md"}
+        if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():
+            targets.add("work/vedouci_posudek_draft.md")
+        return targets
     if name == "check-opponent-calibration-profile":
         return set(calibration_profile_check_targets(round_dir))
     return set()
@@ -305,6 +310,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
     required = {"check-review-manifest"}
     if "outputs/feedback_student.md" in paths:
         required.update({"check-supervisor-ready", "check-feedback-language", "check-feedback-output"})
+    if "outputs/vedouci_posudek_revidovany.md" in paths:
+        required.update({"check-supervisor-report-ready", "check-supervisor-report"})
     if "outputs/oponent_podklady_revidovane.md" in paths:
         required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report"})
     if "outputs/figure_media_review.md" in paths:
@@ -728,7 +735,11 @@ def check_manifest(
     )
     check_agent_coverage_gate(root, case_id, round_id, round_dir, manifest, require_complete, errors)
 
-    final_outputs = {"outputs/feedback_student.md", "outputs/oponent_podklady_revidovane.md"}
+    final_outputs = {
+        "outputs/feedback_student.md",
+        "outputs/vedouci_posudek_revidovany.md",
+        "outputs/oponent_podklady_revidovane.md",
+    }
     if inferred_code_evidence_present(round_dir, manifest) and artifact_paths & final_outputs:
         missing = {
             "outputs/code_consistency.md",

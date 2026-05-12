@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__supervisor_report_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/supervisor-report-smoke.$$.out"
+err_file="/tmp/supervisor-report-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mark_manifest_checks_passed() {
+  local manifest="$round_dir/work/review_manifest.json"
+  python3 - "$manifest" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+manifest = json.loads(path.read_text(encoding="utf-8"))
+for artifact in manifest.get("artifacts", []):
+    if artifact.get("path") == "outputs/vedouci_posudek_revidovany.md":
+        artifact["generated_by"] = [
+            {
+                "role": "thesis-supervisor-report",
+                "agent": "supervisor-report-smoke-generator",
+                "contribution": "generation",
+                "notes": "Synthetic smoke generated supervisor report.",
+            }
+        ]
+for check in manifest.get("helper_checks", []):
+    if check.get("check") == "check-review-manifest":
+        check["status"] = "not_applicable"
+        check["exit_code"] = None
+        check["checked_at"] = ""
+    else:
+        check["status"] = "passed"
+        check["exit_code"] = 0
+        check["checked_at"] = "2026-05-12T00:02:00Z"
+path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/inputs" "$round_dir/extracted" "$round_dir/work" "$round_dir/outputs"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+cat >"$round_dir/notes/supervisor-report-operator-input.md" <<'EOF'
+# Supervisor Report Intake
+
+Typ prace: BP
+Datum pripravy posudku: 2026-05-12
+Reviewer profile: default
+
+## Informace k zadani
+
+Narocnost prace: stredni
+Navaznost na predchozi nebo bezici projekty: nenavazuje
+Spokojenost s dosazenymi vysledky: spokojen
+Splneni zadani: splneno
+Nesplnene casti zadani a zavaznost:
+Duvody pripadnych nedostatku:
+
+## Prace s literaturou
+
+Aktivita studenta pri ziskavani materialu: primerena
+Jak student materialy vyuzival: vhodne pro reseni
+Co je explicitne nezname / nehodnotit:
+
+## Aktivita behem reseni, konzultace, komunikace
+
+Aktivita a samostatnost: dobra
+Dodrzovani dohodnutych terminu: vetsinou ano
+Prubezne konzultace: prubezne
+Pripravenost na konzultace: dobra
+Komunikace: bez problemu
+Reakce na prubezne pripominky: reagoval
+Co je explicitne nezname / nehodnotit:
+
+## Aktivita pri dokoncovani
+
+Dokonceni s predstihem: primerene
+Konzultace definitivniho obsahu: konzultovano
+Posledni faze prace: standardni finalni ladeni
+Co je explicitne nezname / nehodnotit:
+
+## Publikacni cinnost, oceneni
+
+Publikace: nejsou
+Open-source zverejneni softwaru: nezverejneno
+Ohlasy: nejsou
+Oceneni: nejsou
+Pokud nic z toho neni, jak to formulovat: bez publikacni cinnosti
+
+## Celkove hodnoceni
+
+Navrhovana znamka: B
+Navrhovane body: 82
+Hlavni duvod znamky: splnene zadani s dobrym vysledkem
+Co ma byt ve slovnim hodnoceni zdurazneno: funkcni vysledek
+Hlavni rezervy: mensi formalni rezervy
+
+## Komentar pro studenta
+
+Soukromy komentar viditelny studentovi v IS: dobra prace
+Motivace / rada do budoucna: pokracovat v tematu
+
+## Vztah k predchozi zpetne vazbe
+
+Existuje predchozi studentsky feedback: ne
+Na co student prokazatelne reagoval:
+Co zustalo neresene:
+Co je neprukazne a nema se pouzit jako evidence aktivity: zadny predchozi feedback
+EOF
+
+expect_success "report readiness" "$repo_root/scripts/check-supervisor-report-ready" "$case_id" "$round_id"
+
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+input_rel = "notes/supervisor-report-operator-input.md"
+trace_rel = "work/supervisor_report_trace.json"
+reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
+draft_rel = "work/vedouci_posudek_draft.md"
+input_hash = sha(round_dir / input_rel)
+common = {
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-12T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-supervisor-report",
+    "producer_agent": "supervisor-report-smoke",
+    "authorization_note": "Synthetic smoke authorized.",
+    "source_refs": [input_rel],
+    "limitations": [],
+}
+fields = [
+    ("assignment_information", "Informace k zadání", "Zadání bylo středně náročné a bylo splněno.", "official"),
+    ("literature_work", "Práce s literaturou", "Student s literaturou pracoval přiměřeně.", "official"),
+    (
+        "activity_during_solution",
+        "Aktivita během řešení, konzultace, komunikace",
+        "Student pracoval samostatně a konzultoval průběžně.",
+        "official",
+    ),
+    ("completion_activity", "Aktivita při dokončování", "Definitivní obsah byl konzultován.", "official"),
+    ("publication_activity", "Publikační činnost, ocenění", "Práce nevedla k publikaci ani ocenění.", "official"),
+    ("overall_assessment", "Celkové hodnocení", "Práci hodnotím známkou B a 82 body.", "official"),
+    ("student_comment", "Komentář pro studenta", "Děkuji za dobrou práci.", "private_student_comment"),
+]
+payload = {
+    **common,
+    "schema_version": "supervisor-report-trace-v1",
+    "supervisor_input_path": input_rel,
+    "supervisor_input_sha256": input_hash,
+    "prior_feedback_status": "absent",
+    "report_fields": [
+        {
+            "field_id": field_id,
+            "title": title,
+            "formulation": formulation,
+            "visibility": visibility,
+            "evidence_refs": [input_rel],
+            "supervisor_input_refs": [input_rel],
+            "prior_feedback_refs": [],
+            "report_refs": [draft_rel],
+        }
+        for field_id, title, formulation, visibility in fields
+    ],
+    "grading": {
+        "grade": "B",
+        "points": 82,
+        "points_interval": None,
+        "rationale": "Supervisor calibrated smoke case.",
+        "supervisor_input_refs": [input_rel],
+    },
+    "uncertainty_items": [],
+    "manual_checks": [],
+}
+(round_dir / trace_rel).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+trace_hash = sha(round_dir / trace_rel)
+draft = f"""<!-- source_trace_path: {trace_rel} -->
+<!-- source_trace_sha256: {trace_hash} -->
+<!-- supervisor_input_path: {input_rel} -->
+<!-- supervisor_input_sha256: {input_hash} -->
+# Návrh posudku vedoucího
+
+## Informace k zadání
+
+Zadání bylo středně náročné a bylo splněno.
+
+## Práce s literaturou
+
+Student s literaturou pracoval přiměřeně.
+
+## Aktivita během řešení, konzultace, komunikace
+
+Student pracoval samostatně a konzultoval průběžně.
+
+## Aktivita při dokončování
+
+Definitivní obsah byl konzultován.
+
+## Publikační činnost, ocenění
+
+Práce nevedla k publikaci ani ocenění.
+
+## Celkové hodnocení
+
+Práci hodnotím známkou B a 82 body.
+
+Známka: B
+Body: 82
+
+## Komentář pro studenta
+
+Děkuji za dobrou práci.
+"""
+(round_dir / draft_rel).write_text(draft, encoding="utf-8")
+(round_dir / reviewed_rel).write_text(draft.replace("# Návrh posudku vedoucího", "# Posudek vedoucího"), encoding="utf-8")
+confirmation = {
+    **common,
+    "schema_version": "supervisor-report-confirmation-v1",
+    "source_refs": [reviewed_rel],
+    "reviewed_report_path": reviewed_rel,
+    "reviewed_report_sha256": sha(round_dir / reviewed_rel),
+    "grade": "B",
+    "points": 82,
+    "official_text_confirmed": True,
+    "student_comment_confirmed": True,
+    "ready_for_is": True,
+    "confirmed_by": "supervisor",
+    "confirmed_at": "2026-05-12T00:01:00Z",
+}
+(round_dir / "work/supervisor_report_confirmation.json").write_text(
+    json.dumps(confirmation, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
+
+expect_success "trace and draft check" "$repo_root/scripts/check-supervisor-report" "$case_id" "$round_id"
+expect_success "reviewed and confirmation check" \
+  "$repo_root/scripts/check-supervisor-report" --require-reviewed --require-confirmation "$case_id" "$round_id"
+
+expect_success "init manifest before approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+mark_manifest_checks_passed
+expect_success "write supervisor report approval" \
+  "$repo_root/scripts/write-review-approval" \
+  --profile supervisor-report \
+  --reviewer-agent supervisor-report-reviewer \
+  --check check-supervisor-report-ready \
+  --check check-supervisor-report \
+  "$case_id" "$round_id"
+expect_success "refresh manifest after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+mark_manifest_checks_passed
+expect_success "apply approval after helper checks" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+mark_manifest_checks_passed
+expect_success "refresh coverage after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+mark_manifest_checks_passed
+expect_success "agent coverage after approval" "$repo_root/scripts/check-agent-coverage" "$case_id" "$round_id"
+expect_success "review manifest after approval" \
+  "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" "$round_id"
+
+python3 - "$round_dir/notes/supervisor-report-operator-input.md" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace("Aktivita a samostatnost: dobra", "Aktivita a samostatnost:")
+text = text.replace("Dodrzovani dohodnutych terminu: vetsinou ano", "Dodrzovani dohodnutych terminu:")
+text = text.replace("Prubezne konzultace: prubezne", "Prubezne konzultace:")
+text = text.replace("Pripravenost na konzultace: dobra", "Pripravenost na konzultace:")
+text = text.replace("Komunikace: bez problemu", "Komunikace:")
+path.write_text(text, encoding="utf-8")
+PY
+expect_failure "missing activity input fails readiness" "$repo_root/scripts/check-supervisor-report-ready" "$case_id" "$round_id"
+expect_output "Aktivita behem reseni"
+
+echo "Supervisor report smoke passed"

@@ -25,6 +25,8 @@ shell_sources(
         "check-revision-diff",
         "check-round-ready",
         "check-scripts",
+        "check-supervisor-report",
+        "check-supervisor-report-ready",
         "check-supervisor-ready",
         "check-tooling",
         "check-typography-formal",
@@ -70,6 +72,7 @@ shell_sources(
         "smoke-review-manifest",
         "smoke-review-wave",
         "smoke-reviewer-profile",
+        "smoke-supervisor-report",
         "smoke-tooling",
         "smoke-typography-formal",
         "supervisor-deadline",
@@ -111,6 +114,8 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_revision_diff",
     "src/thesis_review_workflow/cli:check_round_ready",
     "src/thesis_review_workflow/cli:check_scripts",
+    "src/thesis_review_workflow/cli:check_supervisor_report",
+    "src/thesis_review_workflow/cli:check_supervisor_report_ready",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
@@ -368,6 +373,26 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-scripts",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_supervisor_report_tool",
+    entry_point="thesis_review_workflow.cli.check_supervisor_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_supervisor_report_ready_tool",
+    entry_point="thesis_review_workflow.cli.check_supervisor_report_ready:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-supervisor-report-ready",
     tags=["workflow-tool"],
 )
 

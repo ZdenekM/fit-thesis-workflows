@@ -34,6 +34,15 @@ OUTPUT_ARTIFACTS: dict[str, OutputArtifactSpec] = {
         final_output=True,
         review_basis_candidates=("work/feedback_student_draft.md",),
     ),
+    "vedouci_posudek_revidovany.md": OutputArtifactSpec(
+        filename="vedouci_posudek_revidovany.md",
+        artifact_type="supervisor_report_reviewed",
+        skills=("thesis-supervisor-report", "thesis-supervisor-report-review"),
+        review_scope="sendable_final",
+        label="reviewed supervisor report",
+        final_output=True,
+        review_basis_candidates=("work/vedouci_posudek_draft.md",),
+    ),
     "revision_diff.md": OutputArtifactSpec(
         filename="revision_diff.md",
         artifact_type="revision_diff",

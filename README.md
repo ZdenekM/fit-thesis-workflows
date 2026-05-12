@@ -611,9 +611,8 @@ Kategorie příkazů a hranice Windows důkazů jsou rozepsané v
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
 zadání a přidá deadline kalibraci. Formální posudek vedoucího má vlastní
 navazující bránu `check-supervisor-report-ready`, která vyžaduje i reportový
-vstup vedoucího; deterministic command surface pro ni patří k implementačnímu
-slici supervisor-report workflow. `check-round-ready` je obecnější brána pro
-oponentní a interní materiály bez supervisor deadline kalibrace.
+vstup vedoucího. `check-round-ready` je obecnější brána pro oponentní a interní
+materiály bez supervisor deadline kalibrace.
 
 Pro odložené nebo srpnové obhajoby uveďte přesné datum do `case.md`:
 

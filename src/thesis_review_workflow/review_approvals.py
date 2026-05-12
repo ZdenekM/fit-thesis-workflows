@@ -39,6 +39,15 @@ APPROVAL_PROFILES = {
         reviewer_role="thesis-supervisor-feedback-review",
         required_checks=("check-supervisor-ready", "check-feedback-language", "check-feedback-output"),
     ),
+    "supervisor-report": ReviewApprovalProfile(
+        profile="supervisor-report",
+        workflow_profile="supervisor_report",
+        approval_path="work/reviews/supervisor_report_review.json",
+        reviewed_artifact_path="outputs/vedouci_posudek_revidovany.md",
+        review_basis_candidates=("work/vedouci_posudek_draft.md",),
+        reviewer_role="thesis-supervisor-report-review",
+        required_checks=("check-supervisor-report-ready", "check-supervisor-report"),
+    ),
     "opponent-materials": ReviewApprovalProfile(
         profile="opponent-materials",
         workflow_profile="opponent_review",

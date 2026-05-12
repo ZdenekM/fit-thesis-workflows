@@ -385,6 +385,17 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             coverage_kind="review",
         )
 
+    if "outputs/vedouci_posudek_revidovany.md" in paths:
+        specs["supervisor_report_review"] = RoleSpec(
+            "supervisor_report_review",
+            "reviewed supervisor report is present",
+            "thesis-supervisor-report-review",
+            "outputs/vedouci_posudek_revidovany.md",
+            ("outputs/vedouci_posudek_revidovany.md",),
+            requires_review=True,
+            coverage_kind="review",
+        )
+
     if final_paths and code_evidence_present(round_dir, manifest):
         specs["code_consistency"] = RoleSpec(
             "code_consistency",

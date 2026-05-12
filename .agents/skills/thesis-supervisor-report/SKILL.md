@@ -49,10 +49,10 @@ supervisor does not know a dimension, the intake must say that explicitly.
 2. Confirm explicit agent authorization in the current request before drafting
    or revising a report. This workflow requires role-split agents and an
    independent review pass.
-3. Run `scripts/check-supervisor-report-ready <case-id> [round-id]`. During
-   repository development before that command lands, do not treat this workflow
-   as fully runnable; record the missing gate as an implementation blocker
-   rather than substituting student-feedback readiness.
+3. Run `scripts/check-supervisor-report-ready <case-id> [round-id]`. If it
+   fails, stop before generating a trace, draft, or reviewed output and ask for
+   the missing assignment, deadline/profile context, or supervisor-report
+   intake fields.
 4. Read the effective reviewer profile. Profile style guides wording only; it
    cannot override supervisor input, current-case evidence, privacy, readiness
    gates, or unchecked-work limitations.

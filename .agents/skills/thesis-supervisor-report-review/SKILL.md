@@ -72,8 +72,7 @@ Write the reviewed report to `outputs/vedouci_posudek_revidovany.md`. After
 review, write or update `work/reviews/supervisor_report_review.json` through
 `scripts/write-review-approval --profile supervisor-report`. The approval must
 bind the reviewed output and `work/vedouci_posudek_draft.md` by hash and record
-reviewer role, checks, limitations, and timestamp. Until that approval profile
-exists, the workflow is not fully closeable.
+reviewer role, checks, limitations, and timestamp.
 
 Material edits after review reopen draft state. The supervisor still must
 confirm grade, points, official text, and private student comment in
@@ -106,22 +105,22 @@ Write `outputs/vedouci_posudek_revidovany.md`:
 ```markdown
 # Posudek vedouciho
 
-## Informace k zadani
+## Informace k zadání
 
-## Prace s literaturou
+## Práce s literaturou
 
-## Aktivita behem reseni, konzultace, komunikace
+## Aktivita během řešení, konzultace, komunikace
 
-## Aktivita pri dokoncovani
+## Aktivita při dokončování
 
-## Publikacni cinnost, oceneni
+## Publikační činnost, ocenění
 
-## Celkove hodnoceni
+## Celkové hodnocení
 
-Znamka:
+Známka:
 Body:
 
-## Komentar pro studenta
+## Komentář pro studenta
 ```
 
 Verdict categories for review notes:

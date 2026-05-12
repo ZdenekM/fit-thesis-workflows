@@ -311,6 +311,16 @@ def required_checks(
             f"check-feedback-output {case_id} {round_id}",
             ["outputs/feedback_student.md"],
         )
+    if "outputs/vedouci_posudek_revidovany.md" in artifact_paths:
+        targets = ["work/supervisor_report_trace.json", "outputs/vedouci_posudek_revidovany.md"]
+        if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():
+            targets.append("work/vedouci_posudek_draft.md")
+        add(
+            "check-supervisor-report-ready",
+            f"check-supervisor-report-ready {case_id} {round_id}",
+            ["outputs/vedouci_posudek_revidovany.md"],
+        )
+        add("check-supervisor-report", f"check-supervisor-report {case_id} {round_id}", targets)
     if "outputs/oponent_podklady_revidovane.md" in artifact_paths:
         add(
             "check-round-ready",

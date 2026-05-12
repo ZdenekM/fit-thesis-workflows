@@ -7,6 +7,9 @@ from thesis_review_workflow.structured_evidence import (
     CURRENT_EVIDENCE_SNAPSHOT_REL,
     OPPONENT_REPORT_TRACE_REL,
     REQUIRED_OPPONENT_IS_ITEM_IDS,
+    SUPERVISOR_REPORT_CONFIRMATION_REL,
+    SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL,
+    SUPERVISOR_REPORT_TRACE_REL,
     build_current_evidence_snapshot_payload,
     current_evidence_default_source_refs,
     validate_structured_evidence_artifact,
@@ -24,7 +27,10 @@ def create_round_refs(round_dir: Path) -> None:
         "extracted/thesis.txt",
         "inputs/results.csv",
         "outputs/oponent_podklady_revidovane.md",
+        "outputs/vedouci_posudek_revidovany.md",
         "work/oponent_posudek_draft.md",
+        "work/vedouci_posudek_draft.md",
+        "notes/supervisor-report-operator-input.md",
     ):
         path = round_dir / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -535,6 +541,209 @@ def trace_payload(source_hash: str) -> dict[str, object]:
         ],
         "limitations": [],
     }
+
+
+def supervisor_feedback_history_payload(round_dir: Path, status: str = "evidenced_response") -> dict[str, object]:
+    feedback = write_text(round_dir, "outputs/feedback_student.md", "# Feedback\n")
+    revision = write_text(round_dir, "outputs/revision_diff.md", "# Revision\n")
+    return {
+        **common_fields("supervisor-report-feedback-history-v1"),
+        "source_refs": ["outputs/feedback_student.md", "outputs/revision_diff.md"],
+        "feedback_status": status,
+        "summary": "Student reacted to prior feedback in a later revision.",
+        "feedback_round_refs": ["outputs/feedback_student.md"],
+        "revision_evidence_refs": ["outputs/revision_diff.md"],
+        "source_ref_hashes": {
+            "outputs/feedback_student.md": sha256_file(feedback),
+            "outputs/revision_diff.md": sha256_file(revision),
+        },
+        "evidence_items": [
+            {
+                "item_id": "response-1",
+                "status": status,
+                "summary": "Synthetic response evidence.",
+                "feedback_refs": ["outputs/feedback_student.md"],
+                "revision_evidence_refs": ["outputs/revision_diff.md"],
+                "limitations": [],
+            }
+        ],
+    }
+
+
+def supervisor_trace_payload(round_dir: Path, *, include_feedback: bool = True) -> dict[str, object]:
+    input_path = round_dir / "notes/supervisor-report-operator-input.md"
+    fields = [
+        ("assignment_information", "Informace k zadání", "Zadání bylo splněno.", "official"),
+        ("literature_work", "Práce s literaturou", "Student pracoval s literaturou.", "official"),
+        (
+            "activity_during_solution",
+            "Aktivita během řešení, konzultace, komunikace",
+            "Student konzultoval průběžně.",
+            "official",
+        ),
+        ("completion_activity", "Aktivita při dokončování", "Obsah byl konzultován.", "official"),
+        ("publication_activity", "Publikační činnost, ocenění", "Publikace nejsou.", "official"),
+        ("overall_assessment", "Celkové hodnocení", "Doporučuji hodnocení B.", "official"),
+        ("student_comment", "Komentář pro studenta", "Děkuji za práci.", "private_student_comment"),
+    ]
+    payload: dict[str, object] = {
+        **common_fields("supervisor-report-trace-v1"),
+        "source_refs": ["notes/supervisor-report-operator-input.md"],
+        "supervisor_input_path": "notes/supervisor-report-operator-input.md",
+        "supervisor_input_sha256": sha256_file(input_path),
+        "prior_feedback_status": "evidenced_response" if include_feedback else "absent",
+        "report_fields": [
+            {
+                "field_id": field_id,
+                "title": title,
+                "formulation": formulation,
+                "visibility": visibility,
+                "evidence_refs": ["notes/supervisor-report-operator-input.md"],
+                "supervisor_input_refs": ["notes/supervisor-report-operator-input.md"],
+                "prior_feedback_refs": [SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL] if include_feedback else [],
+                "report_refs": ["work/vedouci_posudek_draft.md"],
+            }
+            for field_id, title, formulation, visibility in fields
+        ],
+        "grading": {
+            "grade": "B",
+            "points": 82,
+            "points_interval": None,
+            "rationale": "Supervisor input supports B.",
+            "supervisor_input_refs": ["notes/supervisor-report-operator-input.md"],
+        },
+        "uncertainty_items": [],
+        "manual_checks": [],
+    }
+    if include_feedback:
+        history = round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL
+        payload["feedback_history_path"] = SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL
+        payload["feedback_history_sha256"] = sha256_file(history)
+    return payload
+
+
+def test_validate_supervisor_report_feedback_history_requires_hashes_for_evidenced_status(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = supervisor_feedback_history_payload(round_dir)
+    payload["source_ref_hashes"] = {}
+    write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("missing 64-character hash for outputs/feedback_student.md" in error for error in errors)
+
+
+def test_validate_supervisor_report_feedback_history_hashes_evidenced_item_status(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = supervisor_feedback_history_payload(round_dir, status="present")
+    items = payload["evidence_items"]
+    assert isinstance(items, list)
+    items[0]["status"] = "evidenced_partial_response"
+    payload.pop("source_ref_hashes")
+    write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL)
+
+    assert any("source_ref_hashes must be object" in error for error in errors)
+
+
+def test_validate_supervisor_report_feedback_history_accepts_absent_status(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = {
+        **common_fields("supervisor-report-feedback-history-v1"),
+        "feedback_status": "absent",
+        "summary": "No prior feedback exists.",
+        "feedback_round_refs": [],
+        "revision_evidence_refs": [],
+        "evidence_items": [],
+    }
+    write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_supervisor_report_trace_accepts_complete_payload(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, supervisor_feedback_history_payload(round_dir))
+    write_json(round_dir / SUPERVISOR_REPORT_TRACE_REL, supervisor_trace_payload(round_dir))
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        SUPERVISOR_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_supervisor_report_trace_requires_all_fields_and_private_visibility(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = supervisor_trace_payload(round_dir, include_feedback=False)
+    fields = payload["report_fields"]
+    assert isinstance(fields, list)
+    fields = fields[:-1]
+    fields[0]["visibility"] = "private_student_comment"
+    payload["report_fields"] = fields
+    write_json(round_dir / SUPERVISOR_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, SUPERVISOR_REPORT_TRACE_REL)
+
+    assert any("missing required report_fields: student_comment" in error for error in errors)
+    assert any("only student_comment may have private_student_comment visibility" in error for error in errors)
+
+
+def test_validate_supervisor_report_trace_requires_history_binding_for_evidenced_feedback(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = supervisor_trace_payload(round_dir, include_feedback=False)
+    payload["prior_feedback_status"] = "evidenced_response"
+    write_json(round_dir / SUPERVISOR_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, SUPERVISOR_REPORT_TRACE_REL)
+
+    assert any("feedback_history_path and feedback_history_sha256 are required" in error for error in errors)
+    assert any("requires at least one report field prior_feedback_refs" in error for error in errors)
+
+
+def test_validate_supervisor_report_confirmation_rejects_stale_reviewed_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    payload = {
+        **common_fields("supervisor-report-confirmation-v1"),
+        "source_refs": ["outputs/vedouci_posudek_revidovany.md"],
+        "reviewed_report_path": "outputs/vedouci_posudek_revidovany.md",
+        "reviewed_report_sha256": "0" * 64,
+        "grade": "B",
+        "points": 82,
+        "official_text_confirmed": True,
+        "student_comment_confirmed": True,
+        "ready_for_is": True,
+        "confirmed_by": "supervisor",
+        "confirmed_at": "2026-05-12T00:00:00Z",
+    }
+    write_json(round_dir / SUPERVISOR_REPORT_CONFIRMATION_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, SUPERVISOR_REPORT_CONFIRMATION_REL)
+
+    assert any("reviewed_report_sha256 is stale" in error for error in errors)
 
 
 def trace_calibration_context(round_dir: Path) -> dict[str, object]:

@@ -14,6 +14,9 @@ ASSIGNMENT_COVERAGE_REL = "work/assignment_coverage_agent.json"
 EVIDENCE_REQUIREMENTS_REL = "work/evidence_requirements.json"
 QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
 OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
+SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL = "work/supervisor_report_feedback_history.json"
+SUPERVISOR_REPORT_TRACE_REL = "work/supervisor_report_trace.json"
+SUPERVISOR_REPORT_CONFIRMATION_REL = "work/supervisor_report_confirmation.json"
 CURRENT_EVIDENCE_SNAPSHOT_REL = "work/current_evidence_snapshot.json"
 OPPONENT_CALIBRATION_USE_REL = "work/opponent_calibration_use.json"
 OPPONENT_CALIBRATION_ADVISORY_REL = "work/opponent_calibration_advisory.json"
@@ -26,6 +29,9 @@ STRUCTURED_EVIDENCE_SCHEMAS: dict[str, str] = {
     EVIDENCE_REQUIREMENTS_REL: "evidence-requirements-v1",
     QUANTITATIVE_CLAIMS_REL: "quantitative-claims-v1",
     OPPONENT_REPORT_TRACE_REL: "opponent-report-trace-v1",
+    SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL: "supervisor-report-feedback-history-v1",
+    SUPERVISOR_REPORT_TRACE_REL: "supervisor-report-trace-v1",
+    SUPERVISOR_REPORT_CONFIRMATION_REL: "supervisor-report-confirmation-v1",
     CURRENT_EVIDENCE_SNAPSHOT_REL: "current-evidence-snapshot-v1",
 }
 
@@ -52,6 +58,32 @@ OVERCLAIM_RISK_STATUSES = {"low", "moderate", "high", "not_applicable", "not_ver
 OPPONENT_TRACE_REVIEW_STATUSES = {"accepted"}
 OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
+SUPERVISOR_FEEDBACK_HISTORY_STATUSES = {
+    "absent",
+    "present",
+    "evidenced_response",
+    "evidenced_partial_response",
+    "evidenced_nonresponse",
+    "no_comparable_revision",
+    "inconclusive",
+}
+SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES = {
+    "evidenced_response",
+    "evidenced_partial_response",
+    "evidenced_nonresponse",
+}
+REQUIRED_SUPERVISOR_REPORT_FIELD_IDS = {
+    "assignment_information",
+    "literature_work",
+    "activity_during_solution",
+    "completion_activity",
+    "publication_activity",
+    "overall_assessment",
+    "student_comment",
+}
+SUPERVISOR_REPORT_FIELD_VISIBILITIES = {"official", "private_student_comment"}
+SUPERVISOR_REPORT_GRADES = {"A", "B", "C", "D", "E", "F", "undecided"}
+SUPERVISOR_REPORT_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
 CURRENT_EVIDENCE_ITEM_STATUSES = {"present", "missing", "invalid", "unavailable", "not_applicable"}
 CURRENT_EVIDENCE_FRESHNESS_STATUSES = {"current", "stale", "not_checked", "not_applicable"}
 CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
@@ -69,6 +101,11 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "work/oponent_podklady_draft.md",
     "work/opponent_report_trace.json",
     "work/oponent_posudek_draft.md",
+    "work/supervisor_report_feedback_history.json",
+    "work/supervisor_report_trace.json",
+    "work/vedouci_posudek_draft.md",
+    "work/supervisor_report_confirmation.json",
+    "outputs/vedouci_posudek_revidovany.md",
     "notes/operator-late-communications.md",
     "notes/late-communications.md",
     "notes/round-notes.md",
@@ -270,6 +307,12 @@ def validate_structured_evidence_payload(
         _validate_quantitative_claims(loaded, rel_path, errors)
     elif rel_path == OPPONENT_REPORT_TRACE_REL:
         _validate_opponent_report_trace(loaded, rel_path, round_dir, case_id, round_id, errors)
+    elif rel_path == SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL:
+        _validate_supervisor_report_feedback_history(loaded, rel_path, round_dir, errors)
+    elif rel_path == SUPERVISOR_REPORT_TRACE_REL:
+        _validate_supervisor_report_trace(loaded, rel_path, round_dir, case_id, round_id, errors)
+    elif rel_path == SUPERVISOR_REPORT_CONFIRMATION_REL:
+        _validate_supervisor_report_confirmation(loaded, rel_path, round_dir, errors)
     elif rel_path == CURRENT_EVIDENCE_SNAPSHOT_REL:
         _validate_current_evidence_snapshot(loaded, rel_path, round_dir, errors)
 
@@ -451,6 +494,247 @@ def _validate_opponent_report_trace(
             round_id,
             errors,
         )
+
+
+def _validate_supervisor_report_feedback_history(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    _require_enum(loaded, "feedback_status", SUPERVISOR_FEEDBACK_HISTORY_STATUSES, rel_path, errors)
+    _require_nonempty_string(loaded, "summary", rel_path, errors)
+    _require_list(loaded, "feedback_round_refs", rel_path, errors)
+    _require_list(loaded, "revision_evidence_refs", rel_path, errors)
+    status = loaded.get("feedback_status")
+    evidence_items = _require_list(loaded, "evidence_items", rel_path, errors)
+    item_requires_hashes = any(
+        isinstance(item, dict) and item.get("status") in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES
+        for item in evidence_items
+        if isinstance(evidence_items, list)
+    )
+    if status in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES:
+        if isinstance(evidence_items, list) and not evidence_items:
+            errors.append(f"{rel_path}: evidence_items must not be empty for feedback_status {status}")
+    if status in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES or item_requires_hashes:
+        _validate_source_ref_hashes(
+            loaded,
+            f"{rel_path}: source_ref_hashes",
+            refs=_collect_feedback_history_refs(loaded),
+            round_dir=round_dir,
+            errors=errors,
+        )
+    if isinstance(evidence_items, list):
+        for index, item in enumerate(evidence_items, start=1):
+            prefix = f"{rel_path}: evidence_items item {index}"
+            if not isinstance(item, dict):
+                errors.append(f"{prefix} must be object")
+                continue
+            _require_nonempty_string(item, "item_id", prefix, errors)
+            _require_enum(item, "status", SUPERVISOR_FEEDBACK_HISTORY_STATUSES, prefix, errors)
+            _require_nonempty_string(item, "summary", prefix, errors)
+            _require_list(item, "feedback_refs", prefix, errors)
+            _require_list(item, "revision_evidence_refs", prefix, errors)
+            _require_list(item, "limitations", prefix, errors)
+            item_status = item.get("status")
+            if item_status in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES:
+                feedback_refs = item.get("feedback_refs")
+                revision_refs = item.get("revision_evidence_refs")
+                if isinstance(feedback_refs, list) and not feedback_refs:
+                    errors.append(f"{prefix}: feedback_refs must not be empty for status {item_status}")
+                if isinstance(revision_refs, list) and not revision_refs:
+                    errors.append(f"{prefix}: revision_evidence_refs must not be empty for status {item_status}")
+
+
+def _collect_feedback_history_refs(loaded: dict[str, Any]) -> list[str]:
+    refs: list[str] = []
+    for field in ("feedback_round_refs", "revision_evidence_refs"):
+        values = loaded.get(field)
+        if isinstance(values, list):
+            refs.extend(value for value in values if isinstance(value, str))
+    evidence_items = loaded.get("evidence_items")
+    if isinstance(evidence_items, list):
+        for item in evidence_items:
+            if not isinstance(item, dict):
+                continue
+            for field in ("feedback_refs", "revision_evidence_refs"):
+                values = item.get(field)
+                if isinstance(values, list):
+                    refs.extend(value for value in values if isinstance(value, str))
+    return sorted(dict.fromkeys(refs))
+
+
+def _validate_supervisor_report_trace(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> None:
+    _validate_expected_hash_binding(
+        loaded,
+        rel_path,
+        round_dir,
+        errors,
+        path_field="supervisor_input_path",
+        hash_field="supervisor_input_sha256",
+        expected_path="notes/supervisor-report-operator-input.md",
+    )
+    _require_enum(loaded, "prior_feedback_status", SUPERVISOR_FEEDBACK_HISTORY_STATUSES, rel_path, errors)
+    prior_feedback_status = loaded.get("prior_feedback_status")
+    feedback_history_binding_present = "feedback_history_path" in loaded or "feedback_history_sha256" in loaded
+    if prior_feedback_status in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES and not feedback_history_binding_present:
+        errors.append(
+            f"{rel_path}: feedback_history_path and feedback_history_sha256 are required for "
+            f"prior_feedback_status {prior_feedback_status}"
+        )
+    if feedback_history_binding_present:
+        _validate_expected_hash_binding(
+            loaded,
+            rel_path,
+            round_dir,
+            errors,
+            path_field="feedback_history_path",
+            hash_field="feedback_history_sha256",
+            expected_path=SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL,
+        )
+        if round_dir is not None and (round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL).is_file():
+            errors.extend(
+                validate_structured_evidence_artifact(
+                    round_dir,
+                    SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
+    item_ids: set[str] = set()
+    prior_feedback_ref_seen = False
+    report_fields = _require_list(loaded, "report_fields", rel_path, errors)
+    if isinstance(report_fields, list):
+        for index, item in enumerate(report_fields, start=1):
+            prefix = f"{rel_path}: report_fields item {index}"
+            if not isinstance(item, dict):
+                errors.append(f"{prefix} must be object")
+                continue
+            field_id = item.get("field_id")
+            if isinstance(field_id, str):
+                if field_id in item_ids:
+                    errors.append(f"{prefix}: duplicate field_id {field_id}")
+                item_ids.add(field_id)
+            _require_enum(item, "field_id", REQUIRED_SUPERVISOR_REPORT_FIELD_IDS, prefix, errors)
+            _require_nonempty_string(item, "title", prefix, errors)
+            _require_nonempty_string(item, "formulation", prefix, errors)
+            _require_enum(item, "visibility", SUPERVISOR_REPORT_FIELD_VISIBILITIES, prefix, errors)
+            _require_list(item, "evidence_refs", prefix, errors)
+            _require_nonempty_list(item, "supervisor_input_refs", prefix, errors)
+            _require_list(item, "prior_feedback_refs", prefix, errors)
+            prior_feedback_refs = item.get("prior_feedback_refs")
+            if isinstance(prior_feedback_refs, list) and prior_feedback_refs:
+                prior_feedback_ref_seen = True
+            _require_nonempty_list(item, "report_refs", prefix, errors)
+            report_refs = item.get("report_refs")
+            if isinstance(report_refs, list):
+                for ref_index, ref in enumerate(report_refs, start=1):
+                    if ref != "work/vedouci_posudek_draft.md":
+                        errors.append(f"{prefix}: report_refs item {ref_index} must be work/vedouci_posudek_draft.md")
+            if field_id == "student_comment" and item.get("visibility") != "private_student_comment":
+                errors.append(f"{prefix}: student_comment must have private_student_comment visibility")
+            if field_id != "student_comment" and item.get("visibility") == "private_student_comment":
+                errors.append(f"{prefix}: only student_comment may have private_student_comment visibility")
+    missing_ids = sorted(REQUIRED_SUPERVISOR_REPORT_FIELD_IDS - item_ids)
+    if missing_ids:
+        errors.append(f"{rel_path}: missing required report_fields: {', '.join(missing_ids)}")
+    if prior_feedback_status in SUPERVISOR_EVIDENCE_BEARING_FEEDBACK_STATUSES and not prior_feedback_ref_seen:
+        errors.append(
+            f"{rel_path}: evidenced prior_feedback_status requires at least one report field prior_feedback_refs"
+        )
+    _validate_supervisor_grading(loaded.get("grading"), rel_path, errors)
+    _validate_supervisor_uncertainty_items(loaded, rel_path, errors)
+    _validate_supervisor_manual_checks(loaded, rel_path, errors)
+
+
+def _validate_supervisor_grading(value: Any, rel_path: str, errors: list[str]) -> None:
+    prefix = f"{rel_path}: grading"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_enum(value, "grade", SUPERVISOR_REPORT_GRADES, prefix, errors)
+    points = value.get("points")
+    if points is not None:
+        if not isinstance(points, int):
+            errors.append(f"{prefix}: points must be int or null")
+        elif points < 0 or points > 100:
+            errors.append(f"{prefix}: points must be between 0 and 100")
+    interval = value.get("points_interval")
+    if interval is not None and not isinstance(interval, str):
+        errors.append(f"{prefix}: points_interval must be str or null")
+    _require_nonempty_string(value, "rationale", prefix, errors)
+    _require_nonempty_list(value, "supervisor_input_refs", prefix, errors)
+
+
+def _validate_supervisor_uncertainty_items(loaded: dict[str, Any], rel_path: str, errors: list[str]) -> None:
+    uncertainty_items = _require_list(loaded, "uncertainty_items", rel_path, errors)
+    if not isinstance(uncertainty_items, list):
+        return
+    for index, item in enumerate(uncertainty_items, start=1):
+        prefix = f"{rel_path}: uncertainty_items item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        _require_nonempty_string(item, "claim_id", prefix, errors)
+        _require_nonempty_string(item, "summary", prefix, errors)
+        _require_nonempty_string(item, "handling_instruction", prefix, errors)
+        _require_nonempty_list(item, "source_refs", prefix, errors)
+        _require_nonempty_list(item, "target_field_ids", prefix, errors)
+        target_ids = item.get("target_field_ids")
+        if isinstance(target_ids, list):
+            for target_index, target_id in enumerate(target_ids, start=1):
+                if target_id not in REQUIRED_SUPERVISOR_REPORT_FIELD_IDS:
+                    errors.append(f"{prefix}: target_field_ids item {target_index} has unknown supervisor field id")
+        _require_enum(item, "status", SUPERVISOR_REPORT_UNCERTAINTY_STATUSES, prefix, errors)
+
+
+def _validate_supervisor_manual_checks(loaded: dict[str, Any], rel_path: str, errors: list[str]) -> None:
+    manual_checks = _require_list(loaded, "manual_checks", rel_path, errors)
+    if not isinstance(manual_checks, list):
+        return
+    for index, item in enumerate(manual_checks, start=1):
+        prefix = f"{rel_path}: manual_checks item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        _require_nonempty_string(item, "check_id", prefix, errors)
+        _require_nonempty_string(item, "instruction", prefix, errors)
+        _require_list(item, "evidence_refs", prefix, errors)
+
+
+def _validate_supervisor_report_confirmation(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    _validate_expected_hash_binding(
+        loaded,
+        rel_path,
+        round_dir,
+        errors,
+        path_field="reviewed_report_path",
+        hash_field="reviewed_report_sha256",
+        expected_path="outputs/vedouci_posudek_revidovany.md",
+    )
+    _require_enum(loaded, "grade", {"A", "B", "C", "D", "E", "F"}, rel_path, errors)
+    points = loaded.get("points")
+    if not isinstance(points, int) or points < 0 or points > 100:
+        errors.append(f"{rel_path}: points must be int between 0 and 100")
+    _require_bool(loaded, "official_text_confirmed", rel_path, errors)
+    _require_bool(loaded, "student_comment_confirmed", rel_path, errors)
+    _require_bool(loaded, "ready_for_is", rel_path, errors)
+    if loaded.get("ready_for_is") is not True:
+        errors.append(f"{rel_path}: ready_for_is must be true for confirmation")
+    _require_nonempty_string(loaded, "confirmed_by", rel_path, errors)
+    _require_nonempty_string(loaded, "confirmed_at", rel_path, errors)
 
 
 def _validate_current_evidence_snapshot(
@@ -638,6 +922,54 @@ def _validate_calibration_context(
             errors.append(f"{prefix}: anti_overfit_reviewer_agent or anti_overfit_human_note must be recorded")
         _require_nonempty_string(value, "reviewed_at", prefix, errors)
     _require_list(value, "limitations", prefix, errors)
+
+
+def _validate_expected_hash_binding(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+    *,
+    path_field: str,
+    hash_field: str,
+    expected_path: str,
+) -> None:
+    path_value = loaded.get(path_field)
+    hash_value = loaded.get(hash_field)
+    if path_value != expected_path:
+        errors.append(f"{rel_path}: {path_field} must be {expected_path}")
+    if not isinstance(hash_value, str) or not SHA256_RE.fullmatch(hash_value):
+        errors.append(f"{rel_path}: {hash_field} must be a 64-character hex string")
+        return
+    if not isinstance(path_value, str) or not _is_allowed_round_ref(path_value):
+        return
+    if round_dir is not None:
+        path = round_dir / path_value
+        if path.is_file() and sha256_file(path) != hash_value:
+            errors.append(f"{rel_path}: {hash_field} is stale for {path_value}")
+
+
+def _validate_source_ref_hashes(
+    loaded: dict[str, Any],
+    prefix: str,
+    *,
+    refs: list[str],
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    source_ref_hashes = loaded.get("source_ref_hashes")
+    if not isinstance(source_ref_hashes, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    for ref in refs:
+        recorded = source_ref_hashes.get(ref)
+        if not isinstance(recorded, str) or not SHA256_RE.fullmatch(recorded):
+            errors.append(f"{prefix}: missing 64-character hash for {ref}")
+            continue
+        if round_dir is not None and _is_allowed_round_ref(ref):
+            path = round_dir / ref
+            if path.is_file() and sha256_file(path) != recorded:
+                errors.append(f"{prefix}: hash is stale for {ref}")
 
 
 def _validate_source_materials_hash(

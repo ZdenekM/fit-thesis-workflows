@@ -304,7 +304,7 @@ Readiness levels should be explicit:
 
 ### Slice 3 - Structured Trace And Feedback-History Contract
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): validate supervisor report trace`
 - Expected paths:
   - `src/thesis_review_workflow/artifact_registry.py`
@@ -359,6 +359,7 @@ Readiness levels should be explicit:
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
+  - `pants run :omen`
 
 ### Slice 4 - Draft Helper And Report Shape
 
@@ -673,6 +674,17 @@ full historical feedback when those artifacts are already on disk.
   includes supervisor reports, the new skills split required inputs from
   generated outputs, and planned deterministic commands are described as
   implementation blockers until their command surface lands in later slices.
+- 2026-05-12: Implemented Slice 3 structured contract and command surface:
+  supervisor-report readiness and report checkers now validate intake,
+  feedback-history evidence binding, trace fields, reviewed Markdown, grade and
+  point consistency, supervisor confirmation, manifest helper checks, approval
+  profile coverage, private-artifact scanning, agent coverage, package launcher
+  generation, and smoke coverage. Two review agents found structural gaps in
+  intake coverage, evidence hashes, draft/review/confirmation consistency,
+  private-section slicing, approval checks, and manifest closeout; those
+  findings were fixed before commit. Omen passed as developer hygiene with
+  grade A / overall score 91.20 and existing hotspot-style warnings, including
+  shared manifest and structured-evidence modules.
 
 ## Decision Log
 

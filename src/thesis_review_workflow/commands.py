@@ -34,6 +34,8 @@ WORKFLOW_COMMAND_MODULES = {
     "check-revision-diff": "thesis_review_workflow.cli.check_revision_diff",
     "check-round-ready": "thesis_review_workflow.cli.check_round_ready",
     "check-scripts": "thesis_review_workflow.cli.check_scripts",
+    "check-supervisor-report": "thesis_review_workflow.cli.check_supervisor_report",
+    "check-supervisor-report-ready": "thesis_review_workflow.cli.check_supervisor_report_ready",
     "check-supervisor-ready": "thesis_review_workflow.cli.check_supervisor_ready",
     "check-tooling": "thesis_review_workflow.cli.check_tooling",
     "check-typography-formal": "thesis_review_workflow.cli.check_typography_formal",
