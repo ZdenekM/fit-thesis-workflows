@@ -87,6 +87,35 @@ Structured final-review approval records belong under `work/reviews/*_review.jso
 They are part of closeout provenance: a material edit after approval requires a
 fresh review or an explicit typed exception, never a manual hash adjustment.
 
+## Subagent Handoffs
+
+Subagent final responses should optimize for parent synthesis, not raw
+transcript transfer. Do not paste raw logs, grep dumps, long stack traces, or
+full file contents into final chat responses unless a minimal excerpt is needed
+to support a finding. Prefer evidence references such as `file:line`,
+`file:line-line`, `file:symbol`, artifact paths, command names, and verification
+status.
+
+Default handoff shape:
+
+- one-paragraph summary;
+- up to 5 prioritized findings with severity;
+- exact evidence references;
+- confidence per finding: high / medium / low;
+- recommended next action.
+
+If there are more than 5 findings, report the top findings and state how many
+lower-priority findings were omitted unless the task explicitly requires
+exhaustive coverage. If a subagent owns a required artifact or code change, it
+must write it to disk and return only a concise handoff summary, changed paths,
+and verification status. The parent agent must synthesize subagent outputs into
+decisions, fixes, or final artifacts rather than concatenating subagent
+responses.
+
+This handoff rule does not override repo skills, role-owned outputs, required
+review artifacts, coverage manifests, exhaustive audit requirements, or
+validation checks.
+
 ## Non-Negotiables
 
 - Required roles remain required even when the concurrency limit is 1.

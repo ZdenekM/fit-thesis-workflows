@@ -126,6 +126,9 @@ Bound agent concurrency by default: run at most two spawned workflow agents at t
 
 When spawning reviewer agents, prefer concise self-contained prompts with exact case/round paths and role-owned outputs. Do not use full-history/forked context by default; use it only when the role genuinely needs the whole conversation. If a spawn invocation fails because full-history/fork options are incompatible with explicit agent type or reasoning effort, retry with the simpler no-fork invocation and carry the needed context in the prompt.
 
+Subagent final responses should optimize for parent synthesis, not raw transcript
+transfer. Detailed handoff expectations live in `docs/agent-scheduling.md`.
+
 ## Generated Artifact Review Loop
 
 Any generated Markdown artifact under `outputs/` that is sendable to a student/opponent context, or used as final operator evidence, must pass an explicitly authorized independent agent review loop. If the user has not authorized agents in the current request, ask for authorization and stop before writing or revising the final artifact. The loop terminates only when a different explicitly authorized reviewer agent checks the draft or evidence and either writes the reviewed target artifact or explicitly approves it. Material edits after that review reopen the draft state.
