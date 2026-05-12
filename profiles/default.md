@@ -42,6 +42,51 @@ Avoid:
 - In late phases, prioritize blockers, technical truth, reproducibility,
   submission artifacts, and defense readiness.
 
+## Supervisor Report Style
+
+These preferences apply to the formal supervisor report, not to iterative
+student-facing feedback. They describe wording style only; the supervisor's
+explicit input and current-case evidence remain authoritative.
+
+Tone: formal, concise, fair, and clearly written in the supervisor's voice.
+
+Detail level: compact. Prefer one short paragraph per FIT IS field, usually one
+to three sentences, unless a serious limitation needs explicit explanation.
+
+Prefer:
+
+- first-person evaluative Czech wording where natural, equivalent to "I
+  consider", "I evaluate", or "I recommend";
+- assignment-context paragraphs that first characterize difficulty or context,
+  then state result quality and assignment fulfillment;
+- calibrated phrases such as rather demanding, average difficulty, fulfilled
+  with reservations, formally fulfilled, or fulfilled in full, chosen according
+  to current evidence;
+- process paragraphs grounded in supervisor input: consultation regularity,
+  preparedness, independence, communication, responsiveness to feedback, and
+  finishing timing;
+- concise literature paragraphs unless literature work is a major strength or
+  risk;
+- plain statements for publication activity, awards, or open-source release:
+  mention them only when there is actual evidence, otherwise state absence
+  briefly;
+- overall assessment paragraphs that balance strengths and reservations and
+  make the grade/points feel proportionate to the text;
+- a separate private student comment that may be more personal, motivating, and
+  forward-looking than the official report text.
+
+Avoid:
+
+- long audit-style reports, bullet-heavy prose, or internal workflow language;
+- over-explaining routine sections when the point can be said in one sentence;
+- inferring student activity, independence, or communication from indirect
+  artifacts when supervisor input is missing;
+- copying student-facing feedback into the official report without adapting it
+  to the official FIT IS fields;
+- mixing the private student comment into official report fields;
+- naming unverifiable publications, awards, open-source status, or external
+  impact without current evidence.
+
 ## Opponent Priorities
 
 - Keep evidence labels explicit and conservative.

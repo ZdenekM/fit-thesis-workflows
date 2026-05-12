@@ -33,6 +33,12 @@
 
 ## P1 - Evidence Coverage
 
+- [ ] Add formal supervisor-report workflow from `plans/supervisor_report_workflow_plan.md`.
+   - Keep it separate from iterative student-facing supervisor feedback.
+   - Require explicit supervisor input for activity, independence, communication, completion process, grade/points calibration, and the private student comment.
+   - Use previous supervisor feedback and revision evidence only when it is available and actually shows response to feedback; if it is absent or inconclusive, rely on supervisor input instead of inferring student activity.
+   - Add a reviewed-draft boundary and a separate explicit supervisor confirmation gate before treating the report as ready for IS entry.
+   - Reuse the opponent report trace/draft/check/review pattern and keep historical supervisor-report calibration optional and private.
 - [ ] Add a student-code sandbox workflow before running submitted code.
    - Keep the default code-review mode static/read-only; executing student code must be an explicit sandboxed step with recorded scope.
    - Add a helper such as `scripts/code-sandbox` with modes for environment inspection, case-local Python venv/uv setup, and rootless container runs.
