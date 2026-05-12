@@ -33,6 +33,11 @@
 
 ## P1 - Evidence Coverage
 
+- [ ] Implement optional Theses.cz similarity-report intake and review from `plans/theses_similarity_report_pipeline_plan.md`.
+   - Keep report PDFs, extracted text, match details, and assessments under the ignored case workspace.
+   - Use deterministic code only for explicit import, bounded report-structure parsing, hashes, and structural validation.
+   - Use authorized human/agent review for relevance judgments, including repeated-submission self-overlap versus suspicious external matches.
+   - Do not mention a clean report in supervisor/opponent prose by default; surface only material suspicious, unresolved, or institutionally required findings.
 - [ ] Add a student-code sandbox workflow before running submitted code.
    - Keep the default code-review mode static/read-only; executing student code must be an explicit sandboxed step with recorded scope.
    - Add a helper such as `scripts/code-sandbox` with modes for environment inspection, case-local Python venv/uv setup, and rootless container runs.

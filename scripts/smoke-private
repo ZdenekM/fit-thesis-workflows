@@ -143,6 +143,48 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/opponent-report-operator-feedback.md"
 
+make_untracked_file "tmp-feedback-smoke/theses_similarity_review.md"
+expect_failure_contains \
+  "Theses similarity review outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/theses_similarity_review.md"
+
+make_untracked_file "tmp-feedback-smoke/work/theses_similarity/review_draft.md"
+expect_failure_contains \
+  "Theses similarity draft outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/work/theses_similarity/review_draft.md"
+
+make_untracked_file "tmp-feedback-smoke/work/theses_similarity/intake.json"
+expect_failure_contains \
+  "Theses similarity intake outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/work/theses_similarity/intake.json"
+
+make_untracked_file "tmp-feedback-smoke/work/theses_similarity/assessment.json"
+expect_failure_contains \
+  "Theses similarity assessment outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/work/theses_similarity/assessment.json"
+
+make_untracked_file "tmp-feedback-smoke/work/theses_similarity/source_matches.json"
+expect_failure_contains \
+  "Theses similarity private JSON outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/work/theses_similarity/source_matches.json"
+
+make_untracked_file "tmp-feedback-smoke/work/reviews/theses_similarity_review.json"
+expect_failure_contains \
+  "Theses similarity review approval outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/work/reviews/theses_similarity_review.json"
+
 make_untracked_file "tmp-feedback-smoke/github-intake/pr.meta.json"
 expect_failure_contains \
   "GitHub PR metadata outside cases fails" \

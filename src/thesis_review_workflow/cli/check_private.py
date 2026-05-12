@@ -21,6 +21,8 @@ PRIVATE_MANIFEST_RE = re.compile(
     r"supervisor_report_calibration_use|supervisor_report_calibration_advisory|"
     r"supervisor_report_calibration_profile|supervisor_report_calibration_checklist|"
     r"opponent_calibration_refresh_eligibility|reviewer_calibration_profile|reviewer_checklist)\.json$"
+    r"|(^|/)work/theses_similarity/[^/]+\.json$"
+    r"|(^|/)work/reviews/[^/]+_review\.json$"
 )
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
 PRIVATE_MARKDOWN_RE = re.compile(
@@ -32,7 +34,8 @@ PRIVATE_MARKDOWN_RE = re.compile(
     r"reviewer_profile_change_log|profile_review|opponent-report-operator-feedback|"
     r"supervisor-report-operator-input|vedouci_posudek_draft|vedouci_posudek_revidovany|"
     r"oponent_podklady|oponent_podklady_draft|"
-    r"oponent_podklady_revidovane|oponent_posudek_draft)\.md$"
+    r"oponent_podklady_revidovane|oponent_posudek_draft|theses_similarity_review)\.md$"
+    r"|(^|/)work/theses_similarity/review_draft\.md$"
 )
 PRIVATE_GITHUB_RE = re.compile(
     r"(^|/)(code-manifest\.generated\.ya?ml|changed-files\.tsv|contribution-map\.md|"

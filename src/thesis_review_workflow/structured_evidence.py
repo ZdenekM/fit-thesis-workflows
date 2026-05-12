@@ -9,6 +9,15 @@ from typing import Any
 
 from thesis_review_workflow.artifact_validation import sha256_file, validate_common_artifact_fields
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.theses_similarity import (
+    CURRENT_SUBMISSION_MATCH_STATUSES,
+    SIMILARITY_CONFIDENCE_VALUES,
+    SIMILARITY_JUDGMENT_CATEGORIES,
+    SIMILARITY_SYNTHESIS_ACTIONS,
+    SIMILARITY_UNRESOLVED_CATEGORIES,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_ASSESSMENT_SCHEMA,
+)
 
 ASSIGNMENT_COVERAGE_REL = "work/assignment_coverage_agent.json"
 EVIDENCE_REQUIREMENTS_REL = "work/evidence_requirements.json"
@@ -33,6 +42,7 @@ STRUCTURED_EVIDENCE_SCHEMAS: dict[str, str] = {
     SUPERVISOR_REPORT_TRACE_REL: "supervisor-report-trace-v1",
     SUPERVISOR_REPORT_CONFIRMATION_REL: "supervisor-report-confirmation-v1",
     CURRENT_EVIDENCE_SNAPSHOT_REL: "current-evidence-snapshot-v1",
+    THESES_SIMILARITY_ASSESSMENT_REL: THESES_SIMILARITY_ASSESSMENT_SCHEMA,
 }
 
 ALLOWED_REF_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
@@ -317,6 +327,8 @@ def validate_structured_evidence_payload(
         _validate_supervisor_report_confirmation(loaded, rel_path, round_dir, errors)
     elif rel_path == CURRENT_EVIDENCE_SNAPSHOT_REL:
         _validate_current_evidence_snapshot(loaded, rel_path, round_dir, errors)
+    elif rel_path == THESES_SIMILARITY_ASSESSMENT_REL:
+        _validate_theses_similarity_assessment(loaded, rel_path, round_dir, errors)
 
     _validate_refs(
         loaded,
@@ -800,6 +812,149 @@ def _validate_current_evidence_snapshot(
                 errors.append(f"{prefix}: path marked invalid but file is missing: {path}")
 
 
+def _validate_theses_similarity_assessment(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    _require_enum(loaded, "current_submission_match", CURRENT_SUBMISSION_MATCH_STATUSES, rel_path, errors)
+    _validate_hashes_for_refs(loaded, rel_path, "source_sha256", "source_refs", round_dir, errors)
+    loaded_source_refs = loaded.get("source_refs")
+    source_refs = loaded_source_refs if isinstance(loaded_source_refs, list) else []
+    judgments = _require_list(loaded, "judgments", rel_path, errors)
+    if not isinstance(judgments, list):
+        return
+    judgment_ids: set[str] = set()
+    for index, item in enumerate(judgments, start=1):
+        prefix = f"{rel_path}: judgments item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        judgment_id = item.get("judgment_id")
+        if isinstance(judgment_id, str):
+            if judgment_id in judgment_ids:
+                errors.append(f"{prefix}: duplicate judgment_id {judgment_id}")
+            judgment_ids.add(judgment_id)
+        _require_nonempty_string(item, "judgment_id", prefix, errors)
+        _require_nonempty_list(item, "source_ids", prefix, errors)
+        source_ids = item.get("source_ids")
+        if isinstance(source_ids, list):
+            for source_index, source_id in enumerate(source_ids, start=1):
+                if not isinstance(source_id, int) and not isinstance(source_id, str):
+                    errors.append(f"{prefix}: source_ids item {source_index} must be int or str")
+        _validate_theses_passage_refs(item, prefix, round_dir, errors)
+        _require_nonempty_list(item, "basis_refs", prefix, errors)
+        category = item.get("category")
+        _require_enum(item, "category", SIMILARITY_JUDGMENT_CATEGORIES, prefix, errors)
+        _require_nonempty_string(item, "rationale", prefix, errors)
+        _require_enum(item, "confidence", SIMILARITY_CONFIDENCE_VALUES, prefix, errors)
+        _require_nonempty_list(item, "evidence_refs", prefix, errors)
+        synthesis_action = item.get("synthesis_action")
+        _require_enum(item, "synthesis_action", SIMILARITY_SYNTHESIS_ACTIONS, prefix, errors)
+        _require_bool(item, "requires_reviewer_verification", prefix, errors)
+        _require_list(item, "limitations", prefix, errors)
+        _validate_theses_judgment_source_binding(item, prefix, source_refs, errors)
+        if category == "no_material_concern" and synthesis_action != "silent":
+            errors.append(f"{prefix}: no_material_concern must use synthesis_action silent")
+        if category in SIMILARITY_UNRESOLVED_CATEGORIES:
+            if synthesis_action == "silent":
+                errors.append(f"{prefix}: unresolved/material category must not use synthesis_action silent")
+            if item.get("requires_reviewer_verification") is not True:
+                errors.append(f"{prefix}: unresolved/material category requires reviewer verification")
+
+
+def _validate_theses_passage_refs(
+    item: dict[str, Any],
+    prefix: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    passage_refs = _require_nonempty_list(item, "passage_refs", prefix, errors)
+    if not isinstance(passage_refs, list):
+        return
+    known_passages = _known_theses_passage_ids(round_dir)
+    for index, value in enumerate(passage_refs, start=1):
+        label = f"{prefix}: passage_refs item {index}"
+        if not isinstance(value, str) or not value:
+            errors.append(f"{label}: passage ref must be non-empty str")
+            continue
+        base, separator, passage_id = value.partition("#")
+        if base != "work/theses_similarity/intake.json" or separator != "#" or not passage_id:
+            errors.append(f"{label}: passage ref must be work/theses_similarity/intake.json#<passage-id>")
+            continue
+        if known_passages is not None and passage_id not in known_passages:
+            errors.append(f"{label}: unknown matched passage id {passage_id}")
+
+
+def _known_theses_passage_ids(round_dir: Path | None) -> set[str] | None:
+    if round_dir is None:
+        return None
+    path = round_dir / "work/theses_similarity/intake.json"
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    passages = loaded.get("matched_passages")
+    if not isinstance(passages, list):
+        return None
+    return {
+        item["passage_id"] for item in passages if isinstance(item, dict) and isinstance(item.get("passage_id"), str)
+    }
+
+
+def _validate_theses_judgment_source_binding(
+    item: dict[str, Any],
+    prefix: str,
+    source_refs: list[Any],
+    errors: list[str],
+) -> None:
+    source_ref_set = {value for value in source_refs if isinstance(value, str)}
+    supporting_refs: set[str] = set()
+    for field in ("passage_refs", "basis_refs", "evidence_refs"):
+        refs = item.get(field)
+        if not isinstance(refs, list):
+            continue
+        for ref in refs:
+            if isinstance(ref, str):
+                supporting_refs.add(ref.split("#", 1)[0])
+    missing = sorted(ref for ref in supporting_refs if ref not in source_ref_set)
+    if missing:
+        errors.append(f"{prefix}: supporting refs must be listed in top-level source_refs: {', '.join(missing)}")
+
+
+def _validate_hashes_for_refs(
+    loaded: dict[str, Any],
+    rel_path: str,
+    hash_field: str,
+    refs_field: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    hashes = loaded.get(hash_field)
+    if not isinstance(hashes, dict):
+        errors.append(f"{rel_path}: {hash_field} must be object")
+        return
+    refs = loaded.get(refs_field)
+    if not isinstance(refs, list):
+        return
+    for ref in refs:
+        if not isinstance(ref, str) or not _is_allowed_round_ref(ref):
+            continue
+        recorded = hashes.get(ref)
+        if not isinstance(recorded, str) or not SHA256_RE.fullmatch(recorded):
+            errors.append(f"{rel_path}: {hash_field} missing 64-character hash for {ref}")
+            continue
+        if round_dir is not None:
+            path = round_dir / ref
+            if path.is_file() and sha256_file(path) != recorded:
+                errors.append(f"{rel_path}: {hash_field} hash is stale for {ref}")
+
+
 def _validate_calibration_context(
     value: Any,
     rel_path: str,
@@ -1025,6 +1180,8 @@ def _validate_refs(
     if isinstance(value, dict):
         for key, nested in value.items():
             nested_path = f"{path}.{key}"
+            if key == "passage_refs":
+                continue
             if key.endswith("_refs") or key == "trace_generated_from":
                 if not isinstance(nested, list):
                     errors.append(f"{nested_path} must be list")
