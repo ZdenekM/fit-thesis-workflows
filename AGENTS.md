@@ -38,7 +38,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Before generating supervisor feedback, require assignment, deadline, and reviewer-profile context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, deadline override, or valid reviewer profile.
 - Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 - Use `scripts/case-doctor <case-id> [round-id]` as a read-only operator snapshot when orienting in a case or checking what is missing; it summarizes state but does not replace required workflow gates.
-- Supervisor feedback, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
+- Supervisor feedback, supervisor reports, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
 - Use the strongest available model and high reasoning effort for semantic thesis-review roles that read thesis text, submitted code, evidence, synthesis drafts, or final/reviewable artifacts. Lower-cost models such as Spark are acceptable only for mechanical, validator-backed helper roles and must not be the sole basis for evidence claims, grading/report calibration, or sendable wording.
 
 ## Command Routing
@@ -51,6 +51,8 @@ Use these repo-local skills as the primary workflow definitions:
 
 - `.agents/skills/thesis-supervisor-feedback/SKILL.md` for iterative student-facing supervisor feedback.
 - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` for the required critical second pass before sending supervisor feedback.
+- `.agents/skills/thesis-supervisor-report/SKILL.md` for formal supervisor-report drafts for FIT IS.
+- `.agents/skills/thesis-supervisor-report-review/SKILL.md` for the required independent review before treating a supervisor-report draft as reviewed.
 - `.agents/skills/thesis-opponent-materials/SKILL.md` for internal opponent preparation materials.
 - `.agents/skills/thesis-opponent-materials-review/SKILL.md` for reviewing and hardening generated opponent materials.
 - `.agents/skills/thesis-opponent-report-review/SKILL.md` for reviewing a draft opponent report before submission.
@@ -64,7 +66,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-typography-formal-review/SKILL.md` for late-stage, language-calibrated typography and formal-presentation checks.
 - `.agents/skills/historical-opponent-calibration/SKILL.md` for private historical opponent-report calibration profiles and checklists.
 
-When a round contains code, supervisor feedback and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
+When a round contains code, supervisor feedback, supervisor reports, and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
 Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
 
@@ -129,11 +131,12 @@ Any generated Markdown artifact under `outputs/` that is sendable to a student/o
 Dedicated review loops:
 
 - supervisor feedback: first draft in `work/feedback_student_draft.md`, then `thesis-supervisor-feedback-review` writes reviewed `outputs/feedback_student.md`;
+- supervisor report: first draft in `work/vedouci_posudek_draft.md`, then `thesis-supervisor-report-review` writes reviewed `outputs/vedouci_posudek_revidovany.md`; `work/supervisor_report_confirmation.json` is still required before treating it as ready for IS entry;
 - opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
 - opponent report trace and draft: after reviewed opponent materials exist, `work/opponent_report_trace.json` records the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty handling, and current reviewed-materials hash. `scripts/draft-opponent-report <case-id> [round-id]` may then create `work/oponent_posudek_draft.md` from that trace. The generated file is intentionally not sendable until a human calibrates concrete points/grade, resolves open wording, and `scripts/check-opponent-report <case-id> [round-id]` passes against the current trace and reviewed-materials hashes;
 - opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
 
-Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `work/quantitative_claims.json`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
+Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `work/quantitative_claims.json`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, and `outputs/typography_formal_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback, supervisor reports, or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
 
 Keep generated-artifact provenance in the ignored round workspace at `work/review_manifest.json`. The manifest records contributing inputs, checks, skills, generator/reviewer roles, review scope, limitations, and the reviewed artifact hash so material edits after review are visible as stale. Required multi-agent role coverage is generated into `work/agent_coverage.json` from the manifest and validated by `scripts/check-agent-coverage <case-id> [round-id]`; missing required roles must be fixed in the manifest or recorded as typed limitations before closeout.
 
@@ -143,6 +146,12 @@ Default outputs go into the active round:
 
 - supervisor feedback: `outputs/feedback_student.md`
 - supervisor feedback draft for agent-generated first passes: `work/feedback_student_draft.md`
+- supervisor report intake: `notes/supervisor-report-operator-input.md`
+- supervisor report feedback-history handoff: `work/supervisor_report_feedback_history.json`
+- supervisor report trace: `work/supervisor_report_trace.json`
+- supervisor report draft: `work/vedouci_posudek_draft.md`
+- reviewed supervisor report: `outputs/vedouci_posudek_revidovany.md`
+- supervisor report confirmation: `work/supervisor_report_confirmation.json`
 - revision comparison: `outputs/revision_diff.md`
 - GitHub code intake: `outputs/github_code_intake.md`
 - code consistency check: `outputs/code_consistency.md`

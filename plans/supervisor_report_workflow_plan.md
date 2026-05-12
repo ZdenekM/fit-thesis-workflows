@@ -268,7 +268,7 @@ Readiness levels should be explicit:
 
 ### Slice 2 - Intake Template And Skill Skeleton
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): add supervisor report skill`
 - Expected paths:
   - `.agents/skills/thesis-supervisor-report/SKILL.md`
@@ -667,6 +667,12 @@ full historical feedback when those artifacts are already on disk.
   assignment/result/process wording, and a strict boundary between official
   report text and the private student comment. No historical report content or
   case-specific facts were copied into tracked files.
+- 2026-05-12: Implemented Slice 2 skill/template/docs wiring and folded in
+  two-agent review findings: supervisor reports now participate in the
+  top-level multi-agent authorization rule, downstream synthesis review wording
+  includes supervisor reports, the new skills split required inputs from
+  generated outputs, and planned deterministic commands are described as
+  implementation blockers until their command surface lands in later slices.
 
 ## Decision Log
 

@@ -29,8 +29,9 @@ skill pravidlo nebo TODO pro budoucí helper.
 2. Přiložte nebo uveďte cesty k souborům: zadání, aktuální PDF práce,
    případně LaTeX/Overleaf zip, kód, starší feedback, návrh posudku nebo
    vlastní poznámky.
-3. Napište, jaký výstup chcete: studentskou zpětnou vazbu, oponentské podklady,
-   revizní diff, kontrolu kódu, kontrolu citací, nebo review hotového posudku.
+3. Napište, jaký výstup chcete: studentskou zpětnou vazbu, formální posudek
+   vedoucího, oponentské podklady, revizní diff, kontrolu kódu, kontrolu
+   citací, nebo review hotového posudku.
 4. Pokud má vzniknout finální výstup, nebo samostatná evidence, na kterou se
    budete spoléhat, napište výslovně `použij agenty`. Workflow to vyžaduje pro
    nezávislou review smyčku.
@@ -82,6 +83,16 @@ Připrav interní oponentské podklady pro tuto BP/DP. Přikládám zadání, PD
 zdroje a kód. Použij agenty. Pokud je dostupný kód, zkontroluj soulad textu
 s kódem i kvalitu implementace. Výstup má být interní evidence pro oponenta,
 ne studentský feedback.
+```
+
+### Posudek vedoucího
+
+```text
+Připrav draft formálního posudku vedoucího pro IS. Přikládám zadání,
+aktuální PDF práce, případně kód a svoje poznámky k aktivitě, samostatnosti,
+komunikaci, dokončování, publikacím a navrhované známce/bodům. Použij agenty.
+Předchozí feedback využij jen tam, kde je z něj a z revizí vidět reakce
+studenta; pokud to průkazné není, opři procesní hodnocení o moje poznámky.
 ```
 
 ## Další příklady
@@ -157,6 +168,13 @@ zmrazenou evidenci v case workspace.
 - jazyk studentského feedbacku, pokud nemá být výchozí čeština,
 - reviewer profile, pokud nemá být výchozí `default`.
 
+U formálního posudku vedoucího navíc agent potřebuje explicitní vstup k tomu,
+co z artefaktů nepozná spolehlivě: aktivita a samostatnost studenta, konzultace,
+komunikace, připravenost, práce v závěrečné fázi, publikační nebo open-source
+souvislosti, navrhovaná známka/body a neveřejný komentář pro studenta. Chybějící
+předchozí feedback není negativní evidence; neprůkazný feedback nemá nahrazovat
+vstup vedoucího.
+
 Chybějící jazyk feedbacku znamená `cs`. Chybějící reviewer profile znamená
 `default`. Agent se má zastavit hlavně tehdy, když chybí zadání, termínový
 kontext, validní profile soubor, nebo jiné podklady nutné pro požadovaný výstup.
@@ -210,6 +228,16 @@ Nejběžnější výstupy jsou:
 
 - `outputs/feedback_student.md` - studentská zpětná vazba,
 - `work/feedback_student_draft.md` - pracovní draft před nezávislým review,
+- `notes/supervisor-report-operator-input.md` - vstup vedoucího pro formální
+  posudek, včetně procesních a hodnoticích informací,
+- `work/supervisor_report_feedback_history.json` - strukturované shrnutí
+  použitelnosti předchozího feedbacku pro posudek,
+- `work/supervisor_report_trace.json` - interní trace z evidence a vstupu
+  vedoucího do položek FIT IS,
+- `work/vedouci_posudek_draft.md` - pracovní draft posudku vedoucího,
+- `outputs/vedouci_posudek_revidovany.md` - revidovaný draft posudku vedoucího,
+- `work/supervisor_report_confirmation.json` - potvrzení vedoucího před
+  vložením do IS,
 - `outputs/revision_diff.md` - rozdíl proti předchozí verzi,
 - `outputs/github_code_intake.md` - interní evidence GitHub repo/PR importu,
 - `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
@@ -250,9 +278,11 @@ Nejběžnější výstupy jsou:
   položek FIT IS,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
 
-Studentský feedback a oponentské materiály nejsou hotové jen proto, že vznikly.
-Musí projít nezávislou review smyčkou jiným autorizovaným agentem. Po větší
-úpravě se výstup znovu bere jako draft.
+Studentský feedback, formální posudek vedoucího a oponentské materiály nejsou
+hotové jen proto, že vznikly. Musí projít nezávislou review smyčkou jiným
+autorizovaným agentem. Po větší úpravě se výstup znovu bere jako draft.
+U posudku vedoucího je navíc před vložením do IS potřeba výslovné potvrzení
+známky, bodů, oficiálního textu i neveřejného komentáře pro studenta.
 
 `work/oponent_posudek_draft.md` je jen most ze strukturovaného
 `work/opponent_report_trace.json` do struktury IS. Helper do něj zapisuje hash
@@ -275,9 +305,9 @@ Interní evidence jako `revision_diff.md`, `github_code_intake.md`, `code_consis
 `code_quality_review.md`, `literature_citation_review.md`,
 `figure_media_review.md` nebo `typography_formal_review.md` je samostatně
 finální jen tehdy, když prošla vlastní evidenční review smyčkou a verdikt je
-zapsaný. Pokud je použita jen jako podklad pro studentský feedback nebo
-oponentské podklady, certifikuje ji až review dané syntézy, a to jen v rozsahu
-použitých zjištění.
+zapsaný. Pokud je použita jen jako podklad pro studentský feedback, formální
+posudek vedoucího nebo oponentské podklady, certifikuje ji až review dané
+syntézy, a to jen v rozsahu použitých zjištění.
 
 Po vytvoření nebo úpravě výstupů má agent obnovit `work/review_manifest.json`.
 Manifest je uložený v ignorovaném round workspace, protože obsahuje case-specific
@@ -332,9 +362,9 @@ povinné role, skill pravidla ani manifest/coverage kontrolu. Pokud agent tvrdí
 říká opak, věřte souboru a checkeru: agent má artefakt opravit nebo znovu
 vygenerovat, ne jen upravit závěrečnou zprávu v chatu.
 
-Když je v roundu kód, supervisor feedback a oponentské podklady mají použít
-kontrolu souladu textu s kódem i kontrolu kvality implementace, nebo výslovně
-říct, proč to z dostupných vstupů nešlo.
+Když je v roundu kód, supervisor feedback, formální posudek vedoucího a
+oponentské podklady mají použít kontrolu souladu textu s kódem i kontrolu
+kvality implementace, nebo výslovně říct, proč to z dostupných vstupů nešlo.
 
 Když je kód dostupný přes GitHub repo nebo PR, agent má nejdřív udělat read-only
 GitHub intake. U PR-based prací nesmí hodnotit celý upstream projekt jako
@@ -579,7 +609,10 @@ Kategorie příkazů a hranice Windows důkazů jsou rozepsané v
 `docs/workflow-command-surface.md`.
 
 `check-supervisor-ready` je brána pro studentský feedback od vedoucího. Ověří
-zadání a přidá deadline kalibraci. `check-round-ready` je obecnější brána pro
+zadání a přidá deadline kalibraci. Formální posudek vedoucího má vlastní
+navazující bránu `check-supervisor-report-ready`, která vyžaduje i reportový
+vstup vedoucího; deterministic command surface pro ni patří k implementačnímu
+slici supervisor-report workflow. `check-round-ready` je obecnější brána pro
 oponentní a interní materiály bez supervisor deadline kalibrace.
 
 Pro odložené nebo srpnové obhajoby uveďte přesné datum do `case.md`:
@@ -594,6 +627,8 @@ Workflow definují repo skills v `.agents/skills/`:
 
 - `thesis-supervisor-feedback` - studentská zpětná vazba od vedoucího,
 - `thesis-supervisor-feedback-review` - nezávislá kontrola před odesláním,
+- `thesis-supervisor-report` - formální posudek vedoucího pro FIT IS,
+- `thesis-supervisor-report-review` - nezávislé review posudku vedoucího,
 - `thesis-revision-diff` - porovnání dvou verzí,
 - `thesis-github-code-intake` - read-only GitHub repo/PR import a PR
   contribution evidence,

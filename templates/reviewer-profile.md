@@ -28,6 +28,27 @@ Avoid:
 
 -
 
+## Supervisor Report Style
+
+These preferences apply only to formal supervisor reports. They are wording and
+calibration preferences, not evidence.
+
+Tone:
+Detail level:
+Preferred official report shape:
+Preferred way to describe assignment difficulty and results:
+Preferred way to describe student activity and consultation:
+Preferred way to separate official text from private student comment:
+Preferred grade/points calibration wording:
+
+Prefer:
+
+-
+
+Avoid:
+
+-
+
 ## Opponent Priorities
 
 -
