@@ -1,6 +1,6 @@
 # Supervisor Report Workflow Plan
 
-Status: in progress
+Status: done
 Created: 2026-05-12
 
 ## Goal
@@ -570,7 +570,7 @@ Readiness levels should be explicit:
 
 ### Slice 8 - Documentation, TODO Reconciliation, And Archive
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `docs(workflow): close supervisor report workflow`
 - Expected paths:
   - `README.md`
@@ -708,6 +708,27 @@ full historical feedback when those artifacts are already on disk.
   approval gating, optional prior-feedback labeling, and profile-scoped
   materiality. Omen passed as developer hygiene with grade A / overall score
   90.88 and existing shared-module hotspot warnings.
+- 2026-05-12: Implemented Slice 6 final review and closeout gates:
+  `confirm-supervisor-report` writes hash-bound supervisor confirmation,
+  `supervisor-report-closeout` bundles final report checks, and
+  `check-supervisor-report` final mode now requires concrete grade/points plus
+  explicit official-text, private-comment, and IS-readiness confirmations.
+  Agent review found stale-approval and trace-grade/points issues; they were
+  fixed before commit. Omen passed with grade A / overall score 90.08.
+- 2026-05-12: Implemented Slice 7 optional historical supervisor calibration:
+  supervisor-specific schemas and commands cover private historical case
+  analyses, profile/checklist/history artifacts, anti-overfit review,
+  applicability use records, and advisory records when no profile is available.
+  Follow-up agent review found unsafe prefix-only historical refs; validation
+  now requires safe round-relative paths before accepting refs under the
+  matching `inputs/historical_cases/<historical_case_id>/` prefix.
+- 2026-05-12: Implemented Slice 8 documentation and closeout reconciliation:
+  README remains chat-first and includes supervisor-report usage, TODO removed
+  the completed formal-supervisor-report item while retaining residual
+  automation work, command-surface docs list all new logical commands, and
+  Serena Markdown navigation config/docs were kept as relevant tracked workflow
+  navigation support. Independent closeout review found the plan needed these
+  Slice 6/7/8 progress and final-audit records before archive.
 
 ## Decision Log
 
@@ -730,10 +751,38 @@ full historical feedback when those artifacts are already on disk.
 
 ## Final Audit
 
-Not run yet. Fill before archiving:
-
-- commands run
-- skipped checks and reasons
-- private pilot limitations
-- residual TODO transfers
-- archive commit
+- Commands run on 2026-05-12:
+  - `pants fmt ::`
+  - `pants lint ::`
+  - `pants check ::`
+  - `pants test tests::`
+  - `scripts/smoke-supervisor-report`
+  - `scripts/smoke-supervisor-report-packets`
+  - `scripts/smoke-supervisor-report-calibration-profile`
+  - `scripts/smoke-review-wave`
+  - `scripts/smoke-review-approval`
+  - `scripts/smoke-agent-coverage`
+  - `scripts/smoke-review-manifest`
+  - `scripts/smoke-package-workflow-tools`
+  - `scripts/check-private`
+  - `scripts/check-scripts`
+  - `git diff --check`
+  - `pants run :omen`
+- Skipped checks: none from this plan. Native Windows runtime proof was not run
+  in this Linux checkout; `scripts/smoke-package-workflow-tools` verifies the
+  packaged command structure and generated launcher coverage only.
+- Private pilot limitations: real historical supervisor reports and real case
+  outputs stayed outside tracked files. The tracked default profile and
+  calibration docs contain case-neutral style/preferences only.
+- Residual TODO transfers:
+  - Native Windows runtime proof remains in `TODO.md`.
+  - Supervisor-feedback preflight/closeout bundle remains in `TODO.md`.
+  - Student-code sandboxing, media/video intake, and historical opponent
+    calibration remain in `TODO.md`.
+  - Calibration convergence, IS export, and feedback-history extraction helpers
+    were copied into narrower `TODO.md` P2 items.
+- Omen advisory result: exit 0, grade B / overall score 89.99, no critical
+  issues; reported hotspot-style risk in existing shared workflow modules and
+  tests.
+- Archive decision: complete and ready to move to `plans/archive/` in the
+  closeout commit.

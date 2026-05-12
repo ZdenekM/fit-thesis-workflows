@@ -33,12 +33,6 @@
 
 ## P1 - Evidence Coverage
 
-- [ ] Add formal supervisor-report workflow from `plans/supervisor_report_workflow_plan.md`.
-   - Keep it separate from iterative student-facing supervisor feedback.
-   - Require explicit supervisor input for activity, independence, communication, completion process, grade/points calibration, and the private student comment.
-   - Use previous supervisor feedback and revision evidence only when it is available and actually shows response to feedback; if it is absent or inconclusive, rely on supervisor input instead of inferring student activity.
-   - Add a reviewed-draft boundary and a separate explicit supervisor confirmation gate before treating the report as ready for IS entry.
-   - Reuse the opponent report trace/draft/check/review pattern and keep historical supervisor-report calibration optional and private.
 - [ ] Add a student-code sandbox workflow before running submitted code.
    - Keep the default code-review mode static/read-only; executing student code must be an explicit sandboxed step with recorded scope.
    - Add a helper such as `scripts/code-sandbox` with modes for environment inspection, case-local Python venv/uv setup, and rootless container runs.
@@ -72,6 +66,12 @@
 
 ## P2 - Later Automation
 
+- [ ] Revisit supervisor/opponent calibration convergence after both V1 workflows are exercised.
+   - Keep the current supervisor-report calibration private, optional, hash-bound, and supervisor-specific until there is evidence that a generic reviewer-report calibration subsystem would simplify rather than blur the workflows.
+   - Compare artifact names, schemas, anti-overfit review, and applicability/advisory behavior before merging the concepts.
+- [ ] Add IS export and feedback-history extraction helpers after supervisor-report Markdown and review semantics stay stable.
+   - Start from the reviewed Markdown/report trace boundary, not from raw free-text scraping.
+   - Use explicit structured feedback-history summaries first; avoid routing, readiness, or wording decisions based on brittle raw-text heuristics.
 - [ ] Add historical opponent-report calibration from `plans/historical_opponent_calibration_plan.md`.
    - Use 2-3 private historical opponent cases to synthesize a reviewer calibration profile and reusable checklist of what to inspect.
    - Make the profile a readable Markdown-first narrative; use JSON only as a manifest for version, hashes, source cases, applicability, confidence, and limitations.

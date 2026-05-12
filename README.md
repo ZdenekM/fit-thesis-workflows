@@ -93,6 +93,8 @@ aktuální PDF práce, případně kód a svoje poznámky k aktivitě, samostatn
 komunikaci, dokončování, publikacím a navrhované známce/bodům. Použij agenty.
 Předchozí feedback využij jen tam, kde je z něj a z revizí vidět reakce
 studenta; pokud to průkazné není, opři procesní hodnocení o moje poznámky.
+Pokud existuje moje historická kalibrace posudků vedoucího, použij ji pro styl
+a míru detailu, ne jako důkaz o aktuálním studentovi.
 ```
 
 ## Další příklady
