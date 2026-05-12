@@ -25,9 +25,10 @@ run repeatedly while working on a case. Each tool must have:
 Supervisor-report commands follow the same operator-tool contract. In
 particular, `check-supervisor-report-ready`, `prepare-supervisor-report-packets`,
 `draft-supervisor-report`, `check-supervisor-report`,
-`confirm-supervisor-report`, and `supervisor-report-closeout` must be available
-through the logical `scripts/<tool>` name in development checkouts and through
-generated `.cmd`/`.ps1` launchers after packaging.
+`confirm-supervisor-report`, `supervisor-report-closeout`, and
+`check-supervisor-report-calibration-profile` must be available through the
+logical `scripts/<tool>` name in development checkouts and through generated
+`.cmd`/`.ps1` launchers after packaging.
 
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:

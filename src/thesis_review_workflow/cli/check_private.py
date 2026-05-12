@@ -10,11 +10,16 @@ from pathlib import Path
 from thesis_review_workflow.cases import repo_root
 
 SENSITIVE_SUFFIX_RE = re.compile(r"\.(pdf|zip|docx?|odt|tex|bib|txt|log|csv|tsv|xlsx?|ipynb|png|jpe?g|webp)$", re.I)
-PRIVATE_JSONL_RE = re.compile(r"(^|/)(visual_inventory|reviewer_calibration_profile_history)\.jsonl$")
+PRIVATE_JSONL_RE = re.compile(
+    r"(^|/)(visual_inventory|reviewer_calibration_profile_history|supervisor_report_calibration_profile_history|"
+    r"profile_history)\.jsonl$"
+)
 PRIVATE_MANIFEST_RE = re.compile(
     r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest|"
     r"opponent_calibration_use|opponent_calibration_advisory|opponent_report_revision_request|"
     r"supervisor_report_feedback_history|supervisor_report_trace|supervisor_report_confirmation|"
+    r"supervisor_report_calibration_use|supervisor_report_calibration_advisory|"
+    r"supervisor_report_calibration_profile|supervisor_report_calibration_checklist|"
     r"opponent_calibration_refresh_eligibility|reviewer_calibration_profile|reviewer_checklist)\.json$"
 )
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
@@ -23,6 +28,7 @@ PRIVATE_MARKDOWN_RE = re.compile(
     r"code_consistency|code_quality_review|literature_citation_review|figure_media_review|"
     r"typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|"
     r"reference_report_comparison|opponent_reading_packet|reviewer_calibration_profile|"
+    r"supervisor_report_calibration_profile|profile_change_log|"
     r"reviewer_profile_change_log|profile_review|opponent-report-operator-feedback|"
     r"supervisor-report-operator-input|vedouci_posudek_draft|vedouci_posudek_revidovany|"
     r"oponent_podklady|oponent_podklady_draft|"

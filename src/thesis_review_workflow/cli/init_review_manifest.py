@@ -35,6 +35,7 @@ from thesis_review_workflow.commands import canonical_command_text, repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import apply_review_approval_records, merge_supporting_work_artifacts
+from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -377,6 +378,12 @@ def required_checks(
             "check-opponent-calibration-profile",
             f"check-opponent-calibration-profile {case_id} {round_id}",
             calibration_profile_check_targets(round_dir),
+        )
+    if "outputs/supervisor_report_calibration_profile.md" in artifact_paths:
+        add(
+            "check-supervisor-report-calibration-profile",
+            f"check-supervisor-report-calibration-profile {case_id} {round_id}",
+            supervisor_report_calibration_profile_check_targets(round_dir),
         )
     if coverage_required(round_dir, manifest):
         add("check-agent-coverage", f"check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))

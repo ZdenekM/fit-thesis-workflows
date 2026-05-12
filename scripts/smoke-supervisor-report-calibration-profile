@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_dir="$(mktemp -d "$repo_root/cases/__supervisor_calibration_profile_smoke.XXXXXX")"
+case_id="$(basename "$case_dir")"
+round_id="round-a"
+round_dir="$case_dir/rounds/$round_id"
+tmp_dir="$(mktemp -d)"
+out_file="$tmp_dir/out"
+err_file="$tmp_dir/err"
+
+cleanup() {
+  rm -rf "$case_dir" "$tmp_dir"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p \
+  "$round_dir/inputs/historical_cases/case-001" \
+  "$round_dir/inputs/historical_cases/case-002" \
+  "$round_dir/work/calibration/supervisor_report/historical_case_analyses" \
+  "$round_dir/outputs"
+cat >"$case_dir/case.md" <<'EOF'
+Work type: calibration
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$case_dir/current-round.txt"
+for historical_case_id in case-001 case-002; do
+  cat >"$round_dir/inputs/historical_cases/$historical_case_id/supervisor_report.md" <<EOF
+# Synthetic Supervisor Report $historical_case_id
+
+This is a synthetic smoke fixture, not a real report.
+EOF
+done
+
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+
+def sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+def common(schema_version: str) -> dict[str, object]:
+    return {
+        "schema_version": schema_version,
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": "2026-05-12T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "historical-supervisor-report-calibration",
+        "producer_agent": "smoke-agent",
+        "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+        "source_refs": ["inputs/historical_cases/case-001/supervisor_report.md"],
+        "limitations": ["Synthetic fixture."],
+    }
+
+analysis_refs: list[str] = []
+for historical_case_id, strength in (("case-001", "typical"), ("case-002", "strong")):
+    rel = f"work/calibration/supervisor_report/historical_case_analyses/{historical_case_id}.json"
+    input_rel = f"inputs/historical_cases/{historical_case_id}/supervisor_report.md"
+    analysis_refs.append(rel)
+    payload = {
+        **common("historical-supervisor-report-case-analysis-v1"),
+        "source_refs": [input_rel],
+        "historical_case_id": historical_case_id,
+        "work_type": "bachelor thesis",
+        "domain": "synthetic software engineering",
+        "case_strength": strength,
+        "tone_observations": ["Formal, concise, first-person evaluation."],
+        "length_observations": ["One short paragraph per supervisor report field."],
+        "grading_observations": ["Overall grade is justified by strengths and reservations."],
+        "field_patterns": [
+            {
+                "field_id": "overall_assessment",
+                "summary": "Balanced strengths and reservations.",
+                "evidence_refs": [input_rel],
+            },
+            {
+                "field_id": "student_comment",
+                "summary": "More personal and forward-looking than official text.",
+                "evidence_refs": [input_rel],
+            },
+        ],
+        "do_not_generalize": ["Do not infer current student activity from historical reports."],
+    }
+    (round_dir / rel).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+profile_md = round_dir / "outputs/supervisor_report_calibration_profile.md"
+profile_md.write_text(
+    "# Supervisor Report Calibration Profile\n\n"
+    "Synthetic private profile. This is not a real historical report.\n",
+    encoding="utf-8",
+)
+profile_snapshot = round_dir / "work/calibration/supervisor_report/profile_versions/v1.md"
+profile_snapshot.parent.mkdir(parents=True, exist_ok=True)
+profile_snapshot.write_text(profile_md.read_text(encoding="utf-8"), encoding="utf-8")
+profile_hash = sha256_file(profile_md)
+
+profile = {
+    **common("supervisor-report-calibration-profile-v1"),
+    "source_refs": analysis_refs,
+    "profile_markdown_path": "outputs/supervisor_report_calibration_profile.md",
+    "profile_markdown_sha256": profile_hash,
+    "source_case_refs": analysis_refs,
+    "profile_version": 1,
+    "profile_previous_sha256": None,
+    "profile_change_summary": "Initial synthetic supervisor profile.",
+    "confidence_by_dimension": {
+        key: {"level": "medium", "rationale": "Synthetic smoke fixture."}
+        for key in ("tone", "length", "grading", "process_evidence", "student_comment", "publication_wording")
+    },
+    "do_not_use_for": ["current-case conclusions without supervisor input"],
+}
+(round_dir / "work/calibration/supervisor_report/profile.json").write_text(
+    json.dumps(profile, indent=2) + "\n",
+    encoding="utf-8",
+)
+checklist = {
+    **common("supervisor-report-calibration-checklist-v1"),
+    "source_refs": analysis_refs,
+    "checklist_items": [
+        {
+            "item_id": "overall-balance",
+            "field_id": "overall_assessment",
+            "prompt": "Check that strengths and reservations make the grade proportionate.",
+            "source_case_refs": analysis_refs,
+            "requires_current_case_evidence": True,
+        }
+    ],
+}
+(round_dir / "work/calibration/supervisor_report/checklist.json").write_text(
+    json.dumps(checklist, indent=2) + "\n",
+    encoding="utf-8",
+)
+history = {
+    **common("supervisor-report-calibration-history-v1"),
+    "source_refs": analysis_refs,
+    "profile_version": 1,
+    "previous_profile_markdown_sha256": None,
+    "previous_history_entry_sha256": None,
+    "profile_snapshot_path": "work/calibration/supervisor_report/profile_versions/v1.md",
+    "profile_markdown_sha256": profile_hash,
+    "profile_manifest_sha256": sha256_file(round_dir / "work/calibration/supervisor_report/profile.json"),
+    "source_case_refs": analysis_refs,
+    "review_status": "reviewed",
+    "change_summary": "Initial synthetic supervisor profile.",
+}
+(round_dir / "work/calibration/supervisor_report/profile_history.jsonl").write_text(
+    json.dumps(history) + "\n",
+    encoding="utf-8",
+)
+(round_dir / "work/calibration/supervisor_report/profile_review.md").write_text(
+    "# Profile Review\n\nSynthetic independent anti-overfit review fixture.\n",
+    encoding="utf-8",
+)
+(round_dir / "work/calibration/supervisor_report/profile_change_log.md").write_text(
+    "# Supervisor Report Profile Change Log\n\n- Version 1: initial synthetic profile.\n",
+    encoding="utf-8",
+)
+PY
+
+expect_failure "missing manifest entry fails" "$repo_root/scripts/check-supervisor-report-calibration-profile" "$case_id" "$round_id"
+expect_output "missing review manifest"
+
+expect_success "register reviewed supervisor calibration profile" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/supervisor_report_calibration_profile.md" \
+  --role historical-supervisor-report-calibration \
+  --agent generator-agent \
+  --review-scope internal_only \
+  --review-status reviewed \
+  --reviewer-role historical-supervisor-report-calibration-review \
+  --reviewer-agent reviewer-agent \
+  --reviewed-at 2026-05-12T00:00:00Z \
+  --limitation "Synthetic smoke fixture." \
+  --evidence-ref work/calibration/supervisor_report/profile.json \
+  --evidence-ref work/calibration/supervisor_report/checklist.json \
+  --evidence-ref work/calibration/supervisor_report/profile_history.jsonl \
+  --evidence-ref work/calibration/supervisor_report/profile_change_log.md \
+  --evidence-ref work/calibration/supervisor_report/profile_review.md \
+  --evidence-ref work/calibration/supervisor_report/historical_case_analyses/case-001.json \
+  --evidence-ref work/calibration/supervisor_report/historical_case_analyses/case-002.json \
+  --review-basis-path work/calibration/supervisor_report/profile_review.md
+
+expect_success "valid supervisor calibration profile" \
+  "$repo_root/scripts/check-supervisor-report-calibration-profile" "$case_id" "$round_id"
+expect_output "Supervisor report calibration profile check passed"
+expect_output "Historical supervisor report analyses: 2"
+expect_output "Checklist items: 1"
+
+printf "\nMaterial edit after review.\n" >>"$round_dir/outputs/supervisor_report_calibration_profile.md"
+expect_failure "stale reviewed profile fails" \
+  "$repo_root/scripts/check-supervisor-report-calibration-profile" "$case_id" "$round_id"
+expect_output "artifact_sha256 is stale"
+
+rm -f "$round_dir/work/calibration/supervisor_report/historical_case_analyses/case-002.json"
+expect_failure "single supervisor analysis fails" \
+  "$repo_root/scripts/check-supervisor-report-calibration-profile" "$case_id" "$round_id"
+expect_output "at least two historical supervisor report analyses"
+
+echo "Supervisor report calibration profile smoke passed"

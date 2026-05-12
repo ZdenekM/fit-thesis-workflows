@@ -35,6 +35,9 @@ WORKFLOW_COMMAND_MODULES = {
     "check-round-ready": "thesis_review_workflow.cli.check_round_ready",
     "check-scripts": "thesis_review_workflow.cli.check_scripts",
     "check-supervisor-report": "thesis_review_workflow.cli.check_supervisor_report",
+    "check-supervisor-report-calibration-profile": (
+        "thesis_review_workflow.cli.check_supervisor_report_calibration_profile"
+    ),
     "check-supervisor-report-ready": "thesis_review_workflow.cli.check_supervisor_report_ready",
     "check-supervisor-ready": "thesis_review_workflow.cli.check_supervisor_ready",
     "check-tooling": "thesis_review_workflow.cli.check_tooling",

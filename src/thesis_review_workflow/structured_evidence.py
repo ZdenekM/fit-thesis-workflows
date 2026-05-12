@@ -105,6 +105,8 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "work/supervisor_report_trace.json",
     "work/vedouci_posudek_draft.md",
     "work/supervisor_report_confirmation.json",
+    "work/supervisor_report_calibration_use.json",
+    "work/supervisor_report_calibration_advisory.json",
     "outputs/vedouci_posudek_revidovany.md",
     "notes/operator-late-communications.md",
     "notes/late-communications.md",

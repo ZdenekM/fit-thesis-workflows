@@ -30,6 +30,7 @@ from thesis_review_workflow.opponent_calibration import calibration_profile_chec
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.review_materiality import validate_materiality_workflow_limitations
+from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -206,6 +207,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return targets
     if name == "check-opponent-calibration-profile":
         return set(calibration_profile_check_targets(round_dir))
+    if name == "check-supervisor-report-calibration-profile":
+        return set(supervisor_report_calibration_profile_check_targets(round_dir))
     return set()
 
 
@@ -328,6 +331,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-revision-diff")
     if "outputs/reviewer_calibration_profile.md" in paths:
         required.add("check-opponent-calibration-profile")
+    if "outputs/supervisor_report_calibration_profile.md" in paths:
+        required.add("check-supervisor-report-calibration-profile")
     if coverage_required(round_dir, manifest):
         required.add("check-agent-coverage")
     return required

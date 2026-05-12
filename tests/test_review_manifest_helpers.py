@@ -363,6 +363,116 @@ def test_review_manifest_requires_calibration_profile_check_targets(tmp_path: Pa
     )
 
 
+def test_review_manifest_requires_supervisor_calibration_profile_check_targets(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    for rel_path in (
+        "outputs/supervisor_report_calibration_profile.md",
+        "work/calibration/supervisor_report/profile.json",
+        "work/calibration/supervisor_report/checklist.json",
+        "work/calibration/supervisor_report/profile_history.jsonl",
+        "work/calibration/supervisor_report/profile_change_log.md",
+        "work/calibration/supervisor_report/profile_review.md",
+        "work/calibration/supervisor_report/historical_case_analyses/case-001.json",
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic fixture\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-supervisor-report-calibration-profile",
+                "command": "check-supervisor-report-calibration-profile case-a round-a",
+                "target_artifacts": ["outputs/supervisor_report_calibration_profile.md"],
+                "target_sha256": {"outputs/supervisor_report_calibration_profile.md": "0" * 64},
+                "status": "passed",
+                "checked_at": "2026-05-12T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-supervisor-report-calibration-profile"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-supervisor-report-calibration-profile: missing required target artifact "
+        "work/calibration/supervisor_report/profile.json"
+    ) in errors
+    assert "work/calibration/supervisor_report/profile_review.md" in required_helper_targets(
+        "check-supervisor-report-calibration-profile", round_dir
+    )
+
+
+def test_supervisor_calibration_profile_manifest_requires_independent_generator_and_reviewer(tmp_path: Path) -> None:
+    from thesis_review_workflow.cli.check_supervisor_report_calibration_profile import manifest_profile_errors
+
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    profile_md = round_dir / "outputs/supervisor_report_calibration_profile.md"
+    review = round_dir / "work/calibration/supervisor_report/profile_review.md"
+    analysis = round_dir / "work/calibration/supervisor_report/historical_case_analyses/case-001.json"
+    profile_md.parent.mkdir(parents=True)
+    review.parent.mkdir(parents=True)
+    analysis.parent.mkdir(parents=True)
+    profile_md.write_text("# Profile\n", encoding="utf-8")
+    review.write_text("# Review\n", encoding="utf-8")
+    analysis.write_text("{}\n", encoding="utf-8")
+    manifest_path = round_dir / "work/review_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "review-manifest-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "artifacts": [
+                    {
+                        "path": "outputs/supervisor_report_calibration_profile.md",
+                        "artifact_sha256": sha256_file(profile_md),
+                        "artifact_type": "supervisor_report_calibration_profile",
+                        "skills": ["historical-supervisor-report-calibration"],
+                        "review_scope": "internal_only",
+                        "generated_by": [{"role": "same-role", "agent": "same-agent"}],
+                        "limitations": ["Synthetic."],
+                        "evidence_refs": [
+                            "work/calibration/supervisor_report/profile.json",
+                            "work/calibration/supervisor_report/checklist.json",
+                            "work/calibration/supervisor_report/profile_history.jsonl",
+                            "work/calibration/supervisor_report/profile_change_log.md",
+                            "work/calibration/supervisor_report/profile_review.md",
+                            "work/calibration/supervisor_report/historical_case_analyses/case-001.json",
+                        ],
+                        "independent_review": {
+                            "status": "reviewed",
+                            "reviewer_role": "same-role",
+                            "reviewer_agent": "same-agent",
+                            "reviewed_at": "2026-05-12T00:00:00Z",
+                            "reviewed_hash": sha256_file(profile_md),
+                            "review_basis_path": "work/calibration/supervisor_report/profile_review.md",
+                            "review_basis_sha256": sha256_file(review),
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = manifest_profile_errors(
+        round_dir,
+        ["work/calibration/supervisor_report/historical_case_analyses/case-001.json"],
+    )
+
+    assert (
+        "outputs/supervisor_report_calibration_profile.md: generator and reviewer agent must be independent" in errors
+    )
+    assert "outputs/supervisor_report_calibration_profile.md: generator and reviewer role must be independent" in errors
+
+
 def test_init_manifest_keeps_calibration_profile_independently_reviewed_with_synthesis(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     outputs = round_dir / "outputs"
@@ -545,6 +655,14 @@ def test_reviewer_calibration_profile_manifest_defaults() -> None:
     assert artifact_type == "opponent_reviewer_calibration_profile"
     assert skills == ["historical-opponent-calibration"]
     assert scope == "internal_only"
+
+    supervisor_type, supervisor_skills, supervisor_scope = output_defaults(
+        "outputs/supervisor_report_calibration_profile.md"
+    )
+
+    assert supervisor_type == "supervisor_report_calibration_profile"
+    assert supervisor_skills == ["historical-supervisor-report-calibration"]
+    assert supervisor_scope == "internal_only"
 
 
 def test_current_case_calibration_output_manifest_defaults() -> None:

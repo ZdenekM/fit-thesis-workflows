@@ -26,6 +26,7 @@ shell_sources(
         "check-round-ready",
         "check-scripts",
         "check-supervisor-report",
+        "check-supervisor-report-calibration-profile",
         "check-supervisor-report-ready",
         "check-supervisor-ready",
         "check-tooling",
@@ -69,6 +70,7 @@ shell_sources(
         "smoke-opponent-report",
         "smoke-package-workflow-tools",
         "smoke-prepare-code-workspace",
+        "smoke-supervisor-report-calibration-profile",
         "smoke-supervisor-report-packets",
         "smoke-supervisor-packets",
         "smoke-private",
@@ -120,6 +122,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_round_ready",
     "src/thesis_review_workflow/cli:check_scripts",
     "src/thesis_review_workflow/cli:check_supervisor_report",
+    "src/thesis_review_workflow/cli:check_supervisor_report_calibration_profile",
     "src/thesis_review_workflow/cli:check_supervisor_report_ready",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
     "src/thesis_review_workflow/cli:check_tooling",
@@ -392,6 +395,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_supervisor_report_calibration_profile_tool",
+    entry_point="thesis_review_workflow.cli.check_supervisor_report_calibration_profile:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-supervisor-report-calibration-profile",
     tags=["workflow-tool"],
 )
 

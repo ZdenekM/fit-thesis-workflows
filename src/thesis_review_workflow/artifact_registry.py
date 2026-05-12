@@ -153,6 +153,15 @@ OUTPUT_ARTIFACTS: dict[str, OutputArtifactSpec] = {
         internal_evidence=True,
         explicit_internal_review=True,
     ),
+    "supervisor_report_calibration_profile.md": OutputArtifactSpec(
+        filename="supervisor_report_calibration_profile.md",
+        artifact_type="supervisor_report_calibration_profile",
+        skills=("historical-supervisor-report-calibration",),
+        review_scope="internal_only",
+        label="supervisor report calibration profile",
+        internal_evidence=True,
+        explicit_internal_review=True,
+    ),
     "demo_artifacts_review.md": OutputArtifactSpec(
         filename="demo_artifacts_review.md",
         artifact_type="demo_artifacts_review",

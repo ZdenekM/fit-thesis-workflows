@@ -524,7 +524,7 @@ Readiness levels should be explicit:
 
 ### Slice 7 - Optional Historical Supervisor Calibration
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): add supervisor report calibration`
 - Expected paths:
   - `docs/supervisor-report-calibration.md`

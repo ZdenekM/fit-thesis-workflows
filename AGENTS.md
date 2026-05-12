@@ -10,7 +10,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Do not preserve backward compatibility with older `~/code/diplomky` workflows unless the user explicitly asks.
 - Avoid workaround thinking. If the workflow is too complicated, simplify the workflow rather than adding fallback layers.
 - Windows is a supported operator platform. Do not introduce WSL-only assumptions: workflow helpers that operators or agents run directly need a Python/Pants/PEX command surface or native `.cmd`/`.ps1` launchers, POSIX shell entrypoints may only be convenience wrappers, and new path/subprocess/temp-file/encoding behavior must be Windows-aware.
-- For non-trivial code navigation or edits, prefer Serena MCP for symbol-aware work when the language/root is supported; use `docs/serena-code-navigation.md` for repo and submitted-code scoping rules.
+- For non-trivial code navigation, edits, or tracked workflow Markdown section work, prefer Serena MCP when the language/root is supported; use `docs/serena-code-navigation.md` for repo and submitted-code scoping rules.
 - Preserve `README.md` as the human/operator-facing chat-first entrypoint. Its top path should explain what a supervisor or opponent writes to the agent, include concise prompt examples, and keep script/skill internals as lower-level reference. Do not let it regress into a script-first runbook; move detailed procedures into skills, templates, or focused docs.
 - Pipeline and helper-script extensions must be general and context-aware. Do not encode one real thesis, domain, dataset, concrete metric value, filename, or expected conclusion as an active workflow rule. When a case exposes a useful pattern, generalize it into evidence classes, configurable reviewer prompts, or cross-case checks, and apply the interpretation in the context of the current assignment, thesis phase, artifacts, and claims.
 - Do not add brittle free-text heuristics such as "if raw thesis/code/README
@@ -65,6 +65,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-figure-media-review/SKILL.md` for internal visual evidence about thesis figures, tables, screenshots, result images, diagrams, reusable visual descriptions, context/claim alignment, and figure changes between rounds.
 - `.agents/skills/thesis-typography-formal-review/SKILL.md` for late-stage, language-calibrated typography and formal-presentation checks.
 - `.agents/skills/historical-opponent-calibration/SKILL.md` for private historical opponent-report calibration profiles and checklists.
+- `.agents/skills/historical-supervisor-report-calibration/SKILL.md` for private historical supervisor-report calibration profiles and checklists.
 
 When a round contains code, supervisor feedback, supervisor reports, and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 

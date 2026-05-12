@@ -115,6 +115,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/reviewer_calibration_profile.md"
 
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_profile.md"
+expect_failure_contains \
+  "supervisor report calibration profile outside cases fails" \
+  "Potential private generated Markdown artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_profile.md"
+
 make_untracked_file "tmp-feedback-smoke/reference_report_comparison.md"
 expect_failure_contains \
   "reference report comparison outside cases fails" \
@@ -199,6 +206,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/reviewer_calibration_profile_history.jsonl"
 
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_profile_history.jsonl"
+expect_failure_contains \
+  "supervisor report calibration profile history outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_profile_history.jsonl"
+
 make_untracked_file "tmp-feedback-smoke/review_manifest.json"
 expect_failure_contains \
   "review manifest outside cases fails" \
@@ -234,6 +248,20 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/opponent_calibration_advisory.json"
 
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_use.json"
+expect_failure_contains \
+  "supervisor report calibration use outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_use.json"
+
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_advisory.json"
+expect_failure_contains \
+  "supervisor report calibration advisory outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_advisory.json"
+
 make_untracked_file "tmp-feedback-smoke/opponent_report_revision_request.json"
 expect_failure_contains \
   "opponent report revision request outside cases fails" \
@@ -261,6 +289,20 @@ expect_failure_contains \
   "Potential private thesis artifacts" \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/reviewer_checklist.json"
+
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_profile.json"
+expect_failure_contains \
+  "supervisor report calibration profile JSON outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_profile.json"
+
+make_untracked_file "tmp-feedback-smoke/supervisor_report_calibration_checklist.json"
+expect_failure_contains \
+  "supervisor report calibration checklist outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/supervisor_report_calibration_checklist.json"
 
 make_untracked_file "tmp-feedback-smoke/work/calibration/historical_case_analyses/case-a.json"
 expect_failure_contains \

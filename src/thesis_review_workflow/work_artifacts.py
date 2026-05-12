@@ -15,6 +15,10 @@ from thesis_review_workflow.opponent_calibration import (
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
+from thesis_review_workflow.supervisor_report_calibration import (
+    is_supervisor_report_calibration_artifact,
+    validate_supervisor_report_calibration_artifact,
+)
 
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
@@ -59,6 +63,8 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/supervisor_report_feedback_history.json",
     "work/supervisor_report_trace.json",
     "work/supervisor_report_confirmation.json",
+    "work/supervisor_report_calibration_use.json",
+    "work/supervisor_report_calibration_advisory.json",
     "work/current_evidence_snapshot.json",
     "work/opponent_calibration_use.json",
     "work/opponent_calibration_advisory.json",
@@ -79,6 +85,11 @@ WORK_ARTIFACT_GLOBS = (
     "work/calibration/*.json",
     "work/calibration/*.jsonl",
     "work/calibration/*.md",
+    "work/calibration/supervisor_report/*.json",
+    "work/calibration/supervisor_report/*.jsonl",
+    "work/calibration/supervisor_report/*.md",
+    "work/calibration/supervisor_report/historical_case_analyses/*.json",
+    "work/calibration/supervisor_report/profile_versions/*.md",
     "work/calibration/historical_case_analyses/*.json",
 )
 
@@ -118,7 +129,11 @@ def work_artifact_record(round_dir: Path, path: Path) -> dict[str, str]:
         "artifact_sha256": sha256_file(path),
     }
     schema_version = None
-    if rel_path in KNOWN_JSON_ARTIFACT_SCHEMAS or is_opponent_calibration_artifact(rel_path):
+    if (
+        rel_path in KNOWN_JSON_ARTIFACT_SCHEMAS
+        or is_opponent_calibration_artifact(rel_path)
+        or is_supervisor_report_calibration_artifact(rel_path)
+    ):
         schema_version = json_schema_version(path)
     if schema_version:
         record["schema_version"] = schema_version
@@ -241,6 +256,15 @@ def validate_supporting_work_artifacts(
         elif is_opponent_calibration_artifact(rel_path):
             errors.extend(
                 validate_opponent_calibration_artifact(
+                    round_dir,
+                    rel_path,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
+        elif is_supervisor_report_calibration_artifact(rel_path):
+            errors.extend(
+                validate_supervisor_report_calibration_artifact(
                     round_dir,
                     rel_path,
                     case_id=case_id,
