@@ -35,6 +35,13 @@ THESES_SIMILARITY_HELPER_TARGET_RELS = (
     THESES_SIMILARITY_REVIEW_DRAFT_REL,
     THESES_SIMILARITY_REVIEW_REL,
 )
+THESES_SIMILARITY_MATERIALITY_RELS = (
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 CURRENT_SUBMISSION_LINK_STATUSES = {"matched", "unverified", "mismatched"}
 CURRENT_SUBMISSION_MATCH_STATUSES = {"matched", "unverified", "mismatched"}
@@ -72,6 +79,14 @@ def theses_similarity_evidence_present(round_dir: Path) -> bool:
 
 def theses_similarity_check_targets(round_dir: Path) -> list[str]:
     return [rel for rel in THESES_SIMILARITY_HELPER_TARGET_RELS if (round_dir / rel).is_file()]
+
+
+def theses_similarity_materiality_evidence_present(round_dir: Path) -> bool:
+    return bool(theses_similarity_materiality_refs(round_dir))
+
+
+def theses_similarity_materiality_refs(round_dir: Path) -> list[str]:
+    return [rel for rel in THESES_SIMILARITY_MATERIALITY_RELS if (round_dir / rel).exists()]
 
 
 @dataclass(frozen=True)

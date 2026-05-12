@@ -54,11 +54,16 @@ Review the draft as a formal supervisor report, not as general student feedback:
 5. Check that assignment fulfillment, result quality, literature work,
    publication/open-source claims, and serious reservations are supported by
    current-case evidence.
-6. Check that `Komentar pro studenta` is clearly separated from the official
+6. If the draft uses Theses.cz similarity-report evidence, verify that it is
+   backed by `outputs/theses_similarity_review.md`, that clean/no-concern or
+   resolved reports remain silent, and that plagiarism/authorship wording is
+   absent unless a reviewed unresolved concern supports it.
+7. Check that `Komentar pro studenta` is clearly separated from the official
    printed report fields.
-7. Remove internal workflow language, packet names, local paths, hashes,
-   approval state, and unsupported claims from report-facing prose.
-8. Preserve the supervisor's style preferences from the effective profile when
+8. Remove internal workflow language, packet names, local paths, hashes, raw
+   similarity-report URLs/source internals, approval state, and unsupported
+   claims from report-facing prose.
+9. Preserve the supervisor's style preferences from the effective profile when
    they do not conflict with evidence or fairness.
 
 Run `scripts/check-supervisor-report <case-id> [round-id]` before and after

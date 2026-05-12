@@ -14,6 +14,15 @@ from thesis_review_workflow.structured_evidence import (
     CURRENT_EVIDENCE_SNAPSHOT_REL,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+    theses_similarity_materiality_evidence_present,
+    theses_similarity_materiality_refs,
+)
 
 INDEX_REL = Path("work/review_materiality/index.json")
 PROFILE_DIRS = {
@@ -34,11 +43,13 @@ MATERIALITY_ROLES = (
     "literature_citation",
     "github_intake",
     "quantitative_claims",
+    "theses_similarity",
 )
 PACKET_ROLE_FILES = {
     "figure_media": Path("work/review_materiality/supervisor_feedback/figure_media.json"),
     "typography_formal": Path("work/review_materiality/supervisor_feedback/typography_formal.json"),
     "literature_citation": Path("work/review_materiality/supervisor_feedback/literature_citation.json"),
+    "theses_similarity": Path("work/review_materiality/supervisor_feedback/theses_similarity.json"),
 }
 LEGACY_PACKET_ROLE_FILES = {
     "figure_media": Path("work/review_materiality/figure_media.json"),
@@ -61,7 +72,7 @@ QUANTITATIVE_CLAIMS_REL = Path("work/quantitative_claims.json")
 REVIEW_MANIFEST_REL = Path("work/review_manifest.json")
 NEXT_ACTION_STATUSES = {"unresolved", "resolved_by_artifact", "resolved_by_limitation"}
 NEXT_ACTION_SEVERITIES = {"required", "advisory"}
-NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims"}
+NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims", "theses_similarity"}
 NEXT_ACTION_CONFIG = {
     "github_intake": {
         "required_artifact_path": "outputs/github_code_intake.md",
@@ -74,6 +85,12 @@ NEXT_ACTION_CONFIG = {
         "command": "Run an authorized thesis-quantitative-claims-review, then check-evaluation-claims.",
         "skill": "thesis-quantitative-claims-review",
         "typed_limitation_scope": "quantitative_claims",
+    },
+    "theses_similarity": {
+        "required_artifact_path": THESES_SIMILARITY_REVIEW_REL,
+        "command": "Run an authorized thesis-theses-similarity-review, then check-theses-similarity-report.",
+        "skill": "thesis-theses-similarity-review",
+        "typed_limitation_scope": "theses_similarity",
     },
 }
 MATERIALITY_LIMITATION_TYPES = {
@@ -287,6 +304,9 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "quantitative_claims": (
                 "grade-calibration impact: result claims need unit, baseline, magnitude, and reproducibility checks"
             ),
+            "theses_similarity": (
+                "opponent report defensibility: similarity matches must be resolved or limited before wording"
+            ),
             "code_consistency": "mandatory code-bearing review: text-code and reproducibility support",
             "code_quality": (
                 "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
@@ -301,6 +321,7 @@ def impact_for(workflow_profile: str, role: str) -> str:
                 "publication/open-source/contribution evidence before mentioning repository or PR activity"
             ),
             "quantitative_claims": "grade/points calibration: result claims need unit, baseline, and practical context",
+            "theses_similarity": "supervisor report defensibility: similarity matches must be resolved or limited",
             "code_consistency": "mandatory code-bearing review: text-code and reproducibility support",
             "code_quality": (
                 "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
@@ -313,6 +334,7 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "literature_citation": "student-action priority: cited-source support or clear literature gaps",
             "github_intake": "student-action priority: freeze and scope GitHub/PR evidence before code feedback",
             "quantitative_claims": "student-action priority: make metric/result claims proportionate and reproducible",
+            "theses_similarity": "student-action priority: investigate unresolved similarity-report matches",
             "code_consistency": "mandatory code-bearing review: unsupported implementation and reproducibility claims",
             "code_quality": "mandatory code-bearing review: implementation design, tests, and developer evidence",
         }
@@ -455,6 +477,16 @@ def build_materiality_decisions(
             source_refs=github_refs,
         )
 
+    if theses_similarity_materiality_evidence_present(round_dir):
+        merge_material(
+            decisions,
+            workflow_profile,
+            "theses_similarity",
+            scope="theses_similarity_report_evidence",
+            reason="Theses.cz similarity-report evidence is present and needs contextual review before synthesis",
+            source_refs=theses_similarity_materiality_refs(round_dir),
+        )
+
     requirement_categories = evidence_requirement_categories(evidence_requirements)
     media_refs = requirement_categories.get("media", [])
     if (round_dir / VISUAL_INVENTORY_REL).is_file():
@@ -593,7 +625,68 @@ def build_materiality_next_actions(
                     limitations=tuple(errors[:5]),
                 )
             )
+    theses_similarity = material.get("theses_similarity")
+    if theses_similarity is not None:
+        config = NEXT_ACTION_CONFIG["theses_similarity"]
+        theses_actions = _next_action_for_required_artifact(
+            round_dir,
+            decision=theses_similarity,
+            workflow_profile=workflow_profile,
+            required_artifact_path=config["required_artifact_path"],
+            command=config["command"],
+            skill=config["skill"],
+            typed_limitation_scope=config["typed_limitation_scope"],
+        )
+        actions.extend(theses_actions)
+        if not theses_actions:
+            errors = _theses_similarity_validation_errors(round_dir)
+            if errors and not _has_typed_limitation(
+                round_dir,
+                "theses_similarity",
+                workflow_profile=workflow_profile,
+            ):
+                actions.append(
+                    _make_next_action(
+                        round_dir,
+                        decision=theses_similarity,
+                        workflow_profile=workflow_profile,
+                        required_artifact_path=config["required_artifact_path"],
+                        reason="Theses.cz similarity evidence is incomplete or invalid.",
+                        command=config["command"],
+                        skill=config["skill"],
+                        typed_limitation_scope=config["typed_limitation_scope"],
+                        source_refs=list(theses_similarity.source_refs)
+                        + [THESES_SIMILARITY_REVIEW_REL, THESES_SIMILARITY_ASSESSMENT_REL],
+                        limitations=tuple(errors[:5]),
+                    )
+                )
     return actions
+
+
+def _theses_similarity_validation_errors(round_dir: Path) -> list[str]:
+    if not (round_dir / THESES_SIMILARITY_REVIEW_REL).is_file():
+        return []
+    errors: list[str] = []
+    for rel_path in (
+        THESES_SIMILARITY_REPORT_REL,
+        THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+        THESES_SIMILARITY_INTAKE_REL,
+    ):
+        if not (round_dir / rel_path).is_file():
+            errors.append(f"missing required Theses.cz similarity artifact: {rel_path}")
+    if not (round_dir / THESES_SIMILARITY_ASSESSMENT_REL).is_file():
+        errors.append(f"{THESES_SIMILARITY_REVIEW_REL}: {THESES_SIMILARITY_ASSESSMENT_REL} is required")
+        return errors
+    case_id = round_dir.parents[1].name if len(round_dir.parents) > 1 else ""
+    errors.extend(
+        validate_structured_evidence_artifact(
+            round_dir,
+            THESES_SIMILARITY_ASSESSMENT_REL,
+            case_id=case_id,
+            round_id=round_dir.name,
+        )
+    )
+    return errors
 
 
 def _next_action_for_required_artifact(

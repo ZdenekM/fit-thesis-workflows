@@ -28,6 +28,13 @@ from thesis_review_workflow.review_packets import (
     text_list,
     top_level_paths,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 PACKET_DIR_REL = Path("work/supervisor_report_packets")
 SCHEMA_VERSION = "supervisor-report-packet-v1"
@@ -60,6 +67,9 @@ ADVISORY_ARTIFACTS = (
     "outputs/literature_citation_review.md",
     "outputs/figure_media_review.md",
     "outputs/typography_formal_review.md",
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
     "outputs/revision_diff.md",
     *REPORT_ARTIFACTS,
 )
@@ -228,6 +238,37 @@ PACKET_ROLES = (
         ),
         activation="existing_artifact_or_next_action",
         activation_paths=("work/quantitative_claims.json",),
+        activation_workflow_profile="supervisor_report",
+    ),
+    PacketRole(
+        key="theses_similarity",
+        title="Theses.cz Similarity Report Review",
+        skill="thesis-theses-similarity-review",
+        expected_output=THESES_SIMILARITY_REVIEW_REL,
+        mission="Interpret imported Theses.cz similarity evidence before it affects formal supervisor-report wording.",
+        focus=(
+            "external matches and unresolved concerns",
+            "repeated-submission self-overlap in case history",
+            "whether resolved or no-concern results should remain silent",
+            "formal-report wording boundaries for any unresolved issue",
+        ),
+        role_inputs=(
+            THESES_SIMILARITY_REPORT_REL,
+            THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+            THESES_SIMILARITY_INTAKE_REL,
+            THESES_SIMILARITY_ASSESSMENT_REL,
+            THESES_SIMILARITY_REVIEW_REL,
+            "extracted/thesis.txt",
+            "outputs/revision_diff.md",
+        ),
+        constraints=(
+            "Do not infer plagiarism, authorship, or grading impact from a similarity percentage.",
+            "Keep no-concern and resolved findings silent in formal report prose unless the supervisor explicitly "
+            "needs an institutional note.",
+            "Use cautious wording for unresolved concerns and preserve manual-check limitations.",
+        ),
+        activation="existing_artifact_or_next_action",
+        activation_paths=(THESES_SIMILARITY_REVIEW_REL,),
         activation_workflow_profile="supervisor_report",
     ),
     PacketRole(

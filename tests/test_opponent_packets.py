@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import PACKET_ROLES, generate_packets, render_packet
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
+from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
 def write_assignment_coverage(round_dir: Path, *, valid: bool = True) -> None:
@@ -252,6 +253,26 @@ def test_opponent_packet_renders_materiality_next_actions(tmp_path: Path) -> Non
 
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     assert "quantitative_claims.md" in {path.name for path in written}
+
+
+def test_opponent_packets_emit_theses_similarity_packet_from_next_action(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    report = round_dir / THESES_SIMILARITY_REPORT_REL
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b"%PDF synthetic\n")
+    write_materiality(round_dir, "theses_similarity")
+
+    written = generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+    text = (round_dir / "work" / "opponent_packets" / "theses_similarity.md").read_text(encoding="utf-8")
+
+    assert "theses_similarity.md" in names
+    assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
+    assert THESES_SIMILARITY_REPORT_REL in text
+    assert "Do not leak raw report URLs" in text
 
 
 def test_opponent_packet_consumes_quantitative_claims_handoff(tmp_path: Path) -> None:

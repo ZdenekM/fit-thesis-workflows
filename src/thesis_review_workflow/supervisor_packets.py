@@ -28,6 +28,13 @@ from thesis_review_workflow.review_packets import (
     text_list,
     top_level_paths,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 PACKET_DIR_REL = Path("work/supervisor_packets")
 SCHEMA_VERSION = "supervisor-feedback-packet-v1"
@@ -51,6 +58,9 @@ ADVISORY_ARTIFACTS = (
     "outputs/literature_citation_review.md",
     "outputs/figure_media_review.md",
     "outputs/typography_formal_review.md",
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
     "outputs/revision_diff.md",
 )
 
@@ -240,6 +250,40 @@ PACKET_ROLES = (
         activation_workflow_profile="supervisor_feedback",
     ),
     PacketRole(
+        key="theses_similarity",
+        title="Theses.cz Similarity Report Review",
+        skill="thesis-theses-similarity-review",
+        expected_output=THESES_SIMILARITY_REVIEW_REL,
+        mission=(
+            "Interpret imported Theses.cz similarity-report evidence in the current case context before "
+            "student-facing synthesis."
+        ),
+        focus=(
+            "external matches that need reviewer attention",
+            "repeated-submission self-overlap versus suspicious overlap",
+            "whether clean or resolved matches should stay silent",
+            "student-facing wording only when a material unresolved issue remains",
+        ),
+        role_inputs=(
+            THESES_SIMILARITY_REPORT_REL,
+            THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+            THESES_SIMILARITY_INTAKE_REL,
+            THESES_SIMILARITY_ASSESSMENT_REL,
+            THESES_SIMILARITY_REVIEW_REL,
+            "extracted/thesis.txt",
+            "outputs/revision_diff.md",
+        ),
+        constraints=(
+            "Do not infer misconduct or authorship from a similarity percentage.",
+            "Treat high similarity to an earlier version of the same student's work as a self-revision candidate "
+            "that requires case-history confirmation.",
+            "Keep clean or resolved reports silent in student-facing feedback.",
+        ),
+        activation="existing_artifact_or_next_action",
+        activation_paths=(THESES_SIMILARITY_REVIEW_REL,),
+        activation_workflow_profile="supervisor_feedback",
+    ),
+    PacketRole(
         key="evidence_calibration",
         title="Evidence Labels And Student-Action Calibration",
         skill="thesis-supervisor-feedback-review",
@@ -258,6 +302,7 @@ PACKET_ROLES = (
             "outputs/figure_media_review.md",
             "outputs/literature_citation_review.md",
             "outputs/typography_formal_review.md",
+            THESES_SIMILARITY_REVIEW_REL,
         ),
         constraints=(
             "Do not manufacture certainty; lower confidence or mark manual checks when evidence is incomplete.",
@@ -271,6 +316,7 @@ PACKET_ROLES = (
             "outputs/figure_media_review.md",
             "outputs/literature_citation_review.md",
             "outputs/typography_formal_review.md",
+            THESES_SIMILARITY_REVIEW_REL,
         ),
     ),
     PacketRole(
@@ -329,6 +375,7 @@ PACKET_ROLES = (
             "outputs/figure_media_review.md",
             "outputs/literature_citation_review.md",
             "outputs/typography_formal_review.md",
+            THESES_SIMILARITY_REVIEW_REL,
             "outputs/revision_diff.md",
         ),
     ),

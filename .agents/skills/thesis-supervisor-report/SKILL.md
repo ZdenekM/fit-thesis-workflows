@@ -71,9 +71,12 @@ supervisor does not know a dimension, the intake must say that explicitly.
    workflow when available. Consume compact packet handoffs and
    `## Synthesis Handoff` sections first; open full artifacts only for material
    verification or contradiction checks.
-9. When metrics, user studies, experiments, figures, literature, GitHub PRs, or
-   final typography are material to the report, use the same specialist
-   workflows as supervisor feedback and opponent materials.
+9. When metrics, user studies, experiments, figures, literature, GitHub PRs,
+   imported Theses.cz similarity reports, or final typography are material to
+   the report, use the same specialist workflows as supervisor feedback and
+   opponent materials. Clean or resolved similarity-report findings should stay
+   silent in formal prose unless the supervisor explicitly needs an
+   institutional note.
 10. Write or update `work/supervisor_report_trace.json` with field-level
    evidence refs, supervisor-input refs, optional feedback-history status,
    grade/points state, uncertainty, manual checks, and limitations.
@@ -107,6 +110,9 @@ Cover these sections:
   official FIT IS fields and current grade/points calibration.
 - Do not name publications, awards, open-source release, external impact, or
   assignment non-fulfillment without current evidence or supervisor input.
+- Do not use plagiarism/authorship wording from a similarity report unless
+  `outputs/theses_similarity_review.md` records a reviewed unresolved concern
+  that supports that narrow statement.
 - Keep internal paths, hashes, packet names, review state, and local workspace
   details out of official prose.
 

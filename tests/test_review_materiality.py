@@ -9,6 +9,14 @@ from thesis_review_workflow.review_materiality import (
     validate_review_materiality_artifact,
     write_materiality_decisions,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 
 def make_round(tmp_path: Path) -> Path:
@@ -323,6 +331,102 @@ def test_material_quantitative_claims_create_next_action_when_handoff_missing(tm
     )
     assert errors == []
     assert [item["role"] for item in unresolved] == ["quantitative_claims"]
+
+
+def test_theses_similarity_report_creates_required_next_action_until_review_exists(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    report = round_dir / THESES_SIMILARITY_REPORT_REL
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b"%PDF synthetic\n")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+    )
+
+    assert errors == []
+    by_role = {decision.role: decision for decision in decisions}
+    assert by_role["theses_similarity"].material
+    assert by_role["theses_similarity"].source_refs == (THESES_SIMILARITY_REPORT_REL,)
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "opponent_review" / "index.json").read_text(encoding="utf-8")
+    )
+    theses_actions = [item for item in index["next_actions"] if item["role"] == "theses_similarity"]
+
+    assert len(theses_actions) == 1
+    assert theses_actions[0]["required_artifact_path"] == THESES_SIMILARITY_REVIEW_REL
+    assert theses_actions[0]["skill"] == "thesis-theses-similarity-review"
+
+
+def test_theses_similarity_approval_record_alone_does_not_trigger_materiality(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    approval = round_dir / THESES_SIMILARITY_REVIEW_APPROVAL_REL
+    approval.parent.mkdir(parents=True)
+    approval.write_text("{}\n", encoding="utf-8")
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert errors == []
+    assert not next(decision for decision in decisions if decision.role == "theses_similarity").material
+
+
+def test_theses_similarity_final_review_without_assessment_stays_unresolved(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    for rel_path in (THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+    (round_dir / THESES_SIMILARITY_REVIEW_REL).parent.mkdir(parents=True)
+    (round_dir / THESES_SIMILARITY_REVIEW_REL).write_text("# Theses.cz Similarity Review\n", encoding="utf-8")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert any(item["role"] == "theses_similarity" for item in unresolved)
+    assert any(
+        THESES_SIMILARITY_ASSESSMENT_REL in limitation
+        for item in unresolved
+        if item["role"] == "theses_similarity"
+        for limitation in item["limitations"]
+    )
 
 
 def test_material_quantitative_next_action_resolves_after_current_handoff_exists(tmp_path: Path) -> None:

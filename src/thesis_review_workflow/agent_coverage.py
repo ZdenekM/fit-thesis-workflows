@@ -15,6 +15,10 @@ from typing import Any
 
 from thesis_review_workflow.artifact_registry import final_output_paths, opponent_final_output_paths
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_REVIEW_REL,
+    theses_similarity_materiality_evidence_present,
+)
 
 COVERAGE_REL = Path("work/agent_coverage.json")
 SCHEMA_VERSION = "agent-coverage-v1"
@@ -427,6 +431,15 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             "structured quantitative claims artifact feeds a final/synthesis artifact",
             "thesis-quantitative-claims-review",
             QUANTITATIVE_CLAIMS_REL,
+            final_paths,
+        )
+
+    if final_paths and theses_similarity_materiality_evidence_present(round_dir):
+        specs["theses_similarity"] = RoleSpec(
+            "theses_similarity",
+            "Theses.cz similarity-report evidence is available and feeds a final/synthesis artifact",
+            "thesis-theses-similarity-review",
+            THESES_SIMILARITY_REVIEW_REL,
             final_paths,
         )
 

@@ -302,7 +302,7 @@ Repeated-submission handling:
 
 ### Slice 4 - Review Skill And Agent Coverage
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): review theses similarity reports`
 - Expected paths:
   - `AGENTS.md`
@@ -319,12 +319,12 @@ Repeated-submission handling:
   - `src/thesis_review_workflow/supervisor_packets.py`
   - `src/thesis_review_workflow/supervisor_report_packets.py`
   - `src/thesis_review_workflow/opponent_packets.py`
-  - `tests/test_agent_coverage.py`
   - `tests/test_review_materiality.py`
   - `tests/test_review_wave_gate.py`
   - `tests/test_supervisor_packets.py`
   - `tests/test_supervisor_report_packets.py`
   - `tests/test_opponent_packets.py`
+  - `tests/test_workflow_python_contracts.py`
 - Tasks:
   - Add a repo-local skill for interpreting the report in case context.
   - Require explicit agent authorization before producing
@@ -355,7 +355,7 @@ Repeated-submission handling:
   - `pants fmt ::`
   - `pants lint src/thesis_review_workflow:: tests::`
   - `pants check src/thesis_review_workflow:: tests::`
-  - `pants test tests/test_agent_coverage.py tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py`
+  - `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
@@ -433,6 +433,20 @@ Repeated-submission handling:
   tests/test_review_approvals.py tests/test_workflow_python_contracts.py
   tests/test_work_artifacts.py`, `scripts/smoke-theses-similarity-report`,
   `scripts/smoke-review-manifest`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-12: Slice 4 implemented and reviewed with two agents. Added the
+  `thesis-theses-similarity-review` skill, materiality/next-action routing,
+  synthesis wave gates, supervisor/opponent role packets, final-artifact role
+  coverage, and downstream review checks for similarity-derived wording.
+  Reviewer findings fixed approval-only materiality false positives, avoided
+  CLI-validator coupling in materiality checks, required assessment context for
+  final reviews, and passed raw report/extract references through packet
+  snapshots. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests::`, `pants check
+  src/thesis_review_workflow:: tests::`, `pants test
+  tests/test_review_materiality.py tests/test_review_wave_gate.py
+  tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py
+  tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log

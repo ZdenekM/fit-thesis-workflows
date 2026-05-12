@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.supervisor_report_packets import generate_packets
+from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
 def make_round(tmp_path: Path) -> Path:
@@ -93,6 +94,23 @@ def test_supervisor_report_packets_use_supervisor_report_materiality_profile(tmp
 
     assert "literature_citation.md" in names
     assert "typography_formal.md" not in names
+
+
+def test_supervisor_report_packets_emit_theses_similarity_packet_from_next_action(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    report = round_dir / THESES_SIMILARITY_REPORT_REL
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b"%PDF synthetic\n")
+    write_materiality(round_dir, "theses_similarity")
+
+    written = generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+    names = {path.name for path in written}
+    text = (round_dir / "work" / "supervisor_report_packets" / "theses_similarity.md").read_text(encoding="utf-8")
+
+    assert "theses_similarity.md" in names
+    assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
+    assert THESES_SIMILARITY_REPORT_REL in text
+    assert "Keep no-concern and resolved findings silent" in text
 
 
 def test_supervisor_report_packets_ignore_supervisor_feedback_materiality(tmp_path: Path) -> None:

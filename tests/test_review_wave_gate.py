@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.review_approvals import sha256_file
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, validate_wave
+from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL
 
 
 def make_round(tmp_path: Path) -> Path:
@@ -332,6 +333,51 @@ def test_wave_gate_blocks_unresolved_materiality_next_actions(tmp_path: Path) ->
     )
 
     assert any("materiality next action unresolved" in error for error in result.errors)
+
+
+def test_wave_gate_blocks_unresolved_theses_similarity_next_action(tmp_path: Path) -> None:
+    cases = (
+        ("supervisor-feedback", "draft", "supervisor_feedback", "work/feedback_student_draft.md"),
+        ("supervisor-report", "trace", "supervisor_report", "work/supervisor_report_trace.json"),
+        ("opponent-materials", "draft", "opponent_review", "work/oponent_podklady_draft.md"),
+    )
+    for workflow, wave, profile, output_path in cases:
+        root = tmp_path / workflow
+        round_dir = make_round(root)
+        output = round_dir / output_path
+        output.parent.mkdir(parents=True)
+        output.write_text("# Synthetic output\n", encoding="utf-8")
+        report = round_dir / THESES_SIMILARITY_REPORT_REL
+        report.parent.mkdir(parents=True)
+        report.write_bytes(b"%PDF synthetic\n")
+        write_materiality_decisions(
+            round_dir,
+            [
+                MaterialityDecision(
+                    role="theses_similarity",
+                    recommendation="material",
+                    scope="theses_similarity_report_evidence",
+                    impact="report defensibility",
+                    reason="Theses.cz report evidence exists.",
+                    source_refs=(THESES_SIMILARITY_REPORT_REL,),
+                )
+            ],
+            case_id="case-a",
+            round_id="round-a",
+            workflow_profile=profile,
+            phase="final",
+            generated_at="2026-05-12T00:00:00Z",
+        )
+
+        result = validate_wave(
+            root / "repo",
+            round_dir,
+            builtin_wave_spec(workflow, wave),
+            case_id="case-a",
+            round_id="round-a",
+        )
+
+        assert any("materiality next action unresolved: theses_similarity requires" in error for error in result.errors)
 
 
 def test_wave_gate_requires_materiality_index_for_synthesis_waves(tmp_path: Path) -> None:

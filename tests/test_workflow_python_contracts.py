@@ -22,6 +22,11 @@ from thesis_review_workflow.cli.package_workflow_tools import (
 )
 from thesis_review_workflow.commands import WORKFLOW_COMMAND_MODULES
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -366,6 +371,72 @@ def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: P
     assert human_role["generator_agent"] == "human_reviewer"
     assert human_errors == []
     assert human_warnings == []
+
+
+def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    theses_review = round_dir / THESES_SIMILARITY_REVIEW_REL
+    report = round_dir / THESES_SIMILARITY_REPORT_REL
+    final_output.parent.mkdir(parents=True)
+    report.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    theses_review.write_text("# Theses.cz Similarity Review\n", encoding="utf-8")
+    report.write_bytes(b"%PDF synthetic\n")
+    final_hash = agent_coverage.sha256_file(final_output)
+    theses_hash = agent_coverage.sha256_file(theses_review)
+    manifest = {
+        "inputs": [{"path": THESES_SIMILARITY_REPORT_REL, "kind": "pdf"}],
+        "supporting_work_artifacts": [],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "artifact_sha256": final_hash,
+                "skills": ["thesis-supervisor-feedback-review"],
+                "generated_by": [{"role": "thesis-supervisor-feedback-review", "agent": "reviewer-a"}],
+                "independent_review": {
+                    "reviewer_role": "thesis-supervisor-feedback-review",
+                    "reviewer_agent": "reviewer-b",
+                    "reviewed_hash": final_hash,
+                },
+            },
+            {
+                "path": THESES_SIMILARITY_REVIEW_REL,
+                "artifact_sha256": theses_hash,
+                "skills": ["thesis-theses-similarity-review"],
+                "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                "independent_review": {"status": "not_recorded"},
+            },
+        ],
+    }
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert specs["theses_similarity"].skill == "thesis-theses-similarity-review"
+    assert coverage is not None
+    role = next(item for item in coverage["roles"] if item["role"] == "theses_similarity")
+    assert role["output_evidence"] == [THESES_SIMILARITY_REVIEW_REL]
+    assert role["generator_role"] == "thesis-theses-similarity-review"
+    assert role["generator_agent"] == "agent-sim"
+    assert errors == []
+    assert warnings == []
+
+
+def test_agent_coverage_ignores_orphan_theses_similarity_approval_record(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    approval = round_dir / THESES_SIMILARITY_REVIEW_APPROVAL_REL
+    final_output.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    approval.write_text("{}\n", encoding="utf-8")
+    manifest: dict[str, object] = {"inputs": [], "supporting_work_artifacts": [], "artifacts": []}
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert "theses_similarity" not in specs
 
 
 def test_workflow_tool_pex_targets_match_command_module_map() -> None:

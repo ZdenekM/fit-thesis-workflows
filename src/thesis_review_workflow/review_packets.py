@@ -18,6 +18,15 @@ from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 SEMANTIC_MODEL = "gpt-5.5"
 SEMANTIC_REASONING = "xhigh"
@@ -50,6 +59,13 @@ SNAPSHOT_SOURCE_PATHS = (
     "work/vedouci_posudek_draft.md",
     "outputs/vedouci_posudek_revidovany.md",
     "work/supervisor_report_confirmation.json",
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
     "work/reviews/feedback_student_review.json",
     "work/reviews/opponent_materials_review.json",
     "work/reviews/opponent_report_review.json",

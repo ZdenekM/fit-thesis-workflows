@@ -37,7 +37,7 @@ cases/<case-id>/rounds/<round-id>/
 6. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
 7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
 8. When quantitative, evaluation, experiment, metric, performance, or result claims matter to opponent synthesis, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
-9. Run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow opponent_review <case-id> [round-id]`, and `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change. Packets render materiality `next_actions`; resolve required GitHub/quantitative actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/reviewed wave readiness. Packets reduce repeated context; they do not replace this skill, required role coverage, independent review, or manifest validation.
+9. Run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow opponent_review <case-id> [round-id]`, and `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/reviewed wave readiness. Packets reduce repeated context; they do not replace this skill, required role coverage, independent review, or manifest validation.
 10. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
@@ -48,6 +48,7 @@ cases/<case-id>/rounds/<round-id>/
    - implementation and artifact evidence,
    - implementation quality and design evidence,
    - experiments/results and whether conclusions are supported,
+   - imported Theses.cz similarity-report status and any unresolved concerns,
    - reproducibility status,
    - literature/citation issues,
    - typography/formal presentation issues calibrated by thesis language,
@@ -57,17 +58,18 @@ cases/<case-id>/rounds/<round-id>/
 12. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
 13. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
 14. Run `thesis-typography-formal-review` when the thesis is in final submission state or formal presentation may affect report quality. Use it as pattern evidence; do not turn it into a long typo inventory.
-15. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
-16. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-17. Use confidence labels for important statements:
+15. Run `thesis-theses-similarity-review` when an imported Theses.cz report is present. Keep no-concern or resolved matches internal; surface only reviewed unresolved/material concerns or manual checks, and do not expose raw report URLs/source internals.
+16. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+17. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+18. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-18. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
-19. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
-20. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles, covered evidence artifacts, checks, limitations, and compact `used_findings` summaries for each evidence artifact covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If reviewed materials change afterward, the materials are draft again: rerun independent review and refresh `work/reviews/opponent_materials_review.json`, or record an explicit typed exception/limitation accepted by closeout. Manifest refresh alone is insufficient.
+19. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
+20. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
+21. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles, covered evidence artifacts, checks, limitations, and compact `used_findings` summaries for each evidence artifact covered by synthesis in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If reviewed materials change afterward, the materials are draft again: rerun independent review and refresh `work/reviews/opponent_materials_review.json`, or record an explicit typed exception/limitation accepted by closeout. Manifest refresh alone is insufficient.
 
 ## Free-Text Boundary
 
@@ -93,6 +95,7 @@ For a large opponent review, split reviewer agents by role:
 - code/reproducibility and text-code consistency,
 - code quality/design, maintainability, runtime risks, and developer evidence,
 - quantitative/result claims, units, baselines, practical magnitude, and reproducibility context,
+- Theses.cz similarity-report context when an imported report is present,
 - literature/citation relevance, source availability, and claim support,
 - typography/formal presentation for final submitted text,
 - evidence labels, severity, and grading calibration,
