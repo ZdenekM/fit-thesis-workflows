@@ -363,7 +363,7 @@ Readiness levels should be explicit:
 
 ### Slice 4 - Draft Helper And Report Shape
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): draft supervisor report`
 - Expected paths:
   - `src/thesis_review_workflow/cli/draft_supervisor_report.py`
@@ -393,7 +393,7 @@ Readiness levels should be explicit:
   - `pants fmt src/thesis_review_workflow:: tests:: scripts::`
   - `pants lint src/thesis_review_workflow:: tests:: scripts::`
   - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_draft_supervisor_report.py tests/test_supervisor_report.py tests/test_workflow_python_contracts.py`
+  - `pants test tests/test_draft_supervisor_report.py tests/test_supervisor_report.py tests/test_structured_evidence.py tests/test_workflow_python_contracts.py`
   - `scripts/smoke-supervisor-report`
   - `scripts/smoke-package-workflow-tools`
   - `scripts/check-private`
@@ -685,6 +685,15 @@ full historical feedback when those artifacts are already on disk.
   findings were fixed before commit. Omen passed as developer hygiene with
   grade A / overall score 91.20 and existing hotspot-style warnings, including
   shared manifest and structured-evidence modules.
+- 2026-05-12: Implemented Slice 4 draft helper: `draft-supervisor-report`
+  generates `work/vedouci_posudek_draft.md` from the structured trace, embeds
+  only hash-bound validation comments as metadata, preserves the seven FIT IS
+  fields in stable order, keeps the private student comment separate, validates
+  the draft immediately, and participates in `WORKFLOW_COMMAND_MODULES`,
+  Pants/PEX packaging, smoke coverage, and command-surface docs. Agent review
+  found no command-surface issues; semantic review found private-comment leak
+  and visible metadata risks plus title/confirmation edge cases, all fixed
+  before commit.
 
 ## Decision Log
 

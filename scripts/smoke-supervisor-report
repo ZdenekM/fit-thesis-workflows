@@ -242,46 +242,77 @@ payload = {
     "manual_checks": [],
 }
 (round_dir / trace_rel).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-trace_hash = sha(round_dir / trace_rel)
-draft = f"""<!-- source_trace_path: {trace_rel} -->
-<!-- source_trace_sha256: {trace_hash} -->
-<!-- supervisor_input_path: {input_rel} -->
-<!-- supervisor_input_sha256: {input_hash} -->
-# Návrh posudku vedoucího
+PY
 
-## Informace k zadání
+expect_success "draft supervisor report" "$repo_root/scripts/draft-supervisor-report" "$case_id" "$round_id"
 
-Zadání bylo středně náročné a bylo splněno.
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import json
+import pathlib
+import sys
 
-## Práce s literaturou
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
+confirmation = {
+    "schema_version": "supervisor-report-confirmation-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-12T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-supervisor-report",
+    "producer_agent": "supervisor-report-smoke",
+    "authorization_note": "Synthetic smoke authorized.",
+    "source_refs": [reviewed_rel],
+    "limitations": [],
+    "reviewed_report_path": reviewed_rel,
+    "reviewed_report_sha256": "0" * 64,
+    "grade": "B",
+    "points": 82,
+    "official_text_confirmed": True,
+    "student_comment_confirmed": True,
+    "ready_for_is": True,
+    "confirmed_by": "supervisor",
+    "confirmed_at": "2026-05-12T00:01:00Z",
+}
+(round_dir / "work/supervisor_report_confirmation.json").write_text(
+    json.dumps(confirmation, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
 
-Student s literaturou pracoval přiměřeně.
+expect_failure "confirmation without reviewed report fails" \
+  "$repo_root/scripts/check-supervisor-report" --require-confirmation "$case_id" "$round_id"
 
-## Aktivita během řešení, konzultace, komunikace
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
 
-Student pracoval samostatně a konzultoval průběžně.
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
 
-## Aktivita při dokončování
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
-Definitivní obsah byl konzultován.
-
-## Publikační činnost, ocenění
-
-Práce nevedla k publikaci ani ocenění.
-
-## Celkové hodnocení
-
-Práci hodnotím známkou B a 82 body.
-
-Známka: B
-Body: 82
-
-## Komentář pro studenta
-
-Děkuji za dobrou práci.
-"""
-(round_dir / draft_rel).write_text(draft, encoding="utf-8")
+reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
+draft_rel = "work/vedouci_posudek_draft.md"
+draft = (round_dir / draft_rel).read_text(encoding="utf-8")
 (round_dir / reviewed_rel).write_text(draft.replace("# Návrh posudku vedoucího", "# Posudek vedoucího"), encoding="utf-8")
+common = {
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-12T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-supervisor-report",
+    "producer_agent": "supervisor-report-smoke",
+    "authorization_note": "Synthetic smoke authorized.",
+    "source_refs": [reviewed_rel],
+    "limitations": [],
+}
 confirmation = {
     **common,
     "schema_version": "supervisor-report-confirmation-v1",

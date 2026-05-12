@@ -32,6 +32,7 @@ python_source(name="check_typography_formal", source="check_typography_formal.py
 python_source(name="context", source="context.py")
 python_source(name="dev_hygiene", source="dev_hygiene.py")
 python_source(name="draft_opponent_report", source="draft_opponent_report.py")
+python_source(name="draft_supervisor_report", source="draft_supervisor_report.py")
 python_source(name="extract_pdf_text", source="extract_pdf_text.py")
 python_source(name="import_github_code", source="import_github_code.py")
 python_source(name="import_round", source="import_round.py")

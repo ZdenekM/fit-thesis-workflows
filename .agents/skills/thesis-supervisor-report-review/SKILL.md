@@ -103,7 +103,7 @@ high-reasoning semantic pass.
 Write `outputs/vedouci_posudek_revidovany.md`:
 
 ```markdown
-# Posudek vedouciho
+# Posudek vedoucího
 
 ## Informace k zadání
 

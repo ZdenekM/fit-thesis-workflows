@@ -31,6 +31,7 @@ shell_sources(
         "check-tooling",
         "check-typography-formal",
         "draft-opponent-report",
+        "draft-supervisor-report",
         "extract-pdf-text",
         "import-github-code",
         "import-round",
@@ -120,6 +121,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
     "src/thesis_review_workflow/cli:draft_opponent_report",
+    "src/thesis_review_workflow/cli:draft_supervisor_report",
     "src/thesis_review_workflow/cli:extract_pdf_text",
     "src/thesis_review_workflow/cli:import_github_code",
     "src/thesis_review_workflow/cli:import_round",
@@ -433,6 +435,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/draft-opponent-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="draft_supervisor_report_tool",
+    entry_point="thesis_review_workflow.cli.draft_supervisor_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/draft-supervisor-report",
     tags=["workflow-tool"],
 )
 

@@ -141,6 +141,28 @@ def test_validate_supervisor_report_markdown_blocks_public_internal_paths() -> N
     assert any("internal workflow path" in error for error in errors)
 
 
+def test_validate_supervisor_report_markdown_blocks_private_internal_paths() -> None:
+    text = valid_report("0" * 64, "1" * 64).replace(
+        "Děkuji za práci.",
+        "Podívejte se prosím na work/review_manifest.json.",
+    )
+
+    errors = validate_report_markdown(text, require_grade_points=True)
+
+    assert any("internal workflow path" in error for error in errors)
+
+
+def test_validate_supervisor_report_markdown_blocks_visible_top_matter() -> None:
+    text = valid_report("0" * 64, "1" * 64).replace(
+        "# Návrh posudku vedoucího\n\n## Informace k zadání",
+        "# Návrh posudku vedoucího\n\nStav: pracovní draft\n\n## Informace k zadání",
+    )
+
+    errors = validate_report_markdown(text, require_grade_points=True)
+
+    assert "unexpected text between supervisor report title and first section" in errors
+
+
 def test_public_report_text_does_not_remove_duplicate_official_text() -> None:
     text = valid_report("0" * 64, "1" * 64).replace(
         "Děkuji za práci.",

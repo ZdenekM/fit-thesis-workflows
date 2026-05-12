@@ -125,21 +125,39 @@ def section_has_content(lines: list[str], heading: str) -> bool:
 def validate_report_markdown(text: str, *, require_grade_points: bool) -> list[str]:
     errors: list[str] = []
     lines = strip_metadata_comments(text).splitlines()
-    if not any(heading in lines for heading in SUPERVISOR_REPORT_TITLE_HEADINGS):
+    title_indices = [index for index, line in enumerate(lines) if line in SUPERVISOR_REPORT_TITLE_HEADINGS]
+    if not title_indices:
         choices = " or ".join(SUPERVISOR_REPORT_TITLE_HEADINGS)
         errors.append(f"missing required heading: {choices}")
+    else:
+        title_index = title_indices[0]
+        if any(line.strip() for line in lines[:title_index]):
+            errors.append("unexpected text before supervisor report title")
+        first_section_index = next(
+            (
+                index
+                for index, line in enumerate(lines[title_index + 1 :], start=title_index + 1)
+                if line.startswith("## ")
+            ),
+            None,
+        )
+        if first_section_index is not None and any(
+            line.strip() for line in lines[title_index + 1 : first_section_index]
+        ):
+            errors.append("unexpected text between supervisor report title and first section")
     for heading in SUPERVISOR_REPORT_SECTION_HEADINGS:
         if heading not in lines:
             errors.append(f"missing required heading: {heading}")
         elif heading.startswith("## ") and not section_has_content(lines, heading):
             errors.append(f"empty supervisor report section: {heading}")
 
+    visible_text = strip_metadata_comments(text)
     public_text = public_report_text(text)
     for pattern in PLACEHOLDER_PATTERNS:
-        if re.search(pattern, public_text, re.IGNORECASE | re.MULTILINE):
+        if re.search(pattern, visible_text, re.IGNORECASE | re.MULTILINE):
             errors.append(f"placeholder remains in supervisor report: {pattern}")
     for pattern in INTERNAL_PATTERNS:
-        if re.search(pattern, public_text, re.IGNORECASE):
+        if re.search(pattern, visible_text, re.IGNORECASE):
             errors.append(f"internal workflow path or artifact leaked into supervisor report: {pattern}")
 
     points = [int(match.group(1)) for match in POINT_RE.finditer(public_text)]

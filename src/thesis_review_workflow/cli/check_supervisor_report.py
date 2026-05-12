@@ -126,7 +126,7 @@ def main(argv: list[str]) -> int:
                     trace_grade_points(trace_payload),
                 )
             )
-    elif args.require_reviewed:
+    elif args.require_reviewed or args.require_confirmation:
         errors.append(f"missing reviewed supervisor report: {SUPERVISOR_REPORT_REVIEWED_REL}")
 
     confirmation_path = round_dir / SUPERVISOR_REPORT_CONFIRMATION_REL

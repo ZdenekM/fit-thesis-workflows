@@ -40,6 +40,7 @@ WORKFLOW_COMMAND_MODULES = {
     "check-tooling": "thesis_review_workflow.cli.check_tooling",
     "check-typography-formal": "thesis_review_workflow.cli.check_typography_formal",
     "draft-opponent-report": "thesis_review_workflow.cli.draft_opponent_report",
+    "draft-supervisor-report": "thesis_review_workflow.cli.draft_supervisor_report",
     "extract-pdf-text": "thesis_review_workflow.cli.extract_pdf_text",
     "import-github-code": "thesis_review_workflow.cli.import_github_code",
     "import-round": "thesis_review_workflow.cli.import_round",
