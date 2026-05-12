@@ -19,6 +19,13 @@ from thesis_review_workflow.supervisor_report_calibration import (
     is_supervisor_report_calibration_artifact,
     validate_supervisor_report_calibration_artifact,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_ASSESSMENT_SCHEMA,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_INTAKE_SCHEMA,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+)
 
 KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
@@ -30,6 +37,8 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/supervisor_report_confirmation.json": {"supervisor-report-confirmation-v1"},
     "work/current_evidence_snapshot.json": {"current-evidence-snapshot-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
+    THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
+    THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
 }
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
@@ -42,6 +51,14 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/supervisor_report_confirmation.json": {"ready_for_is": bool},
     "work/current_evidence_snapshot.json": {"items": list},
     "work/code_reproducibility.json": {"classification": str},
+    THESES_SIMILARITY_INTAKE_REL: {
+        "report_pdf": dict,
+        "extracted_text": dict,
+        "current_submission_link": str,
+        "source_documents": list,
+        "matched_passages": list,
+    },
+    THESES_SIMILARITY_ASSESSMENT_REL: {"judgments": list},
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -72,6 +89,9 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/opponent_calibration_refresh_eligibility.json",
     "work/code_reproducibility.json",
     "work/media_presence_inventory.jsonl",
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
 )
 
 WORK_ARTIFACT_GLOBS = (

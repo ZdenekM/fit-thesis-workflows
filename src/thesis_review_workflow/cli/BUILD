@@ -28,6 +28,7 @@ python_source(name="check_supervisor_report", source="check_supervisor_report.py
 python_source(name="check_supervisor_report_calibration_profile", source="check_supervisor_report_calibration_profile.py")
 python_source(name="check_supervisor_report_ready", source="check_supervisor_report_ready.py")
 python_source(name="check_supervisor_ready", source="check_supervisor_ready.py")
+python_source(name="check_theses_similarity_report", source="check_theses_similarity_report.py")
 python_source(name="check_tooling", source="check_tooling.py")
 python_source(name="check_typography_formal", source="check_typography_formal.py")
 python_source(name="confirm_supervisor_report", source="confirm_supervisor_report.py")

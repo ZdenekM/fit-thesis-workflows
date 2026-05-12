@@ -3,15 +3,38 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 THESES_SIMILARITY_INTAKE_SCHEMA = "theses-similarity-intake-v1"
 THESES_SIMILARITY_ASSESSMENT_SCHEMA = "theses-similarity-assessment-v1"
 THESES_SIMILARITY_ASSESSMENT_REL = "work/theses_similarity/assessment.json"
+THESES_SIMILARITY_EXTRACTED_TEXT_REL = "extracted/theses_similarity/report.txt"
 THESES_SIMILARITY_INTAKE_REL = "work/theses_similarity/intake.json"
+THESES_SIMILARITY_REPORT_REL = "inputs/theses_similarity/report.pdf"
 THESES_SIMILARITY_REVIEW_DRAFT_REL = "work/theses_similarity/review_draft.md"
 THESES_SIMILARITY_REVIEW_REL = "outputs/theses_similarity_review.md"
+THESES_SIMILARITY_REVIEW_APPROVAL_REL = "work/reviews/theses_similarity_review.json"
+
+THESES_SIMILARITY_CHECK_RELS = (
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+)
+THESES_SIMILARITY_HELPER_TARGET_RELS = (
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 CURRENT_SUBMISSION_LINK_STATUSES = {"matched", "unverified", "mismatched"}
 CURRENT_SUBMISSION_MATCH_STATUSES = {"matched", "unverified", "mismatched"}
@@ -41,6 +64,14 @@ SIMILARITY_RE = re.compile(r"^Podobnost\s+(?P<value><\s*1|[0-9]+(?:[.,][0-9]+)?)
 SOURCE_INDEX_RE = re.compile(r"^(?P<rank>[0-9]+)\.$")
 MARKER_LINE_RE = re.compile(r"^\s*(?P<ids>[0-9]+(?:\s+[0-9]+)*)\s*$")
 URL_TOKEN_RE = re.compile(r"^(https?://|//|/id/|www\.)", re.IGNORECASE)
+
+
+def theses_similarity_evidence_present(round_dir: Path) -> bool:
+    return any((round_dir / rel).exists() for rel in THESES_SIMILARITY_CHECK_RELS)
+
+
+def theses_similarity_check_targets(round_dir: Path) -> list[str]:
+    return [rel for rel in THESES_SIMILARITY_HELPER_TARGET_RELS if (round_dir / rel).is_file()]
 
 
 @dataclass(frozen=True)
@@ -172,10 +203,22 @@ def _normalized_lines(text: str) -> list[tuple[int, int, str]]:
 
 
 def _find_line_containing(lines: list[tuple[int, int, str]], needle: str) -> int | None:
+    normalized_needle = _normalized_label(needle)
     for index, (_, _, line) in enumerate(lines):
-        if needle in line:
+        if normalized_needle in _normalized_label(line):
             return index
     return None
+
+
+def _normalized_label(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return ascii_text.casefold()
+
+
+def _line_startswith_any(line: str, prefixes: tuple[str, ...]) -> bool:
+    normalized = _normalized_label(line)
+    return any(normalized.startswith(_normalized_label(prefix)) for prefix in prefixes)
 
 
 def _first_similarity(lines: list[tuple[int, int, str]]) -> SimilarityValue | None:
@@ -262,11 +305,11 @@ def _source_document_from_lines(
     url_lines: list[str] = []
     if url_index is not None:
         for line in content[url_index:]:
-            if line.startswith(("Změněno", "Staženo")):
+            if _line_startswith_any(line, ("Změněno", "Staženo")):
                 break
             url_lines.append(line)
     changed_or_downloaded = next(
-        (line for line in content if line.startswith(("Změněno", "Staženo"))),
+        (line for line in content if _line_startswith_any(line, ("Změněno", "Staženo"))),
         "",
     )
     return SourceDocument(

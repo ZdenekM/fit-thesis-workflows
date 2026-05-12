@@ -43,6 +43,29 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
             "limitations": [],
         },
     )
+    write_json(
+        round_dir / "work" / "theses_similarity" / "intake.json",
+        {
+            "schema_version": "theses-similarity-intake-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-12T00:00:00Z",
+            "producer_type": "deterministic_helper",
+            "producer_role": "import-theses-report",
+            "producer_agent": "import-theses-report",
+            "source_refs": ["inputs/theses_similarity/report.pdf", "extracted/theses_similarity/report.txt"],
+            "limitations": [],
+            "report_pdf": {"path": "inputs/theses_similarity/report.pdf", "sha256": "0" * 64, "page_count": 1},
+            "extracted_text": {
+                "path": "extracted/theses_similarity/report.txt",
+                "sha256": "0" * 64,
+                "extractor": "pdftotext -layout",
+            },
+            "current_submission_link": "unverified",
+            "source_documents": [],
+            "matched_passages": [],
+        },
+    )
     packet = round_dir / "work" / "opponent_packets" / "synthesis.md"
     packet.parent.mkdir(parents=True, exist_ok=True)
     packet.write_text("# Packet\n", encoding="utf-8")
@@ -57,6 +80,8 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     assert by_path["work/assignment_coverage_agent.json"]["producer_role"] == "assignment-coverage-reviewer"
     assert by_path["work/assignment_coverage_agent.json"]["producer_agent"] == "agent-a"
     assert by_path["work/assignment_coverage_agent.json"]["artifact_sha256"]
+    assert by_path["work/theses_similarity/intake.json"]["schema_version"] == "theses-similarity-intake-v1"
+    assert by_path["work/theses_similarity/intake.json"]["producer_role"] == "import-theses-report"
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
 

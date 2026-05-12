@@ -226,6 +226,46 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
     assert "check-evaluation-claims" in check_names
 
 
+def test_review_manifest_requires_theses_similarity_validator_when_evidence_exists(tmp_path: Path) -> None:
+    from thesis_review_workflow.cli.check_review_manifest import required_checks as check_required_checks
+    from thesis_review_workflow.cli.init_review_manifest import required_checks as init_required_checks
+
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    intake = round_dir / "work" / "theses_similarity" / "intake.json"
+    intake.parent.mkdir(parents=True)
+    intake.write_text("{}\n", encoding="utf-8")
+    paths = {"outputs/theses_similarity_review.md"}
+    manifest = {"supporting_work_artifacts": [{"path": "work/theses_similarity/intake.json"}]}
+
+    init_checks = init_required_checks("case-a", "round-a", paths, round_dir, manifest)
+    init_names = {item["check"] for item in init_checks}
+    check_names = check_required_checks(paths, round_dir, manifest)
+    theses_check = next(item for item in init_checks if item["check"] == "check-theses-similarity-report")
+
+    assert "check-theses-similarity-report" in init_names
+    assert "check-theses-similarity-report" in check_names
+    assert theses_check["command"] == "check-theses-similarity-report case-a round-a"
+    assert "work/theses_similarity/intake.json" in theses_check["target_artifacts"]
+
+
+def test_review_manifest_requires_theses_similarity_validator_for_partial_raw_report(tmp_path: Path) -> None:
+    from thesis_review_workflow.cli.check_review_manifest import required_checks as check_required_checks
+    from thesis_review_workflow.cli.init_review_manifest import required_checks as init_required_checks
+
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    report = round_dir / "inputs" / "theses_similarity" / "report.pdf"
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b"%PDF synthetic\n")
+    paths: set[str] = set()
+    manifest: dict[str, object] = {}
+
+    init_names = {item["check"] for item in init_required_checks("case-a", "round-a", paths, round_dir, manifest)}
+    check_names = check_required_checks(paths, round_dir, manifest)
+
+    assert "check-theses-similarity-report" in init_names
+    assert "check-theses-similarity-report" in check_names
+
+
 def test_init_manifest_required_checks_use_logical_commands(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     checks = required_checks(
@@ -312,6 +352,58 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
         "helper_checks check-opponent-report: missing required target artifact work/opponent_report_trace.json"
         in errors
     )
+
+
+def test_review_manifest_requires_theses_similarity_check_targets(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    intake = round_dir / "work" / "theses_similarity" / "intake.json"
+    output = round_dir / "outputs" / "theses_similarity_review.md"
+    intake.parent.mkdir(parents=True)
+    output.parent.mkdir(parents=True)
+    intake.write_text("{}\n", encoding="utf-8")
+    output.write_text("# Review\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-theses-similarity-report",
+                "command": "check-theses-similarity-report case-a round-a",
+                "target_artifacts": ["outputs/theses_similarity_review.md"],
+                "target_sha256": {"outputs/theses_similarity_review.md": sha256_file(output)},
+                "status": "passed",
+                "checked_at": "2026-05-12T12:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-theses-similarity-report"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-theses-similarity-report: missing required target artifact "
+        "work/theses_similarity/intake.json"
+    ) in errors
+
+
+def test_review_manifest_theses_similarity_targets_exclude_approval_record(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    for rel_path in (
+        "work/theses_similarity/intake.json",
+        "outputs/theses_similarity_review.md",
+        "work/reviews/theses_similarity_review.json",
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic fixture\n", encoding="utf-8")
+
+    targets = required_helper_targets("check-theses-similarity-report", round_dir)
+
+    assert "work/reviews/theses_similarity_review.json" not in targets
+    assert targets == {"work/theses_similarity/intake.json", "outputs/theses_similarity_review.md"}
 
 
 def test_review_manifest_requires_calibration_profile_check_targets(tmp_path: Path) -> None:

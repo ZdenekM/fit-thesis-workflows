@@ -36,6 +36,11 @@ from thesis_review_workflow.opponent_calibration import calibration_profile_chec
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import apply_review_approval_records, merge_supporting_work_artifacts
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_REVIEW_REL,
+    theses_similarity_check_targets,
+    theses_similarity_evidence_present,
+)
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -348,6 +353,15 @@ def required_checks(
             "check-typography-formal",
             f"check-typography-formal --require-output {case_id} {round_id}",
             ["outputs/typography_formal_review.md"],
+        )
+    if theses_similarity_evidence_present(round_dir):
+        targets = theses_similarity_check_targets(round_dir)
+        if THESES_SIMILARITY_REVIEW_REL in artifact_paths and THESES_SIMILARITY_REVIEW_REL not in targets:
+            targets.append(THESES_SIMILARITY_REVIEW_REL)
+        add(
+            "check-theses-similarity-report",
+            f"check-theses-similarity-report {case_id} {round_id}",
+            targets,
         )
     if "outputs/code_consistency.md" in artifact_paths:
         add(

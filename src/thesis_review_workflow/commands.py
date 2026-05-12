@@ -40,6 +40,7 @@ WORKFLOW_COMMAND_MODULES = {
     ),
     "check-supervisor-report-ready": "thesis_review_workflow.cli.check_supervisor_report_ready",
     "check-supervisor-ready": "thesis_review_workflow.cli.check_supervisor_ready",
+    "check-theses-similarity-report": "thesis_review_workflow.cli.check_theses_similarity_report",
     "check-tooling": "thesis_review_workflow.cli.check_tooling",
     "check-typography-formal": "thesis_review_workflow.cli.check_typography_formal",
     "confirm-supervisor-report": "thesis_review_workflow.cli.confirm_supervisor_report",

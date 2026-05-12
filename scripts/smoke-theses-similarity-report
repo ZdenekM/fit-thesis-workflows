@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__theses_similarity_check_smoke_$$"
+round_id="round-a"
+tmp_dir="$(mktemp -d)"
+out_file="/tmp/theses-similarity-check-smoke.$$.out"
+err_file="/tmp/theses-similarity-check-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$tmp_dir"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+make_pdf() {
+  local target="$1"
+  python3 - "$target" <<'PY'
+from pathlib import Path
+import sys
+
+target = Path(sys.argv[1])
+lines = [
+    "Porovnavany dokument",
+    "Synthetic checked thesis",
+    "Podobnost 1 %",
+    "vyhodnoceno: 12. 5. 2026 12:07",
+    "Zdrojove dokumenty, ve kterych byla nalezena podobnost",
+    "1.",
+    "Zaverecna prace",
+    "Prior synthetic version",
+    "https://example.invalid/source",
+    "Zmeneno 1. 1. 2025, 100 slov",
+    "Podobnost 1 %",
+    "Vyznaceni podobnosti ve zkoumanem dokumentu",
+    "1",
+]
+
+def escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+content_lines = ["BT", "/F1 10 Tf", "72 760 Td", "12 TL"]
+for line in lines:
+    content_lines.append(f"({escape(line)}) Tj")
+    content_lines.append("T*")
+content_lines.append("ET")
+content = ("\n".join(content_lines) + "\n").encode("ascii")
+
+objects = [
+    b"<< /Type /Catalog /Pages 2 0 R >>",
+    b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+    b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n" + content + b"endstream",
+]
+
+body = b"%PDF-1.4\n"
+offsets = []
+for index, obj in enumerate(objects, start=1):
+    offsets.append(len(body))
+    body += f"{index} 0 obj\n".encode("ascii") + obj + b"\nendobj\n"
+xref_offset = len(body)
+xref = b"xref\n0 6\n0000000000 65535 f \n"
+for offset in offsets:
+    xref += f"{offset:010d} 00000 n \n".encode("ascii")
+trailer = (
+    b"trailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n"
+    + str(xref_offset).encode("ascii")
+    + b"\n%%EOF\n"
+)
+target.write_bytes(body + xref + trailer)
+PY
+}
+
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+mkdir -p "$round_dir"/{notes,inputs,extracted,work,outputs}
+printf '%s\n' "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+make_pdf "$tmp_dir/theses-report.pdf"
+
+expect_success "import report" "$repo_root/scripts/import-theses-report" "$case_id" "$round_id" "$tmp_dir/theses-report.pdf"
+expect_success "validate imported report" "$repo_root/scripts/check-theses-similarity-report" "$case_id" "$round_id"
+expect_output "Theses.cz similarity report check passed"
+
+expect_success "manifest run checks" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
+python3 - "$round_dir" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+round_dir = Path(sys.argv[1])
+manifest = json.loads((round_dir / "work/review_manifest.json").read_text(encoding="utf-8"))
+checks = {item["check"]: item for item in manifest["helper_checks"]}
+assert checks["check-theses-similarity-report"]["status"] == "passed"
+assert "work/theses_similarity/intake.json" in checks["check-theses-similarity-report"]["target_artifacts"]
+intake = json.loads((round_dir / "work/theses_similarity/intake.json").read_text(encoding="utf-8"))
+assert intake["source_documents"][0]["rank"] == 1
+assert intake["matched_passages"][0]["source_ids"] == [1]
+PY
+expect_success "manifest complete" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" "$round_id"
+
+printf '\nstale\n' >>"$round_dir/extracted/theses_similarity/report.txt"
+expect_failure "detect stale extraction hash" "$repo_root/scripts/check-theses-similarity-report" "$case_id" "$round_id"
+expect_output "sha256 is stale for extracted/theses_similarity/report.txt"
+
+echo "Theses.cz similarity report validator smoke passed"

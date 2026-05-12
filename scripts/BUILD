@@ -29,6 +29,7 @@ shell_sources(
         "check-supervisor-report-calibration-profile",
         "check-supervisor-report-ready",
         "check-supervisor-ready",
+        "check-theses-similarity-report",
         "check-tooling",
         "check-typography-formal",
         "confirm-supervisor-report",
@@ -82,6 +83,7 @@ shell_sources(
         "smoke-review-wave",
         "smoke-reviewer-profile",
         "smoke-supervisor-report",
+        "smoke-theses-similarity-report",
         "smoke-tooling",
         "smoke-typography-formal",
         "supervisor-deadline",
@@ -127,6 +129,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_supervisor_report_calibration_profile",
     "src/thesis_review_workflow/cli:check_supervisor_report_ready",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
+    "src/thesis_review_workflow/cli:check_theses_similarity_report",
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
     "src/thesis_review_workflow/cli:confirm_supervisor_report",
@@ -428,6 +431,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-supervisor-ready",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_theses_similarity_report_tool",
+    entry_point="thesis_review_workflow.cli.check_theses_similarity_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-theses-similarity-report",
     tags=["workflow-tool"],
 )
 

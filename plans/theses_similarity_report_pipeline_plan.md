@@ -247,7 +247,7 @@ Repeated-submission handling:
 
 ### Slice 3 - Structural Validator And Manifest Hooks
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): validate theses similarity evidence`
 - Expected paths:
   - `scripts/check-theses-similarity-report`
@@ -277,9 +277,12 @@ Repeated-submission handling:
     and `work/reviews/theses_similarity_review.json` as supporting work artifacts
     or approval records as appropriate.
   - Add the helper check to `init-review-manifest` and enforce it through
-    `check-review-manifest` when `outputs/theses_similarity_review.md`,
-    `work/theses_similarity/intake.json`, or
-    `work/theses_similarity/assessment.json` is present.
+    `check-review-manifest` when any Theses.cz similarity evidence is present:
+    raw imported report/extraction, intake, assessment, draft review, final
+    review output, or approval record. This deliberately catches partial manual
+    imports and stale reconstructed workspaces, while the helper target set
+    excludes the approval record so final approval does not have to approve
+    itself.
   - Add standalone review-approval support for `outputs/theses_similarity_review.md`
     when it is used as final standalone evidence; otherwise manifest it as
     `covered_by_synthesis` with explicit `used_findings`.
@@ -418,6 +421,19 @@ Repeated-submission handling:
   `scripts/smoke-import-theses-report`,
   `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-12: Slice 3 implemented and reviewed with two agents. Added
+  `check-theses-similarity-report`, manifest helper hooks, output/work artifact
+  registration, review-approval profile, and synthetic validator smoke. Reviewer
+  findings fixed stale intake detection against the extracted report text, draft
+  privacy scanning, smoke parser coverage, approval helper targets, and
+  reviewer-role independence. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_theses_similarity.py tests/test_review_manifest_helpers.py
+  tests/test_review_approvals.py tests/test_workflow_python_contracts.py
+  tests/test_work_artifacts.py`, `scripts/smoke-theses-similarity-report`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

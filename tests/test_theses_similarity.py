@@ -3,9 +3,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.cli.check_theses_similarity_report import validate_evidence
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_SCHEMA,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
     build_intake_payload,
     parse_report_text,
     parse_similarity_value,
@@ -46,6 +52,22 @@ Podobnost < 1 %
 Synthetic extracted paragraph omitted from tracked fixture.
 """
 
+UNACCENTED_SYNTHETIC_REPORT = """
+Porovnavany dokument
+Synthetic checked thesis
+Podobnost 1 %
+vyhodnoceno: 12. 5. 2026 12:07
+Zdrojove dokumenty, ve kterych byla nalezena podobnost
+1.
+Zaverecna prace
+Prior synthetic version
+https://example.invalid/source
+Zmeneno 1. 1. 2025, 100 slov
+Podobnost 1 %
+Vyznaceni podobnosti ve zkoumanem dokumentu
+1
+"""
+
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -61,6 +83,25 @@ def write_text(round_dir: Path, rel: str, text: str = "fixture\n") -> Path:
 def write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def write_intake(round_dir: Path, *, text: str = SYNTHETIC_REPORT) -> dict[str, Any]:
+    report_pdf = write_text(round_dir, THESES_SIMILARITY_REPORT_REL, "%PDF synthetic\n")
+    report_text = write_text(round_dir, THESES_SIMILARITY_EXTRACTED_TEXT_REL, text)
+    payload = build_intake_payload(
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-12T00:00:00Z",
+        report_pdf_path=THESES_SIMILARITY_REPORT_REL,
+        report_pdf_sha256=sha256_file(report_pdf),
+        extracted_text_path=THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+        extracted_text_sha256=sha256_file(report_text),
+        report_text=text,
+        page_count=1,
+        current_submission_link="unverified",
+    )
+    write_json(round_dir / THESES_SIMILARITY_INTAKE_REL, payload)
+    return payload
 
 
 def common_assessment(round_dir: Path) -> dict[str, Any]:
@@ -139,6 +180,17 @@ def test_parse_report_text_extracts_structural_sources_and_passage_anchors() -> 
     }
     assert parsed["matched_passages"][0]["source_ids"] == (1, 2)
     assert "plagiarism" not in json.dumps(parsed).lower()
+
+
+def test_parse_report_text_accepts_structural_labels_without_diacritics() -> None:
+    parsed = parse_report_text(UNACCENTED_SYNTHETIC_REPORT)
+
+    assert parsed["overall_similarity"] == {"raw": "1", "numeric_value": 1.0, "less_than": None}
+    assert parsed["report_evaluated_at_text"] == "12. 5. 2026 12:07"
+    assert parsed["compared_document"]["raw_lines"] == ["Synthetic checked thesis"]
+    assert parsed["source_documents"][0]["rank"] == 1
+    assert parsed["source_documents"][0]["word_count_text"] == "100 slov"
+    assert parsed["matched_passages"][0]["source_ids"] == (1,)
 
 
 def test_parse_report_text_ignores_numeric_lines_that_are_not_known_source_markers() -> None:
@@ -228,3 +280,78 @@ def test_validate_theses_similarity_assessment_rejects_stale_hash(tmp_path: Path
     errors = validate_structured_evidence_artifact(round_dir, "work/theses_similarity/assessment.json")
 
     assert any("source_sha256 hash is stale for extracted/thesis.txt" in error for error in errors)
+
+
+def test_check_theses_similarity_report_accepts_hash_bound_intake(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_intake(round_dir)
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert errors == []
+
+
+def test_check_theses_similarity_report_rejects_stale_extracted_text_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_intake(round_dir)
+    (round_dir / THESES_SIMILARITY_EXTRACTED_TEXT_REL).write_text("changed\n", encoding="utf-8")
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert any("sha256 is stale for extracted/theses_similarity/report.txt" in error for error in errors)
+
+
+def test_check_theses_similarity_report_rejects_stale_parsed_fields(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = write_intake(round_dir)
+    payload["source_documents"] = []
+    write_json(round_dir / THESES_SIMILARITY_INTAKE_REL, payload)
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert any("parsed field source_documents is stale" in error for error in errors)
+
+
+def test_check_theses_similarity_report_rejects_extra_absolute_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = write_intake(round_dir)
+    payload["source_refs"].append("/home/private/theses-report.pdf")
+    write_json(round_dir / THESES_SIMILARITY_INTAKE_REL, payload)
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert any("source_refs item 3 must be round-relative" in error for error in errors)
+    assert any("unexpected source_refs item /home/private/theses-report.pdf" in error for error in errors)
+
+
+def test_check_theses_similarity_report_scans_draft_for_private_paths(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_intake(round_dir)
+    write_text(round_dir, THESES_SIMILARITY_REVIEW_DRAFT_REL, "See /home/private/cases/case-a/report.pdf\n")
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert any(
+        "work/theses_similarity/review_draft.md: output contains an absolute filesystem path" in error
+        for error in errors
+    )
+
+
+def test_check_theses_similarity_report_does_not_require_assessment_for_draft_only(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_intake(round_dir)
+    write_text(round_dir, THESES_SIMILARITY_REVIEW_DRAFT_REL, "# Draft Theses.cz review\n")
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert errors == []
+
+
+def test_check_theses_similarity_report_requires_assessment_for_review_output(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    write_intake(round_dir)
+    write_text(round_dir, THESES_SIMILARITY_REVIEW_REL, "# Theses.cz Similarity Review\n")
+
+    errors = validate_evidence(round_dir, "case-a", "round-a")
+
+    assert any("assessment.json is required when the review output exists" in error for error in errors)

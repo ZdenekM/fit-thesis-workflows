@@ -31,6 +31,7 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.review_materiality import validate_materiality_workflow_limitations
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
+from thesis_review_workflow.theses_similarity import theses_similarity_check_targets, theses_similarity_evidence_present
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
 ABSOLUTE_PATH_RE = re.compile(r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*")
@@ -205,6 +206,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():
             targets.add("work/vedouci_posudek_draft.md")
         return targets
+    if name == "check-theses-similarity-report":
+        return set(theses_similarity_check_targets(round_dir))
     if name == "check-opponent-calibration-profile":
         return set(calibration_profile_check_targets(round_dir))
     if name == "check-supervisor-report-calibration-profile":
@@ -321,6 +324,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.add("check-figure-media-review")
     if "outputs/typography_formal_review.md" in paths:
         required.add("check-typography-formal")
+    if theses_similarity_evidence_present(round_dir):
+        required.add("check-theses-similarity-report")
     if "outputs/code_consistency.md" in paths:
         required.add("check-code-consistency")
     if "outputs/code_quality_review.md" in paths:

@@ -10,6 +10,12 @@ from typing import Any
 
 from thesis_review_workflow.artifact_registry import output_spec
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+    THESES_SIMILARITY_REVIEW_DRAFT_REL,
+    THESES_SIMILARITY_REVIEW_REL,
+)
 
 REVIEW_APPROVAL_SCHEMA = "review-approval-v1"
 APPROVED_VERDICTS = {"approved", "pass"}
@@ -65,6 +71,15 @@ APPROVAL_PROFILES = {
         review_basis_candidates=("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
         reviewer_role="thesis-opponent-report-review",
         required_checks=("check-opponent-report",),
+    ),
+    "theses-similarity-review": ReviewApprovalProfile(
+        profile="theses-similarity-review",
+        workflow_profile="theses_similarity_review",
+        approval_path=THESES_SIMILARITY_REVIEW_APPROVAL_REL,
+        reviewed_artifact_path=THESES_SIMILARITY_REVIEW_REL,
+        review_basis_candidates=(THESES_SIMILARITY_REVIEW_DRAFT_REL, THESES_SIMILARITY_ASSESSMENT_REL),
+        reviewer_role="evidence-calibration-reviewer",
+        required_checks=("check-theses-similarity-report",),
     ),
 }
 

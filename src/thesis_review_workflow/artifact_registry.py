@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REVIEW_REL
+
 
 @dataclass(frozen=True)
 class OutputArtifactSpec:
@@ -98,6 +100,15 @@ OUTPUT_ARTIFACTS: dict[str, OutputArtifactSpec] = {
         review_scope="internal_only",
         label="typography/formal review",
         internal_evidence=True,
+    ),
+    Path(THESES_SIMILARITY_REVIEW_REL).name: OutputArtifactSpec(
+        filename=Path(THESES_SIMILARITY_REVIEW_REL).name,
+        artifact_type="theses_similarity_review",
+        skills=("thesis-theses-similarity-review",),
+        review_scope="internal_only",
+        label="Theses.cz similarity review",
+        internal_evidence=True,
+        review_basis_candidates=("work/theses_similarity/review_draft.md", "work/theses_similarity/assessment.json"),
     ),
     "oponent_podklady.md": OutputArtifactSpec(
         filename="oponent_podklady.md",
