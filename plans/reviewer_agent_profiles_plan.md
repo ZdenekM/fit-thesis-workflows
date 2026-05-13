@@ -367,7 +367,7 @@ keep weaker instructions.
 
 ### Slice 4 - Add Profile Drift Checks
 
-- Status: planned
+- Status: done
 - Proposed commit message: `test(workflow): validate thesis agent profile coverage`
 - Expected paths:
   - `tests/test_agent_profile_contracts.py` or
@@ -459,6 +459,15 @@ keep weaker instructions.
   `pants check src/thesis_review_workflow:: tests::`,
   `pants test tests/test_agent_profile_contracts.py tests/test_workflow_python_contracts.py`,
   a Python `tomllib` config/file/UTF-8 check, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 4 done. Added drift checks that compare the Markdown matrix
+  to the structured registry, verify inferred `agent_coverage` role specs route
+  through profile rows with matching evidence paths, and ensure the session
+  hook points to the matrix instead of a stale role subset. Verification passed:
+  `pants fmt src/thesis_review_workflow:: tests:: .codex/hooks::`,
+  `pants lint src/thesis_review_workflow:: tests:: .codex/hooks::`,
+  `pants check src/thesis_review_workflow:: tests:: .codex/hooks::`,
+  `pants test tests/test_agent_profile_contracts.py`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log

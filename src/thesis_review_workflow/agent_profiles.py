@@ -294,7 +294,9 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         profile_id="thesis_evidence_calibrator",
         role_kind="calibrator",
         sandbox_mode="read-only",
-        rationale="Generic independent calibration role for standalone evidence without a specific final-review profile.",
+        rationale=(
+            "Generic independent calibration role for standalone evidence without a specific final-review profile."
+        ),
     ),
     _route(
         role_source=".agents/skills/historical-opponent-calibration/SKILL.md",
@@ -302,7 +304,9 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         status="deferred",
         role_kind="generator",
         sandbox_mode="not-spawned",
-        rationale="Private calibration workflow; no durable spawned role until repeat use proves a stable output boundary.",
+        rationale=(
+            "Private calibration workflow; no durable spawned role until repeat use proves a stable output boundary."
+        ),
     ),
     _route(
         role_source=".agents/skills/historical-supervisor-report-calibration/SKILL.md",
@@ -310,7 +314,9 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         status="deferred",
         role_kind="generator",
         sandbox_mode="not-spawned",
-        rationale="Private calibration workflow; no durable spawned role until repeat use proves a stable output boundary.",
+        rationale=(
+            "Private calibration workflow; no durable spawned role until repeat use proves a stable output boundary."
+        ),
     ),
 )
 

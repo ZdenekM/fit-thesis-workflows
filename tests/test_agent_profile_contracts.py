@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from thesis_review_workflow import agent_profiles
+from thesis_review_workflow import agent_coverage, agent_profiles
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +78,22 @@ def test_agent_profile_matrix_mentions_every_registry_route() -> None:
             assert f"`{route.independent_review_profile}`" in matrix
 
 
+def test_agent_profile_matrix_row_contract_matches_registry() -> None:
+    matrix = (REPO_ROOT / "docs/agent-profile-matrix.md").read_text(encoding="utf-8")
+
+    for route in agent_profiles.agent_profile_routes():
+        label = route.skill_id or route.role_source
+        expected_cells = [
+            f"| `{label}`",
+            f"| `{route.status}`",
+            f"| `{route.profile_id}`" if route.profile_id else "| none",
+            f"| {route.role_kind}",
+            f"| {route.sandbox_mode}",
+        ]
+        for cell in expected_cells:
+            assert cell in matrix
+
+
 def test_configured_codex_agent_profiles_match_registry_contract() -> None:
     routes = {route.profile_id: route for route in agent_profiles.profile_routes()}
     config_entries = codex_agent_config_entries()
@@ -115,3 +131,57 @@ def test_configured_codex_agent_profiles_match_registry_contract() -> None:
                 assert allowed_write.removesuffix("/**") in developer_instructions
         else:
             assert "Do not write files in normal use." in developer_instructions
+
+
+def test_agent_coverage_role_specs_are_routed_by_profile_registry(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    (round_dir / "outputs").mkdir(parents=True)
+    for name in [
+        "feedback_student.md",
+        "vedouci_posudek_revidovany.md",
+        "oponent_podklady_revidovane.md",
+        "feedback_k_posudku.md",
+    ]:
+        (round_dir / "outputs" / name).write_text("placeholder\n", encoding="utf-8")
+    (round_dir / "inputs" / "code").mkdir(parents=True)
+    (round_dir / "inputs" / "github").mkdir(parents=True)
+    (round_dir / "inputs" / "media").mkdir(parents=True)
+    (round_dir / "inputs" / "theses_similarity").mkdir(parents=True)
+    (round_dir / "inputs" / "media" / "figure.png").write_bytes(b"png")
+    (round_dir / "inputs" / "theses_similarity" / "report.pdf").write_bytes(b"pdf")
+    (round_dir / "work").mkdir()
+    (round_dir / "work" / "quantitative_claims.json").write_text("{}\n", encoding="utf-8")
+    (round_dir / "notes").mkdir()
+    (round_dir / "notes" / "literature.md").write_text("source map\n", encoding="utf-8")
+
+    specs = agent_coverage.inferred_role_specs(round_dir, {})
+    routes = agent_profiles.routes_by_skill_id()
+
+    assert set(specs) == {
+        "supervisor_feedback_review",
+        "supervisor_report_review",
+        "code_consistency",
+        "code_quality",
+        "github_intake",
+        "quantitative_claims",
+        "theses_similarity",
+        "figure_media",
+        "literature_citation",
+        "typography_formal",
+        "opponent_materials_review",
+        "opponent_report_review",
+    }
+    for spec in specs.values():
+        route = routes[spec.skill]
+        assert route.status == "profile"
+        assert route.profile_id is not None
+        assert spec.evidence_path in route.owned_outputs
+
+
+def test_session_start_hook_points_to_profile_matrix_without_stale_role_subset() -> None:
+    hook = (REPO_ROOT / ".codex/hooks/session_start_context.py").read_text(encoding="utf-8")
+
+    assert "docs/agent-profile-matrix.md" in hook
+    assert "supervisor feedback, opponent materials" not in hook
+    assert "logical workflow command check-supervisor-ready" in hook
+    assert "packaged .cmd/.ps1 launcher" in hook

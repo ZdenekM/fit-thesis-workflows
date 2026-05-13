@@ -28,6 +28,7 @@ files(
     name="agent_profile_registry_metadata",
     sources=[
         ".agents/skills/*/SKILL.md",
+        ".codex/hooks/session_start_context.py",
         "docs/agent-profile-matrix.md",
     ],
 )
