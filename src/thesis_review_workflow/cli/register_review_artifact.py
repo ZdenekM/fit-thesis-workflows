@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
+from thesis_review_workflow.artifact_registry import OutputArtifactSpec, output_spec
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -14,11 +17,20 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.review_manifest import (
     MANIFEST_REL,
+    classify_dependency_refs,
     ensure_manifest,
     load_manifest,
     register_artifact,
+    validate_dependency_ref_classification,
     write_manifest,
 )
+
+ROLE_PRESETS = {
+    "outputs/code_consistency.md": "thesis-code-consistency",
+    "outputs/code_quality_review.md": "thesis-code-quality-review",
+    "outputs/theses_similarity_review.md": "thesis-theses-similarity-review",
+    "outputs/vedouci_posudek_revidovany.md": "thesis-supervisor-report-review",
+}
 
 
 def now_utc() -> str:
@@ -33,24 +45,86 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("case_id")
     parser.add_argument("round_id")
     parser.add_argument("artifact_path")
-    parser.add_argument("--role", default="not_recorded")
+    parser.add_argument("--preset", choices=("auto", "none"), default="auto")
+    parser.add_argument("--role")
     parser.add_argument("--agent", default="not_recorded")
     parser.add_argument("--contribution", default="generation")
     parser.add_argument("--review-scope")
-    parser.add_argument("--review-status", default="not_recorded")
+    parser.add_argument("--review-status")
     parser.add_argument("--reviewer-role", default="not_recorded")
     parser.add_argument("--reviewer-agent", default="not_recorded")
     parser.add_argument("--reviewed-at", default="")
     parser.add_argument("--limitation", action="append", default=[])
     parser.add_argument("--feeds", action="append", default=[])
+    parser.add_argument("--ref", action="append", default=[])
     parser.add_argument("--input-ref", action="append", default=[])
     parser.add_argument("--evidence-ref", action="append", default=[])
     parser.add_argument("--check-ref", action="append", default=[])
+    parser.add_argument("--allow-ref-class-override", action="store_true")
     parser.add_argument("--used-findings", default="")
     parser.add_argument("--review-basis-path", default="")
     parser.add_argument("--notes", default="")
     parser.add_argument("--updated-at", default="")
     return parser
+
+
+def artifact_spec_for_path(artifact_path: str) -> OutputArtifactSpec | None:
+    path = Path(artifact_path)
+    if len(path.parts) == 2 and path.parts[0] == "outputs":
+        return output_spec(path.name)
+    return None
+
+
+def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+    auto_input_refs, auto_evidence_refs, unknown_refs = classify_dependency_refs(args.ref)
+    for ref in unknown_refs:
+        errors.append(
+            f"--ref {ref}: cannot classify dependency; use --input-ref, --evidence-ref, or --check-ref explicitly"
+        )
+    input_refs = [*args.input_ref, *auto_input_refs]
+    evidence_refs = [*args.evidence_ref, *auto_evidence_refs]
+    errors.extend(
+        validate_dependency_ref_classification(
+            field="input_refs",
+            refs=args.input_ref,
+            allow_override=args.allow_ref_class_override,
+        )
+    )
+    errors.extend(
+        validate_dependency_ref_classification(
+            field="evidence_refs",
+            refs=args.evidence_ref,
+            allow_override=args.allow_ref_class_override,
+        )
+    )
+    if errors:
+        return None, errors
+
+    role = args.role or "not_recorded"
+    review_scope = args.review_scope
+    review_status = args.review_status or "not_recorded"
+    if args.preset == "auto":
+        spec = artifact_spec_for_path(args.artifact_path)
+        role = args.role or ROLE_PRESETS.get(args.artifact_path) or (spec.skills[0] if spec else "not_recorded")
+        if review_scope is None and spec is not None:
+            if spec.internal_evidence and args.feeds:
+                review_scope = "covered_by_synthesis"
+            else:
+                review_scope = spec.review_scope
+        if args.review_status is None and review_scope == "covered_by_synthesis":
+            review_status = "not_required"
+
+    return (
+        {
+            "role": role,
+            "review_scope": review_scope,
+            "review_status": review_status,
+            "input_refs": input_refs,
+            "evidence_refs": evidence_refs,
+        },
+        [],
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,23 +137,29 @@ def main(argv: list[str] | None = None) -> int:
     manifest_path = round_dir / MANIFEST_REL
 
     try:
+        options, option_errors = registration_options(args)
+        if option_errors:
+            for error in option_errors:
+                print(f"ERROR: {error}")
+            return 1
+        assert options is not None
         manifest = ensure_manifest(load_manifest(manifest_path), args.case_id, round_id)
         register_artifact(
             manifest,
             round_dir,
             args.artifact_path,
-            role=args.role,
+            role=options["role"],
             agent=args.agent,
             contribution=args.contribution,
-            review_scope=args.review_scope,
-            review_status=args.review_status,
+            review_scope=options["review_scope"],
+            review_status=options["review_status"],
             reviewer_role=args.reviewer_role,
             reviewer_agent=args.reviewer_agent,
             reviewed_at=args.reviewed_at,
             limitation=args.limitation,
             feeds=args.feeds,
-            input_refs=args.input_ref,
-            evidence_refs=args.evidence_ref,
+            input_refs=options["input_refs"],
+            evidence_refs=options["evidence_refs"],
             check_refs=args.check_ref,
             used_findings=args.used_findings,
             review_basis_path=args.review_basis_path,

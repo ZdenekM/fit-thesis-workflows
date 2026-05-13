@@ -4,7 +4,7 @@ from pathlib import Path
 
 from thesis_review_workflow.agent_coverage import COVERAGE_REL, build_coverage
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
-from thesis_review_workflow.cli import init_review_manifest
+from thesis_review_workflow.cli import init_review_manifest, register_review_artifact
 from thesis_review_workflow.cli.check_review_manifest import (
     check_helper_checks,
     check_manifest,
@@ -196,7 +196,10 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
     check_manifest(manifest, "case-a", "round-a", root, round_dir, False, errors, [])
 
     assert any("input_refs item 1: path must be relative inside the round" in error for error in errors)
-    assert any("evidence_refs item 1 is not recorded in manifest" in error for error in errors)
+    assert any(
+        "evidence_refs item 1 is not recorded in manifest supporting_work_artifacts/artifacts" in error
+        for error in errors
+    )
     assert any("check_refs item 1 is not a manifest helper check" in error for error in errors)
 
 
@@ -2008,6 +2011,89 @@ def test_register_refs_survive_init_manifest_refresh(tmp_path: Path) -> None:
     assert refreshed[0]["input_refs"] == ["notes/assignment.md"]
     assert refreshed[0]["evidence_refs"] == ["work/code_reproducibility.json"]
     assert refreshed[0]["check_refs"] == ["check-code-quality-review"]
+
+
+def test_register_review_artifact_auto_classifies_refs_and_common_output_preset() -> None:
+    parser = register_review_artifact.build_parser()
+    args = parser.parse_args(
+        [
+            "case-a",
+            "round-a",
+            "outputs/code_quality_review.md",
+            "--agent",
+            "agent-a",
+            "--feeds",
+            "outputs/vedouci_posudek_revidovany.md",
+            "--ref",
+            "notes/assignment.md",
+            "--ref",
+            "extracted/thesis.txt",
+            "--ref",
+            "work/quantitative_claims.json",
+        ]
+    )
+
+    options, errors = register_review_artifact.registration_options(args)
+
+    assert errors == []
+    assert options is not None
+    assert options["role"] == "thesis-code-quality-review"
+    assert options["review_scope"] == "covered_by_synthesis"
+    assert options["review_status"] == "not_required"
+    assert options["input_refs"] == ["notes/assignment.md", "extracted/thesis.txt"]
+    assert options["evidence_refs"] == ["work/quantitative_claims.json"]
+
+
+def test_register_review_artifact_rejects_accidental_ref_misclassification() -> None:
+    parser = register_review_artifact.build_parser()
+    args = parser.parse_args(
+        [
+            "case-a",
+            "round-a",
+            "outputs/code_quality_review.md",
+            "--evidence-ref",
+            "notes/assignment.md",
+        ]
+    )
+
+    options, errors = register_review_artifact.registration_options(args)
+
+    assert options is None
+    assert any("use --input-ref" in error for error in errors)
+
+    override_args = parser.parse_args(
+        [
+            "case-a",
+            "round-a",
+            "outputs/code_quality_review.md",
+            "--evidence-ref",
+            "notes/assignment.md",
+            "--allow-ref-class-override",
+            "--notes",
+            "Expert override for synthetic test.",
+        ]
+    )
+    options, errors = register_review_artifact.registration_options(override_args)
+
+    assert errors == []
+    assert options is not None
+    assert options["evidence_refs"] == ["notes/assignment.md"]
+
+
+def test_init_manifest_uses_reviewed_supervisor_report_as_synthesis_target(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    outputs = round_dir / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "vedouci_posudek_revidovany.md").write_text("# Reviewed Supervisor Report\n", encoding="utf-8")
+    (outputs / "code_quality_review.md").write_text("# Code Quality\n", encoding="utf-8")
+
+    artifacts = output_artifacts(round_dir, {})
+    by_path = {item["path"]: item for item in artifacts}
+
+    code_quality = by_path["outputs/code_quality_review.md"]
+    assert by_path["outputs/vedouci_posudek_revidovany.md"]["review_scope"] == "sendable_final"
+    assert code_quality["review_scope"] == "covered_by_synthesis"
+    assert code_quality["independent_review"]["covered_by_artifact"] == "outputs/vedouci_posudek_revidovany.md"
 
 
 def test_artifact_dependency_refs_use_claim_basis_without_blanket_notes_or_work(tmp_path: Path) -> None:

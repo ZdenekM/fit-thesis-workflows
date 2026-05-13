@@ -262,7 +262,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 4 - Manifest Registration Presets And Ref Classification
 
-- Status: pending
+- Status: done
 - Proposed commit message: `fix(workflow): reduce manual review manifest registration`
 - Expected paths:
   - `src/thesis_review_workflow/review_manifest.py`
@@ -419,6 +419,17 @@ evidence, the intended path after this plan should be:
   tests/test_workflow_python_contracts.py tests/test_work_artifacts.py
   tests/test_review_manifest_helpers.py`, `scripts/smoke-review-wave`,
   `scripts/smoke-agent-coverage`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 4 done. `register-review-artifact` now has auto presets for
+  common final-report artifacts and a `--ref` path that classifies
+  notes/inputs/extracted as input refs and work/outputs as evidence refs.
+  Accidental manual misclassification is rejected unless the operator uses an
+  explicit override, and manifest diagnostics now say which manifest section is
+  missing the referenced path. `init-review-manifest` also treats reviewed
+  supervisor reports as synthesis targets for internal evidence. Verification
+  passed: `pants test tests/test_review_manifest_helpers.py`, targeted
+  `pants lint`/`pants check` for touched files, `scripts/smoke-register-review-artifact`,
+  `scripts/smoke-review-manifest`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log

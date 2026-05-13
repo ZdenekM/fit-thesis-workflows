@@ -287,6 +287,8 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
     synthesis = None
     if "feedback_student.md" in names:
         synthesis = "outputs/feedback_student.md"
+    elif "vedouci_posudek_revidovany.md" in names:
+        synthesis = "outputs/vedouci_posudek_revidovany.md"
     elif "oponent_podklady_revidovane.md" in names:
         synthesis = "outputs/oponent_podklady_revidovane.md"
 

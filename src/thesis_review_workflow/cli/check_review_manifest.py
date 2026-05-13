@@ -152,6 +152,10 @@ def check_ref_list(
     round_dir: Path,
     errors: list[str],
 ) -> None:
+    location = {
+        "input_refs": "manifest inputs/extracted_artifacts/notes",
+        "evidence_refs": "manifest supporting_work_artifacts/artifacts",
+    }.get(field, "manifest inputs, work, or outputs")
     if not isinstance(refs, list):
         errors.append(f"{artifact_path}: {field} must be a list")
         return
@@ -166,7 +170,8 @@ def check_ref_list(
         validate_rel_path(f"{artifact_path}: {field} item {index}", ref, round_dir, errors)
         if ref not in allowed_paths:
             errors.append(
-                f"{artifact_path}: {field} item {index} is not recorded in manifest inputs, work, or outputs: {ref}"
+                f"{artifact_path}: {field} item {index} is not recorded in {location}: {ref}; "
+                "run init-review-manifest or register the referenced artifact before closeout"
             )
 
 

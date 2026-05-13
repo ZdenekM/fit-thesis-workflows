@@ -67,14 +67,11 @@ expect_success "register final reviewed artifact" "$repo_root/scripts/register-r
 
 expect_success "register output artifact" "$repo_root/scripts/register-review-artifact" \
   "$case_id" "$round_id" "outputs/code_quality_review.md" \
-  --role thesis-code-quality-review \
   --agent generator-agent \
-  --review-scope covered_by_synthesis \
-  --review-status not_required \
   --limitation "Static review only." \
   --feeds outputs/oponent_podklady_revidovane.md \
   --used-findings "Used implementation risk summary." \
-  --input-ref notes/assignment.md \
+  --ref notes/assignment.md \
   --notes "Registered by smoke."
 
 expect_success "register work artifact" "$repo_root/scripts/register-review-artifact" \
@@ -127,6 +124,7 @@ manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 output = next(item for item in manifest["artifacts"] if item["path"] == "outputs/code_quality_review.md")
 assert output["independent_review"]["status"] == "not_required", output
 assert output["generated_by"][0]["agent"] == "generator-agent", output
+assert output["generated_by"][0]["role"] == "thesis-code-quality-review", output
 assert output["independent_review"]["evidence_hash"] == output["artifact_sha256"], output
 assert output["input_refs"] == ["notes/assignment.md"], output
 final = next(item for item in manifest["artifacts"] if item["path"] == "outputs/oponent_podklady_revidovane.md")

@@ -43,6 +43,8 @@ REUSE_ARTIFACT_BY_TYPE = {
 }
 REGISTERED_DEPENDENCY_REFS_SOURCE = "registered"
 GENERATED_DEPENDENCY_REFS_SOURCE = "generated"
+INPUT_DEPENDENCY_PREFIXES = ("notes/", "inputs/", "extracted/")
+EVIDENCE_DEPENDENCY_PREFIXES = ("work/", "outputs/")
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -107,6 +109,52 @@ def validate_artifact_rel_path(rel_path: str, round_dir: Path) -> Path:
     if not path.is_file():
         raise ValueError(f"artifact file does not exist: {rel_path}")
     return path
+
+
+def dependency_ref_kind(ref: str) -> str:
+    if ref.startswith(INPUT_DEPENDENCY_PREFIXES):
+        return "input"
+    if ref.startswith(EVIDENCE_DEPENDENCY_PREFIXES):
+        return "evidence"
+    return "unknown"
+
+
+def classify_dependency_refs(refs: list[str]) -> tuple[list[str], list[str], list[str]]:
+    input_refs: list[str] = []
+    evidence_refs: list[str] = []
+    unknown_refs: list[str] = []
+    for ref in refs:
+        kind = dependency_ref_kind(ref)
+        if kind == "input":
+            input_refs.append(ref)
+        elif kind == "evidence":
+            evidence_refs.append(ref)
+        else:
+            unknown_refs.append(ref)
+    return input_refs, evidence_refs, unknown_refs
+
+
+def validate_dependency_ref_classification(
+    *,
+    field: str,
+    refs: list[str],
+    allow_override: bool,
+) -> list[str]:
+    if allow_override:
+        return []
+    expected_kind = "input" if field == "input_refs" else "evidence" if field == "evidence_refs" else None
+    if expected_kind is None:
+        return []
+    errors: list[str] = []
+    for ref in refs:
+        kind = dependency_ref_kind(ref)
+        if kind != "unknown" and kind != expected_kind:
+            target = "--input-ref" if kind == "input" else "--evidence-ref"
+            errors.append(
+                f"{field}: {ref} is a {kind} dependency by path; use {target} or pass "
+                "--allow-ref-class-override with an explicit rationale in --notes"
+            )
+    return errors
 
 
 def validate_round_rel_values(label: str, values: list[str], *, allow_checks: bool = False) -> None:
