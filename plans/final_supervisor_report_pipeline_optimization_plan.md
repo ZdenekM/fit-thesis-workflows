@@ -296,7 +296,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 5 - Role Packet Skeletons And Validator Prominence
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): harden final report role packet outputs`
 - Expected paths:
   - `.agents/skills/thesis-code-consistency/SKILL.md`
@@ -431,6 +431,17 @@ evidence, the intended path after this plan should be:
   `pants lint`/`pants check` for touched files, `scripts/smoke-register-review-artifact`,
   `scripts/smoke-review-manifest`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 5 done. Supervisor-report packets now include an explicit
+  agent-authorization marker, current-evidence snapshot path/hash or missing
+  limitation, and compact output contracts with expected paths, schemas/headings,
+  and validator commands for code consistency, code quality, quantitative
+  claims, Theses.cz similarity, and final report review. Packet generation now
+  refuses role-execution packets without `--agents-authorized`. The touched
+  skills now point agents back to those packet contracts instead of duplicating
+  the full procedures. Verification passed: `pants test
+  tests/test_supervisor_report_packets.py`, targeted `pants lint`/`pants check`
+  for touched files, `scripts/smoke-supervisor-report-packets`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

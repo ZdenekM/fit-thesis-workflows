@@ -88,6 +88,14 @@ Material edits after review reopen draft state. The supervisor still must
 confirm grade, points, official text, and private student comment in
 `work/supervisor_report_confirmation.json` before the report is ready for IS.
 
+Supervisor-report review packets must list both owned outputs,
+`outputs/vedouci_posudek_revidovany.md` and
+`work/reviews/supervisor_report_review.json`, plus validator commands
+`scripts/check-supervisor-report --require-reviewed <case-id> [round-id]` and
+`scripts/check-review-wave --workflow supervisor_report --wave final <case-id>
+[round-id]`. If that contract is absent, ask the parent session to regenerate
+packets before reviewing.
+
 ## Agent Final Response Contract
 
 Write full review output to the owned round files and keep the chat final

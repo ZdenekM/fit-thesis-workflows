@@ -114,7 +114,8 @@ EOF
 printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
 printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
 
-expect_success "prepare supervisor report packets" "$repo_root/scripts/prepare-supervisor-report-packets" "$case_id"
+expect_success "prepare supervisor report packets" "$repo_root/scripts/prepare-supervisor-report-packets" \
+  --agents-authorized "$case_id"
 expect_output "Review materiality profile: supervisor_report"
 expect_output "Supervisor report packets: 4"
 
@@ -130,9 +131,12 @@ test ! -f "$packet_dir/report_review.md"
 grep -Fq "Schema version: \`supervisor-report-packet-v1\`" "$packet_dir/trace.md"
 grep -Fq "Common briefing: \`work/common_briefing.json\`" "$packet_dir/trace.md"
 grep -Fq "Expected output: \`work/supervisor_report_trace.json\`" "$packet_dir/trace.md"
+grep -Fq "Agent authorization: \`current request explicitly authorizes supervisor-report role agents and review loop\`" "$packet_dir/trace.md"
 grep -Fq "Supervisor input is authoritative" "$packet_dir/trace.md"
 grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "scripts/check-code-consistency --require-synthesis-handoff" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
+grep -Fq "scripts/check-code-quality-review --require-synthesis-handoff" "$packet_dir/code_quality.md"
 grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 grep -Fq "## Materiality Next Actions" "$packet_dir/trace.md"
 

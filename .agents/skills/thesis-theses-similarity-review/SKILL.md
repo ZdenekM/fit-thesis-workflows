@@ -69,6 +69,12 @@ revision-diff metric.
    `scripts/write-review-approval --profile theses-similarity-review <case-id> [round-id]`.
    If it is covered by supervisor/opponent synthesis, record the used findings
    and evidence hash in the manifest.
+9. In supervisor-report packet mode, ensure the packet lists
+   `work/theses_similarity/assessment.json`, `outputs/theses_similarity_review.md`,
+   schema `theses-similarity-assessment-v1`, and validator
+   `scripts/check-theses-similarity-report <case-id> [round-id]`. Missing
+   packet contracts are a parent-session regeneration issue, not a reason to
+   guess output shape.
 
 ## Free-Text Boundary
 

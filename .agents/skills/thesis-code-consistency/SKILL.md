@@ -74,6 +74,12 @@ When this artifact is generated as standalone output, it is draft evidence until
 
 After writing or revising `outputs/code_consistency.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the artifact is standalone final evidence or only covered by a downstream synthesis review. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
+Supervisor-report role packets must include the expected output path, this
+artifact skeleton, and the validator command
+`scripts/check-code-consistency --require-synthesis-handoff <case-id> [round-id]`.
+If the packet omits that contract, ask the parent session to regenerate the
+packets before writing final evidence.
+
 ## Agent Final Response Contract
 
 When acting as a workflow agent, write full evidence content to the owned round

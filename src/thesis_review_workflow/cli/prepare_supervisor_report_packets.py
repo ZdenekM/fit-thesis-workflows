@@ -38,6 +38,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="generate packets without refreshing supervisor_report materiality decisions first",
     )
+    parser.add_argument(
+        "--agents-authorized",
+        action="store_true",
+        help="confirm the current request explicitly authorizes role agents and the independent review loop",
+    )
+    parser.add_argument(
+        "--authorization-note",
+        default="current request explicitly authorizes supervisor-report role agents and review loop",
+        help="short note copied into generated packets when --agents-authorized is set",
+    )
     return parser
 
 
@@ -48,6 +58,13 @@ def main(argv: list[str] | None = None) -> int:
     case_dir = require_case_dir(root, args.case_id)
     round_id = resolve_round(case_dir, args.round_id)
     round_dir = require_round_dir(case_dir, args.case_id, round_id)
+
+    if not args.agents_authorized:
+        print(
+            "ERROR: supervisor-report packet generation requires --agents-authorized because packets contain "
+            "role-agent execution instructions."
+        )
+        return 2
 
     if not args.skip_ready_check:
         ready = run_step(
@@ -89,7 +106,13 @@ def main(argv: list[str] | None = None) -> int:
         if not materiality.ok:
             return materiality.returncode
 
-    paths = generate_packets(args.case_id, round_id, now_utc(), round_dir)
+    paths = generate_packets(
+        args.case_id,
+        round_id,
+        now_utc(),
+        round_dir,
+        agent_authorization=args.authorization_note,
+    )
     for path in paths:
         print(f"Wrote {rel_repo(root, path)}")
     print(f"Supervisor report packets: {len(paths)}")

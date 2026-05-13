@@ -70,6 +70,56 @@ ADVISORY_ARTIFACTS = (
     "outputs/revision_diff.md",
     *REPORT_ARTIFACTS,
 )
+OUTPUT_CONTRACTS: dict[str, dict[str, tuple[str, ...]]] = {
+    "code_consistency": {
+        "outputs": ("outputs/code_consistency.md",),
+        "shape": (
+            "Markdown headings: # Soulad textu s kodem; Rozsah kontroly; Podporena tvrzeni; "
+            "Nejasna nebo neoverena tvrzeni; Mozne rozpory textu a kodu; Reprodukovatelnost; "
+            "README / Artefakty / Odevzdani; Review Status; Synthesis Handoff; Rucni kontroly.",
+        ),
+        "validators": ("scripts/check-code-consistency --require-synthesis-handoff {case_id} {round_id}",),
+    },
+    "code_quality": {
+        "outputs": ("outputs/code_quality_review.md",),
+        "shape": (
+            "Markdown headings: # Internal Code Quality Review; Rozsah kontroly; Technicky prehled implementace; "
+            "Silne technicke stranky; Hlavni technicka rizika; Architektura a modularita; Runtime, validace "
+            "a chybove stavy; Testy, smoke testy a reprodukovatelnost; README, build a vyvojarska "
+            "dokumentace; Komentare, citelnost a udrzovatelnost; Review Status; Synthesis Handoff; "
+            "Rucni kontroly.",
+        ),
+        "validators": ("scripts/check-code-quality-review --require-synthesis-handoff {case_id} {round_id}",),
+    },
+    "quantitative_claims": {
+        "outputs": ("work/quantitative_claims.json",),
+        "shape": ("JSON schema: quantitative-claims-v1; required top-level claims list and source_refs/hash binding.",),
+        "validators": ("scripts/check-evaluation-claims {case_id} {round_id}",),
+    },
+    "theses_similarity": {
+        "outputs": (THESES_SIMILARITY_ASSESSMENT_REL, THESES_SIMILARITY_REVIEW_REL),
+        "shape": (
+            "Assessment JSON schema: theses-similarity-assessment-v1. Review Markdown headings: "
+            "# Theses.cz Similarity Review; Review Scope; Imported Report; Structural Findings; "
+            "Contextual Assessment; Repeated-Submission / Self-Overlap Check; Downstream Use; "
+            "Synthesis Handoff; Review Status.",
+        ),
+        "validators": ("scripts/check-theses-similarity-report {case_id} {round_id}",),
+    },
+    "report_review": {
+        "outputs": ("outputs/vedouci_posudek_revidovany.md", "work/reviews/supervisor_report_review.json"),
+        "shape": (
+            "Reviewed report headings: # Posudek vedouciho; Informace k zadani; Prace s literaturou; "
+            "Aktivita behem reseni, konzultace, komunikace; Aktivita pri dokoncovani; Publikacni cinnost, "
+            "oceneni; Celkove hodnoceni with Znamka/Body; Komentar pro studenta. Approval JSON must be "
+            "written with profile supervisor-report and bind the draft and reviewed report hashes.",
+        ),
+        "validators": (
+            "scripts/check-supervisor-report --require-reviewed {case_id} {round_id}",
+            "scripts/check-review-wave --workflow supervisor_report --wave final {case_id} {round_id}",
+        ),
+    },
+}
 
 PACKET_ROLES = (
     PacketRole(
@@ -321,7 +371,58 @@ PACKET_ROLES = (
 )
 
 
-def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Path, role: PacketRole) -> str:
+def current_evidence_snapshot_section(round_dir: Path) -> str:
+    rel_path = "work/current_evidence_snapshot.json"
+    digest = sha256_file(round_dir / rel_path)
+    if digest:
+        detail = f"`{rel_path}` (sha256={digest})"
+    else:
+        detail = f"`{rel_path}` missing; treat snapshot freshness as unavailable and surface that limitation."
+    return "\n".join(["## Current Evidence Snapshot", "", f"- {detail}", ""])
+
+
+def output_contract_section(role: PacketRole, *, case_id: str, round_id: str) -> str:
+    contract = OUTPUT_CONTRACTS.get(role.key)
+    if contract is None:
+        return "\n".join(
+            [
+                "## Expected Output Contract",
+                "",
+                f"- Output path: `{role.expected_output}`",
+                "- Validator: use the role skill and relevant review-wave/check-manifest gates.",
+                "",
+            ]
+        )
+    outputs = contract["outputs"]
+    shape = contract["shape"]
+    validators = contract["validators"]
+    rendered_validators = [validator.format(case_id=case_id, round_id=round_id) for validator in validators]
+    return "\n".join(
+        [
+            "## Expected Output Contract",
+            "",
+            "Output files:",
+            path_list([str(item) for item in outputs]).rstrip(),
+            "",
+            "Required shape:",
+            text_list([str(item) for item in shape]).rstrip(),
+            "",
+            "Validator commands:",
+            path_list(rendered_validators).rstrip(),
+            "",
+        ]
+    )
+
+
+def render_packet(
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    round_dir: Path,
+    role: PacketRole,
+    *,
+    agent_authorization: str,
+) -> str:
     role_existing = existing_paths(
         round_dir,
         role.role_inputs,
@@ -359,6 +460,7 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             f"Recommended model: `{role.model}`",
             f"Recommended reasoning: `{role.reasoning}`",
             f"Model note: {role.model_note}",
+            f"Agent authorization: `{agent_authorization}`",
             "",
             "## Mission",
             "",
@@ -386,9 +488,11 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "## Supervisor Report Artifacts",
             "",
             hash_status_list(round_dir, REPORT_ARTIFACTS, case_id=case_id, round_id=round_id),
+            current_evidence_snapshot_section(round_dir),
             "## Role-Specific Artifacts",
             "",
             status_list(round_dir, role.role_inputs, case_id=case_id, round_id=round_id),
+            output_contract_section(role, case_id=case_id, round_id=round_id),
             "## Missing Role Inputs To Treat As Limitations",
             "",
             path_list([rel_path for rel_path in role.role_inputs if rel_path not in role_existing]),
@@ -420,7 +524,14 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
     )
 
 
-def generate_packets(case_id: str, round_id: str, generated_at: str, round_dir: Path) -> list[Path]:
+def generate_packets(
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    round_dir: Path,
+    *,
+    agent_authorization: str = "direct-call-not-verified",
+) -> list[Path]:
     packet_dir = round_dir / PACKET_DIR_REL
     packet_dir.mkdir(parents=True, exist_ok=True)
     write_common_briefing(case_id, round_id, generated_at, round_dir)
@@ -430,6 +541,16 @@ def generate_packets(case_id: str, round_id: str, generated_at: str, round_dir: 
         if not role_is_active(round_dir, role, case_id=case_id, round_id=round_id):
             continue
         path = packet_dir / f"{role.key}.md"
-        write_text_if_changed(path, render_packet(case_id, round_id, generated_at, round_dir, role))
+        write_text_if_changed(
+            path,
+            render_packet(
+                case_id,
+                round_id,
+                generated_at,
+                round_dir,
+                role,
+                agent_authorization=agent_authorization,
+            ),
+        )
         written.append(path)
     return written

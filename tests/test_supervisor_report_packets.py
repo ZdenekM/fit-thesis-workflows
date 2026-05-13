@@ -65,6 +65,7 @@ def test_generate_supervisor_report_packets_starts_with_mandatory_roles(tmp_path
     text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
     assert "Schema version: `supervisor-report-packet-v1`" in text
     assert "Expected output: `work/supervisor_report_trace.json`" in text
+    assert "Agent authorization: `direct-call-not-verified`" in text
     assert "Supervisor input is authoritative" in text
     assert str(tmp_path) not in text
 
@@ -80,11 +81,18 @@ def test_supervisor_report_packets_emit_code_and_report_review_when_triggered(tm
     assert "code_consistency.md" in names
     assert "code_quality.md" in names
     assert "report_review.md" in names
+    code_consistency = (round_dir / "work" / "supervisor_report_packets" / "code_consistency.md").read_text(
+        encoding="utf-8"
+    )
+    assert "scripts/check-code-consistency --require-synthesis-handoff case-a round-a" in code_consistency
     code_quality = (round_dir / "work" / "supervisor_report_packets" / "code_quality.md").read_text(encoding="utf-8")
     assert "## Omen Advisory Static Analysis" in code_quality
+    assert "scripts/check-code-quality-review --require-synthesis-handoff case-a round-a" in code_quality
     report_review = (round_dir / "work" / "supervisor_report_packets" / "report_review.md").read_text(encoding="utf-8")
     assert "work/vedouci_posudek_draft.md" in report_review
     assert "supervisor_report_confirmation.json" in report_review
+    assert "work/reviews/supervisor_report_review.json" in report_review
+    assert "scripts/check-review-wave --workflow supervisor_report --wave final case-a round-a" in report_review
 
 
 def test_supervisor_report_packets_use_supervisor_report_materiality_profile(tmp_path: Path) -> None:
@@ -113,6 +121,20 @@ def test_supervisor_report_packets_emit_theses_similarity_packet_from_next_actio
     assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
     assert THESES_SIMILARITY_REPORT_REL in text
     assert "Keep no-concern and resolved findings silent" in text
+    assert "theses-similarity-assessment-v1" in text
+    assert "scripts/check-theses-similarity-report case-a round-a" in text
+
+
+def test_supervisor_report_packets_include_quantitative_output_contract(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_materiality(round_dir, "quantitative_claims")
+
+    generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+    text = (round_dir / "work" / "supervisor_report_packets" / "quantitative_claims.md").read_text(encoding="utf-8")
+
+    assert "JSON schema: quantitative-claims-v1" in text
+    assert "scripts/check-evaluation-claims case-a round-a" in text
+    assert "work/current_evidence_snapshot.json" in text
 
 
 def test_supervisor_report_packets_ignore_supervisor_feedback_materiality(tmp_path: Path) -> None:
@@ -165,7 +187,7 @@ def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality
     monkeypatch.setattr(prepare_supervisor_report_packets, "repo_root", lambda: root)
     monkeypatch.setattr(prepare_supervisor_report_packets, "run_step", fake_run_step)
 
-    result = prepare_supervisor_report_packets.main(["case-a", "round-a"])
+    result = prepare_supervisor_report_packets.main(["--agents-authorized", "case-a", "round-a"])
 
     assert result == 0
     assert calls == [
@@ -173,3 +195,22 @@ def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality
         "current evidence snapshot",
         "supervisor report materiality",
     ]
+
+
+def test_prepare_supervisor_report_packets_requires_agent_authorization(tmp_path: Path, monkeypatch, capsys) -> None:
+    round_dir = make_round(tmp_path)
+    root = round_dir.parents[3]
+    calls: list[str] = []
+
+    def fake_run_step(root_arg: Path, label: str, args: list[str], *, required: bool = True) -> Step:
+        calls.append(label)
+        return Step(label=label, command=args, returncode=0, output="", required=required)
+
+    monkeypatch.setattr(prepare_supervisor_report_packets, "repo_root", lambda: root)
+    monkeypatch.setattr(prepare_supervisor_report_packets, "run_step", fake_run_step)
+
+    result = prepare_supervisor_report_packets.main(["case-a", "round-a"])
+
+    assert result == 2
+    assert calls == []
+    assert "requires --agents-authorized" in capsys.readouterr().out
