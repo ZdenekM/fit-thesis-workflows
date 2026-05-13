@@ -736,13 +736,13 @@ def test_codex_agent_profiles_register_tracked_configs() -> None:
     config = codex_agent_config()
     agents = config["agents"]
     assert isinstance(agents, dict)
-    registry_profile_ids = {route.profile_id for route in agent_profiles.profile_routes()}
+    registry_profile_ids = {route.profile_id for route in agent_profiles.profile_routes() if route.profile_id}
     configured_profile_ids = {
         profile_id for profile_id, profile_config in agents.items() if isinstance(profile_config, dict)
     }
 
     assert configured_profile_ids
-    assert configured_profile_ids <= registry_profile_ids
+    assert configured_profile_ids == registry_profile_ids
     for profile in configured_profile_ids:
         profile_config = agents[profile]
         assert isinstance(profile_config, dict)

@@ -83,7 +83,7 @@ def test_configured_codex_agent_profiles_match_registry_contract() -> None:
     config_entries = codex_agent_config_entries()
 
     assert config_entries
-    assert set(config_entries) <= set(routes)
+    assert set(config_entries) == set(routes)
 
     for profile_id, config_entry in config_entries.items():
         route = routes[profile_id]

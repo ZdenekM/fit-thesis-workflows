@@ -196,7 +196,6 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
             "work/theses_similarity/assessment.json",
             "work/theses_similarity/review_draft.md",
             "outputs/theses_similarity_review.md",
-            "work/reviews/theses_similarity_review.json",
         ),
         standalone_review_profile="thesis_evidence_calibrator",
         downstream_synthesis_review_allowed=True,

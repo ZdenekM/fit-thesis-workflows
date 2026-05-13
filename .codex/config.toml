@@ -29,6 +29,46 @@ config_file = "agents/thesis-code-quality-reviewer.toml"
 description = "Reviews quantitative/result claims for units, baseline, practical context, reproducibility, and overclaim risk."
 config_file = "agents/thesis-quantitative-claims-reviewer.toml"
 
+[agents.thesis_github_code_intake_reviewer]
+description = "Imports and reviews read-only GitHub repository or PR evidence for thesis rounds."
+config_file = "agents/thesis-github-code-intake-reviewer.toml"
+
+[agents.thesis_revision_diff_reviewer]
+description = "Compares thesis/code rounds and prior feedback status without repeating old feedback mechanically."
+config_file = "agents/thesis-revision-diff-reviewer.toml"
+
+[agents.thesis_figure_media_reviewer]
+description = "Reviews thesis figures, tables, screenshots, diagrams, and visual claim alignment."
+config_file = "agents/thesis-figure-media-reviewer.toml"
+
+[agents.thesis_literature_citation_reviewer]
+description = "Reviews cited literature for relevance, source availability, and claim support."
+config_file = "agents/thesis-literature-citation-reviewer.toml"
+
+[agents.thesis_typography_formal_reviewer]
+description = "Reviews late-stage typography and formal presentation evidence."
+config_file = "agents/thesis-typography-formal-reviewer.toml"
+
+[agents.thesis_theses_similarity_reviewer]
+description = "Interprets imported Theses.cz similarity reports in current case context."
+config_file = "agents/thesis-theses-similarity-reviewer.toml"
+
+[agents.thesis_supervisor_feedback_reviewer]
+description = "Reviews and finalizes student-facing supervisor feedback."
+config_file = "agents/thesis-supervisor-feedback-reviewer.toml"
+
+[agents.thesis_supervisor_report_reviewer]
+description = "Reviews formal supervisor-report drafts before confirmation and IS use."
+config_file = "agents/thesis-supervisor-report-reviewer.toml"
+
+[agents.thesis_opponent_materials_reviewer]
+description = "Reviews and hardens internal opponent materials and report trace readiness."
+config_file = "agents/thesis-opponent-materials-reviewer.toml"
+
+[agents.thesis_opponent_report_reviewer]
+description = "Reviews human or generated opponent-report drafts before submission."
+config_file = "agents/thesis-opponent-report-reviewer.toml"
+
 [agents.thesis_evidence_calibrator]
 description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
 config_file = "agents/thesis-evidence-calibrator.toml"

@@ -333,7 +333,7 @@ keep weaker instructions.
 
 ### Slice 3 - Add Missing Profile Files And Config Entries
 
-- Status: planned
+- Status: done
 - Proposed commit message: `feat(workflow): add thesis reviewer agent profiles`
 - Expected paths:
   - `.codex/config.toml`
@@ -450,6 +450,16 @@ keep weaker instructions.
   `pants check src/thesis_review_workflow:: tests::`,
   `pants test tests/test_agent_profile_contracts.py tests/test_workflow_python_contracts.py`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 3 done. Added the missing durable Codex agent role profiles
+  and `.codex/config.toml` entries, then tightened configured-profile tests to
+  require exact registry/config coverage. The Theses.cz similarity profile owns
+  intake/assessment/review output only; standalone approval records stay outside
+  that producer profile and require independent review. Verification passed:
+  `pants fmt src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `pants test tests/test_agent_profile_contracts.py tests/test_workflow_python_contracts.py`,
+  a Python `tomllib` config/file/UTF-8 check, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 
@@ -475,6 +485,10 @@ keep weaker instructions.
   the registry and normalized profile contract first; the exhaustive "all
   `profile` rows must have config files" assertion lands after Slice 3 adds the
   missing profile files.
+- Similarity review is a producer profile for intake, assessment, and review
+  artifacts. It must not write its own standalone approval record; that record
+  belongs to an independent review/calibration path or parent-recorded review
+  metadata after independent review.
 
 ## Final Audit
 
