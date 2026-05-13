@@ -1,6 +1,7 @@
 python_tests(
     name="tests",
     dependencies=[
+        "//:agent_profile_registry_metadata",
         "//:codex_agent_profile_metadata",
         "//scripts:workflow_contract_metadata",
         "//scripts:workflow_shell",

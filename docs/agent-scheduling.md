@@ -26,15 +26,17 @@ not reduce required role coverage, independent review, manifest evidence, or
 The runtime default is enforced in `.codex/config.toml` with
 `agents.max_threads = 2`, `agents.max_depth = 1`, and
 `agents.job_max_runtime_seconds = 3600`. Keep this document aligned with that
-config if the project default changes.
+config if the project default changes. Role-to-profile routing is tracked in
+`docs/agent-profile-matrix.md`; keep that matrix and
+`src/thesis_review_workflow/agent_profiles.py` aligned when adding or changing a
+repo-local workflow skill.
 
 ## Model And Reasoning Defaults
 
 Quality-critical thesis-review roles should use the strongest available model
 and reasoning effort. The tracked thesis reviewer profiles under `.codex/agents/`
-therefore default to `gpt-5.5` with `model_reasoning_effort = "xhigh"` for text
-review, code consistency, code quality, quantitative-claims review, and evidence
-calibration.
+therefore default to `gpt-5.5` with `model_reasoning_effort = "xhigh"` for every
+semantic role listed as `profile` in `docs/agent-profile-matrix.md`.
 
 Do not downshift semantic roles that read thesis text, submitted code,
 evidence artifacts, synthesis drafts, or final/reviewable outputs. Cheaper

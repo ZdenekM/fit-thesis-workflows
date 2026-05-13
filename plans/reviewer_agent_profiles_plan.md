@@ -1,6 +1,6 @@
 # Codex Agent Role Profiles Plan
 
-Status: planned
+Status: active
 Created: 2026-05-13
 
 ## Goal
@@ -265,7 +265,7 @@ keep weaker instructions.
 
 ### Slice 1 - Structured Role Registry And Profile Taxonomy
 
-- Status: planned
+- Status: done
 - Proposed commit message: `feat(workflow): add thesis agent profile registry`
 - Expected paths:
   - `src/thesis_review_workflow/agent_profiles.py`
@@ -433,6 +433,14 @@ keep weaker instructions.
   machine-checkable skill/profile registry, existing-profile normalization,
   exact workspace-write boundaries, and producer/reviewer separation for
   standalone evidence.
+- 2026-05-13: Slice 1 done. Added `agent_profiles.py` as the structured source
+  of truth, `docs/agent-profile-matrix.md`, registry coverage tests, Pants
+  metadata for skill/docs inputs, and a shorter session-start hook that points
+  to the matrix instead of hardcoding a stale role subset. Verification passed:
+  `pants fmt src/thesis_review_workflow:: tests:: .codex/hooks::`,
+  `pants check src/thesis_review_workflow:: tests:: .codex/hooks::`,
+  `pants test tests/test_agent_profile_contracts.py`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

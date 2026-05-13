@@ -13,8 +13,8 @@ def main() -> int:
 
     reminders = [
         "Read AGENTS.md before thesis workflow work.",
-        "Use repo-local skills in .agents/skills for supervisor feedback, opponent materials, "
-        "revision diff, code consistency, and code quality.",
+        "Use repo-local skills in .agents/skills and the Codex agent role profile matrix "
+        "in docs/agent-profile-matrix.md for role routing.",
         "For code-bearing supervisor/opponent rounds, run both code consistency and code quality review "
         "or state the concrete limitation.",
         "Real student data belongs under gitignored cases/; never force-add case contents.",

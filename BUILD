@@ -24,6 +24,14 @@ files(
     ],
 )
 
+files(
+    name="agent_profile_registry_metadata",
+    sources=[
+        ".agents/skills/*/SKILL.md",
+        "docs/agent-profile-matrix.md",
+    ],
+)
+
 pex_binary(
     name="vulture",
     description="Run a dev-only dead-code scan over workflow code.",
