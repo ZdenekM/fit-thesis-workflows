@@ -182,6 +182,17 @@ def final_review_paths(artifact):
     safe_name = artifact_type.replace("/", "_").replace(" ", "_")
     return artifact_type, f"work/reviews/{safe_name}_basis.md", f"work/reviews/{safe_name}_review.json"
 
+def required_observed_checks(rel_path):
+    if rel_path == "outputs/feedback_student.md":
+        return ["check-supervisor-ready", "check-feedback-language", "check-feedback-output"]
+    if rel_path == "outputs/oponent_podklady_revidovane.md":
+        return ["check-round-ready", "check-opponent-materials", "check-opponent-report"]
+    if rel_path == "outputs/feedback_k_posudku.md":
+        return ["check-opponent-report"]
+    if rel_path == "outputs/vedouci_posudek_revidovany.md":
+        return ["check-supervisor-report-ready", "check-supervisor-report"]
+    return ["smoke-review"]
+
 for check in manifest["helper_checks"]:
     check["status"] = "passed"
     check["checked_at"] = "2026-05-04T00:00:00Z"
@@ -213,7 +224,7 @@ for artifact in manifest["artifacts"]:
             "reviewed_artifact_sha256": artifact["artifact_sha256"],
             "review_basis_path": review_basis_path,
             "review_basis_sha256": sha256_file(basis),
-            "checks_observed": ["smoke-review"],
+            "checks_observed": required_observed_checks(artifact["path"]),
             "limitations": ["None."],
             "timestamp": "2026-05-04T00:01:00Z",
         }
@@ -286,6 +297,17 @@ def final_review_paths(artifact):
     safe_name = artifact_type.replace("/", "_").replace(" ", "_")
     return artifact_type, f"work/reviews/{safe_name}_basis.md", f"work/reviews/{safe_name}_review.json"
 
+def required_observed_checks(rel_path):
+    if rel_path == "outputs/feedback_student.md":
+        return ["check-supervisor-ready", "check-feedback-language", "check-feedback-output"]
+    if rel_path == "outputs/oponent_podklady_revidovane.md":
+        return ["check-round-ready", "check-opponent-materials", "check-opponent-report"]
+    if rel_path == "outputs/feedback_k_posudku.md":
+        return ["check-opponent-report"]
+    if rel_path == "outputs/vedouci_posudek_revidovany.md":
+        return ["check-supervisor-report-ready", "check-supervisor-report"]
+    return ["smoke-review"]
+
 def upsert_supporting_record(rel_path):
     records = manifest.setdefault("supporting_work_artifacts", [])
     artifact_hash = sha256_file(round_dir / rel_path)
@@ -323,7 +345,7 @@ for artifact in manifest["artifacts"]:
             "reviewed_artifact_sha256": artifact["artifact_sha256"],
             "review_basis_path": review_basis_path,
             "review_basis_sha256": sha256_file(basis),
-            "checks_observed": ["smoke-review"],
+            "checks_observed": required_observed_checks(artifact["path"]),
             "limitations": ["None."],
             "timestamp": "2026-05-04T00:01:00Z",
         }

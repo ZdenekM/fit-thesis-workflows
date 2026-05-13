@@ -34,7 +34,11 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.commands import canonical_command_text, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
-from thesis_review_workflow.review_manifest import apply_review_approval_records, merge_supporting_work_artifacts
+from thesis_review_workflow.review_manifest import (
+    apply_artifact_dependency_refs,
+    apply_review_approval_records,
+    merge_supporting_work_artifacts,
+)
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
@@ -261,9 +265,13 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
             "limitations": limitations,
             "notes": previous.get("notes") or "",
         }
-        for field in ("input_refs", "evidence_refs", "check_refs"):
-            if field in previous:
-                entry[field] = previous[field]
+        if previous.get("dependency_refs_source") == "registered":
+            for field in ("input_refs", "evidence_refs"):
+                if field in previous:
+                    entry[field] = previous[field]
+            entry["dependency_refs_source"] = "registered"
+        if "check_refs" in previous:
+            entry["check_refs"] = previous["check_refs"]
         source_refs: list[str] = []
         for field in ("input_refs", "evidence_refs"):
             value = entry.get(field)
@@ -456,28 +464,10 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
     return merged
 
 
-def add_artifact_refs(manifest: dict[str, Any]) -> None:
-    input_refs = [
-        record["path"]
-        for collection in ("inputs", "extracted_artifacts", "notes")
-        for record in manifest.get(collection, [])
-        if isinstance(record, dict) and isinstance(record.get("path"), str)
-    ]
-    work_refs = [
-        record["path"]
-        for record in manifest.get("supporting_work_artifacts", [])
-        if isinstance(record, dict) and isinstance(record.get("path"), str)
-    ]
+def add_artifact_refs(manifest: dict[str, Any], round_dir: Path) -> None:
     artifacts = manifest.get("artifacts", [])
     if not isinstance(artifacts, list):
         return
-    evidence_outputs = [
-        artifact.get("path")
-        for artifact in artifacts
-        if isinstance(artifact, dict)
-        and isinstance(artifact.get("path"), str)
-        and artifact.get("path", "").removeprefix("outputs/") in INTERNAL_EVIDENCE
-    ]
     check_refs_by_artifact: dict[str, list[str]] = {}
     for check in manifest.get("helper_checks", []):
         if not isinstance(check, dict) or not isinstance(check.get("check"), str):
@@ -490,13 +480,8 @@ def add_artifact_refs(manifest: dict[str, Any]) -> None:
         if not isinstance(artifact, dict) or not isinstance(artifact.get("path"), str):
             continue
         path = artifact["path"]
-        artifact.setdefault("input_refs", input_refs)
-        if "evidence_refs" not in artifact:
-            refs = list(work_refs)
-            if path in {"outputs/feedback_student.md", "outputs/oponent_podklady_revidovane.md"}:
-                refs.extend(ref for ref in evidence_outputs if ref != path)
-            artifact["evidence_refs"] = refs
         artifact.setdefault("check_refs", check_refs_by_artifact.get(path, []))
+    apply_artifact_dependency_refs(manifest, round_dir)
 
 
 def compact_output(stdout: str, stderr: str) -> str:
@@ -616,7 +601,7 @@ def main() -> int:
         collect_work_artifacts(round_dir),
     )
     manifest["supporting_work_artifacts"] = work_artifacts
-    add_artifact_refs(manifest)
+    add_artifact_refs(manifest, round_dir)
 
     existing_coverage = load_json_object(round_dir / COVERAGE_REL)
     write_coverage(
@@ -630,8 +615,9 @@ def main() -> int:
     manifest["supporting_work_artifacts"] = work_artifacts
     checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths, round_dir, manifest))
     manifest["helper_checks"] = checks
-    add_artifact_refs(manifest)
+    add_artifact_refs(manifest, round_dir)
     apply_review_approval_records(manifest, round_dir)
+    apply_artifact_dependency_refs(manifest, round_dir)
 
     write_manifest(manifest_path, manifest)
     if args.run_checks:

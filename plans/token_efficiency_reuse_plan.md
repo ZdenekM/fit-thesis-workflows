@@ -653,7 +653,7 @@ private raw content during normal synthesis.
 
 ### Slice 7 - Manifest Dependency Precision And Claim Basis
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `feat(workflow): bind review artifacts to precise sources`
 - Expected paths:
   - `src/thesis_review_workflow/cli/init_review_manifest.py`
@@ -827,6 +827,28 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 7 started. Sanity review passed: Slice 6 is committed as
+  `f6e7e54`, the only unrelated worktree change is still `TODO.md`, and Slice 7
+  is scoped to role-aware manifest dependencies and claim-basis validation. The
+  slice must preserve existing `review_basis_path` approval semantics and avoid
+  broad blanket dependencies that make unrelated notes or work artifacts stale.
+- 2026-05-13: Slice 7 implementation and agent review complete. Replaced
+  generated blanket manifest refs with artifact-scoped dependencies from
+  claim-basis ledgers, packet/common-briefing refs, matching reuse-index
+  decisions, registered refs, and approval review-basis paths. Closeout now
+  validates final artifact dependency refs, final source hashes, canonical
+  approval records, and claim-basis draft bindings without binding unrelated
+  final artifacts to a single global claim basis. Fixed reviewer findings by
+  removing implicit all-internal-evidence refs, scoping claim-basis and
+  reuse-index dependencies to matching artifacts/roles, reporting missing
+  approval JSON as a manifest error, and updating approval smoke fixtures for
+  canonical observed checks. Verification passed: `pants fmt ::`,
+  `pants test tests/test_review_manifest_helpers.py tests/test_claim_review_basis.py tests/test_work_artifacts.py tests/test_review_approvals.py`,
+  `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-register-review-artifact`,
+  `scripts/smoke-agent-coverage`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. Ready to commit Slice 7.
 - 2026-05-13: Slice 6 started. Sanity review passed: Slice 5 is committed as
   `d40eb32`, the only unrelated worktree change is still `TODO.md`, and Slice 6
   is scoped to materiality coverage state, reuse-aware mandatory role coverage,

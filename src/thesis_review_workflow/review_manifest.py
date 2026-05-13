@@ -10,7 +10,9 @@ from typing import Any
 from thesis_review_workflow.artifact_registry import explicit_internal_review_filenames
 from thesis_review_workflow.artifact_registry import output_defaults as registry_output_defaults
 from thesis_review_workflow.artifact_registry import output_spec
+from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.reuse import ArtifactRole
 from thesis_review_workflow.review_approvals import (
     REVIEW_APPROVAL_GLOB,
     load_review_approval,
@@ -18,12 +20,29 @@ from thesis_review_workflow.review_approvals import (
     string_list,
     validate_review_approval_with_manifest,
 )
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
 from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 
 MANIFEST_REL = Path("work/review_manifest.json")
 SCHEMA_VERSION = "review-manifest-v1"
 CHECK_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 REQUIRE_STANDALONE_REVIEW_FILENAMES = explicit_internal_review_filenames()
+REUSE_INDEX_REL = "work/reuse/reuse_index.json"
+REUSE_ARTIFACT_BY_TYPE = {
+    "github_code_intake": ArtifactRole.GITHUB_CODE_INTAKE.value,
+    "code_consistency": ArtifactRole.CODE_CONSISTENCY.value,
+    "code_quality_review": ArtifactRole.CODE_QUALITY.value,
+    "literature_citation_review": ArtifactRole.LITERATURE_CITATION.value,
+    "figure_media_review": ArtifactRole.FIGURE_MEDIA.value,
+    "typography_formal_review": ArtifactRole.TYPOGRAPHY_FORMAL.value,
+    "theses_similarity_review": ArtifactRole.THESES_SIMILARITY.value,
+    "supervisor_feedback": ArtifactRole.SUPERVISOR_FEEDBACK.value,
+    "supervisor_report_reviewed": ArtifactRole.SUPERVISOR_REPORT.value,
+    "opponent_materials_reviewed": ArtifactRole.OPPONENT_MATERIALS.value,
+    "opponent_report_review": ArtifactRole.OPPONENT_REPORT_REVIEW.value,
+}
+REGISTERED_DEPENDENCY_REFS_SOURCE = "registered"
+GENERATED_DEPENDENCY_REFS_SOURCE = "generated"
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -167,6 +186,180 @@ def source_hashes(round_dir: Path, refs: list[str]) -> dict[str, str]:
     return hashes
 
 
+def append_ref(target: list[str], ref: Any) -> None:
+    if isinstance(ref, str) and is_safe_round_relative_path(ref) and ref not in target:
+        target.append(ref)
+
+
+def split_dependency_refs(refs: list[str]) -> tuple[list[str], list[str]]:
+    input_refs: list[str] = []
+    evidence_refs: list[str] = []
+    for ref in refs:
+        if ref.startswith(("inputs/", "extracted/", "notes/")):
+            append_ref(input_refs, ref)
+        elif ref.startswith(("work/", "outputs/")):
+            append_ref(evidence_refs, ref)
+    return input_refs, evidence_refs
+
+
+def load_round_json(round_dir: Path, rel_path: str) -> dict[str, Any] | None:
+    path = round_dir / rel_path
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def claim_basis_applies_to_artifact(
+    loaded: dict[str, Any],
+    artifact_path: str,
+    artifact: dict[str, Any] | None = None,
+) -> bool:
+    draft_ref = loaded.get("draft_ref")
+    if not isinstance(draft_ref, str) or not draft_ref:
+        return False
+    candidates: list[str] = []
+    if artifact is not None:
+        review = artifact.get("independent_review")
+        if isinstance(review, dict):
+            review_basis_path = review.get("review_basis_path")
+            if isinstance(review_basis_path, str) and review_basis_path:
+                candidates.append(review_basis_path)
+    spec = output_spec(artifact_path)
+    if spec is not None:
+        candidates.extend(spec.review_basis_candidates)
+    return draft_ref in candidates
+
+
+def claim_basis_dependency_refs(
+    round_dir: Path,
+    *,
+    artifact_path: str | None = None,
+    artifact: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str]]:
+    loaded = load_round_json(round_dir, CLAIM_REVIEW_BASIS_REL)
+    if loaded is None:
+        return [], []
+    if artifact_path is not None and not claim_basis_applies_to_artifact(loaded, artifact_path, artifact):
+        return [], []
+    refs: list[str] = [CLAIM_REVIEW_BASIS_REL]
+    append_ref(refs, loaded.get("draft_ref"))
+    for ref in loaded.get("capsule_refs", []):
+        append_ref(refs, ref)
+    claims = loaded.get("claims")
+    if isinstance(claims, list):
+        for claim in claims:
+            if not isinstance(claim, dict):
+                continue
+            for field in ("evidence_refs", "capsule_refs"):
+                for ref in claim.get(field, []):
+                    append_ref(refs, ref)
+            escalations = claim.get("raw_source_escalations")
+            if isinstance(escalations, list):
+                for escalation in escalations:
+                    if not isinstance(escalation, dict):
+                        continue
+                    for ref in escalation.get("source_refs", []):
+                        append_ref(refs, ref)
+    return split_dependency_refs(refs)
+
+
+def reuse_index_dependency_refs(round_dir: Path, artifact_type: str) -> tuple[list[str], list[str]]:
+    artifact_role = REUSE_ARTIFACT_BY_TYPE.get(artifact_type)
+    if artifact_role is None:
+        return [], []
+    loaded = load_round_json(round_dir, REUSE_INDEX_REL)
+    if loaded is None:
+        return [], []
+    decisions = loaded.get("decisions")
+    if isinstance(decisions, list):
+        for decision in decisions:
+            if not isinstance(decision, dict) or decision.get("artifact_role") != artifact_role:
+                continue
+            refs: list[str] = [REUSE_INDEX_REL]
+            source_sha256 = decision.get("source_sha256")
+            if isinstance(source_sha256, dict):
+                for ref in source_sha256:
+                    append_ref(refs, ref)
+            return split_dependency_refs(refs)
+    return [], []
+
+
+def packet_dependency_refs(round_dir: Path, artifact_type: str) -> list[str]:
+    packet_dirs = {
+        "supervisor_feedback": "work/supervisor_packets",
+        "supervisor_report_reviewed": "work/supervisor_report_packets",
+        "opponent_materials_reviewed": "work/opponent_packets",
+    }
+    refs: list[str] = []
+    if (round_dir / COMMON_BRIEFING_REL).is_file():
+        refs.append(COMMON_BRIEFING_REL)
+    packet_dir = packet_dirs.get(artifact_type)
+    if packet_dir and (round_dir / packet_dir).is_dir():
+        refs.extend(
+            path.relative_to(round_dir).as_posix()
+            for path in sorted((round_dir / packet_dir).glob("*.md"))
+            if path.is_file()
+        )
+    return refs
+
+
+def artifact_dependency_refs(
+    manifest: dict[str, Any],
+    artifact: dict[str, Any],
+    round_dir: Path,
+) -> tuple[list[str], list[str]]:
+    path = artifact.get("path")
+    if not isinstance(path, str):
+        return [], []
+    artifact_type = str(artifact.get("artifact_type") or output_defaults(path)[0])
+    spec = output_spec(path)
+    input_refs: list[str] = []
+    evidence_refs: list[str] = []
+
+    if spec and spec.final_output:
+        claim_inputs, claim_evidence = claim_basis_dependency_refs(round_dir, artifact_path=path, artifact=artifact)
+        input_refs.extend(claim_inputs)
+        evidence_refs.extend(claim_evidence)
+        evidence_refs.extend(packet_dependency_refs(round_dir, artifact_type))
+
+    reuse_inputs, reuse_evidence = reuse_index_dependency_refs(round_dir, artifact_type)
+    input_refs.extend(reuse_inputs)
+    evidence_refs.extend(reuse_evidence)
+
+    review = artifact.get("independent_review")
+    if isinstance(review, dict):
+        append_ref(evidence_refs, review.get("review_basis_path"))
+    return append_unique([], input_refs), append_unique([], evidence_refs)
+
+
+def apply_artifact_dependency_refs(manifest: dict[str, Any], round_dir: Path) -> None:
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        input_refs, evidence_refs = artifact_dependency_refs(manifest, artifact, round_dir)
+        if artifact.get("dependency_refs_source") == REGISTERED_DEPENDENCY_REFS_SOURCE:
+            artifact["input_refs"] = append_unique(artifact.get("input_refs"), input_refs)
+            artifact["evidence_refs"] = append_unique(artifact.get("evidence_refs"), evidence_refs)
+        else:
+            artifact["input_refs"] = input_refs
+            artifact["evidence_refs"] = evidence_refs
+            artifact["dependency_refs_source"] = GENERATED_DEPENDENCY_REFS_SOURCE
+        source_refs: list[str] = []
+        for field in ("input_refs", "evidence_refs"):
+            values = artifact.get(field)
+            if isinstance(values, list):
+                source_refs.extend(ref for ref in values if isinstance(ref, str))
+        if source_refs:
+            artifact["source_sha256"] = source_hashes(round_dir, append_unique([], source_refs))
+
+
 def upsert_output_artifact(
     manifest: dict[str, Any],
     round_dir: Path,
@@ -247,6 +440,8 @@ def upsert_output_artifact(
     existing["limitations"] = append_unique(existing.get("limitations"), limitation)
     existing["input_refs"] = append_unique(existing.get("input_refs"), input_refs)
     existing["evidence_refs"] = append_unique(existing.get("evidence_refs"), evidence_refs + feeds)
+    if input_refs or evidence_refs:
+        existing["dependency_refs_source"] = REGISTERED_DEPENDENCY_REFS_SOURCE
     existing["check_refs"] = append_unique(existing.get("check_refs"), check_refs)
     source_refs = append_unique([], existing["input_refs"] + existing["evidence_refs"])
     if source_refs:

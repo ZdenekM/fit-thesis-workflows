@@ -18,6 +18,7 @@ from thesis_review_workflow.artifact_registry import (
     output_spec,
     review_basis_candidates,
 )
+from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, validate_claim_review_basis_payload
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -28,7 +29,12 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
-from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
+from thesis_review_workflow.review_approvals import (
+    is_review_approval_path,
+    load_review_approval,
+    validate_review_approval_with_manifest,
+)
+from thesis_review_workflow.review_manifest import claim_basis_applies_to_artifact, claim_basis_dependency_refs
 from thesis_review_workflow.review_materiality import validate_materiality_workflow_limitations
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
 from thesis_review_workflow.theses_similarity import theses_similarity_check_targets, theses_similarity_evidence_present
@@ -186,6 +192,88 @@ def check_source_hashes(
             errors.append(f"{artifact_path}: source_sha256 missing hash for {ref}")
         elif recorded_hash != sha256_file(path):
             errors.append(f"{artifact_path}: source_sha256 is stale for {ref}")
+
+
+def check_claim_review_basis_dependency(
+    artifact_path: str,
+    artifact: dict[str, Any],
+    round_dir: Path,
+    case_id: str,
+    round_id: str,
+    errors: list[str],
+) -> None:
+    spec = output_spec(artifact_path)
+    if spec is None or not spec.final_output:
+        return
+    basis_path = round_dir / CLAIM_REVIEW_BASIS_REL
+    if not basis_path.is_file():
+        return
+    evidence_refs = artifact.get("evidence_refs")
+    basis_ref_recorded = isinstance(evidence_refs, list) and CLAIM_REVIEW_BASIS_REL in evidence_refs
+    try:
+        loaded = json.loads(basis_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        if basis_ref_recorded:
+            errors.append(f"{CLAIM_REVIEW_BASIS_REL}: invalid JSON: {exc.msg}")
+        return
+    if not isinstance(loaded, dict):
+        if basis_ref_recorded:
+            errors.append(f"{CLAIM_REVIEW_BASIS_REL}: claim review basis artifact must be an object")
+        return
+    basis_applies = claim_basis_applies_to_artifact(loaded, artifact_path, artifact)
+    if not basis_applies and not basis_ref_recorded:
+        return
+    if not basis_applies:
+        errors.append(f"{artifact_path}: claim review basis draft_ref must match independent_review.review_basis_path")
+        return
+    if not isinstance(evidence_refs, list) or CLAIM_REVIEW_BASIS_REL not in evidence_refs:
+        errors.append(f"{artifact_path}: evidence_refs must include {CLAIM_REVIEW_BASIS_REL}")
+    basis_input_refs, basis_evidence_refs = claim_basis_dependency_refs(
+        round_dir,
+        artifact_path=artifact_path,
+        artifact=artifact,
+    )
+    artifact_input_refs = artifact.get("input_refs")
+    artifact_evidence_refs = artifact.get("evidence_refs")
+    input_set = (
+        {item for item in artifact_input_refs if isinstance(item, str)}
+        if isinstance(artifact_input_refs, list)
+        else set()
+    )
+    evidence_set = (
+        {item for item in artifact_evidence_refs if isinstance(item, str)}
+        if isinstance(artifact_evidence_refs, list)
+        else set()
+    )
+    for ref in basis_input_refs:
+        if ref not in input_set:
+            errors.append(f"{artifact_path}: input_refs must include claim-basis dependency {ref}")
+    for ref in basis_evidence_refs:
+        if ref not in evidence_set:
+            errors.append(f"{artifact_path}: evidence_refs must include claim-basis dependency {ref}")
+    errors.extend(
+        validate_claim_review_basis_payload(
+            loaded,
+            CLAIM_REVIEW_BASIS_REL,
+            round_dir=round_dir,
+            case_id=case_id,
+            round_id=round_id,
+        )
+    )
+    review = artifact.get("independent_review")
+    review_basis_path = review.get("review_basis_path") if isinstance(review, dict) else None
+    draft_ref = loaded.get("draft_ref")
+    if isinstance(review_basis_path, str) and review_basis_path and draft_ref != review_basis_path:
+        errors.append(f"{artifact_path}: claim review basis draft_ref must match independent_review.review_basis_path")
+
+
+def artifact_source_refs(artifact: dict[str, Any]) -> list[str]:
+    source_refs: list[str] = []
+    for field in ("input_refs", "evidence_refs"):
+        values = artifact.get(field)
+        if isinstance(values, list):
+            source_refs.extend(ref for ref in values if isinstance(ref, str))
+    return source_refs
 
 
 def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None:
@@ -433,14 +521,21 @@ def artifact_review_ok(
                 if approval_record_path not in record_paths(manifest.get("supporting_work_artifacts")):
                     errors.append(f"{path}: approval_record_path is not recorded in supporting_work_artifacts")
                 if isinstance(path, str):
-                    for error in validate_review_approval_artifact(
-                        round_dir,
-                        approval_record_path,
-                        case_id=case_id,
-                        round_id=round_id,
-                        reviewed_artifact_path=path,
-                    ):
-                        errors.append(f"{path}: {error}")
+                    loaded, approval_errors = load_review_approval(round_dir, approval_record_path)
+                    if approval_errors or loaded is None:
+                        for error in approval_errors:
+                            errors.append(f"{path}: {error}")
+                    else:
+                        for error in validate_review_approval_with_manifest(
+                            loaded,
+                            approval_record_path,
+                            round_dir,
+                            manifest=manifest,
+                            case_id=case_id,
+                            round_id=round_id,
+                            reviewed_artifact_path=path,
+                        ):
+                            errors.append(f"{path}: {error}")
         elif approval_required:
             errors.append(f"{path}: final/sendable artifact requires independent_review.approval_record_path")
     elif scope in FINAL_SCOPES:
@@ -671,13 +766,13 @@ def check_artifacts(
             errors,
             warnings,
         )
+        spec = output_spec(path_value)
+        if require_complete:
+            check_claim_review_basis_dependency(path_value, artifact, round_dir, case_id, round_id, errors)
+        if require_complete and spec is not None and spec.final_output:
+            check_source_hashes(path_value, artifact, artifact_source_refs(artifact), round_dir, errors)
         if require_complete and path_value in INDEPENDENT_REVIEW_REQUIRED_OUTPUTS:
-            source_refs: list[str] = []
-            for field in ("input_refs", "evidence_refs"):
-                values = artifact.get(field)
-                if isinstance(values, list):
-                    source_refs.extend(ref for ref in values if isinstance(ref, str))
-            check_source_hashes(path_value, artifact, source_refs, round_dir, errors)
+            check_source_hashes(path_value, artifact, artifact_source_refs(artifact), round_dir, errors)
 
     missing_outputs = sorted(actual_outputs - manifest_paths)
     if missing_outputs and require_complete:
