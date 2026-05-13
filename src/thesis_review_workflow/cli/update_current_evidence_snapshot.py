@@ -145,7 +145,7 @@ def main(argv: list[str]) -> int:
         existing = load_existing_snapshot(snapshot_path)
         existing_items = existing.get("items") if isinstance(existing, dict) else None
         existing_refs: list[str] = []
-        if isinstance(existing_items, list):
+        if not args.no_known and isinstance(existing_items, list):
             for item in existing_items:
                 if isinstance(item, dict) and isinstance(item.get("path"), str):
                     existing_refs.append(item["path"])

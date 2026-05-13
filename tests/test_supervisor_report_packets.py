@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from thesis_review_workflow.cli import prepare_supervisor_report_packets
+from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.supervisor_report_packets import generate_packets
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
@@ -148,3 +150,26 @@ def test_supervisor_report_packets_show_report_artifact_hashes(tmp_path: Path) -
     text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
 
     assert "`work/supervisor_report_trace.json` (invalid, sha256=" in text
+
+
+def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality(tmp_path: Path, monkeypatch) -> None:
+    round_dir = make_round(tmp_path)
+    root = round_dir.parents[3]
+    calls: list[str] = []
+
+    def fake_run_step(root_arg: Path, label: str, args: list[str], *, required: bool = True) -> Step:
+        assert root_arg == root
+        calls.append(label)
+        return Step(label=label, command=args, returncode=0, output="", required=required)
+
+    monkeypatch.setattr(prepare_supervisor_report_packets, "repo_root", lambda: root)
+    monkeypatch.setattr(prepare_supervisor_report_packets, "run_step", fake_run_step)
+
+    result = prepare_supervisor_report_packets.main(["case-a", "round-a"])
+
+    assert result == 0
+    assert calls == [
+        "supervisor report readiness",
+        "current evidence snapshot",
+        "supervisor report materiality",
+    ]

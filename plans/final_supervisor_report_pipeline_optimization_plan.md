@@ -169,7 +169,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 2 - Current Evidence And Closeout Gate Ordering
 
-- Status: pending
+- Status: done
 - Proposed commit message: `fix(workflow): refresh supervisor report materiality in closeout`
 - Expected paths:
   - `src/thesis_review_workflow/cli/prepare_supervisor_report_packets.py`
@@ -395,6 +395,17 @@ evidence, the intended path after this plan should be:
   narrowed the P0 TODO to the still-open closeout integration work. Verification
   passed: `pants test tests/test_review_manifest_helpers.py
   tests/test_supervisor_report.py tests/test_workflow_python_contracts.py`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 2 done. Added focused closeout orchestration tests, made
+  supervisor-report packet preparation refresh current evidence before final
+  materiality, and reordered closeout to refresh current evidence, run final
+  materiality and unresolved-next-action checks, refresh manifest/coverage before
+  final wave validation, then refresh post-wave metadata. Closeout uses a
+  stable final snapshot ref set so volatile `work/review_manifest.json` and
+  `work/agent_coverage.json` do not immediately stale the snapshot. Verification
+  passed: `pants test tests/test_supervisor_report.py
+  tests/test_supervisor_report_packets.py tests/test_supervisor_report_closeout.py
+  tests/test_review_materiality.py`, `scripts/smoke-supervisor-report`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log

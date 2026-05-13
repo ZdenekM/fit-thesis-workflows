@@ -61,6 +61,16 @@ def main(argv: list[str] | None = None) -> int:
             return ready.returncode
 
     if not args.skip_materiality_check:
+        snapshot = run_step(
+            root,
+            "current evidence snapshot",
+            ["scripts/update-current-evidence-snapshot", args.case_id, round_id],
+        )
+        if snapshot.output:
+            print(snapshot.output)
+        if not snapshot.ok:
+            return snapshot.returncode
+
         materiality = run_step(
             root,
             "supervisor report materiality",
