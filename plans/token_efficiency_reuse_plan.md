@@ -481,7 +481,7 @@ private raw content during normal synthesis.
 
 ### Slice 2 - Deterministic Source Fingerprints
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): fingerprint reusable round sources`
 - Expected paths:
   - `src/thesis_review_workflow/pdf_extracts.py`
@@ -827,6 +827,22 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 2 started. Sanity review passed: Slice 1 is committed,
+  the only unrelated worktree change is `TODO.md`, and the Slice 2 scope is
+  limited to deterministic PDF/code/GitHub fingerprints plus focused tests and
+  smokes. No private case data will be read into tracked files.
+- 2026-05-13: Slice 2 implementation and agent review complete. Added
+  hash-bound PDF extraction sidecars with explicit backfill, code-workspace
+  manifest fingerprint exposure, and a GitHub snapshot manifest for PR/repo,
+  changed-file, checks, and checkout identity. Fixed reviewer finding by binding
+  the GitHub snapshot manifest to `case_id`/`round_id` so provenance validation
+  accepts it. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, targeted pytest for
+  PDF/GitHub/code-workspace/work-artifact helpers,
+  `scripts/smoke-prepare-code-workspace`, `scripts/smoke-github-code-intake`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Ready to commit Slice 2.
 - 2026-05-13: Slice 1 started. Sanity review passed: scope is limited to the
   tracked plan, a pure reuse/dependency model, and focused tests. Existing
   `TODO.md` modifications are outside this slice and must not be staged with the

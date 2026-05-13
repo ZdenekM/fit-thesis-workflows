@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -46,6 +47,9 @@ SAFE_SKIP_DIRS = {
     ".venv",
     "venv",
 }
+GITHUB_SNAPSHOT_SCHEMA_VERSION = "github-snapshot-manifest-v1"
+GITHUB_SNAPSHOT_REL = Path("work/github-intake/snapshot-manifest.json")
+MAX_SNAPSHOT_HASH_FILES = 5000
 PR_VIEW_FIELDS = ",".join(
     [
         "number",
@@ -261,6 +265,95 @@ def write_json(ctx: ImportContext, path: Path, data: Any, purpose: str) -> None:
 
 def load_json_file(path: Path) -> Any:
     return load_json_text(path.read_text(encoding="utf-8"))
+
+
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8", errors="surrogateescape")).hexdigest()
+
+
+def sha256_json(value: Any) -> str:
+    return sha256_text(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def round_file_hash(ctx: ImportContext, path: Path) -> dict[str, object]:
+    record: dict[str, object] = {"path": ctx.rel_round(path), "available": path.is_file()}
+    if path.is_file():
+        record["sha256"] = sha256_file(path)
+        record["size_bytes"] = path.stat().st_size
+    return record
+
+
+def path_content_fingerprint(path: Path) -> dict[str, object]:
+    if path.is_file():
+        return {
+            "kind": "file",
+            "sha256": sha256_file(path),
+            "size_bytes": path.stat().st_size,
+        }
+    digest = hashlib.sha256()
+    files_seen = 0
+    total_bytes = 0
+    truncated = False
+    for dirpath, dirnames, filenames in os.walk(path):
+        dirnames[:] = sorted(
+            name for name in dirnames if name not in SAFE_SKIP_DIRS and not (Path(dirpath) / name).is_symlink()
+        )
+        for filename in sorted(filenames):
+            file_path = Path(dirpath) / filename
+            if file_path.is_symlink() or not file_path.is_file():
+                continue
+            rel = file_path.relative_to(path).as_posix()
+            stat = file_path.stat()
+            digest.update(rel.encode("utf-8", errors="surrogateescape"))
+            digest.update(b"\0")
+            digest.update(str(stat.st_size).encode("ascii"))
+            digest.update(b"\0")
+            digest.update(sha256_file(file_path).encode("ascii"))
+            digest.update(b"\0")
+            files_seen += 1
+            total_bytes += stat.st_size
+            if files_seen >= MAX_SNAPSHOT_HASH_FILES:
+                truncated = True
+                break
+        if truncated:
+            digest.update(b"truncated")
+            break
+    return {
+        "kind": "tree",
+        "sha256": digest.hexdigest(),
+        "files": files_seen,
+        "bytes": total_bytes,
+        "truncated": truncated,
+    }
+
+
+def checkout_path_fingerprint(ctx: ImportContext, path: Path) -> dict[str, object]:
+    record: dict[str, object] = {"path": ctx.rel_round(path), "available": path.exists()}
+    if not path.exists():
+        return record
+    if command_available("git") and (path / ".git").exists():
+        head = run(["git", "-C", str(path), "rev-parse", "HEAD"], allow_failure=True)
+        listing = run(["git", "-C", str(path), "ls-files", "-s"], allow_failure=True)
+        if head.returncode == 0 and listing.returncode == 0:
+            record.update(
+                {
+                    "kind": "git_index",
+                    "head_sha": head.stdout.strip(),
+                    "ls_files_sha256": sha256_text(listing.stdout),
+                    "sha256": sha256_text(head.stdout.strip() + "\n" + listing.stdout),
+                }
+            )
+            return record
+    record.update(path_content_fingerprint(path))
+    return record
 
 
 def write_command_stdout(
@@ -529,7 +622,9 @@ def import_pr(ctx: ImportContext, url: str) -> dict[str, Any]:
             "state": str(meta.get("state") or "unknown"),
             "draft": str(meta.get("isDraft")),
             "base": format_ref_plain(meta.get("baseRefName"), meta.get("baseRefOid")),
+            "base_sha": str(meta.get("baseRefOid") or ""),
             "head": format_ref_plain(meta.get("headRefName"), meta.get("headRefOid")),
+            "head_sha": str(meta.get("headRefOid") or ""),
             "merge": str(meta.get("mergeStateStatus") or "unknown"),
             "checks": checks_summary,
             "changed": str(meta.get("changedFiles") or len(files) or "unknown"),
@@ -650,6 +745,7 @@ def import_repo(ctx: ImportContext, repo_value: str, ref: str | None, commit: st
             "repo": canonical,
             "ref": commit or ref or "default branch at import time",
             "checkout": checkout_sha.strip(),
+            "head_sha": checkout_sha.strip() if re.fullmatch(r"[0-9a-f]{40,64}", checkout_sha.strip()) else "",
             "default": default_branch,
             "visibility": visibility,
             "notes": workspace_note,
@@ -828,6 +924,126 @@ def write_contribution_map(ctx: ImportContext) -> None:
     write_text(ctx, intake_dir / "changed-files.tsv", tsv, "Changed file inventory")
 
 
+def pr_row_slug(row: dict[str, str]) -> str:
+    label = row.get("pr", "")
+    owner_repo, _, number_text = label.partition("#")
+    owner, _, repo_name = owner_repo.partition("/")
+    try:
+        number = int(number_text)
+    except ValueError:
+        number = 0
+    if owner and repo_name and number:
+        return pr_slug(owner, repo_name, number)
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", label)
+
+
+def build_github_snapshot_manifest(
+    ctx: ImportContext,
+    *,
+    mode: str,
+    toolchain: dict[str, str],
+    repos: list[str],
+    pr_urls: list[str],
+) -> dict[str, object]:
+    changed_files_path = ctx.round_dir / "work" / "github-intake" / "changed-files.tsv"
+    checks_records: list[dict[str, object]] = []
+    for row in sorted(ctx.pr_rows, key=lambda item: item["pr"]):
+        slug = pr_row_slug(row)
+        checks_records.append(
+            {
+                "pr": row["pr"],
+                "url": row["url"],
+                "head_sha": row.get("head_sha", ""),
+                "base_sha": row.get("base_sha", ""),
+                "summary": row["checks"],
+                "summary_sha256": sha256_text(row["checks"]),
+                "evidence": [
+                    round_file_hash(ctx, ctx.round_dir / "inputs" / "github" / "prs" / slug / name)
+                    for name in ("pr.checks.json", "pr.checks.txt", "pr.checks.md")
+                ],
+            }
+        )
+
+    checkout_records = [
+        {
+            **checkout_path_fingerprint(ctx, path),
+            "meaning": meaning,
+            "note": note,
+        }
+        for path, meaning, note in sorted(ctx.workspaces, key=lambda item: ctx.rel_round(item[0]))
+    ]
+    repo_records = [
+        {
+            "repo": row["repo"],
+            "ref": row["ref"],
+            "head_sha": row.get("head_sha", ""),
+            "checkout": row["checkout"],
+            "default": row["default"],
+            "visibility": row["visibility"],
+            "notes": row["notes"],
+        }
+        for row in sorted(ctx.repo_rows, key=lambda item: item["repo"])
+    ]
+    pr_records = [
+        {
+            "pr": row["pr"],
+            "url": row["url"],
+            "state": row["state"],
+            "base": row["base"],
+            "base_sha": row.get("base_sha", ""),
+            "head": row["head"],
+            "head_sha": row.get("head_sha", ""),
+            "changed_files": row["changed"],
+            "notes": row["notes"],
+        }
+        for row in sorted(ctx.pr_rows, key=lambda item: item["pr"])
+    ]
+    changed_rows = [
+        {"source": source, "path": file_path, "category": category}
+        for source, file_path, category in sorted(ctx.changed_rows)
+    ]
+    return {
+        "schema_version": GITHUB_SNAPSHOT_SCHEMA_VERSION,
+        "case_id": ctx.case_id,
+        "round_id": ctx.round_dir.name,
+        "producer": "scripts/import-github-code",
+        "generated_at": utc_now(),
+        "import_started_at": ctx.timestamp,
+        "mode": mode,
+        "no_checkout": ctx.no_checkout,
+        "requested_repositories": repos,
+        "requested_pull_requests": pr_urls,
+        "toolchain": toolchain,
+        "toolchain_sha256": sha256_json(toolchain),
+        "repositories": repo_records,
+        "pull_requests": pr_records,
+        "changed_file_list": {
+            **round_file_hash(ctx, changed_files_path),
+            "normalized_sha256": sha256_json(changed_rows),
+        },
+        "checks": checks_records,
+        "checks_summary_sha256": sha256_json(checks_records),
+        "checkout_paths": checkout_records,
+        "limitations_sha256": sha256_json(sorted(ctx.limitations)),
+    }
+
+
+def write_github_snapshot_manifest(
+    ctx: ImportContext,
+    *,
+    mode: str,
+    toolchain: dict[str, str],
+    repos: list[str],
+    pr_urls: list[str],
+) -> None:
+    write_json(
+        ctx,
+        ctx.round_dir / GITHUB_SNAPSHOT_REL,
+        build_github_snapshot_manifest(ctx, mode=mode, toolchain=toolchain, repos=repos, pr_urls=pr_urls),
+        "GitHub snapshot fingerprint manifest",
+    )
+
+
 def write_generated_manifest(ctx: ImportContext, repos: list[str], pr_urls: list[str], mode: str) -> None:
     manifest = ctx.round_dir / "inputs" / "github" / "code-manifest.generated.yml"
     lines = [
@@ -860,6 +1076,7 @@ def preflight_all_targets(ctx: ImportContext, repos: list[str], pr_urls: list[st
         (ctx.round_dir / "inputs" / "github" / "import.log", "GitHub import log"),
         (ctx.round_dir / "work" / "github-intake" / "contribution-map.md", "GitHub contribution map"),
         (ctx.round_dir / "work" / "github-intake" / "changed-files.tsv", "GitHub changed-file inventory"),
+        (ctx.round_dir / GITHUB_SNAPSHOT_REL, "GitHub snapshot fingerprint manifest"),
         (ctx.round_dir / "outputs" / "github_code_intake.md", "GitHub intake output"),
     ]
     targets.extend((item.path, "PR discovery evidence") for item in ctx.pending_writes)
@@ -1117,6 +1334,7 @@ def main(argv: list[str]) -> int:
     write_generated_manifest(ctx, repos, pr_urls, mode)
     write_contribution_map(ctx)
     write_import_log(ctx, mode, toolchain, repos, pr_urls)
+    write_github_snapshot_manifest(ctx, mode=mode, toolchain=toolchain, repos=repos, pr_urls=pr_urls)
     write_output(ctx, mode, toolchain, repos, pr_urls)
 
     output_rel = ctx.rel_round(ctx.round_dir / "outputs" / "github_code_intake.md")

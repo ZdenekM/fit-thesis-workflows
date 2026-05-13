@@ -20,7 +20,9 @@ from typing import IO, Iterable
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root
 from thesis_review_workflow.cases import resolve_round as resolve_round_core
 from thesis_review_workflow.ids import validate_id as validate_id_core
+from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.paths import strict_rel_round as rel_round
+from thesis_review_workflow.reuse import SourceClass, SourceFingerprint
 
 MAX_WALK_FILES = 5000
 MAX_EXTRACTED_FILES = 20000
@@ -548,6 +550,10 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8", errors="surrogateescape")).hexdigest()
+
+
 def fingerprint_source(path: Path) -> str:
     if path.is_file():
         return f"sha256:{sha256_file(path)};size:{path.stat().st_size}"
@@ -603,6 +609,66 @@ def manifest_sources(manifest: dict[str, object]) -> dict[str, dict[str, object]
         manifest["sources"] = {}
         return {}
     return sources  # type: ignore[return-value]
+
+
+def workspace_source_fingerprint_records(round_dir: Path) -> list[dict[str, str]]:
+    """Expose prepare-code-workspace fingerprints without rereading raw inputs."""
+
+    workspace = round_dir / "work" / "code"
+    manifest = load_workspace_manifest(workspace)
+    sources = manifest_sources(manifest)
+    records: list[dict[str, str]] = []
+    for source_ref, value in sorted(sources.items()):
+        if not isinstance(source_ref, str) or not is_safe_round_relative_path(source_ref):
+            continue
+        if not isinstance(value, dict):
+            continue
+        target_ref = value.get("target")
+        fingerprint = value.get("fingerprint")
+        if not isinstance(target_ref, str) or not isinstance(fingerprint, str):
+            continue
+        if not is_safe_round_relative_path(target_ref):
+            continue
+        fingerprint_sha256 = sha256_text(fingerprint)
+        records.append(
+            {
+                "source_ref": source_ref,
+                "source_class": SourceClass.SUBMITTED_CODE.value,
+                "target_ref": target_ref,
+                "target_class": SourceClass.CODE_WORKSPACE.value,
+                "fingerprint": fingerprint,
+                "fingerprint_sha256": fingerprint_sha256,
+                "schema_version": str(manifest.get("schema") or "prepare-code-workspace-manifest-v1"),
+                "producer": "scripts/prepare-code-workspace",
+            }
+        )
+    return records
+
+
+def workspace_source_fingerprints(round_dir: Path) -> tuple[SourceFingerprint, ...]:
+    fingerprints: list[SourceFingerprint] = []
+    for record in workspace_source_fingerprint_records(round_dir):
+        schema_version = record["schema_version"]
+        producer = record["producer"]
+        fingerprints.extend(
+            [
+                SourceFingerprint(
+                    source_ref=record["source_ref"],
+                    source_class=SourceClass.SUBMITTED_CODE,
+                    sha256=record["fingerprint_sha256"],
+                    schema_version=schema_version,
+                    producer=producer,
+                ),
+                SourceFingerprint(
+                    source_ref=record["target_ref"],
+                    source_class=SourceClass.CODE_WORKSPACE,
+                    sha256=record["fingerprint_sha256"],
+                    schema_version=schema_version,
+                    producer=producer,
+                ),
+            ]
+        )
+    return tuple(fingerprints)
 
 
 def current_input_source_keys(inputs: Path) -> set[str]:

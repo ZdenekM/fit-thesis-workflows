@@ -234,6 +234,40 @@ def test_workspace_target_registry_reports_case_insensitive_collisions(tmp_path:
     assert "case-insensitive path collision with Code" in collision
 
 
+def test_workspace_manifest_exposes_reuse_fingerprints_without_rereading_inputs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True)
+    code_workspace.write_workspace_manifest(
+        workspace,
+        {
+            "sources": {
+                "inputs/code.zip": {
+                    "target": "work/code/code",
+                    "fingerprint": "sha256:" + "a" * 64 + ";size:12",
+                    "prepared_at": "2026-05-13T12:00:00Z",
+                },
+                "../unsafe.zip": {
+                    "target": "work/code/unsafe",
+                    "fingerprint": "sha256:" + "b" * 64 + ";size:12",
+                },
+            }
+        },
+    )
+
+    records = code_workspace.workspace_source_fingerprint_records(round_dir)
+    fingerprints = code_workspace.workspace_source_fingerprints(round_dir)
+
+    assert len(records) == 1
+    assert records[0]["source_ref"] == "inputs/code.zip"
+    assert records[0]["target_ref"] == "work/code/code"
+    assert records[0]["source_class"] == "submitted_code"
+    assert records[0]["target_class"] == "code_workspace"
+    assert len(fingerprints) == 2
+    assert {item.source_ref for item in fingerprints} == {"inputs/code.zip", "work/code/code"}
+    assert all(item.comparable for item in fingerprints)
+
+
 def test_agent_coverage_code_trigger_uses_archive_entries_before_filename(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     final_output = round_dir / "outputs" / "feedback_student.md"

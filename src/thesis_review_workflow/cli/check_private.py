@@ -39,6 +39,7 @@ PRIVATE_MARKDOWN_RE = re.compile(
 )
 PRIVATE_GITHUB_RE = re.compile(
     r"(^|/)(code-manifest\.generated\.ya?ml|changed-files\.tsv|contribution-map\.md|"
+    r"snapshot-manifest\.json|"
     r"[^/]+\.inventory\.md|[^/]+__author-[^/]+__(open|closed)\.json|"
     r"pr\.(url\.txt|meta\.json|diff|patch|files\.(txt|json)|issue-comments\.(json|md)|"
     r"reviews\.(json|md)|review-comments\.(json|md)|checks\.(txt|json|md)|summary\.md)|"

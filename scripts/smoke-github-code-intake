@@ -303,6 +303,9 @@ expect_file_contains "PR mode output" "$round_dir/outputs/github_code_intake.md"
 expect_file_contains "PR metadata saved" "$round_dir/inputs/github/prs/owner__project__pr-123/pr.meta.json" "Smoke PR"
 expect_file_contains "comments converted" "$round_dir/inputs/github/prs/owner__project__pr-123/pr.review-comments.md" "Check edge cases"
 expect_file_contains "contribution map" "$round_dir/work/github-intake/contribution-map.md" "tests/test_feature.py"
+expect_file_contains "snapshot manifest saved" "$round_dir/work/github-intake/snapshot-manifest.json" "github-snapshot-manifest-v1"
+expect_file_contains "snapshot manifest records checks hash" "$round_dir/work/github-intake/snapshot-manifest.json" "checks_summary_sha256"
+expect_file_contains "snapshot manifest listed in output" "$round_dir/outputs/github_code_intake.md" "snapshot-manifest.json"
 expect_failure_contains \
   "rerun without refresh refuses to mutate existing intake" \
   "already exists" \
@@ -391,5 +394,7 @@ round_dir="$repo_root/cases/$case_id/rounds/round-a"
 expect_file_contains "checkout workspace listed" "$round_dir/outputs/github_code_intake.md" "head checkout prepared"
 expect_file_contains "checkout head sha recorded" "$round_dir/work/github-intake/owner__project__pr-123.head-sha.txt" "$SMOKE_HEAD_SHA"
 expect_file_contains "checkout inventory" "$round_dir/work/github-intake/owner__project__pr-123.inventory.md" "tests/test_feature.py"
+expect_file_contains "checkout snapshot records head" "$round_dir/work/github-intake/snapshot-manifest.json" "$SMOKE_HEAD_SHA"
+expect_file_contains "checkout snapshot records path hash" "$round_dir/work/github-intake/snapshot-manifest.json" "checkout_paths"
 
 echo "GitHub code intake smoke passed"

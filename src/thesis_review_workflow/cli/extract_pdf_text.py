@@ -10,12 +10,18 @@ from pathlib import Path
 
 from thesis_review_workflow.cases import repo_root
 from thesis_review_workflow.paths import resolve_caller_path
+from thesis_review_workflow.pdf_extracts import (
+    pdf_extract_is_current,
+    pdf_extract_sidecar_path,
+    pdftotext_version,
+    write_pdf_extract_manifest,
+)
 
 
 def usage() -> str:
     return (
-        "Usage: scripts/extract-pdf-text INPUT.pdf OUTPUT.txt\n\n"
-        "Extracts text with pdftotext. Install Poppler if pdftotext is missing."
+        "Usage: scripts/extract-pdf-text [--force] [--backfill-sidecar] INPUT.pdf OUTPUT.txt\n\n"
+        "Extracts text with pdftotext and writes a hash-bound sidecar. Install Poppler if pdftotext is missing."
     )
 
 
@@ -45,9 +51,20 @@ def build_parser() -> argparse.ArgumentParser:
         prog="scripts/extract-pdf-text",
         description="Extract text from a thesis PDF into cases/<case>/rounds/<round>/extracted/.",
     )
+    parser.add_argument("--force", action="store_true", help="rerun pdftotext even when the sidecar is current")
+    parser.add_argument(
+        "--backfill-sidecar",
+        action="store_true",
+        help="write or refresh only the extraction sidecar for an existing extracted text file",
+    )
     parser.add_argument("input_pdf")
     parser.add_argument("output_txt")
     return parser
+
+
+def round_dir_for_extract_path(root: Path, output: Path) -> Path:
+    rel = output.resolve().relative_to(root.resolve())
+    return root / rel.parts[0] / rel.parts[1] / rel.parts[2] / rel.parts[3]
 
 
 def main(argv: list[str]) -> int:
@@ -81,6 +98,27 @@ def main(argv: list[str]) -> int:
         print(f"Refusing to write extracted thesis text to a non-ignored path: {output_rel}", file=sys.stderr)
         return 1
 
+    extractor_version = pdftotext_version()
+    round_dir = round_dir_for_extract_path(root, output_abs)
+    if args.backfill_sidecar:
+        if not output_txt.is_file():
+            print(
+                f"Cannot backfill PDF extraction sidecar because output text is missing: {output_txt}", file=sys.stderr
+            )
+            return 1
+        write_pdf_extract_manifest(round_dir, input_pdf, output_txt, extractor_version=extractor_version)
+        print(f"Backfilled PDF extraction sidecar: {pdf_extract_sidecar_path(output_txt)}")
+        return 0
+
+    if not args.force and pdf_extract_is_current(
+        round_dir,
+        input_pdf,
+        output_txt,
+        extractor_version=extractor_version,
+    ):
+        print(f"Extracted text already current: {output_txt}")
+        return 0
+
     result = subprocess.run(
         ["pdftotext", "-layout", str(input_pdf), str(output_txt)],
         text=True,
@@ -95,6 +133,7 @@ def main(argv: list[str]) -> int:
         if detail:
             print(detail, file=sys.stderr)
         return result.returncode
+    write_pdf_extract_manifest(round_dir, input_pdf, output_txt, extractor_version=extractor_version)
     print(f"Extracted text: {output_txt}")
     return 0
 

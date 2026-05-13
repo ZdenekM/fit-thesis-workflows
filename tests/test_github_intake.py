@@ -1,3 +1,10 @@
+from pathlib import Path
+
+from thesis_review_workflow.cli.import_github_code import (
+    GITHUB_SNAPSHOT_SCHEMA_VERSION,
+    ImportContext,
+    build_github_snapshot_manifest,
+)
 from thesis_review_workflow.github_intake import (
     GitHubValueError,
     checks_to_markdown,
@@ -96,3 +103,76 @@ def test_file_classification_and_pr_summary_helpers() -> None:
     assert "- Base: main `base`" in summary
     assert "- `src/app.py`" in summary
     assert commit_authors(meta) == "mentor (1), student (1)"
+
+
+def test_github_snapshot_manifest_hashes_changed_files_checks_and_checkout(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    pr_dir = round_dir / "inputs" / "github" / "prs" / "owner__project__pr-123"
+    intake_dir = round_dir / "work" / "github-intake"
+    checkout_dir = round_dir / "work" / "code" / "owner__project__pr-123"
+    pr_dir.mkdir(parents=True)
+    intake_dir.mkdir(parents=True)
+    checkout_dir.mkdir(parents=True)
+    (pr_dir / "pr.checks.json").write_text("[]\n", encoding="utf-8")
+    (pr_dir / "pr.checks.txt").write_text("unit\tpass\n", encoding="utf-8")
+    (pr_dir / "pr.checks.md").write_text("# Checks\n", encoding="utf-8")
+    (intake_dir / "changed-files.tsv").write_text(
+        "pr\tfile\tcategory\nowner/project#123\tsrc/app.py\tsource\n", encoding="utf-8"
+    )
+    (checkout_dir / "src").mkdir()
+    (checkout_dir / "src" / "app.py").write_text("print('demo')\n", encoding="utf-8")
+    ctx = ImportContext(
+        root=tmp_path,
+        case_id="case-a",
+        round_dir=round_dir,
+        round_rel=Path("cases/case-a/rounds/round-a"),
+        timestamp="2026-05-13T12:00:00Z",
+        refresh=False,
+        no_checkout=False,
+        student_login="student",
+        discovery_author=None,
+        expected_scope="demo",
+    )
+    ctx.pr_rows.append(
+        {
+            "pr": "owner/project#123",
+            "url": "https://github.com/owner/project/pull/123",
+            "state": "OPEN",
+            "draft": "False",
+            "base": "main " + "1" * 40,
+            "base_sha": "1" * 40,
+            "head": "feature " + "2" * 40,
+            "head_sha": "2" * 40,
+            "merge": "CLEAN",
+            "checks": "PASS:1",
+            "changed": "1",
+            "notes": "head checkout prepared",
+        }
+    )
+    ctx.changed_rows.append(("owner/project#123", "src/app.py", "source"))
+    ctx.workspaces.append((checkout_dir, "PR head checkout", "static inspection only"))
+
+    manifest = build_github_snapshot_manifest(
+        ctx,
+        mode="upstream_pr_contribution",
+        toolchain={"gh": "gh version smoke", "git": "git version smoke"},
+        repos=[],
+        pr_urls=["https://github.com/owner/project/pull/123"],
+    )
+
+    pull_requests = manifest["pull_requests"]
+    changed_file_list = manifest["changed_file_list"]
+    checkout_paths = manifest["checkout_paths"]
+
+    assert isinstance(pull_requests, list)
+    assert isinstance(changed_file_list, dict)
+    assert isinstance(checkout_paths, list)
+    assert manifest["schema_version"] == GITHUB_SNAPSHOT_SCHEMA_VERSION
+    assert manifest["case_id"] == "case-a"
+    assert manifest["round_id"] == "round-a"
+    assert pull_requests[0]["head_sha"] == "2" * 40
+    assert changed_file_list["available"] is True
+    assert changed_file_list["normalized_sha256"]
+    assert manifest["checks_summary_sha256"]
+    assert checkout_paths[0]["path"] == "work/code/owner__project__pr-123"
+    assert checkout_paths[0]["sha256"]

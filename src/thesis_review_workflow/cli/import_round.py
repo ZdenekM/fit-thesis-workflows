@@ -141,8 +141,9 @@ def main(argv: list[str]) -> int:
         for source in input_paths:
             copy_input(source, tmp_round_dir / "inputs")
             if source.is_file() and source.suffix.casefold() == ".pdf":
+                copied_pdf = tmp_round_dir / "inputs" / source.name
                 output = tmp_round_dir / "extracted" / f"{source.stem}.txt"
-                step = run_step(root, "PDF text extraction", ["scripts/extract-pdf-text", str(source), str(output)])
+                step = run_step(root, "PDF text extraction", ["scripts/extract-pdf-text", str(copied_pdf), str(output)])
                 if step.ok:
                     print(f"Extracted PDF text: extracted/{output.name}")
                 else:

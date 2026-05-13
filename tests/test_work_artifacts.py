@@ -124,6 +124,32 @@ def test_validate_supporting_work_artifacts_rejects_stale_hash_and_wrong_case(tm
     assert any("case_id does not match requested case" in error for error in errors)
 
 
+def test_github_snapshot_manifest_is_case_bound_supporting_work_artifact(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    write_json(
+        round_dir / "work" / "github-intake" / "snapshot-manifest.json",
+        {
+            "schema_version": "github-snapshot-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-13T12:00:00Z",
+            "producer": "scripts/import-github-code",
+            "repositories": [],
+            "pull_requests": [],
+            "changed_file_list": {"available": False},
+            "checks": [],
+            "checks_summary_sha256": "0" * 64,
+            "checkout_paths": [],
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path["work/github-intake/snapshot-manifest.json"]["schema_version"] == "github-snapshot-manifest-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
 def test_collect_supporting_work_artifacts_records_human_producer_identity(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     (round_dir / "inputs").mkdir(parents=True)
