@@ -67,9 +67,10 @@ Prefer:
   finishing timing;
 - concise literature paragraphs unless literature work is a major strength or
   risk;
-- plain statements for publication activity, awards, or open-source release:
-  mention them only when there is actual evidence, otherwise state absence
-  briefly;
+- publication, award, open-source release, or external-impact statements only
+  when there is actual evidence or the supervisor explicitly wants them
+  evaluated; do not spell out routine absence as a finding in normal reports;
+  if the target form requires non-empty text, use a neutral one-line comment;
 - overall assessment paragraphs that balance strengths and reservations and
   make the grade/points feel proportionate to the text;
 - a separate private student comment that may be more personal, motivating, and
@@ -86,6 +87,8 @@ Avoid:
 - mixing the private student comment into official report fields;
 - naming unverifiable publications, awards, open-source status, or external
   impact without current evidence.
+- repeating that no publication or award is recorded when that is the ordinary
+  state and has no bearing on the grade.
 
 ## Opponent Priorities
 

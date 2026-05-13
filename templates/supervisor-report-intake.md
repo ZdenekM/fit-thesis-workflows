@@ -44,6 +44,11 @@ Co je explicitne nezname / nehodnotit:
 
 ## Publikacni cinnost, oceneni
 
+Routine absence does not normally need to be mentioned in the final report. If
+the target form requires non-empty text and there is no relevant evidence, use a
+neutral short comment rather than spelling out that no publication or award was
+recorded.
+
 Publikace:
 Open-source zverejneni softwaru:
 Ohlasy:

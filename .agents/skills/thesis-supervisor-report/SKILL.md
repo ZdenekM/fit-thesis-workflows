@@ -118,6 +118,10 @@ Cover these sections:
   official FIT IS fields and current grade/points calibration.
 - Do not name publications, awards, open-source release, external impact, or
   assignment non-fulfillment without current evidence or supervisor input.
+- In routine cases with no publication or award evidence, do not turn that
+  absence into report prose. If the required report field must be non-empty, use
+  a neutral one-line comment rather than explicitly saying that publications or
+  awards are absent.
 - Do not use plagiarism/authorship wording from a similarity report unless
   `outputs/theses_similarity_review.md` records a reviewed unresolved concern
   that supports that narrow statement.
@@ -129,7 +133,8 @@ Cover these sections:
 Use the effective reviewer profile's `Supervisor Report Style` section when it
 exists. Default shape is compact Czech supervisor voice: one short paragraph per
 field, clear assignment/result/process calibration, concise literature and
-publication sections, and a proportionate overall assessment.
+only evidence-bearing publication/open-source remarks, and a proportionate
+overall assessment.
 
 ## Agent Final Response Contract
 
