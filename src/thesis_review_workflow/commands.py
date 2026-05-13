@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 WORKFLOW_COMMAND_MODULES = {
+    "audit-context-budget": "thesis_review_workflow.cli.audit_context_budget",
     "bootstrap-case": "thesis_review_workflow.cli.bootstrap_case",
     "case-doctor": "thesis_review_workflow.cli.case_doctor",
     "check-agent-coverage": "thesis_review_workflow.cli.check_agent_coverage",

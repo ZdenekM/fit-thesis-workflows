@@ -793,7 +793,7 @@ private raw content during normal synthesis.
 
 ### Slice 11 - Context-Budget Audit Command
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `feat(workflow): add context budget audit`
 - Expected paths:
   - `scripts/audit-context-budget`
@@ -827,6 +827,26 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 11 implementation and agent review complete. Added
+  `scripts/audit-context-budget` as an advisory deterministic context-budget
+  report over `work/common_briefing.json`, role packets, evidence capsules,
+  claim-review basis, structured handoffs, and raw-source byte sizes. The command
+  reports paths, byte counts, estimated tokens, ratios, and warnings only; it
+  does not print raw private content, make readiness decisions, or weaken
+  semantic review gates. Wired the command through the normal workflow command
+  surface, CLI `BUILD`, `scripts/BUILD` PEX/package target, POSIX wrapper, and
+  smoke coverage. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_context_budget.py tests/test_workflow_python_contracts.py`,
+  `scripts/audit-context-budget --help`, `scripts/smoke-audit-context-budget`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 11 started. Sanity review passed: Slice 10 is committed as
+  `4cc88fd`, the only unrelated worktree change is still `TODO.md`, and Slice 11
+  is scoped to an advisory context-budget audit command with standard command
+  surface and Windows/package coverage. The audit may warn on context bloat but
+  must not become a semantic-quality or readiness gate.
 - 2026-05-13: Slice 10 implementation and agent review complete. Fixed the
   manifest refresh ordering so review approval records are applied before role
   coverage and deferred `check-agent-coverage` execution, allowing the supervisor

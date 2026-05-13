@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__context_budget_smoke_$$"
+round_id="round-a"
+case_dir="$repo_root/cases/$case_id"
+round_dir="$case_dir/rounds/$round_id"
+out_file="/tmp/context-budget-smoke.$$.out"
+json_file="/tmp/context-budget-smoke.$$.json"
+
+cleanup() {
+  rm -rf "$case_dir"
+  rm -f "$out_file" "$json_file"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir"/{inputs,extracted,notes,work/context,work/supervisor_packets,work/reuse}
+cat >"$case_dir/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+printf '%s\n' "$round_id" >"$case_dir/current-round.txt"
+printf '%s\n' "raw thesis text" >"$round_dir/extracted/thesis.txt"
+printf '%s\n' "# Assignment" >"$round_dir/notes/assignment.md"
+cat >"$round_dir/work/common_briefing.json" <<'JSON'
+{
+  "schema_version": "common-briefing-v1",
+  "case_id": "__context_budget_smoke",
+  "round_id": "round-a"
+}
+JSON
+cat >"$round_dir/work/supervisor_packets/text_assignment.md" <<'EOF'
+# Text Assignment Packet
+
+Common briefing: `work/common_briefing.json`
+EOF
+cat >"$round_dir/work/context/evidence_capsules.json" <<'JSON'
+{
+  "schema_version": "evidence-capsule-v1",
+  "source_refs": [],
+  "capsules": [],
+  "limitations": []
+}
+JSON
+cat >"$round_dir/work/reuse/reuse_index.json" <<'JSON'
+{
+  "schema_version": "round-reuse-index-v1",
+  "current_source_fingerprints": [],
+  "decisions": [],
+  "limitations": []
+}
+JSON
+
+"$repo_root/scripts/audit-context-budget" --help >/dev/null
+"$repo_root/scripts/audit-context-budget" "$case_id" "$round_id" >"$out_file"
+grep -Fq "# Context Budget Audit" "$out_file"
+grep -Fq "Mode: advisory" "$out_file"
+grep -Fq "\`role_packets\`" "$out_file"
+
+"$repo_root/scripts/audit-context-budget" --json "$case_id" "$round_id" >"$json_file"
+python3 - "$json_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "context-budget-audit-v1"
+assert payload["advisory"] is True
+surfaces = {surface["name"]: surface for surface in payload["surfaces"]}
+assert surfaces["common_briefing"]["file_count"] == 1
+assert surfaces["role_packets"]["file_count"] == 1
+assert surfaces["raw_sources"]["file_count"] == 1
+PY
+
+echo "Context budget audit smoke passed"

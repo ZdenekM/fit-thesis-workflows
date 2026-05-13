@@ -1,6 +1,7 @@
 shell_sources(
     name="workflow_shell",
     sources=[
+        "audit-context-budget",
         "bootstrap-case",
         "case-doctor",
         "check-agent-coverage",
@@ -53,6 +54,7 @@ shell_sources(
         "register-review-artifact",
         "supervisor-report-closeout",
         "smoke-agent-coverage",
+        "smoke-audit-context-budget",
         "smoke-assignment-coverage",
         "smoke-bootstrap-case",
         "smoke-case-doctor",
@@ -107,6 +109,7 @@ files(
 )
 
 WORKFLOW_CLI_RUNTIME_DEPS = [
+    "src/thesis_review_workflow/cli:audit_context_budget",
     "src/thesis_review_workflow/cli:bootstrap_case",
     "src/thesis_review_workflow/cli:case_doctor",
     "src/thesis_review_workflow/cli:check_agent_coverage",
@@ -162,6 +165,16 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:update_round_reuse_index",
     "src/thesis_review_workflow/cli:write_review_approval",
 ]
+
+pex_binary(
+    name="audit_context_budget_tool",
+    entry_point="thesis_review_workflow.cli.audit_context_budget:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/audit-context-budget",
+    tags=["workflow-tool"],
+)
 
 pex_binary(
     name="bootstrap_case_tool",
