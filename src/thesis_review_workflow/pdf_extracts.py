@@ -64,6 +64,14 @@ def file_record(round_dir: Path, path: Path) -> dict[str, object]:
     }
 
 
+def extractor_contract_id(manifest: dict[str, Any]) -> str:
+    extractor = manifest.get("extractor")
+    if not isinstance(extractor, dict):
+        return PDF_EXTRACT_SCHEMA_VERSION
+    contract = json.dumps(extractor, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return f"{PDF_EXTRACT_SCHEMA_VERSION}:{contract}"
+
+
 def build_pdf_extract_manifest(
     round_dir: Path,
     input_pdf: Path,
@@ -175,7 +183,7 @@ def source_fingerprints_from_pdf_extract_manifest(
                     source_ref=source_ref,
                     source_class=source_class,
                     sha256=sha256,
-                    schema_version=PDF_EXTRACT_SCHEMA_VERSION,
+                    schema_version=extractor_contract_id(manifest),
                     producer=PDF_EXTRACT_PRODUCER,
                 )
             )

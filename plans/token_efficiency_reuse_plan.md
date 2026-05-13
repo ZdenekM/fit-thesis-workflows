@@ -517,7 +517,7 @@ private raw content during normal synthesis.
 
 ### Slice 3 - Round Reuse Index
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): add round reuse index`
 - Expected paths:
   - `scripts/update-round-reuse-index`
@@ -827,6 +827,25 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 3 started. Sanity review passed: Slice 2 is committed as
+  `7e5c0c2`, the only unrelated worktree change is still `TODO.md`, and Slice 3
+  is scoped to a standard workflow command plus ignored current-round
+  `work/reuse/reuse_index.json` output. Command-surface and Windows packaging
+  coverage must be updated in the same slice.
+- 2026-05-13: Slice 3 implementation and agent review complete. Added
+  `scripts/update-round-reuse-index`, standard command/PEX/package coverage,
+  `work/reuse/reuse_index.json` validation, and smoke coverage. Fixed reviewer
+  findings by validating PDF sidecar currentness, requiring complete observed
+  role-source coverage before reuse, requiring `check-agent-coverage` as the
+  reusable prior-artifact gate, limiting `--backfill-current` to the active
+  current round, and ranking older eligible candidates ahead of nearer stale
+  candidates. Verification passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, targeted pytest for reuse,
+  round-reuse, work-artifact, workflow-contract, and PDF helper tests,
+  `scripts/smoke-round-reuse-index`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Ready to commit Slice 3.
 - 2026-05-13: Slice 2 started. Sanity review passed: Slice 1 is committed,
   the only unrelated worktree change is `TODO.md`, and the Slice 2 scope is
   limited to deterministic PDF/code/GitHub fingerprints plus focused tests and

@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__round_reuse_index_smoke_$$"
+case_dir="$repo_root/cases/$case_id"
+
+cleanup() {
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+
+write_pdf_sidecar() {
+  local round_dir="$1"
+  mkdir -p "$round_dir/inputs" "$round_dir/extracted"
+  printf '%s\n' "%PDF smoke" >"$round_dir/inputs/thesis.pdf"
+  printf '%s\n' "thesis smoke" >"$round_dir/extracted/thesis.txt"
+  local pdf_hash
+  local text_hash
+  local pdf_size
+  local text_size
+  pdf_hash="$(sha256sum "$round_dir/inputs/thesis.pdf" | awk '{print $1}')"
+  text_hash="$(sha256sum "$round_dir/extracted/thesis.txt" | awk '{print $1}')"
+  pdf_size="$(wc -c <"$round_dir/inputs/thesis.pdf" | tr -d ' ')"
+  text_size="$(wc -c <"$round_dir/extracted/thesis.txt" | tr -d ' ')"
+  cat >"$round_dir/extracted/thesis.txt.pdf-extract.json" <<JSON
+{
+  "schema_version": "pdf-extract-v1",
+  "producer": "scripts/extract-pdf-text",
+  "generated_at": "2026-05-13T12:00:00Z",
+  "input_pdf": {
+    "path": "inputs/thesis.pdf",
+    "path_state": "round_relative",
+    "display_name": "thesis.pdf",
+    "sha256": "$pdf_hash",
+    "size_bytes": $pdf_size
+  },
+  "output_text": {
+    "path": "extracted/thesis.txt",
+    "path_state": "round_relative",
+    "display_name": "thesis.txt",
+    "sha256": "$text_hash",
+    "size_bytes": $text_size
+  },
+  "extractor": {
+    "command": "pdftotext",
+    "version": "pdftotext smoke",
+    "args": ["-layout"]
+  }
+}
+JSON
+}
+
+expect_file_contains() {
+  local name="$1"
+  local path="$2"
+  local pattern="$3"
+  if ! grep -E "$pattern" "$path" >/dev/null; then
+    echo "Expected file pattern not found: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+expect_failure_contains() {
+  local name="$1"
+  local pattern="$2"
+  shift 2
+  if "$@" >/tmp/round-reuse-index.out 2>/tmp/round-reuse-index.err; then
+    echo "Expected failure but passed: $name" >&2
+    cat /tmp/round-reuse-index.out >&2
+    exit 1
+  fi
+  if ! grep -E "$pattern" /tmp/round-reuse-index.out /tmp/round-reuse-index.err >/dev/null; then
+    echo "Expected failure did not match pattern: $name" >&2
+    echo "Pattern: $pattern" >&2
+    cat /tmp/round-reuse-index.err >&2
+    cat /tmp/round-reuse-index.out >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$case_dir/rounds/20260512-prior"/{notes,inputs,extracted,work,outputs}
+mkdir -p "$case_dir/rounds/20260513-current"/{notes,inputs,extracted,work,outputs}
+cat >"$case_dir/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Thesis language: auto
+Student feedback language: cs
+Reviewer profile: default
+EOF
+printf '%s\n' "20260513-current" >"$case_dir/current-round.txt"
+
+write_pdf_sidecar "$case_dir/rounds/20260512-prior"
+write_pdf_sidecar "$case_dir/rounds/20260513-current"
+
+prior_feedback="$case_dir/rounds/20260512-prior/outputs/feedback_student.md"
+printf '%s\n' "# Feedback" >"$prior_feedback"
+prior_hash="$(sha256sum "$prior_feedback" | awk '{print $1}')"
+mkdir -p "$case_dir/rounds/20260512-prior/work"
+cat >"$case_dir/rounds/20260512-prior/work/review_manifest.json" <<JSON
+{
+  "artifacts": [
+    {
+      "path": "outputs/feedback_student.md",
+      "artifact_sha256": "$prior_hash",
+      "independent_review": {
+        "reviewed_hash": "$prior_hash"
+      }
+    }
+  ]
+}
+JSON
+
+"$repo_root/scripts/update-round-reuse-index" "$case_id" >/tmp/round-reuse-index.out
+reuse_index="$case_dir/rounds/20260513-current/work/reuse/reuse_index.json"
+expect_file_contains "reuse index schema" "$reuse_index" "round-reuse-index-v1"
+expect_file_contains "prior round recorded" "$reuse_index" "20260512-prior"
+expect_file_contains "supervisor feedback decision" "$reuse_index" "supervisor_feedback"
+expect_file_contains "incomplete coverage is not comparable" "$reuse_index" "not_comparable"
+expect_file_contains "coverage guard reason" "$reuse_index" "role source coverage is incomplete"
+expect_file_contains "current source fingerprint" "$reuse_index" "inputs/thesis.pdf"
+expect_failure_contains \
+  "backfill-current rejects non-current explicit round" \
+  "may only target the active current round" \
+  "$repo_root/scripts/update-round-reuse-index" "$case_id" 20260512-prior --backfill-current
+
+echo "Round reuse index smoke passed"

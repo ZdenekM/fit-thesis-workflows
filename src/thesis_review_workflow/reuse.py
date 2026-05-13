@@ -7,14 +7,17 @@ metadata. Free-form thesis/code interpretation belongs to reviewer workflows.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Iterable, Self
+from typing import Any, Iterable, Self
 
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+REUSE_INDEX_SCHEMA_VERSION = "round-reuse-index-v1"
 
 
 class SourceClass(StrEnum):
@@ -317,6 +320,14 @@ class SourceFingerprint:
     def comparable(self) -> bool:
         return self.available and self.sha256 is not None
 
+    @property
+    def state(self) -> str:
+        if not self.available:
+            return "missing"
+        if self.sha256 is None:
+            return "not_comparable"
+        return "comparable"
+
 
 @dataclass(frozen=True)
 class SourceComparison:
@@ -492,6 +503,54 @@ def coerce_coverage(value: CoverageSatisfiedBy | str) -> CoverageSatisfiedBy:
     if isinstance(value, CoverageSatisfiedBy):
         return value
     return CoverageSatisfiedBy(value)
+
+
+def stable_json_sha256(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def source_fingerprint_to_record(source: SourceFingerprint) -> dict[str, object]:
+    return {
+        "source_ref": source.source_ref,
+        "source_class": source.normalized_source_class.value,
+        "sha256": source.sha256,
+        "available": source.available,
+        "state": source.state,
+        "schema_version": source.schema_version,
+        "producer": source.producer,
+    }
+
+
+def source_fingerprint_from_record(record: dict[str, Any]) -> SourceFingerprint:
+    return SourceFingerprint(
+        source_ref=str(record["source_ref"]),
+        source_class=str(record["source_class"]),
+        sha256=record.get("sha256") if isinstance(record.get("sha256"), str) else None,
+        available=bool(record.get("available", True)),
+        schema_version=str(record.get("schema_version") or ""),
+        producer=str(record.get("producer") or ""),
+    )
+
+
+def reuse_decision_to_record(decision: ReuseDecision) -> dict[str, object]:
+    return {
+        "artifact_role": decision.artifact_role.value,
+        "status": decision.status.value,
+        "fresh_semantic_review_required": decision.fresh_semantic_review_required,
+        "coverage_satisfied_by": decision.coverage_satisfied_by.value,
+        "next_action": decision.next_action.value,
+        "relevant_source_classes": [source_class.value for source_class in decision.relevant_source_classes],
+        "source_sha256": decision.source_sha256,
+        "unchanged_refs": list(decision.unchanged_refs),
+        "changed_refs": list(decision.changed_refs),
+        "added_refs": list(decision.added_refs),
+        "removed_refs": list(decision.removed_refs),
+        "missing_current_refs": list(decision.missing_current_refs),
+        "not_comparable_refs": list(decision.not_comparable_refs),
+        "reasons": list(decision.reasons),
+    }
 
 
 def source_classes_for_role(role: ArtifactRole | str) -> frozenset[SourceClass]:

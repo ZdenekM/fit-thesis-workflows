@@ -38,6 +38,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/current_evidence_snapshot.json": {"current-evidence-snapshot-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
     "work/github-intake/snapshot-manifest.json": {"github-snapshot-manifest-v1"},
+    "work/reuse/reuse_index.json": {"round-reuse-index-v1"},
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
 }
@@ -53,6 +54,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/current_evidence_snapshot.json": {"items": list},
     "work/code_reproducibility.json": {"classification": str},
     "work/github-intake/snapshot-manifest.json": {"repositories": list, "pull_requests": list},
+    "work/reuse/reuse_index.json": {"current_source_fingerprints": list, "decisions": list},
     THESES_SIMILARITY_INTAKE_REL: {
         "report_pdf": dict,
         "extracted_text": dict,
@@ -75,6 +77,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/agent_coverage.json",
     "work/code/.prepare-code-workspace-manifest.json",
     "work/github-intake/snapshot-manifest.json",
+    "work/reuse/reuse_index.json",
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",

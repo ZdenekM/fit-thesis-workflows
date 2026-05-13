@@ -150,6 +150,30 @@ def test_github_snapshot_manifest_is_case_bound_supporting_work_artifact(tmp_pat
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
 
 
+def test_reuse_index_is_case_bound_supporting_work_artifact(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    write_json(
+        round_dir / "work" / "reuse" / "reuse_index.json",
+        {
+            "schema_version": "round-reuse-index-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-13T12:00:00Z",
+            "producer": "scripts/update-round-reuse-index",
+            "current_source_fingerprints": [],
+            "previous_round_candidates": [],
+            "decisions": [],
+            "limitations": [],
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path["work/reuse/reuse_index.json"]["schema_version"] == "round-reuse-index-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
 def test_collect_supporting_work_artifacts_records_human_producer_identity(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     (round_dir / "inputs").mkdir(parents=True)

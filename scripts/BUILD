@@ -80,6 +80,7 @@ shell_sources(
         "smoke-register-review-artifact",
         "smoke-review-approval",
         "smoke-review-manifest",
+        "smoke-round-reuse-index",
         "smoke-review-wave",
         "smoke-reviewer-profile",
         "smoke-supervisor-report",
@@ -88,6 +89,7 @@ shell_sources(
         "smoke-typography-formal",
         "supervisor-deadline",
         "update-current-evidence-snapshot",
+        "update-round-reuse-index",
         "write-review-approval",
     ],
 )
@@ -151,6 +153,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:supervisor_report_closeout",
     "src/thesis_review_workflow/cli:supervisor_deadline",
     "src/thesis_review_workflow/cli:update_current_evidence_snapshot",
+    "src/thesis_review_workflow/cli:update_round_reuse_index",
     "src/thesis_review_workflow/cli:write_review_approval",
 ]
 
@@ -651,6 +654,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/update-current-evidence-snapshot",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="update_round_reuse_index_tool",
+    entry_point="thesis_review_workflow.cli.update_round_reuse_index:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/update-round-reuse-index",
     tags=["workflow-tool"],
 )
 

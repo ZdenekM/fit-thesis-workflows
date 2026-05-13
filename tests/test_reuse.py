@@ -8,6 +8,9 @@ from thesis_review_workflow.reuse import (
     compare_source_fingerprints,
     decide_reuse,
     source_classes_for_role,
+    source_fingerprint_from_record,
+    source_fingerprint_to_record,
+    stable_json_sha256,
 )
 
 HASH_A = "a" * 64
@@ -258,6 +261,20 @@ def test_duplicate_fingerprints_are_rejected() -> None:
             schema_compatible=True,
         ),
     )
+
+
+def test_source_fingerprint_records_preserve_not_comparable_state() -> None:
+    fingerprint = source("inputs/thesis.pdf", SourceClass.THESIS_PDF, None)
+
+    record = source_fingerprint_to_record(fingerprint)
+    restored = source_fingerprint_from_record(record)
+
+    assert record["state"] == "not_comparable"
+    assert restored == fingerprint
+
+
+def test_stable_json_hash_ignores_object_key_order() -> None:
+    assert stable_json_sha256({"b": 2, "a": 1}) == stable_json_sha256({"a": 1, "b": 2})
 
 
 def test_every_artifact_role_has_source_dependency_mapping() -> None:

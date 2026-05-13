@@ -54,4 +54,5 @@ python_source(name="register_review_artifact", source="register_review_artifact.
 python_source(name="supervisor_deadline", source="supervisor_deadline.py")
 python_source(name="supervisor_report_closeout", source="supervisor_report_closeout.py")
 python_source(name="update_current_evidence_snapshot", source="update_current_evidence_snapshot.py")
+python_source(name="update_round_reuse_index", source="update_round_reuse_index.py")
 python_source(name="write_review_approval", source="write_review_approval.py")

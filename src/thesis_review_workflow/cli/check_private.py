@@ -16,6 +16,7 @@ PRIVATE_JSONL_RE = re.compile(
 )
 PRIVATE_MANIFEST_RE = re.compile(
     r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest|"
+    r"reuse_index|"
     r"opponent_calibration_use|opponent_calibration_advisory|opponent_report_revision_request|"
     r"supervisor_report_feedback_history|supervisor_report_trace|supervisor_report_confirmation|"
     r"supervisor_report_calibration_use|supervisor_report_calibration_advisory|"

@@ -62,6 +62,7 @@ WORKFLOW_COMMAND_MODULES = {
     "supervisor-report-closeout": "thesis_review_workflow.cli.supervisor_report_closeout",
     "supervisor-deadline": "thesis_review_workflow.cli.supervisor_deadline",
     "update-current-evidence-snapshot": "thesis_review_workflow.cli.update_current_evidence_snapshot",
+    "update-round-reuse-index": "thesis_review_workflow.cli.update_round_reuse_index",
     "write-review-approval": "thesis_review_workflow.cli.write_review_approval",
 }
 
