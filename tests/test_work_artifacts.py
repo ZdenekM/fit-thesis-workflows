@@ -1,12 +1,22 @@
 import json
 from pathlib import Path
 
-from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts, validate_supporting_work_artifacts
+from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
+from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
+from thesis_review_workflow.work_artifacts import (
+    collect_supporting_work_artifacts,
+    sha256_file,
+    validate_supporting_work_artifacts,
+)
 
 
 def write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def collect_hash(path: Path) -> str:
+    return sha256_file(path)
 
 
 def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_path: Path) -> None:
@@ -171,6 +181,93 @@ def test_reuse_index_is_case_bound_supporting_work_artifact(tmp_path: Path) -> N
     by_path = {record["path"]: record for record in records}
 
     assert by_path["work/reuse/reuse_index.json"]["schema_version"] == "round-reuse-index-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
+def test_context_handoff_artifacts_are_case_bound_supporting_work_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    evidence = round_dir / "extracted" / "thesis.txt"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text("Draft claim.\n", encoding="utf-8")
+    evidence.write_text("Anchored source.\n", encoding="utf-8")
+    evidence_hash = collect_hash(round_dir / "extracted" / "thesis.txt")
+    write_json(
+        round_dir / EVIDENCE_CAPSULES_REL,
+        {
+            "schema_version": EVIDENCE_CAPSULE_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-13T12:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "text-reader",
+            "producer_agent": "agent-a",
+            "source_refs": ["extracted/thesis.txt"],
+            "source_sha256": {"extracted/thesis.txt": evidence_hash},
+            "capsules": [
+                {
+                    "capsule_id": "cap-1",
+                    "source_ref": "extracted/thesis.txt",
+                    "source_sha256": evidence_hash,
+                    "anchor_refs": [
+                        {
+                            "anchor_id": "a1",
+                            "source_ref": "extracted/thesis.txt",
+                            "anchor_type": "section",
+                            "locator": "Section 1",
+                        }
+                    ],
+                    "summary": "Anchored source summary.",
+                    "extracted_facts": [],
+                    "candidate_claims": [],
+                    "uncertainties": [],
+                    "limitations": [],
+                    "open_raw_source_if": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
+    capsule_hash = collect_hash(round_dir / EVIDENCE_CAPSULES_REL)
+    write_json(
+        round_dir / CLAIM_REVIEW_BASIS_REL,
+        {
+            "schema_version": CLAIM_REVIEW_BASIS_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-13T12:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "synthesis-reviewer",
+            "producer_agent": "agent-a",
+            "draft_ref": "work/feedback_student_draft.md",
+            "draft_sha256": collect_hash(draft),
+            "capsule_refs": [EVIDENCE_CAPSULES_REL],
+            "claims": [
+                {
+                    "claim_id": "p2-claim",
+                    "claim_text": "Draft claim.",
+                    "priority": "p2",
+                    "grade_impact": False,
+                    "evidence_refs": ["extracted/thesis.txt"],
+                    "capsule_refs": [EVIDENCE_CAPSULES_REL],
+                    "source_sha256": {
+                        "extracted/thesis.txt": evidence_hash,
+                        EVIDENCE_CAPSULES_REL: capsule_hash,
+                    },
+                    "verification_status": "verified_from_basis",
+                    "raw_source_escalations": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path[EVIDENCE_CAPSULES_REL]["schema_version"] == EVIDENCE_CAPSULE_SCHEMA
+    assert by_path[CLAIM_REVIEW_BASIS_REL]["schema_version"] == CLAIM_REVIEW_BASIS_SCHEMA
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
 
 

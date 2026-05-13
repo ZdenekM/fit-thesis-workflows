@@ -554,7 +554,7 @@ private raw content during normal synthesis.
 
 ### Slice 4 - Evidence Capsule And Claim-Basis Schemas
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): add context handoff schemas`
 - Expected paths:
   - `src/thesis_review_workflow/evidence_capsules.py`
@@ -827,6 +827,22 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 4 started. Sanity review passed: Slice 3 is committed as
+  `bdcedf0`, the only unrelated worktree change is still `TODO.md`, and Slice 4
+  is scoped to minimal `evidence-capsule-v1` and `claim-review-basis-v1`
+  validators plus supporting work-artifact registration. No packet rendering,
+  role coverage, independent review, or provenance gates will be weakened in
+  this slice.
+- 2026-05-13: Slice 4 implementation and agent review complete. Added
+  `evidence-capsule-v1` and `claim-review-basis-v1` validators, manifest-safe
+  path/hash helpers, supporting work-artifact registration, and focused tests.
+  Fixed reviewer findings by requiring nested capsule refs and escalation-only
+  raw-source refs to be covered by `source_sha256`. Verification passed:
+  `pants fmt ::`, `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`, `pants test
+  tests/test_evidence_capsules.py tests/test_claim_review_basis.py`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Ready to commit Slice 4.
 - 2026-05-13: Slice 3 started. Sanity review passed: Slice 2 is committed as
   `7e5c0c2`, the only unrelated worktree change is still `TODO.md`, and Slice 3
   is scoped to a standard workflow command plus ignored current-round

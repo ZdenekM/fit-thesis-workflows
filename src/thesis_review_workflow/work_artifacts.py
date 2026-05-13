@@ -8,6 +8,16 @@ import re
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.claim_review_basis import (
+    CLAIM_REVIEW_BASIS_REL,
+    CLAIM_REVIEW_BASIS_SCHEMA,
+    validate_claim_review_basis_payload,
+)
+from thesis_review_workflow.evidence_capsules import (
+    EVIDENCE_CAPSULE_SCHEMA,
+    EVIDENCE_CAPSULES_REL,
+    validate_evidence_capsules_payload,
+)
 from thesis_review_workflow.opponent_calibration import (
     is_opponent_calibration_artifact,
     validate_opponent_calibration_artifact,
@@ -39,6 +49,8 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
     "work/github-intake/snapshot-manifest.json": {"github-snapshot-manifest-v1"},
     "work/reuse/reuse_index.json": {"round-reuse-index-v1"},
+    EVIDENCE_CAPSULES_REL: {EVIDENCE_CAPSULE_SCHEMA},
+    CLAIM_REVIEW_BASIS_REL: {CLAIM_REVIEW_BASIS_SCHEMA},
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
 }
@@ -55,6 +67,8 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/code_reproducibility.json": {"classification": str},
     "work/github-intake/snapshot-manifest.json": {"repositories": list, "pull_requests": list},
     "work/reuse/reuse_index.json": {"current_source_fingerprints": list, "decisions": list},
+    EVIDENCE_CAPSULES_REL: {"capsules": list},
+    CLAIM_REVIEW_BASIS_REL: {"claims": list},
     THESES_SIMILARITY_INTAKE_REL: {
         "report_pdf": dict,
         "extracted_text": dict,
@@ -78,6 +92,8 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/code/.prepare-code-workspace-manifest.json",
     "work/github-intake/snapshot-manifest.json",
     "work/reuse/reuse_index.json",
+    EVIDENCE_CAPSULES_REL,
+    CLAIM_REVIEW_BASIS_REL,
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",
@@ -334,6 +350,26 @@ def validate_json_work_artifact(
     if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
         errors.extend(
             validate_structured_evidence_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == EVIDENCE_CAPSULES_REL:
+        errors.extend(
+            validate_evidence_capsules_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == CLAIM_REVIEW_BASIS_REL:
+        errors.extend(
+            validate_claim_review_basis_payload(
                 loaded,
                 rel_path,
                 round_dir=round_dir,
