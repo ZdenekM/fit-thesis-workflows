@@ -1,8 +1,10 @@
 import json
+import sys
 from pathlib import Path
 
 from thesis_review_workflow.agent_coverage import COVERAGE_REL, build_coverage
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
+from thesis_review_workflow.cli import init_review_manifest
 from thesis_review_workflow.cli.check_review_manifest import (
     check_helper_checks,
     check_manifest,
@@ -1576,6 +1578,75 @@ def test_agent_coverage_built_after_review_approval_uses_review_fields(tmp_path:
     assert coverage is not None
     role = next(item for item in coverage["roles"] if item["role"] == "supervisor_report_review")
     assert role["reviewer_role"] == "thesis-supervisor-report-review"
+    assert role["reviewer_agent"] == "review-agent"
+    assert role["reviewed_hash"] == sha256_file(output)
+
+
+def test_init_review_manifest_run_checks_applies_approval_before_agent_coverage(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "repo"
+    case_dir = root / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    output = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
+    draft = round_dir / "work" / "vedouci_posudek_draft.md"
+    approval = round_dir / "work" / "reviews" / "supervisor_report_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    (case_dir / "case.md").write_text("Work type: BP\nAcademic year: 2025/2026\n", encoding="utf-8")
+    output.write_text("# Posudek vedoucího\n", encoding="utf-8")
+    draft.write_text("# Návrh posudku vedoucího\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "supervisor_report",
+                "reviewer_role": "thesis-supervisor-report-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/vedouci_posudek_revidovany.md",
+                "reviewed_artifact_sha256": sha256_file(output),
+                "review_basis_path": "work/vedouci_posudek_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["check-supervisor-report", "check-supervisor-report-ready"],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    observed: dict[str, str] = {}
+
+    def fake_run_check_record(root_arg: Path, round_dir_arg: Path, check: dict) -> None:
+        assert root_arg == root
+        check["status"] = "passed"
+        check["checked_at"] = "2026-05-13T00:00:00Z"
+        check["exit_code"] = 0
+        check["notes"] = "Synthetic check."
+        if check.get("check") == "check-agent-coverage":
+            coverage = json.loads((round_dir_arg / COVERAGE_REL).read_text(encoding="utf-8"))
+            role = next(item for item in coverage["roles"] if item["role"] == "supervisor_report_review")
+            observed["reviewer_agent"] = role["reviewer_agent"]
+            observed["reviewed_hash"] = role["reviewed_hash"]
+
+    monkeypatch.setattr(init_review_manifest, "repo_root", lambda: root)
+    monkeypatch.setattr(init_review_manifest, "run_check_record", fake_run_check_record)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["scripts/init-review-manifest", "--run-checks", "case-a", "round-a"],
+    )
+
+    assert init_review_manifest.main() == 0
+
+    manifest = json.loads((round_dir / "work" / "review_manifest.json").read_text(encoding="utf-8"))
+    coverage = json.loads((round_dir / COVERAGE_REL).read_text(encoding="utf-8"))
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "outputs/vedouci_posudek_revidovany.md")
+    role = next(item for item in coverage["roles"] if item["role"] == "supervisor_report_review")
+
+    assert observed == {"reviewer_agent": "review-agent", "reviewed_hash": sha256_file(output)}
+    assert artifact["independent_review"]["reviewer_agent"] == "review-agent"
     assert role["reviewer_agent"] == "review-agent"
     assert role["reviewed_hash"] == sha256_file(output)
 

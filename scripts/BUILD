@@ -105,6 +105,8 @@ files(
     sources=[
         "BUILD",
         "smoke-package-workflow-tools",
+        "smoke-record-report-amendment",
+        "smoke-record-submitted-supervisor-report",
     ],
 )
 

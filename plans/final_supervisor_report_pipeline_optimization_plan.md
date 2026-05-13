@@ -1,6 +1,6 @@
 # Final Supervisor Report Pipeline Optimization Plan
 
-Status: planned
+Status: active
 Created: 2026-05-13
 
 ## Goal
@@ -144,7 +144,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 1 - Current-State Regression Audit And TODO Reconciliation
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): plan final report pipeline cleanup`
 - Expected paths:
   - `plans/final_supervisor_report_pipeline_optimization_plan.md`
@@ -388,6 +388,14 @@ evidence, the intended path after this plan should be:
   code-bearing reports, current-evidence refresh before packet emission,
   manifest-before-final-wave closeout ordering, real test homes, and the
   assessment-only boundary for silent similarity evidence.
+- 2026-05-13: Slice 1 done. Added a regression proving
+  `init-review-manifest --run-checks` applies structured review approvals before
+  deferred `check-agent-coverage`, added command/smoke coverage assertions for
+  `record-submitted-supervisor-report` and `record-report-amendment`, and
+  narrowed the P0 TODO to the still-open closeout integration work. Verification
+  passed: `pants test tests/test_review_manifest_helpers.py
+  tests/test_supervisor_report.py tests/test_workflow_python_contracts.py`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 

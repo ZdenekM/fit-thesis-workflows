@@ -763,6 +763,26 @@ def test_workflow_command_modules_have_sources_runtime_deps_and_wrappers() -> No
         assert tool_name in shell_sources
 
 
+def test_supervisor_report_submission_helpers_are_packaged_and_smoked() -> None:
+    shell_sources = scripts_shell_sources()
+    pex_targets = workflow_pex_targets()
+    cli_sources = cli_python_sources()
+    runtime_deps = workflow_runtime_deps()
+
+    for tool_name in ("record-submitted-supervisor-report", "record-report-amendment"):
+        module = WORKFLOW_COMMAND_MODULES[tool_name]
+        module_name = module.rsplit(".", 1)[-1]
+        smoke_name = f"smoke-{tool_name}"
+        smoke_text = (REPO_ROOT / "scripts" / smoke_name).read_text(encoding="utf-8")
+
+        assert cli_sources[module_name] == f"{module_name}.py"
+        assert f"src/thesis_review_workflow/cli:{module_name}" in runtime_deps
+        assert pex_targets[tool_name]["entry_point"] == f"{module}:console_main"
+        assert tool_name in shell_sources
+        assert smoke_name in shell_sources
+        assert f"scripts/{tool_name}" in smoke_text
+
+
 def test_package_workflow_tools_is_bootstrap_not_packaged_workflow_tool() -> None:
     cli_sources = cli_python_sources()
     shell_sources = scripts_shell_sources()

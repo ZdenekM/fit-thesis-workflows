@@ -2,12 +2,10 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Make supervisor-report closeout self-contained for submitted reports and final wording amendments.
+- [ ] Finish supervisor-report closeout integration for final materiality, submitted reports, and final wording amendments.
    - `scripts/supervisor-report-closeout` should ensure `check-review-materiality --workflow supervisor_report --phase final` has produced current materiality decisions, or run the read-only materiality check itself before the review-wave gate.
-   - `scripts/init-review-manifest --run-checks` should apply structured review approval records before generating `work/agent_coverage.json` and before running the `check-agent-coverage` helper, so one refresh after a new approval record is enough.
-   - Add a helper for submitted supervisor reports, for example `scripts/record-submitted-supervisor-report`, that copies/imports the submitted PDF into the ignored round workspace, extracts text, records file/text hashes, and compares grade/points plus public report fields against reviewed Markdown.
-   - Add a bounded post-review amendment record for final human wording changes. Small style/public-text/private-comment edits should update hashes and approval from a compact diff; material claim, grade, or evidence-anchor changes must still reopen normal semantic review.
-   - Keep the submitted PDF, extracted text, amendment records, and operator logs under the ignored case workspace; do not move real reports into tracked fixtures.
+   - Closeout should validate existing `record-submitted-supervisor-report` and `record-report-amendment` records when present, and tell the operator exactly which hash-bound submitted-report or amendment gate is missing.
+   - Keep submitted PDFs, extracted text, amendment records, and operator logs under the ignored case workspace; do not move real reports into tracked fixtures.
 - [ ] Add native Windows runtime proof for packaged workflow launchers.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.
