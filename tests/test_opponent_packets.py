@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import PACKET_ROLES, generate_packets, render_packet
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
@@ -121,9 +122,14 @@ def test_generate_packets_writes_all_role_files(tmp_path: Path) -> None:
     assert "Schema version: `opponent-review-packet-v1`" in text
     assert "Recommended model: `gpt-5.5`" in text
     assert "Recommended reasoning: `xhigh`" in text
-    assert "`case.md` (present)" in text
-    assert "`profiles/default.md` (present)" in text
-    assert "`work/assignment_coverage_agent.json` (present)" in text
+    assert f"Common briefing: `{COMMON_BRIEFING_REL}`" in text
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    common_inputs = {item["path"]: item for item in briefing["common_inputs"]}
+    profile_inputs = {item["path"]: item for item in briefing["reviewer_profile_inputs"]}
+    advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
+    assert common_inputs["case.md"]["status"] == "present"
+    assert profile_inputs["profiles/default.md"]["status"] == "present"
+    assert advisory["work/assignment_coverage_agent.json"]["status"] == "present"
     assert str(tmp_path) not in text
 
 
@@ -249,7 +255,6 @@ def test_opponent_packet_renders_materiality_next_actions(tmp_path: Path) -> Non
 
     assert "## Materiality Next Actions" in text
     assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
-    assert "use it with the materiality next action to author the structured handoff" in text
 
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     assert "quantitative_claims.md" in {path.name for path in written}
@@ -285,13 +290,13 @@ def test_opponent_packet_consumes_quantitative_claims_handoff(tmp_path: Path) ->
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     names = {path.name for path in written}
     text = (round_dir / "work" / "opponent_packets" / "synthesis.md").read_text(encoding="utf-8")
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
 
     assert "quantitative_claims.md" in names
-    assert "## Quantitative Claims Handoff" in text
-    assert "Status counts: needs_context=1" in text
-    assert "`Q1` performance/needs_context, baseline=missing, practical_context=weak; overclaim_risk=moderate" in text
-    assert "magnitude: Magnitude is not interpreted against a baseline workload." in text
-    assert "Open raw result sections only to verify material claims" in text
+    assert "## Reusable Handoff Refs" in text
+    assert "`work/quantitative_claims.json` (present" in text
+    advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
+    assert advisory["work/quantitative_claims.json"]["status"] == "present"
 
 
 def test_packet_marks_invalid_structured_artifact_as_limitation(tmp_path: Path) -> None:
@@ -340,11 +345,11 @@ def test_packet_includes_synthesis_review_contract(tmp_path: Path) -> None:
 def test_packet_lists_input_directories(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "inputs" / "submitted-src").mkdir(parents=True)
-    role = next(item for item in PACKET_ROLES if item.key == "code_quality")
 
-    text = render_packet("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir, role)
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
 
-    assert "`inputs/submitted-src/`" in text
+    assert "inputs/submitted-src/" in briefing["available_round_inputs"]
 
 
 def test_packets_use_role_owned_expected_outputs() -> None:

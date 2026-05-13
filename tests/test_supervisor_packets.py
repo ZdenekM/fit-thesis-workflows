@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
+from thesis_review_workflow.opponent_packets import generate_packets as generate_opponent_packets
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
 from thesis_review_workflow.supervisor_packets import PACKET_ROLES, generate_packets, render_packet
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
@@ -116,6 +118,10 @@ def test_generate_supervisor_packets_starts_with_mandatory_base_only(tmp_path: P
     assert "Recommended model: `gpt-5.5`" in text
     assert "Official deadline: 2026-05-13" in text
     assert "## Final-Sprint Action Budget" in text
+    assert f"Common briefing: `{COMMON_BRIEFING_REL}`" in text
+    assert "Common briefing sha256: `" in text
+    assert "Generated at:" not in text
+    assert (round_dir / COMMON_BRIEFING_REL).is_file()
     assert str(tmp_path) not in text
 
 
@@ -294,7 +300,6 @@ def test_supervisor_packet_renders_materiality_next_actions(tmp_path: Path) -> N
     assert "## Materiality Next Actions" in text
     assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
     assert "thesis-quantitative-claims-review" in text
-    assert "use it with the materiality next action to author the structured handoff" in text
 
     written = generate_packets(
         "case-a",
@@ -342,13 +347,13 @@ def test_supervisor_packet_consumes_quantitative_claims_handoff(tmp_path: Path) 
     )
     names = {path.name for path in written}
     text = (round_dir / "work" / "supervisor_packets" / "synthesis.md").read_text(encoding="utf-8")
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
 
     assert "quantitative_claims.md" in names
-    assert "## Quantitative Claims Handoff" in text
-    assert "Status counts: needs_context=1" in text
-    assert "`Q1` metric/needs_context, baseline=missing, practical_context=weak; overclaim_risk=moderate" in text
-    assert "magnitude: Magnitude is not interpreted against a user-visible impact." in text
-    assert "Open raw result sections only to verify material claims" in text
+    assert "## Reusable Handoff Refs" in text
+    assert "`work/quantitative_claims.json` (present" in text
+    advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
+    assert advisory["work/quantitative_claims.json"]["status"] == "present"
 
 
 def test_supervisor_packet_includes_previous_feedback_index(tmp_path: Path) -> None:
@@ -357,17 +362,108 @@ def test_supervisor_packet_includes_previous_feedback_index(tmp_path: Path) -> N
     previous.parent.mkdir(parents=True)
     previous.write_text("# Feedback\n", encoding="utf-8")
 
-    role = next(item for item in PACKET_ROLES if item.key == "text_assignment")
-    text = render_packet(
+    generate_packets(
         "case-a",
         "round-a",
         "2026-05-11T00:00:00Z",
         round_dir,
-        role,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+
+    assert "round `round-previous`: `outputs/feedback_student.md`" in briefing["previous_feedback_refs"]
+
+
+def test_supervisor_packet_generation_does_not_rewrite_stable_content_for_new_timestamp(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    packet_path = round_dir / "work" / "supervisor_packets" / "text_assignment.md"
+    packet_text = packet_path.read_text(encoding="utf-8")
+    briefing_path = round_dir / COMMON_BRIEFING_REL
+    briefing = json.loads(briefing_path.read_text(encoding="utf-8"))
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-12T00:00:00Z",
+        round_dir,
         deadline_context=DEADLINE_CONTEXT,
     )
 
-    assert "round `round-previous`: `outputs/feedback_student.md`" in text
+    assert packet_path.read_text(encoding="utf-8") == packet_text
+    assert json.loads(briefing_path.read_text(encoding="utf-8"))["generated_at"] == briefing["generated_at"]
+
+
+def test_common_briefing_is_workflow_neutral_across_packet_generators(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    supervisor_briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+
+    generate_opponent_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+    opponent_briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+
+    assert opponent_briefing == supervisor_briefing
+
+
+def test_reusable_handoff_refs_validate_capsule_currentness(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    capsule = round_dir / "work" / "context" / "evidence_capsules.json"
+    capsule.parent.mkdir(parents=True, exist_ok=True)
+    capsule.write_text("{}\n", encoding="utf-8")
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    text = (round_dir / "work" / "supervisor_packets" / "text_assignment.md").read_text(encoding="utf-8")
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+
+    assert "`work/context/evidence_capsules.json` (invalid" in text
+    handoffs = {item["path"]: item for item in briefing["context_handoffs"]}
+    assert handoffs["work/context/evidence_capsules.json"]["status"] == "invalid"
+
+
+def test_common_briefing_repairs_invalid_generated_at_without_semantic_churn(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+    briefing_path = round_dir / COMMON_BRIEFING_REL
+    payload = json.loads(briefing_path.read_text(encoding="utf-8"))
+    payload["generated_at"] = ""
+    briefing_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-12T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+
+    assert json.loads(briefing_path.read_text(encoding="utf-8"))["generated_at"] == "2026-05-12T00:00:00Z"
 
 
 def test_supervisor_final_review_uses_draft_shape_gate() -> None:

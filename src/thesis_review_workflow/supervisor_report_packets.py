@@ -5,28 +5,25 @@ from __future__ import annotations
 from pathlib import Path
 
 from thesis_review_workflow.review_packets import (
-    CASE_INPUTS,
+    COMMON_BRIEFING_REL,
     COMMON_CONSTRAINTS,
     MECHANICAL_MODEL,
     MECHANICAL_REASONING,
-    PROFILE_INPUTS,
     PacketRole,
-    current_evidence_snapshot_section,
     existing_paths,
-    extracted_text_paths,
-    first_nonempty_lines,
     generated_role_paths,
     hash_status_list,
-    late_communications_section,
     materiality_next_actions_section,
     omen_advisory_section,
     path_list,
     prune_inactive_packets,
-    quantitative_claims_handoff_section,
+    reusable_handoff_refs_section,
     role_is_active,
+    sha256_file,
     status_list,
     text_list,
-    top_level_paths,
+    write_common_briefing,
+    write_text_if_changed,
 )
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
@@ -325,12 +322,6 @@ PACKET_ROLES = (
 
 
 def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Path, role: PacketRole) -> str:
-    case_dir = round_dir.parents[1]
-    repo_root = round_dir.parents[3]
-    inputs = top_level_paths(round_dir, "inputs")
-    notes = top_level_paths(round_dir, "notes")
-    extracted = extracted_text_paths(round_dir)
-    assignment_summary = first_nonempty_lines(round_dir / "notes" / "assignment.md")
     role_existing = existing_paths(
         round_dir,
         role.role_inputs,
@@ -338,28 +329,20 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
         round_id=round_id,
         materiality_workflow_profile="supervisor_report",
     )
-    advisory_existing = existing_paths(
-        round_dir,
-        ADVISORY_ARTIFACTS,
-        case_id=case_id,
-        round_id=round_id,
-        materiality_workflow_profile="supervisor_report",
-    )
     active_packets = generated_role_paths(PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
     role_constraints = COMMON_CONSTRAINTS + role.constraints
     optional_sections = [
-        current_evidence_snapshot_section(round_dir, case_id=case_id, round_id=round_id),
         materiality_next_actions_section(
             round_dir,
             case_id=case_id,
             round_id=round_id,
             workflow_profile="supervisor_report",
         ),
-        quantitative_claims_handoff_section(round_dir, case_id=case_id, round_id=round_id),
-        late_communications_section(round_dir),
+        reusable_handoff_refs_section(round_dir, case_id=case_id, round_id=round_id),
     ]
     if role.key == "code_quality":
         optional_sections.append(omen_advisory_section(round_dir))
+    common_briefing_sha = sha256_file(round_dir / COMMON_BRIEFING_REL) or "missing"
 
     return "\n".join(
         [
@@ -368,7 +351,8 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             f"Schema version: `{SCHEMA_VERSION}`",
             f"Case: `{case_id}`",
             f"Round: `{round_id}`",
-            f"Generated at: `{generated_at}`",
+            f"Common briefing: `{COMMON_BRIEFING_REL}`",
+            f"Common briefing sha256: `{common_briefing_sha}`",
             f"Role key: `{role.key}`",
             f"Skill: `{role.skill}`",
             f"Expected output: `{role.expected_output}`",
@@ -386,40 +370,25 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "## Active Packet Set",
             "",
             path_list(active_packets),
-            "## Required Base Inputs",
+            "## Common Briefing",
             "",
-            status_list(case_dir, CASE_INPUTS),
-            status_list(round_dir, BASE_INPUTS, case_id=case_id, round_id=round_id),
+            status_list(round_dir, (COMMON_BRIEFING_REL,), case_id=case_id, round_id=round_id),
+            "Read the common briefing first for case/profile inputs, round inventory, extracted text refs, "
+            "previous feedback refs, current evidence snapshots, prepared code roots, materiality refs, and "
+            "current context handoffs.",
+            "",
             "## Optional Prior Feedback Evidence",
             "",
             "Prior feedback is secondary evidence. Missing or inconclusive feedback is a limitation, not negative "
             "evidence.",
             "",
             status_list(round_dir, OPTIONAL_PRIOR_FEEDBACK_INPUTS, case_id=case_id, round_id=round_id),
-            "## Reviewer Profile Inputs",
-            "",
-            status_list(repo_root, PROFILE_INPUTS),
-            "## Assignment Summary",
-            "",
-            text_list(assignment_summary),
             "## Supervisor Report Artifacts",
             "",
             hash_status_list(round_dir, REPORT_ARTIFACTS, case_id=case_id, round_id=round_id),
-            "## Available Round Inputs",
-            "",
-            path_list(inputs),
-            "## Available Round Notes",
-            "",
-            path_list(notes),
-            "## Extracted Thesis Text",
-            "",
-            path_list(extracted),
             "## Role-Specific Artifacts",
             "",
             status_list(round_dir, role.role_inputs, case_id=case_id, round_id=round_id),
-            "## Existing Advisory Or Evidence Artifacts",
-            "",
-            path_list(advisory_existing),
             "## Missing Role Inputs To Treat As Limitations",
             "",
             path_list([rel_path for rel_path in role.role_inputs if rel_path not in role_existing]),
@@ -433,7 +402,8 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "",
             "## Open Full Artifacts Only If Needed",
             "",
-            "- Start from structured trace fields, hashes, and synthesis handoffs when available.",
+            "- Start from the common briefing, current context handoffs, structured trace fields, hashes, and "
+            "synthesis handoffs when available.",
             "- Open full evidence artifacts for important wording, grade/points, contradiction, or manual-check "
             "claims.",
             "",
@@ -453,12 +423,13 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
 def generate_packets(case_id: str, round_id: str, generated_at: str, round_dir: Path) -> list[Path]:
     packet_dir = round_dir / PACKET_DIR_REL
     packet_dir.mkdir(parents=True, exist_ok=True)
+    write_common_briefing(case_id, round_id, generated_at, round_dir)
     prune_inactive_packets(packet_dir, PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
     written: list[Path] = []
     for role in PACKET_ROLES:
         if not role_is_active(round_dir, role, case_id=case_id, round_id=round_id):
             continue
         path = packet_dir / f"{role.key}.md"
-        path.write_text(render_packet(case_id, round_id, generated_at, round_dir, role), encoding="utf-8")
+        write_text_if_changed(path, render_packet(case_id, round_id, generated_at, round_dir, role))
         written.append(path)
     return written

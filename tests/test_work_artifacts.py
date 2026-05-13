@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
 from thesis_review_workflow.work_artifacts import (
     collect_supporting_work_artifacts,
     sha256_file,
@@ -269,6 +270,51 @@ def test_context_handoff_artifacts_are_case_bound_supporting_work_artifacts(tmp_
     assert by_path[EVIDENCE_CAPSULES_REL]["schema_version"] == EVIDENCE_CAPSULE_SCHEMA
     assert by_path[CLAIM_REVIEW_BASIS_REL]["schema_version"] == CLAIM_REVIEW_BASIS_SCHEMA
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
+def test_common_briefing_is_deep_validated_supporting_work_artifact(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (repo_root / "profiles").mkdir(parents=True)
+    (repo_root / "profiles" / "default.md").write_text("# Default profile\n", encoding="utf-8")
+    (round_dir.parents[1]).mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-13T12:00:00Z", round_dir)
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path[COMMON_BRIEFING_REL]["schema_version"] == "common-briefing-v1"
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+    payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    payload["context_handoffs"][0]["path"] = "../private.txt"
+    write_json(round_dir / COMMON_BRIEFING_REL, payload)
+
+    records = collect_supporting_work_artifacts(round_dir)
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("context_handoffs item 1: path must be a safe relative path" in error for error in errors)
+
+
+def test_common_briefing_rejects_false_present_record_for_missing_file(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-13T12:00:00Z", round_dir)
+    payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    payload["base_inputs"][0]["path"] = "notes/missing.md"
+    payload["base_inputs"][0]["status"] = "present"
+    payload["base_inputs"][0].pop("sha256", None)
+    write_json(round_dir / COMMON_BRIEFING_REL, payload)
+
+    records = collect_supporting_work_artifacts(round_dir)
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("base_inputs item 1: present records must point to an existing file" in error for error in errors)
 
 
 def test_collect_supporting_work_artifacts_records_human_producer_identity(tmp_path: Path) -> None:

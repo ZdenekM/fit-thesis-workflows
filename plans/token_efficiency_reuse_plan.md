@@ -583,7 +583,7 @@ private raw content during normal synthesis.
 
 ### Slice 5 - Common Briefing And Packet Rendering
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): split common briefing from role packets`
 - Expected paths:
   - `src/thesis_review_workflow/review_packets.py`
@@ -827,6 +827,26 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 5 started. Sanity review passed: Slice 4 is committed as
+  `23f7d95`, the only unrelated worktree change is still `TODO.md`, and Slice 5
+  is scoped to common briefing generation plus packet rendering changes. Role
+  coverage, materiality semantics, wave gates, and independent review
+  requirements remain out of scope for this slice.
+- 2026-05-13: Slice 5 implementation and agent review complete. Added stable
+  workflow-neutral `work/common_briefing.json`, reduced role packets to
+  role-specific handoffs plus a common-briefing hash, stopped rewriting packets
+  and common briefing when material content is unchanged, and registered the
+  common briefing as a validated work artifact. Fixed reviewer findings by
+  making the briefing workflow-neutral, validating reusable handoff refs through
+  dedicated validators, adding deep common-briefing validation, repairing
+  invalid `generated_at` metadata instead of preserving it, and rejecting false
+  `present/current` records for missing files. Verification passed:
+  `pants fmt ::`, `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`, targeted packet/work
+  artifact pytest, `scripts/smoke-supervisor-packets`,
+  `scripts/smoke-opponent-packets`, `scripts/smoke-supervisor-report-packets`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Ready to commit Slice 5.
 - 2026-05-13: Slice 4 started. Sanity review passed: Slice 3 is committed as
   `bdcedf0`, the only unrelated worktree change is still `TODO.md`, and Slice 4
   is scoped to minimal `evidence-capsule-v1` and `claim-review-basis-v1`

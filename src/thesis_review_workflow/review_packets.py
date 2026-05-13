@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, validate_claim_review_basis_payload
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULES_REL, validate_evidence_capsules_payload
+from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_materiality import (
     is_materiality_decision_path,
     unresolved_required_next_actions,
@@ -83,6 +87,57 @@ CODE_WORKSPACE_PATHS = (
     "work/code/.prepare-code-workspace-manifest.json",
 )
 QUANTITATIVE_CLAIMS_REL = "work/quantitative_claims.json"
+COMMON_BRIEFING_SCHEMA_VERSION = "common-briefing-v1"
+COMMON_BRIEFING_REL = "work/common_briefing.json"
+REUSE_INDEX_REL = "work/reuse/reuse_index.json"
+REUSABLE_HANDOFF_REFS = (
+    COMMON_BRIEFING_REL,
+    REUSE_INDEX_REL,
+    EVIDENCE_CAPSULES_REL,
+    CLAIM_REVIEW_BASIS_REL,
+    QUANTITATIVE_CLAIMS_REL,
+)
+COMMON_BRIEFING_BASE_INPUTS = (
+    "notes/assignment.md",
+    "notes/round-notes.md",
+    "outputs/revision_diff.md",
+    "notes/supervisor-report-operator-input.md",
+    "work/supervisor_report_feedback_history.json",
+)
+COMMON_BRIEFING_ADVISORY_ARTIFACTS = tuple(
+    dict.fromkeys(
+        (
+            "work/assignment_coverage_agent.json",
+            "work/evidence_requirements.json",
+            "work/code_reproducibility.json",
+            "work/quantitative_claims.json",
+            "work/media_presence_inventory.jsonl",
+            "work/figure_media/visual_inventory.jsonl",
+            "work/code_workspace.md",
+            "work/serena_roots.json",
+            "outputs/github_code_intake.md",
+            "outputs/code_consistency.md",
+            "outputs/code_quality_review.md",
+            "outputs/literature_citation_review.md",
+            "outputs/figure_media_review.md",
+            "outputs/typography_formal_review.md",
+            "outputs/revision_diff.md",
+            "work/supervisor_report_trace.json",
+            "work/vedouci_posudek_draft.md",
+            "outputs/vedouci_posudek_revidovany.md",
+            "work/supervisor_report_confirmation.json",
+            "work/opponent_report_trace.json",
+            "work/oponent_posudek_draft.md",
+            "outputs/oponent_podklady_revidovane.md",
+            REUSE_INDEX_REL,
+            EVIDENCE_CAPSULES_REL,
+            CLAIM_REVIEW_BASIS_REL,
+            QUANTITATIVE_CLAIMS_REL,
+        )
+    )
+)
+RECORD_STATUSES = {"present", "missing", "invalid", "current"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
@@ -125,11 +180,92 @@ def rel_status(
         )
         if errors:
             return "invalid"
+    if rel_path == COMMON_BRIEFING_REL:
+        errors = validate_common_briefing_artifact(round_dir, case_id=case_id, round_id=round_id)
+        return "invalid" if errors else "current"
+    if rel_path == EVIDENCE_CAPSULES_REL:
+        errors = validate_json_artifact_payload(
+            round_dir,
+            rel_path,
+            validate_evidence_capsules_payload,
+            case_id=case_id,
+            round_id=round_id,
+        )
+        return "invalid" if errors else "current"
+    if rel_path == CLAIM_REVIEW_BASIS_REL:
+        errors = validate_json_artifact_payload(
+            round_dir,
+            rel_path,
+            validate_claim_review_basis_payload,
+            case_id=case_id,
+            round_id=round_id,
+        )
+        return "invalid" if errors else "current"
+    if rel_path == REUSE_INDEX_REL:
+        errors = validate_reuse_index_artifact(round_dir, case_id=case_id, round_id=round_id)
+        return "invalid" if errors else "current"
     if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
         errors = validate_structured_evidence_artifact(round_dir, rel_path, case_id=case_id, round_id=round_id)
         if errors:
             return "invalid"
     return "present"
+
+
+def validate_json_artifact_payload(
+    round_dir: Path,
+    rel_path: str,
+    validator: object,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    path = round_dir / rel_path
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [f"{rel_path}: missing JSON artifact"]
+    except OSError as exc:
+        return [f"{rel_path}: cannot read JSON artifact: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [f"{rel_path}: invalid JSON: {exc.msg}"]
+    if not callable(validator):
+        return [f"{rel_path}: validator is not callable"]
+    result = validator(loaded, rel_path, round_dir=round_dir, case_id=case_id, round_id=round_id)
+    return result if isinstance(result, list) else [f"{rel_path}: validator returned non-list result"]
+
+
+def validate_reuse_index_artifact(
+    round_dir: Path,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    rel_path = REUSE_INDEX_REL
+    path = round_dir / rel_path
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [f"{rel_path}: missing reuse index"]
+    except OSError as exc:
+        return [f"{rel_path}: cannot read reuse index: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [f"{rel_path}: invalid JSON: {exc.msg}"]
+    if not isinstance(loaded, dict):
+        return [f"{rel_path}: reuse index must be a JSON object"]
+    errors: list[str] = []
+    if loaded.get("schema_version") != "round-reuse-index-v1":
+        errors.append(f"{rel_path}: schema_version must be round-reuse-index-v1")
+    if case_id is not None and loaded.get("case_id") != case_id:
+        errors.append(f"{rel_path}: case_id does not match requested case")
+    if round_id is not None and loaded.get("round_id") != round_id:
+        errors.append(f"{rel_path}: round_id does not match requested round")
+    for field in ("generated_at", "producer"):
+        if not isinstance(loaded.get(field), str) or not loaded[field]:
+            errors.append(f"{rel_path}: {field} must be non-empty str")
+    for field in ("current_source_fingerprints", "decisions", "limitations"):
+        if not isinstance(loaded.get(field), list):
+            errors.append(f"{rel_path}: {field} must be list")
+    return errors
 
 
 def existing_paths(
@@ -150,7 +286,7 @@ def existing_paths(
             round_id=round_id,
             materiality_workflow_profile=materiality_workflow_profile,
         )
-        == "present"
+        in {"present", "current"}
     ]
 
 
@@ -223,6 +359,116 @@ def hash_status_list(
         hash_text = f", sha256={digest}" if digest else ""
         lines.append(f"- `{rel_path}` ({status}{hash_text})")
     return "\n".join(lines) + "\n"
+
+
+def artifact_record(
+    base_dir: Path,
+    rel_path: str,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+    materiality_workflow_profile: str | None = None,
+    validate_round_artifact: bool = False,
+) -> dict[str, str]:
+    path = base_dir / rel_path
+    if validate_round_artifact:
+        status = rel_status(
+            base_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
+            materiality_workflow_profile=materiality_workflow_profile,
+        )
+    else:
+        status = "present" if path.exists() else "missing"
+    record = {"path": rel_path, "status": status}
+    digest = sha256_file(path)
+    if digest:
+        record["sha256"] = digest
+    return record
+
+
+def write_text_if_changed(path: Path, text: str) -> bool:
+    if path.is_file() and path.read_text(encoding="utf-8") == text:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
+def write_json_if_semantically_changed(path: Path, payload: dict[str, object], *, generated_at: str) -> bool:
+    semantic_payload = dict(payload)
+    semantic_payload.pop("generated_at", None)
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = None
+        if isinstance(existing, dict):
+            existing_semantic = dict(existing)
+            existing_semantic.pop("generated_at", None)
+            existing_generated_at = existing.get("generated_at")
+            if (
+                existing_semantic == semantic_payload
+                and isinstance(existing_generated_at, str)
+                and existing_generated_at
+            ):
+                return False
+    writable = dict(payload)
+    writable["generated_at"] = generated_at
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(writable, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return True
+
+
+def materiality_artifact_paths(round_dir: Path) -> list[str]:
+    root = round_dir / "work" / "review_materiality"
+    if not root.is_dir():
+        return []
+    return [path.relative_to(round_dir).as_posix() for path in sorted(root.rglob("*.json")) if path.is_file()]
+
+
+def context_handoff_records(round_dir: Path, *, case_id: str, round_id: str) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for rel_path, validator in (
+        (EVIDENCE_CAPSULES_REL, validate_evidence_capsules_payload),
+        (CLAIM_REVIEW_BASIS_REL, validate_claim_review_basis_payload),
+    ):
+        path = round_dir / rel_path
+        record: dict[str, object] = {"path": rel_path, "status": "missing"}
+        digest = sha256_file(path)
+        if digest:
+            record["sha256"] = digest
+        if path.is_file():
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                record["status"] = "invalid"
+                record["errors"] = [f"invalid JSON: {exc}"]
+            else:
+                errors = validator(loaded, rel_path, round_dir=round_dir, case_id=case_id, round_id=round_id)
+                record["status"] = "current" if not errors else "invalid"
+                if errors:
+                    record["errors"] = errors[:5]
+        records.append(record)
+    return records
+
+
+def reusable_handoff_refs_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
+    lines = ["## Reusable Handoff Refs", ""]
+    for rel_path in REUSABLE_HANDOFF_REFS:
+        record = artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
+        hash_text = f", sha256={record['sha256']}" if "sha256" in record else ""
+        lines.append(f"- `{rel_path}` ({record['status']}{hash_text})")
+    lines.extend(
+        [
+            "",
+            "Use current common briefing, capsules, claim basis, reuse index, and structured handoffs before "
+            "opening broad raw sources.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def has_code_evidence(round_dir: Path) -> bool:
@@ -355,6 +601,200 @@ def previous_feedback_index(round_dir: Path, *, limit: int = 8) -> list[str]:
         if len(entries) >= limit:
             break
     return entries
+
+
+def build_common_briefing_payload(
+    case_id: str,
+    round_id: str,
+    round_dir: Path,
+) -> dict[str, object]:
+    case_dir = round_dir.parents[1]
+    repo_root = round_dir.parents[3]
+    review_records = tuple(
+        path.relative_to(round_dir).as_posix()
+        for path in sorted((round_dir / "work" / "reviews").glob("*.json"))
+        if path.is_file()
+    )
+    materiality_refs = tuple(materiality_artifact_paths(round_dir))
+    return {
+        "schema_version": COMMON_BRIEFING_SCHEMA_VERSION,
+        "case_id": case_id,
+        "round_id": round_id,
+        "common_constraints": list(COMMON_CONSTRAINTS),
+        "common_inputs": [artifact_record(case_dir, rel_path) for rel_path in CASE_INPUTS],
+        "reviewer_profile_inputs": [artifact_record(repo_root, rel_path) for rel_path in PROFILE_INPUTS],
+        "base_inputs": [
+            artifact_record(
+                round_dir,
+                rel_path,
+                case_id=case_id,
+                round_id=round_id,
+                validate_round_artifact=True,
+            )
+            for rel_path in COMMON_BRIEFING_BASE_INPUTS
+        ],
+        "available_round_inputs": top_level_paths(round_dir, "inputs"),
+        "available_round_notes": top_level_paths(round_dir, "notes"),
+        "extracted_text_refs": extracted_text_paths(round_dir),
+        "previous_feedback_refs": previous_feedback_index(round_dir),
+        "prepared_code_roots": [
+            artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
+            for rel_path in CODE_WORKSPACE_PATHS
+        ],
+        "snapshot_refs": [
+            artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
+            for rel_path in SNAPSHOT_SOURCE_PATHS + review_records
+        ],
+        "materiality_refs": [
+            artifact_record(
+                round_dir,
+                rel_path,
+                case_id=case_id,
+                round_id=round_id,
+                validate_round_artifact=True,
+            )
+            for rel_path in materiality_refs
+        ],
+        "advisory_artifacts": [
+            artifact_record(
+                round_dir,
+                rel_path,
+                case_id=case_id,
+                round_id=round_id,
+                validate_round_artifact=True,
+            )
+            for rel_path in COMMON_BRIEFING_ADVISORY_ARTIFACTS
+        ],
+        "context_handoffs": context_handoff_records(round_dir, case_id=case_id, round_id=round_id),
+        "open_full_artifact_triggers": [
+            "missing_anchor",
+            "contradiction",
+            "p0_p1_verification",
+            "grade_impact",
+            "reviewer_challenge",
+        ],
+        "limitations": [],
+    }
+
+
+def write_common_briefing(
+    case_id: str,
+    round_id: str,
+    generated_at: str,
+    round_dir: Path,
+) -> Path:
+    payload = build_common_briefing_payload(case_id, round_id, round_dir)
+    path = round_dir / COMMON_BRIEFING_REL
+    write_json_if_semantically_changed(path, payload, generated_at=generated_at)
+    return path
+
+
+def validate_common_briefing_artifact(
+    round_dir: Path,
+    *,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    path = round_dir / COMMON_BRIEFING_REL
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [f"{COMMON_BRIEFING_REL}: missing common briefing"]
+    except OSError as exc:
+        return [f"{COMMON_BRIEFING_REL}: cannot read common briefing: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [f"{COMMON_BRIEFING_REL}: invalid JSON: {exc.msg}"]
+    return validate_common_briefing_payload(
+        loaded, COMMON_BRIEFING_REL, round_dir=round_dir, case_id=case_id, round_id=round_id
+    )
+
+
+def validate_common_briefing_payload(
+    loaded: object,
+    rel_path: str = COMMON_BRIEFING_REL,
+    *,
+    round_dir: Path | None = None,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(loaded, dict):
+        return [f"{rel_path}: common briefing must be a JSON object"]
+    if loaded.get("schema_version") != COMMON_BRIEFING_SCHEMA_VERSION:
+        errors.append(f"{rel_path}: schema_version must be {COMMON_BRIEFING_SCHEMA_VERSION}")
+    if case_id is not None and loaded.get("case_id") != case_id:
+        errors.append(f"{rel_path}: case_id does not match requested case")
+    if round_id is not None and loaded.get("round_id") != round_id:
+        errors.append(f"{rel_path}: round_id does not match requested round")
+    for field in ("case_id", "round_id", "generated_at"):
+        if not isinstance(loaded.get(field), str) or not loaded[field]:
+            errors.append(f"{rel_path}: {field} must be non-empty str")
+    for field in (
+        "common_constraints",
+        "available_round_inputs",
+        "available_round_notes",
+        "extracted_text_refs",
+        "previous_feedback_refs",
+        "open_full_artifact_triggers",
+        "limitations",
+    ):
+        _validate_string_list_field(loaded, field, f"{rel_path}: {field}", errors)
+    for field, base in (
+        ("common_inputs", round_dir.parents[1] if round_dir is not None else None),
+        ("reviewer_profile_inputs", round_dir.parents[3] if round_dir is not None else None),
+        ("base_inputs", round_dir),
+        ("prepared_code_roots", round_dir),
+        ("snapshot_refs", round_dir),
+        ("materiality_refs", round_dir),
+        ("advisory_artifacts", round_dir),
+        ("context_handoffs", round_dir),
+    ):
+        _validate_record_list(loaded.get(field), f"{rel_path}: {field}", base, errors)
+    return errors
+
+
+def _validate_string_list_field(loaded: dict[str, object], field: str, prefix: str, errors: list[str]) -> None:
+    value = loaded.get(field)
+    if not isinstance(value, list):
+        errors.append(f"{prefix} must be list")
+        return
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, str):
+            errors.append(f"{prefix} item {index}: item must be str")
+
+
+def _validate_record_list(value: object, prefix: str, base_dir: Path | None, errors: list[str]) -> None:
+    if not isinstance(value, list):
+        errors.append(f"{prefix} must be list")
+        return
+    for index, item in enumerate(value, start=1):
+        item_prefix = f"{prefix} item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{item_prefix} must be object")
+            continue
+        path_value = item.get("path")
+        status = item.get("status")
+        if not isinstance(path_value, str) or not is_safe_round_relative_path(path_value):
+            errors.append(f"{item_prefix}: path must be a safe relative path")
+            continue
+        if status not in RECORD_STATUSES:
+            errors.append(f"{item_prefix}: status must be one of {sorted(RECORD_STATUSES)}")
+        digest = item.get("sha256")
+        if digest is not None and (not isinstance(digest, str) or not SHA256_RE.fullmatch(digest)):
+            errors.append(f"{item_prefix}: sha256 must be a 64-character hex string when present")
+        if base_dir is None:
+            continue
+        target = base_dir / path_value
+        if status == "missing" and digest is not None:
+            errors.append(f"{item_prefix}: missing records must not include sha256")
+        elif status in {"present", "current"} and not target.is_file():
+            errors.append(f"{item_prefix}: {status} records must point to an existing file")
+        elif target.is_file():
+            current = sha256_file(target)
+            if digest is None:
+                errors.append(f"{item_prefix}: existing file records must include sha256")
+            elif current != digest:
+                errors.append(f"{item_prefix}: sha256 is stale for {path_value}")
 
 
 def current_evidence_snapshot_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
