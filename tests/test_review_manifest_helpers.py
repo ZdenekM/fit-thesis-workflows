@@ -1342,6 +1342,13 @@ def test_merge_supporting_work_artifacts_preserves_registered_metadata(tmp_path:
             "role": "code-quality-reviewer",
             "agent": "agent-a",
             "limitations": ["Feeds synthesis only."],
+            "independent_review": {
+                "status": "not_required",
+                "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                "used_findings": "silent_internal_evidence:no_material_concern",
+                "evidence_hash": "old",
+            },
+            "source_sha256": {"inputs/source.pdf": "0" * 64},
         }
     ]
     generated = [
@@ -1357,6 +1364,8 @@ def test_merge_supporting_work_artifacts_preserves_registered_metadata(tmp_path:
     assert merged[0]["artifact_sha256"] == "new"
     assert merged[0]["role"] == "code-quality-reviewer"
     assert merged[0]["limitations"] == ["Feeds synthesis only."]
+    assert merged[0]["independent_review"]["used_findings"] == "silent_internal_evidence:no_material_concern"
+    assert merged[0]["source_sha256"] == {"inputs/source.pdf": "0" * 64}
 
 
 def test_register_artifact_rejects_paths_outside_round(tmp_path: Path) -> None:

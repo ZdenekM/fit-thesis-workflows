@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
     build_materiality_decisions,
+    sha256_file,
     unresolved_required_next_actions,
     validate_materiality_workflow_limitations,
     validate_review_materiality_artifact,
@@ -16,6 +17,7 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REPORT_REL,
     THESES_SIMILARITY_REVIEW_APPROVAL_REL,
     THESES_SIMILARITY_REVIEW_REL,
+    THESES_SIMILARITY_SILENT_USED_FINDINGS,
 )
 
 
@@ -76,6 +78,106 @@ def quantitative_claims_payload() -> dict[str, object]:
         "source_refs": ["inputs/results.csv"],
         "limitations": [],
     }
+
+
+def write_reviewed_supervisor_report_manifest(
+    round_dir: Path,
+    *,
+    supporting_path: str,
+    supporting_hash: str,
+    used_findings: str,
+) -> None:
+    final = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
+    final.parent.mkdir(parents=True, exist_ok=True)
+    final.write_text("# Reviewed Supervisor Report\n", encoding="utf-8")
+    final_hash = sha256_file(final)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "inputs": [],
+            "supporting_work_artifacts": [
+                {
+                    "path": supporting_path,
+                    "kind": "structured_data",
+                    "artifact_sha256": supporting_hash,
+                    "skills": ["thesis-theses-similarity-review", "thesis-quantitative-claims-review"],
+                    "producer_role": "thesis-theses-similarity-review",
+                    "producer_agent": "agent-a",
+                    "review_scope": "covered_by_synthesis",
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                        "used_findings": used_findings,
+                        "evidence_hash": supporting_hash,
+                    },
+                }
+            ],
+            "artifacts": [
+                {
+                    "path": "outputs/vedouci_posudek_revidovany.md",
+                    "artifact_sha256": final_hash,
+                    "skills": ["thesis-supervisor-report-review"],
+                    "generated_by": [{"role": "thesis-supervisor-report-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewer_role": "thesis-supervisor-report-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+
+def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
+    for rel_path, content in (
+        (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
+        (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Synthetic extracted similarity text.\n"),
+        (
+            THESES_SIMILARITY_INTAKE_REL,
+            json.dumps({"matched_passages": [{"passage_id": "passage-1"}]}).encode("utf-8"),
+        ),
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
+    write_json(
+        round_dir / THESES_SIMILARITY_ASSESSMENT_REL,
+        {
+            "schema_version": "theses-similarity-assessment-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-12T00:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "thesis-theses-similarity-review",
+            "producer_agent": "agent-sim",
+            "authorization_note": "Authorized in current request.",
+            "source_refs": refs,
+            "source_sha256": {ref: sha256_file(round_dir / ref) for ref in refs},
+            "current_submission_match": "matched",
+            "judgments": [
+                {
+                    "judgment_id": "S1",
+                    "source_ids": [1],
+                    "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
+                    "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
+                    "category": "no_material_concern",
+                    "rationale": "Synthetic no-concern structured judgment.",
+                    "confidence": "high",
+                    "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
+                    "synthesis_action": "silent",
+                    "requires_reviewer_verification": False,
+                    "limitations": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
 
 
 def test_text_only_supervisor_non_final_writes_only_index(tmp_path: Path) -> None:
@@ -435,6 +537,65 @@ def test_theses_similarity_final_review_without_assessment_stays_unresolved(tmp_
     )
 
 
+def test_final_supervisor_report_silent_similarity_assessment_needs_synthesis_marker(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_silent_theses_similarity_assessment(round_dir)
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_report" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert [item["role"] for item in index["next_actions"]] == ["theses_similarity"]
+
+    assessment_path = round_dir / THESES_SIMILARITY_ASSESSMENT_REL
+    write_reviewed_supervisor_report_manifest(
+        round_dir,
+        supporting_path=THESES_SIMILARITY_ASSESSMENT_REL,
+        supporting_hash=sha256_file(assessment_path),
+        used_findings=THESES_SIMILARITY_SILENT_USED_FINDINGS,
+    )
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-12T00:01:00Z",
+    )
+
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+    assert theses["coverage_required"] is True
+    assert theses["fresh_review_required"] is False
+    assert theses["coverage_satisfied_by"] == "silent_internal_evidence"
+    assert theses["coverage_state"] == "silent_internal_evidence"
+    assert index["next_actions"] == []
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert errors == []
+    assert unresolved == []
+
+
 def test_material_quantitative_next_action_resolves_after_current_handoff_exists(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     (round_dir / "inputs").mkdir()
@@ -500,6 +661,69 @@ def test_material_quantitative_current_handoff_splits_coverage_from_fresh_review
     assert quantitative["coverage_satisfied_by"] == "current_handoff"
     assert quantitative["coverage_state"] == "current_handoff"
     assert index["next_actions"] == []
+
+
+def test_final_supervisor_report_quantitative_handoff_requires_review_or_synthesis(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_report" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    assert quantitative["coverage_required"] is True
+    assert quantitative["fresh_review_required"] is True
+    assert quantitative["coverage_satisfied_by"] == "not_satisfied"
+    assert [item["role"] for item in index["next_actions"]] == ["quantitative_claims"]
+
+    quantitative_path = round_dir / "work" / "quantitative_claims.json"
+    write_reviewed_supervisor_report_manifest(
+        round_dir,
+        supporting_path="work/quantitative_claims.json",
+        supporting_hash=sha256_file(quantitative_path),
+        used_findings="quantitative_claims:covered_by_reviewed_supervisor_report",
+    )
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-11T00:01:00Z",
+    )
+
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    assert quantitative["fresh_review_required"] is False
+    assert quantitative["coverage_satisfied_by"] == "current_synthesis_covered_artifact"
+    assert index["next_actions"] == []
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert errors == []
+    assert unresolved == []
 
 
 def test_materiality_index_rejects_missing_source_hash_for_material_decision(tmp_path: Path) -> None:

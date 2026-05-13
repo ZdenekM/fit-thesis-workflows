@@ -26,6 +26,7 @@ from thesis_review_workflow.reuse import (
     source_classes_for_role,
 )
 from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_REVIEW_REL,
     theses_similarity_materiality_evidence_present,
 )
@@ -411,6 +412,15 @@ def quantitative_claims_present(round_dir: Path, manifest: dict[str, Any]) -> bo
     return False
 
 
+def theses_similarity_evidence_path(round_dir: Path, manifest: dict[str, Any]) -> str:
+    artifacts = artifact_by_path(manifest)
+    if (round_dir / THESES_SIMILARITY_REVIEW_REL).is_file() or THESES_SIMILARITY_REVIEW_REL in artifacts:
+        return THESES_SIMILARITY_REVIEW_REL
+    if (round_dir / THESES_SIMILARITY_ASSESSMENT_REL).is_file() or THESES_SIMILARITY_ASSESSMENT_REL in artifacts:
+        return THESES_SIMILARITY_ASSESSMENT_REL
+    return THESES_SIMILARITY_REVIEW_REL
+
+
 def media_evidence_present(round_dir: Path) -> bool:
     candidate_bases = (
         round_dir / "inputs" / "media",
@@ -522,11 +532,12 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
         )
 
     if final_paths and theses_similarity_materiality_evidence_present(round_dir):
+        evidence_path = theses_similarity_evidence_path(round_dir, manifest)
         specs["theses_similarity"] = RoleSpec(
             "theses_similarity",
             "Theses.cz similarity-report evidence is available and feeds a final/synthesis artifact",
             "thesis-theses-similarity-review",
-            THESES_SIMILARITY_REVIEW_REL,
+            evidence_path,
             final_paths,
         )
 

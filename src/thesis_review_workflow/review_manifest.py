@@ -612,7 +612,17 @@ def merge_supporting_work_artifacts(
         previous = existing_by_path.get(generated["path"])
         if isinstance(previous, dict):
             preserved = {**previous, **generated}
-            for key in ("role", "agent", "review_scope", "limitations", "feeds", "notes"):
+            for key in (
+                "role",
+                "agent",
+                "review_scope",
+                "limitations",
+                "feeds",
+                "notes",
+                "skills",
+                "independent_review",
+                "source_sha256",
+            ):
                 if key in previous and key not in generated:
                     preserved[key] = previous[key]
             merged.append(preserved)

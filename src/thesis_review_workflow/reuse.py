@@ -76,7 +76,9 @@ class ReuseStatus(StrEnum):
 
 class CoverageSatisfiedBy(StrEnum):
     CURRENT_REVIEWED_ARTIFACT = "current_reviewed_artifact"
+    CURRENT_SYNTHESIS_COVERED_ARTIFACT = "current_synthesis_covered_artifact"
     CURRENT_HANDOFF = "current_handoff"
+    SILENT_INTERNAL_EVIDENCE = "silent_internal_evidence"
     TYPED_NO_MATERIAL_ISSUE = "typed_no_material_issue"
     TYPED_LIMITATION = "typed_limitation"
     FRESH_ROLE_REVIEW = "fresh_role_review"
@@ -95,7 +97,9 @@ FRESH_REVIEW_SATISFYING_COVERAGE = frozenset({CoverageSatisfiedBy.FRESH_ROLE_REV
 REUSABLE_COVERAGE = frozenset(
     {
         CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT,
+        CoverageSatisfiedBy.CURRENT_SYNTHESIS_COVERED_ARTIFACT,
         CoverageSatisfiedBy.CURRENT_HANDOFF,
+        CoverageSatisfiedBy.SILENT_INTERNAL_EVIDENCE,
         CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE,
         CoverageSatisfiedBy.TYPED_LIMITATION,
     }

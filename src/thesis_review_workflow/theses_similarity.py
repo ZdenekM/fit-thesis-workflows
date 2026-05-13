@@ -65,6 +65,7 @@ SIMILARITY_UNRESOLVED_CATEGORIES = {
     "external_match_unresolved",
     "report_unusable_or_incomplete",
 }
+THESES_SIMILARITY_SILENT_USED_FINDINGS = "silent_internal_evidence:no_material_concern"
 
 REPORT_EVALUATED_RE = re.compile(r"\bvyhodnoceno:\s*(?P<value>.+)$", re.IGNORECASE)
 SIMILARITY_RE = re.compile(r"^Podobnost\s+(?P<value><\s*1|[0-9]+(?:[.,][0-9]+)?)\s*%$")

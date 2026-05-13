@@ -214,7 +214,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 3 - Structured Action Resolution For Quantitative And Similarity Evidence
 
-- Status: pending
+- Status: done
 - Proposed commit message: `feat(workflow): validate final report evidence actions`
 - Expected paths:
   - `src/thesis_review_workflow/review_materiality.py`
@@ -407,6 +407,19 @@ evidence, the intended path after this plan should be:
   tests/test_supervisor_report_packets.py tests/test_supervisor_report_closeout.py
   tests/test_review_materiality.py`, `scripts/smoke-supervisor-report`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 3 done. Final supervisor-report quantitative materiality now
+  requires a current structured artifact plus independent review, downstream
+  synthesis coverage, or a typed limitation. Theses.cz similarity materiality
+  now resolves through reviewed similarity evidence, typed limitation, or an
+  explicitly hash-bound silent no-concern assessment covered by the reviewed
+  supervisor-report synthesis. Added dedicated agent-coverage tests and kept
+  supporting work-artifact synthesis metadata across manifest refreshes.
+  Verification passed: `pants test tests/test_review_materiality.py
+  tests/test_review_wave_gate.py tests/test_agent_coverage.py
+  tests/test_workflow_python_contracts.py tests/test_work_artifacts.py
+  tests/test_review_manifest_helpers.py`, `scripts/smoke-review-wave`,
+  `scripts/smoke-agent-coverage`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 
