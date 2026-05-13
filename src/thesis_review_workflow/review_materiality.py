@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.reuse import CoverageSatisfiedBy, coverage_satisfies_without_fresh_review
 from thesis_review_workflow.structured_evidence import (
     CURRENT_EVIDENCE_SNAPSHOT_REL,
     validate_structured_evidence_artifact,
@@ -103,6 +104,24 @@ MATERIALITY_LIMITATION_TYPES = {
 }
 MATERIALITY_LIMITATION_STATUSES = {"accepted", "closed", "resolved"}
 MATERIALITY_LIMITATION_TRIGGER = "materiality_next_action"
+MATERIALITY_COVERAGE_STATES = {
+    "no_material_issue",
+    "typed_limitation",
+    "current_handoff",
+    "current_reviewed_artifact",
+    "fresh_review_required",
+    "not_satisfied",
+}
+MATERIALITY_ROLE_ARTIFACTS = {
+    "code_consistency": "outputs/code_consistency.md",
+    "code_quality": "outputs/code_quality_review.md",
+    "figure_media": "outputs/figure_media_review.md",
+    "typography_formal": "outputs/typography_formal_review.md",
+    "literature_citation": "outputs/literature_citation_review.md",
+    "github_intake": "outputs/github_code_intake.md",
+    "quantitative_claims": QUANTITATIVE_CLAIMS_REL.as_posix(),
+    "theses_similarity": THESES_SIMILARITY_REVIEW_REL,
+}
 
 ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:")
 
@@ -506,7 +525,12 @@ def build_materiality_decisions(
             if scope == "presentation_demo_boundary"
             else ("structural media inventory contains visual/media artifacts")
         )
-        refs = [str(record.get("path")) for record in media_records if isinstance(record.get("path"), str)]
+        refs = [MEDIA_INVENTORY_REL.as_posix()]
+        refs.extend(
+            str(record.get("path"))
+            for record in media_records
+            if isinstance(record.get("path"), str) and (round_dir / str(record.get("path"))).is_file()
+        )
         merge_material(decisions, workflow_profile, "figure_media", scope=scope, reason=reason, source_refs=refs)
     if media_refs:
         merge_material(
@@ -911,6 +935,88 @@ def _has_typed_limitation(
     return False
 
 
+def _artifact_has_current_independent_review(round_dir: Path, artifact_path: str) -> bool:
+    manifest, _ = load_json_object(round_dir / REVIEW_MANIFEST_REL)
+    if manifest is None:
+        return False
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return False
+    path = round_dir / artifact_path
+    if not path.is_file():
+        return False
+    current_hash = sha256_file(path)
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or artifact.get("path") != artifact_path:
+            continue
+        if artifact.get("artifact_sha256") not in {None, current_hash}:
+            return False
+        review = artifact.get("independent_review")
+        if not isinstance(review, dict):
+            return False
+        return review.get("reviewed_hash") == current_hash
+    return False
+
+
+def _artifact_is_current(round_dir: Path, artifact_path: str) -> bool:
+    return (round_dir / artifact_path).is_file() and not _artifact_stale_reasons(round_dir, artifact_path)
+
+
+def materiality_coverage_payload(
+    round_dir: Path,
+    decision: MaterialityDecision,
+    *,
+    workflow_profile: str,
+) -> dict[str, Any]:
+    if not decision.material:
+        return {
+            "coverage_required": False,
+            "fresh_review_required": False,
+            "coverage_satisfied_by": CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE.value,
+            "coverage_state": "no_material_issue",
+        }
+
+    if decision.role in NEXT_ACTION_ROLES and _has_typed_limitation(
+        round_dir,
+        decision.role,
+        workflow_profile=workflow_profile,
+    ):
+        return {
+            "coverage_required": True,
+            "fresh_review_required": False,
+            "coverage_satisfied_by": CoverageSatisfiedBy.TYPED_LIMITATION.value,
+            "coverage_state": "typed_limitation",
+        }
+
+    artifact_path = MATERIALITY_ROLE_ARTIFACTS.get(decision.role)
+    if artifact_path and _artifact_is_current(round_dir, artifact_path):
+        coverage = (
+            CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT
+            if _artifact_has_current_independent_review(round_dir, artifact_path)
+            else CoverageSatisfiedBy.CURRENT_HANDOFF
+        )
+        return {
+            "coverage_required": True,
+            "fresh_review_required": False,
+            "coverage_satisfied_by": coverage.value,
+            "coverage_state": coverage.value,
+        }
+
+    coverage = (
+        CoverageSatisfiedBy.NOT_SATISFIED
+        if decision.role in NEXT_ACTION_ROLES
+        else CoverageSatisfiedBy.FRESH_ROLE_REVIEW
+    )
+    return {
+        "coverage_required": True,
+        "fresh_review_required": True,
+        "coverage_satisfied_by": coverage.value,
+        "coverage_state": (
+            "fresh_review_required" if coverage == CoverageSatisfiedBy.FRESH_ROLE_REVIEW else "not_satisfied"
+        ),
+    }
+
+
 def decision_payload(
     round_dir: Path,
     decision: MaterialityDecision,
@@ -935,6 +1041,7 @@ def decision_payload(
     payload["source_refs"] = list(decision.source_refs)
     payload["source_sha256"] = source_hashes_for_refs(round_dir, decision.source_refs)
     payload["limitations"] = list(decision.limitations)
+    payload.update(materiality_coverage_payload(round_dir, decision, workflow_profile=workflow_profile))
     return payload
 
 
@@ -1028,6 +1135,66 @@ def source_ref_is_allowed(value: str) -> bool:
     return is_safe_round_relative_path(value) or value.startswith(ALLOWED_SYNTHETIC_REFS)
 
 
+def validate_materiality_coverage_fields(
+    item: dict[str, Any],
+    prefix: str,
+    *,
+    recommendation: str | None,
+) -> list[str]:
+    errors: list[str] = []
+    coverage_required = item.get("coverage_required")
+    fresh_required = item.get("fresh_review_required")
+    coverage_value = item.get("coverage_satisfied_by")
+    coverage_state = item.get("coverage_state")
+    if not isinstance(coverage_required, bool):
+        errors.append(f"{prefix}: coverage_required must be a boolean")
+    if not isinstance(fresh_required, bool):
+        errors.append(f"{prefix}: fresh_review_required must be a boolean")
+    coverage: CoverageSatisfiedBy | None = None
+    if not isinstance(coverage_value, str):
+        errors.append(f"{prefix}: coverage_satisfied_by must be a string")
+    else:
+        try:
+            coverage = CoverageSatisfiedBy(coverage_value)
+        except ValueError:
+            allowed = [item.value for item in CoverageSatisfiedBy]
+            errors.append(f"{prefix}: coverage_satisfied_by must be one of {allowed}")
+    if coverage_state not in MATERIALITY_COVERAGE_STATES:
+        errors.append(f"{prefix}: coverage_state must be one of {sorted(MATERIALITY_COVERAGE_STATES)}")
+    if recommendation in {"material", "not_material"} and isinstance(coverage_required, bool):
+        expected_required = recommendation == "material"
+        if coverage_required != expected_required:
+            errors.append(f"{prefix}: coverage_required must match recommendation={recommendation}")
+    if coverage_required is False and fresh_required is True:
+        errors.append(f"{prefix}: fresh_review_required must be false when coverage_required is false")
+    if fresh_required is False and coverage is not None and not coverage_satisfies_without_fresh_review(coverage):
+        errors.append(f"{prefix}: non-fresh coverage must use a reusable coverage_satisfied_by value")
+    if fresh_required is True and coverage in {
+        CoverageSatisfiedBy.CURRENT_HANDOFF,
+        CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT,
+        CoverageSatisfiedBy.TYPED_LIMITATION,
+        CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE,
+    }:
+        errors.append(f"{prefix}: reusable coverage_satisfied_by cannot require a fresh review")
+    if coverage is not None:
+        expected_state = {
+            CoverageSatisfiedBy.CURRENT_HANDOFF: "current_handoff",
+            CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT: "current_reviewed_artifact",
+            CoverageSatisfiedBy.TYPED_LIMITATION: "typed_limitation",
+            CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE: "no_material_issue",
+            CoverageSatisfiedBy.FRESH_ROLE_REVIEW: "fresh_review_required",
+            CoverageSatisfiedBy.NOT_SATISFIED: "not_satisfied",
+        }[coverage]
+        if coverage_state != expected_state:
+            errors.append(f"{prefix}: coverage_state must match coverage_satisfied_by={coverage.value}")
+    if recommendation == "not_material" and coverage is not None:
+        if coverage != CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE:
+            errors.append(f"{prefix}: not_material coverage_satisfied_by must be typed_no_material_issue")
+        if coverage_state != "no_material_issue":
+            errors.append(f"{prefix}: not_material coverage_state must be no_material_issue")
+    return errors
+
+
 def validate_materiality_decision_payload(
     payload: dict[str, Any],
     rel_path: str,
@@ -1062,6 +1229,13 @@ def validate_materiality_decision_payload(
                 errors.append(f"{rel_path}: role {role} must be stored under work/review_materiality/<profile>/")
     if payload.get("recommendation") != "material":
         errors.append(f"{rel_path}: packet materiality decision files must have recommendation=material")
+    errors.extend(
+        validate_materiality_coverage_fields(
+            payload,
+            rel_path,
+            recommendation=payload.get("recommendation") if isinstance(payload.get("recommendation"), str) else None,
+        )
+    )
     for field in ("scope", "impact", "reason", "generated_at", "producer_role"):
         value = payload.get(field)
         if not isinstance(value, str) or not value.strip():
@@ -1071,6 +1245,8 @@ def validate_materiality_decision_payload(
         errors.append(f"{rel_path}: source_refs must be a non-empty list")
     elif any(not isinstance(item, str) or not source_ref_is_allowed(item) for item in source_refs):
         errors.append(f"{rel_path}: source_refs must be safe round-relative paths or allowed synthetic refs")
+    else:
+        errors.extend(_validate_source_sha256_payload(payload.get("source_sha256"), rel_path, source_refs=source_refs))
     limitations = payload.get("limitations")
     if limitations is not None and not isinstance(limitations, list):
         errors.append(f"{rel_path}: limitations must be a list")
@@ -1166,17 +1342,28 @@ def load_review_materiality_index(
     return payload, errors
 
 
-def _validate_source_sha256_payload(value: Any, prefix: str) -> list[str]:
+def _validate_source_sha256_payload(
+    value: Any,
+    prefix: str,
+    *,
+    source_refs: list[str] | tuple[str, ...] = (),
+) -> list[str]:
     errors: list[str] = []
-    if value is None:
-        return errors
     if not isinstance(value, dict):
-        return [f"{prefix}: source_sha256 must be an object when present"]
+        return [f"{prefix}: source_sha256 must be an object"]
     for ref, digest in value.items():
         if not isinstance(ref, str) or not is_safe_round_relative_path(ref):
             errors.append(f"{prefix}: source_sha256 keys must be safe round-relative paths")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             errors.append(f"{prefix}: source_sha256 values must be sha256 hex strings")
+    for ref in source_refs:
+        if (
+            isinstance(ref, str)
+            and not ref.startswith(ALLOWED_SYNTHETIC_REFS)
+            and is_safe_round_relative_path(ref)
+            and ref not in value
+        ):
+            errors.append(f"{prefix}: source_sha256 missing hash for source_ref {ref}")
     return errors
 
 
@@ -1202,6 +1389,13 @@ def _index_decisions_from_payload(
         if recommendation not in {"material", "not_material"}:
             errors.append(f"{prefix}: recommendation must be material or not_material")
             continue
+        errors.extend(
+            validate_materiality_coverage_fields(
+                item,
+                prefix,
+                recommendation=str(recommendation),
+            )
+        )
         fields: dict[str, str] = {}
         for field in ("scope", "impact", "reason"):
             value = item.get(field)
@@ -1225,7 +1419,7 @@ def _index_decisions_from_payload(
         else:
             limitation_values = tuple(str(value) for value in limitations if isinstance(value, str))
         source_hashes = item.get("source_sha256")
-        hash_errors = _validate_source_sha256_payload(source_hashes, prefix)
+        hash_errors = _validate_source_sha256_payload(source_hashes, prefix, source_refs=refs)
         errors.extend(hash_errors)
         if isinstance(source_hashes, dict) and not hash_errors:
             hashes_by_role[str(role)] = {str(ref): str(digest) for ref, digest in source_hashes.items()}

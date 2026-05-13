@@ -104,6 +104,12 @@ def test_text_only_supervisor_non_final_writes_only_index(tmp_path: Path) -> Non
     assert [path.relative_to(round_dir).as_posix() for path in written] == [
         "work/review_materiality/supervisor_feedback/index.json"
     ]
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json").read_text(encoding="utf-8")
+    )
+    assert all(item["coverage_required"] is False for item in index["decisions"])
+    assert all(item["fresh_review_required"] is False for item in index["decisions"])
+    assert {item["coverage_satisfied_by"] for item in index["decisions"]} == {"typed_no_material_issue"}
     assert not (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json").exists()
 
 
@@ -462,6 +468,115 @@ def test_material_quantitative_next_action_resolves_after_current_handoff_exists
     assert unresolved == []
 
 
+def test_material_quantitative_current_handoff_splits_coverage_from_fresh_review(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json").read_text(encoding="utf-8")
+    )
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    assert quantitative["coverage_required"] is True
+    assert quantitative["fresh_review_required"] is False
+    assert quantitative["coverage_satisfied_by"] == "current_handoff"
+    assert quantitative["coverage_state"] == "current_handoff"
+    assert index["next_actions"] == []
+
+
+def test_materiality_index_rejects_missing_source_hash_for_material_decision(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    quantitative["source_sha256"] = {}
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert unresolved == []
+    assert any("source_sha256 missing hash for source_ref inputs/results.csv" in error for error in errors)
+
+
+def test_materiality_index_rejects_inconsistent_coverage_state(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    quantitative["coverage_state"] = "current_reviewed_artifact"
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert unresolved == []
+    assert any("coverage_state must match coverage_satisfied_by=current_handoff" in error for error in errors)
+
+
 def test_material_quantitative_next_action_stays_unresolved_when_source_hash_changes(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     (round_dir / "inputs").mkdir()
@@ -545,6 +660,11 @@ def test_material_github_intake_next_action_resolves_with_typed_limitation(tmp_p
         (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json").read_text(encoding="utf-8")
     )
     assert index["next_actions"] == []
+    github = next(item for item in index["decisions"] if item["role"] == "github_intake")
+    assert github["coverage_required"] is True
+    assert github["fresh_review_required"] is False
+    assert github["coverage_satisfied_by"] == "typed_limitation"
+    assert github["coverage_state"] == "typed_limitation"
 
 
 def test_materiality_limitation_requires_typed_contract() -> None:

@@ -91,6 +91,21 @@ class NextAction(StrEnum):
     NOT_COMPARABLE_BACKFILL = "not_comparable_backfill"
 
 
+FRESH_REVIEW_SATISFYING_COVERAGE = frozenset({CoverageSatisfiedBy.FRESH_ROLE_REVIEW})
+REUSABLE_COVERAGE = frozenset(
+    {
+        CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT,
+        CoverageSatisfiedBy.CURRENT_HANDOFF,
+        CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE,
+        CoverageSatisfiedBy.TYPED_LIMITATION,
+    }
+)
+
+
+def coverage_satisfies_without_fresh_review(value: CoverageSatisfiedBy | str) -> bool:
+    return coerce_coverage(value) in REUSABLE_COVERAGE
+
+
 ROLE_SOURCE_DEPENDENCIES: dict[ArtifactRole, frozenset[SourceClass]] = {
     ArtifactRole.TEXT_ASSIGNMENT: frozenset(
         {

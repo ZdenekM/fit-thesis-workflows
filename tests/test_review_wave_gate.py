@@ -1,6 +1,8 @@
 import json
+import zipfile
 from pathlib import Path
 
+from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.review_approvals import sha256_file
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, validate_wave
@@ -395,3 +397,210 @@ def test_wave_gate_requires_materiality_index_for_synthesis_waves(tmp_path: Path
     )
 
     assert any("work/review_materiality/supervisor_feedback/index.json: missing" in error for error in result.errors)
+
+
+def test_final_wave_gate_requires_review_manifest_for_agent_coverage(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="not_material",
+                scope="synthetic",
+                impact="none",
+                reason="no visual evidence in this synthetic wave",
+                source_refs=("workflow-profile:supervisor_feedback",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="non_final",
+        generated_at="2026-05-13T00:00:00Z",
+    )
+    spec_path = round_dir / "work" / "wave.json"
+    write_json(
+        spec_path,
+        {
+            "workflow": "supervisor_feedback",
+            "wave": "final",
+            "outputs": [{"role": "feedback", "path": "outputs/feedback_student.md"}],
+        },
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        load_wave_spec(spec_path),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert "agent coverage: work/review_manifest.json is required for final/reviewed waves" in result.errors
+
+
+def test_wave_gate_consumes_agent_coverage_reuse_state(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    consistency_output = round_dir / "outputs" / "code_consistency.md"
+    quality_output = round_dir / "outputs" / "code_quality_review.md"
+    thesis_extract = round_dir / "extracted" / "thesis.txt"
+    code_archive = round_dir / "inputs" / "code.zip"
+    final_output.parent.mkdir(parents=True)
+    thesis_extract.parent.mkdir(parents=True)
+    code_archive.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    consistency_output.write_text("# Code Consistency\n", encoding="utf-8")
+    quality_output.write_text("# Code Quality\n", encoding="utf-8")
+    thesis_extract.write_text("Changed implementation claim.\n", encoding="utf-8")
+    with zipfile.ZipFile(code_archive, "w") as handle:
+        handle.writestr("project/src/main.py", "print('synthetic')\n")
+    final_hash = sha256_file(final_output)
+    consistency_hash = sha256_file(consistency_output)
+    quality_hash = sha256_file(quality_output)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "inputs": [{"path": "inputs/code.zip", "kind": "archive"}],
+            "supporting_work_artifacts": [],
+            "artifacts": [
+                {
+                    "path": "outputs/feedback_student.md",
+                    "artifact_sha256": final_hash,
+                    "skills": ["thesis-supervisor-feedback-review"],
+                    "generated_by": [{"role": "thesis-supervisor-feedback-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "reviewer_role": "thesis-supervisor-feedback-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                },
+                {
+                    "path": "outputs/code_consistency.md",
+                    "artifact_sha256": consistency_hash,
+                    "skills": ["thesis-code-consistency"],
+                    "generated_by": [{"role": "thesis-code-consistency", "agent": "code-a"}],
+                    "independent_review": {
+                        "reviewer_role": "thesis-code-consistency",
+                        "reviewer_agent": "code-reviewer",
+                        "reviewed_hash": consistency_hash,
+                    },
+                },
+                {
+                    "path": "outputs/code_quality_review.md",
+                    "artifact_sha256": quality_hash,
+                    "skills": ["thesis-code-quality-review"],
+                    "generated_by": [{"role": "thesis-code-quality-review", "agent": "quality-a"}],
+                    "independent_review": {
+                        "reviewer_role": "thesis-code-quality-review",
+                        "reviewer_agent": "quality-reviewer",
+                        "reviewed_hash": quality_hash,
+                    },
+                },
+            ],
+        },
+    )
+    write_json(
+        round_dir / "work" / "reuse" / "reuse_index.json",
+        {
+            "schema_version": agent_coverage.REUSE_INDEX_SCHEMA_VERSION,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-13T00:00:00Z",
+            "producer": "update-round-reuse-index",
+            "current_source_fingerprints": [],
+            "previous_round_candidates": [],
+            "limitations": [],
+            "decisions": [
+                {
+                    "artifact_role": "code_consistency",
+                    "status": "changed_delta_required",
+                    "fresh_semantic_review_required": True,
+                    "coverage_satisfied_by": "not_satisfied",
+                    "next_action": "delta_review",
+                    "relevant_source_classes": ["submitted_code", "thesis_extract"],
+                    "source_sha256": {
+                        "inputs/code.zip": sha256_file(code_archive),
+                        "extracted/thesis.txt": sha256_file(thesis_extract),
+                    },
+                    "unchanged_refs": ["inputs/code.zip"],
+                    "changed_refs": ["extracted/thesis.txt"],
+                    "added_refs": [],
+                    "removed_refs": [],
+                    "missing_current_refs": [],
+                    "not_comparable_refs": [],
+                    "reasons": ["role-relevant source changed"],
+                },
+                {
+                    "artifact_role": "code_quality",
+                    "status": "unchanged_reusable",
+                    "fresh_semantic_review_required": False,
+                    "coverage_satisfied_by": "current_reviewed_artifact",
+                    "next_action": "reuse_existing_review",
+                    "relevant_source_classes": ["submitted_code"],
+                    "source_sha256": {"inputs/code.zip": sha256_file(code_archive)},
+                    "unchanged_refs": ["inputs/code.zip"],
+                    "changed_refs": [],
+                    "added_refs": [],
+                    "removed_refs": [],
+                    "missing_current_refs": [],
+                    "not_comparable_refs": [],
+                    "reasons": ["role-relevant sources unchanged and reviewed coverage is current"],
+                },
+            ],
+        },
+    )
+    manifest = json.loads((round_dir / "work" / "review_manifest.json").read_text(encoding="utf-8"))
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    code_role = next(item for item in coverage["roles"] if item["role"] == "code_consistency")
+    code_role["fresh_review_required"] = False
+    code_role["coverage_satisfied_by"] = "current_reviewed_artifact"
+    write_json(round_dir / "work" / "agent_coverage.json", coverage)
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="not_material",
+                scope="synthetic",
+                impact="none",
+                reason="no visual evidence in this synthetic wave",
+                source_refs=("workflow-profile:supervisor_feedback",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="non_final",
+        generated_at="2026-05-13T00:00:00Z",
+    )
+    spec_path = round_dir / "work" / "wave.json"
+    write_json(
+        spec_path,
+        {
+            "workflow": "supervisor_feedback",
+            "wave": "final",
+            "outputs": [{"role": "feedback", "path": "outputs/feedback_student.md"}],
+        },
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        load_wave_spec(spec_path),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any(
+        "agent coverage: code_consistency: reuse decision must be unchanged_reusable" in error
+        for error in result.errors
+    )

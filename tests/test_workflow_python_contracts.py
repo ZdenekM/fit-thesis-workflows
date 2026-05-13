@@ -298,6 +298,229 @@ def test_agent_coverage_code_trigger_uses_archive_entries_before_filename(tmp_pa
     assert specs["code_quality"].trigger == "code evidence is available and feeds a final/synthesis artifact"
 
 
+def make_reuse_aware_code_round(tmp_path: Path, *, consistency_status: str = "unchanged_reusable") -> tuple[Path, dict]:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "feedback_student.md"
+    code_consistency = round_dir / "outputs" / "code_consistency.md"
+    code_quality = round_dir / "outputs" / "code_quality_review.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Feedback\n", encoding="utf-8")
+    code_consistency.write_text("# Code Consistency\n", encoding="utf-8")
+    code_quality.write_text("# Code Quality\n", encoding="utf-8")
+    role_source_paths = {
+        "assignment": "inputs/assignment.md",
+        "thesis_pdf": "inputs/thesis.pdf",
+        "thesis_extract": "extracted/thesis.txt",
+        "thesis_source": "inputs/thesis-source.zip",
+        "submitted_code": "inputs/code.zip",
+        "code_workspace": "work/code/app.py",
+        "github_snapshot": "inputs/github-snapshot.json",
+        "readme_config": "work/code/README.md",
+        "experiment_result": "inputs/results.csv",
+        "operator_note": "notes/operator.md",
+    }
+    for source_class, rel_path in role_source_paths.items():
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if rel_path.endswith(".zip"):
+            with zipfile.ZipFile(path, "w") as handle:
+                handle.writestr("project/src/main.py", f"# synthetic {source_class}\n")
+        else:
+            path.write_text(f"synthetic {source_class}\n", encoding="utf-8")
+    source_records = [
+        {
+            "source_ref": rel_path,
+            "source_class": source_class,
+            "sha256": agent_coverage.sha256_file(round_dir / rel_path),
+            "available": True,
+            "state": "comparable",
+            "schema_version": "test-v1",
+            "producer": "test",
+        }
+        for source_class, rel_path in role_source_paths.items()
+    ]
+    hashes_by_class = {
+        str(record["source_class"]): {str(record["source_ref"]): str(record["sha256"])} for record in source_records
+    }
+    code_consistency_classes = [
+        "assignment",
+        "thesis_pdf",
+        "thesis_extract",
+        "thesis_source",
+        "submitted_code",
+        "code_workspace",
+        "github_snapshot",
+        "readme_config",
+        "experiment_result",
+        "operator_note",
+    ]
+    code_quality_classes = [
+        "submitted_code",
+        "code_workspace",
+        "github_snapshot",
+        "readme_config",
+        "experiment_result",
+        "operator_note",
+    ]
+    consistency_sources = {
+        ref: digest
+        for source_class in code_consistency_classes
+        for ref, digest in hashes_by_class[source_class].items()
+    }
+    quality_sources = {
+        ref: digest for source_class in code_quality_classes for ref, digest in hashes_by_class[source_class].items()
+    }
+    final_hash = agent_coverage.sha256_file(final_output)
+    consistency_hash = agent_coverage.sha256_file(code_consistency)
+    quality_hash = agent_coverage.sha256_file(code_quality)
+    manifest = {
+        "inputs": [{"path": "inputs/code.zip", "kind": "archive"}],
+        "supporting_work_artifacts": [],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "artifact_sha256": final_hash,
+                "skills": ["thesis-supervisor-feedback-review"],
+                "generated_by": [{"role": "thesis-supervisor-feedback-review", "agent": "reviewer-a"}],
+                "independent_review": {
+                    "reviewer_role": "thesis-supervisor-feedback-review",
+                    "reviewer_agent": "reviewer-b",
+                    "reviewed_hash": final_hash,
+                },
+            },
+            {
+                "path": "outputs/code_consistency.md",
+                "artifact_sha256": consistency_hash,
+                "skills": ["thesis-code-consistency"],
+                "generated_by": [{"role": "thesis-code-consistency", "agent": "code-consistency-a"}],
+                "independent_review": {
+                    "reviewer_role": "thesis-code-consistency",
+                    "reviewer_agent": "code-consistency-reviewer",
+                    "reviewed_hash": consistency_hash,
+                },
+            },
+            {
+                "path": "outputs/code_quality_review.md",
+                "artifact_sha256": quality_hash,
+                "skills": ["thesis-code-quality-review"],
+                "generated_by": [{"role": "thesis-code-quality-review", "agent": "code-quality-a"}],
+                "independent_review": {
+                    "reviewer_role": "thesis-code-quality-review",
+                    "reviewer_agent": "code-quality-reviewer",
+                    "reviewed_hash": quality_hash,
+                },
+            },
+        ],
+    }
+    status_is_reusable = consistency_status == "unchanged_reusable"
+    consistency_decision = {
+        "artifact_role": "code_consistency",
+        "status": consistency_status,
+        "fresh_semantic_review_required": not status_is_reusable,
+        "coverage_satisfied_by": "current_reviewed_artifact" if status_is_reusable else "not_satisfied",
+        "next_action": "reuse_existing_review" if status_is_reusable else "delta_review",
+        "relevant_source_classes": code_consistency_classes,
+        "source_sha256": consistency_sources,
+        "unchanged_refs": (
+            sorted(set(consistency_sources) - {"extracted/thesis.txt"})
+            if not status_is_reusable
+            else sorted(consistency_sources)
+        ),
+        "changed_refs": ["extracted/thesis.txt"] if not status_is_reusable else [],
+        "added_refs": [],
+        "removed_refs": [],
+        "missing_current_refs": [],
+        "not_comparable_refs": [],
+        "missing_current_source_classes": [],
+        "missing_prior_source_classes": [],
+        "reasons": (
+            ["role-relevant source changed"]
+            if not status_is_reusable
+            else ["role-relevant sources unchanged and reviewed coverage is current"]
+        ),
+    }
+    quality_decision = {
+        "artifact_role": "code_quality",
+        "status": "unchanged_reusable",
+        "fresh_semantic_review_required": False,
+        "coverage_satisfied_by": "current_reviewed_artifact",
+        "next_action": "reuse_existing_review",
+        "relevant_source_classes": code_quality_classes,
+        "source_sha256": quality_sources,
+        "unchanged_refs": sorted(quality_sources),
+        "changed_refs": [],
+        "added_refs": [],
+        "removed_refs": [],
+        "missing_current_refs": [],
+        "not_comparable_refs": [],
+        "missing_current_source_classes": [],
+        "missing_prior_source_classes": [],
+        "reasons": ["role-relevant sources unchanged and reviewed coverage is current"],
+    }
+    reuse_index = {
+        "schema_version": agent_coverage.REUSE_INDEX_SCHEMA_VERSION,
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-13T00:00:00Z",
+        "producer": "update-round-reuse-index",
+        "current_source_fingerprints": source_records,
+        "previous_round_candidates": [],
+        "decisions": [consistency_decision, quality_decision],
+        "limitations": [],
+    }
+    reuse_path = round_dir / agent_coverage.REUSE_INDEX_REL
+    reuse_path.parent.mkdir(parents=True)
+    reuse_path.write_text(json.dumps(reuse_index, indent=2) + "\n", encoding="utf-8")
+    return round_dir, manifest
+
+
+def test_agent_coverage_accepts_reuse_backed_code_roles_without_fresh_review(tmp_path: Path) -> None:
+    round_dir, manifest = make_reuse_aware_code_round(tmp_path)
+
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert coverage is not None
+    roles = {item["role"]: item for item in coverage["roles"]}
+    assert roles["code_consistency"]["fresh_review_required"] is False
+    assert roles["code_consistency"]["coverage_satisfied_by"] == "current_reviewed_artifact"
+    assert roles["code_quality"]["fresh_review_required"] is False
+    assert roles["code_quality"]["coverage_satisfied_by"] == "current_reviewed_artifact"
+    assert errors == []
+    assert warnings == []
+
+
+def test_agent_coverage_rejects_incomplete_reuse_source_hashes(tmp_path: Path) -> None:
+    round_dir, manifest = make_reuse_aware_code_round(tmp_path)
+    reuse_path = round_dir / agent_coverage.REUSE_INDEX_REL
+    reuse_index = json.loads(reuse_path.read_text(encoding="utf-8"))
+    consistency = next(item for item in reuse_index["decisions"] if item["artifact_role"] == "code_consistency")
+    consistency["source_sha256"].pop("extracted/thesis.txt")
+    reuse_path.write_text(json.dumps(reuse_index, indent=2) + "\n", encoding="utf-8")
+
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    errors, _ = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert any("source_sha256 must match current role source fingerprints" in error for error in errors)
+
+
+def test_agent_coverage_keeps_changed_code_consistency_claims_on_delta_path(tmp_path: Path) -> None:
+    round_dir, manifest = make_reuse_aware_code_round(tmp_path, consistency_status="changed_delta_required")
+
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    roles = {item["role"]: item for item in coverage["roles"]}
+    assert roles["code_consistency"]["fresh_review_required"] is True
+    assert roles["code_consistency"]["coverage_satisfied_by"] == "fresh_role_review"
+    assert roles["code_consistency"]["reuse_status"] == "changed_delta_required"
+    roles["code_consistency"]["fresh_review_required"] = False
+    roles["code_consistency"]["coverage_satisfied_by"] = "current_reviewed_artifact"
+
+    errors, _ = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert any("reuse decision must be unchanged_reusable" in error for error in errors)
+
+
 def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     final_output = round_dir / "outputs" / "feedback_student.md"

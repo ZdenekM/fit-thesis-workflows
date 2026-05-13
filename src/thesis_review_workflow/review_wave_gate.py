@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import require_review_approval_path, validate_review_approval_artifact
@@ -540,6 +541,7 @@ def validate_wave(
 ) -> GateResult:
     result = GateResult()
     check_materiality_next_actions(round_dir, spec, case_id=case_id, round_id=round_id, result=result)
+    check_agent_coverage(round_dir, spec, case_id=case_id, round_id=round_id, result=result)
     for expected in spec.outputs:
         result.merge(
             validate_expected_output(
@@ -552,6 +554,48 @@ def validate_wave(
             )
         )
     return result
+
+
+def check_agent_coverage(
+    round_dir: Path,
+    spec: WaveSpec,
+    *,
+    case_id: str,
+    round_id: str,
+    result: GateResult,
+) -> None:
+    if not agent_coverage_wave(spec):
+        return
+    manifest_path = round_dir / "work" / "review_manifest.json"
+    coverage_path = round_dir / agent_coverage.COVERAGE_REL
+    if not manifest_path.is_file():
+        result.errors.append("agent coverage: work/review_manifest.json is required for final/reviewed waves")
+        return
+    try:
+        manifest = agent_coverage.load_json_object(manifest_path)
+        coverage = agent_coverage.load_json_object(coverage_path) if coverage_path.is_file() else None
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        result.errors.append(f"agent coverage: could not load coverage inputs: {exc}")
+        return
+    if manifest is None:
+        result.errors.append("agent coverage: work/review_manifest.json must contain a JSON object")
+        return
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, case_id, round_id, round_dir)
+    result.errors.extend(f"agent coverage: {error}" for error in errors)
+    result.warnings.extend(f"agent coverage: {warning}" for warning in warnings)
+    if not errors:
+        result.passed.append("agent coverage clear")
+
+
+def agent_coverage_wave(spec: WaveSpec) -> bool:
+    workflow = spec.workflow.replace("-", "_")
+    wave = spec.wave.replace("-", "_")
+    return (workflow, wave) in {
+        ("supervisor_feedback", "final"),
+        ("supervisor_report", "final"),
+        ("opponent_materials", "reviewed"),
+        ("opponent_report_review", "final"),
+    }
 
 
 def check_materiality_next_actions(

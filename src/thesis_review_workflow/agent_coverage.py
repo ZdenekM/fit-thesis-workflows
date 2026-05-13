@@ -15,14 +15,30 @@ from typing import Any
 
 from thesis_review_workflow.artifact_registry import final_output_paths, opponent_final_output_paths
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.reuse import (
+    REUSE_INDEX_SCHEMA_VERSION,
+    ArtifactRole,
+    CoverageSatisfiedBy,
+    NextAction,
+    ReuseStatus,
+    SourceClass,
+    coverage_satisfies_without_fresh_review,
+    source_classes_for_role,
+)
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
     theses_similarity_materiality_evidence_present,
 )
 
 COVERAGE_REL = Path("work/agent_coverage.json")
+REUSE_INDEX_REL = Path("work/reuse/reuse_index.json")
 SCHEMA_VERSION = "agent-coverage-v1"
 ROLE_STATUSES = {"required", "blocked", "not_applicable"}
+REUSE_AWARE_ROLES = {"code_consistency", "code_quality"}
+ROLE_TO_REUSE_ARTIFACT = {
+    "code_consistency": "code_consistency",
+    "code_quality": "code_quality",
+}
 LIMITATION_TYPES = {
     "unavailable_evidence",
     "unavailable_tool",
@@ -166,6 +182,77 @@ def artifact_by_path(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if isinstance(artifact, dict) and isinstance(artifact.get("path"), str):
                 result.setdefault(artifact["path"], artifact)
     return result
+
+
+def load_reuse_index(round_dir: Path) -> dict[str, Any] | None:
+    try:
+        return load_json_object(round_dir / REUSE_INDEX_REL)
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def reuse_decision_for_role(round_dir: Path, role: str) -> dict[str, Any] | None:
+    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    if artifact_role is None:
+        return None
+    index = load_reuse_index(round_dir)
+    if not index:
+        return None
+    decisions = index.get("decisions")
+    if not isinstance(decisions, list):
+        return None
+    for decision in decisions:
+        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role:
+            return decision
+    return None
+
+
+def reuse_decisions_for_role(index: dict[str, Any], role: str) -> list[dict[str, Any]]:
+    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    decisions = index.get("decisions")
+    if artifact_role is None or not isinstance(decisions, list):
+        return []
+    return [
+        decision
+        for decision in decisions
+        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role
+    ]
+
+
+def reuse_fields_for_role(round_dir: Path, role: str, artifact: dict[str, Any] | None) -> dict[str, Any]:
+    decision = reuse_decision_for_role(round_dir, role)
+    artifact_present = artifact is not None
+    fields: dict[str, Any] = {
+        "coverage_required": True,
+        "fresh_review_required": True,
+        "coverage_satisfied_by": (
+            CoverageSatisfiedBy.FRESH_ROLE_REVIEW.value if artifact_present else CoverageSatisfiedBy.NOT_SATISFIED.value
+        ),
+        "reuse_index_path": REUSE_INDEX_REL.as_posix() if decision else "",
+        "reuse_status": "",
+        "reuse_next_action": "",
+    }
+    if role not in REUSE_AWARE_ROLES or decision is None:
+        return fields
+
+    status = decision.get("status")
+    fields["reuse_status"] = status if isinstance(status, str) else ""
+    next_action = decision.get("next_action")
+    fields["reuse_next_action"] = next_action if isinstance(next_action, str) else ""
+    if (
+        artifact_present
+        and status == ReuseStatus.UNCHANGED_REUSABLE.value
+        and decision.get("fresh_semantic_review_required") is False
+        and decision.get("coverage_satisfied_by") == CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT.value
+    ):
+        fields["fresh_review_required"] = False
+        fields["coverage_satisfied_by"] = CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT.value
+    elif status == ReuseStatus.CHANGED_DELTA_REQUIRED.value:
+        fields["fresh_review_required"] = True
+        fields["coverage_satisfied_by"] = (
+            CoverageSatisfiedBy.FRESH_ROLE_REVIEW.value if artifact_present else CoverageSatisfiedBy.NOT_SATISFIED.value
+        )
+    return fields
 
 
 def output_paths(round_dir: Path) -> set[str]:
@@ -567,12 +654,12 @@ def review_fields(
     return reviewer_role, reviewer_agent, ""
 
 
-def role_record_from_spec(spec: RoleSpec, artifacts: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def role_record_from_spec(spec: RoleSpec, artifacts: dict[str, dict[str, Any]], round_dir: Path) -> dict[str, Any]:
     artifact = artifacts.get(spec.evidence_path)
     generator_role, generator_agent = first_recorded_generator(artifact)
     reviewer_role, reviewer_agent, reviewed_hash = review_fields(artifact, artifacts)
     evidence = [spec.evidence_path] if artifact else []
-    return {
+    record = {
         "role": spec.role,
         "status": "required",
         "trigger": spec.trigger,
@@ -587,6 +674,8 @@ def role_record_from_spec(spec: RoleSpec, artifacts: dict[str, dict[str, Any]]) 
         "typed_limitation": {},
         "notes": "",
     }
+    record.update(reuse_fields_for_role(round_dir, spec.role, artifact))
+    return record
 
 
 def merge_role_record(generated: dict[str, Any], previous: dict[str, Any] | None) -> dict[str, Any]:
@@ -616,6 +705,12 @@ def stale_role_record(previous: dict[str, Any]) -> dict[str, Any]:
     stale["reviewer_agent"] = "not_recorded"
     stale["reviewed_hash"] = ""
     stale["typed_limitation"] = {}
+    stale["coverage_required"] = False
+    stale["fresh_review_required"] = False
+    stale["coverage_satisfied_by"] = CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE.value
+    stale["reuse_index_path"] = ""
+    stale["reuse_status"] = ""
+    stale["reuse_next_action"] = ""
     stale["notes"] = "Preserved from previous coverage but no longer inferred for this round state."
     return stale
 
@@ -640,7 +735,9 @@ def build_coverage(
     artifacts = artifact_by_path(manifest)
     roles = []
     for role in sorted(specs):
-        roles.append(merge_role_record(role_record_from_spec(specs[role], artifacts), previous_roles.get(role)))
+        roles.append(
+            merge_role_record(role_record_from_spec(specs[role], artifacts, round_dir), previous_roles.get(role))
+        )
     for role, previous in sorted(previous_roles.items()):
         if role not in specs:
             roles.append(stale_role_record(previous))
@@ -662,6 +759,121 @@ def write_coverage(path: Path, coverage: dict[str, Any] | None) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def validate_reuse_index_decision_for_coverage(
+    round_dir: Path,
+    *,
+    role: str,
+    case_id: str,
+    round_id: str,
+) -> list[str]:
+    errors: list[str] = []
+    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    if artifact_role is None:
+        return [f"{role}: fresh_review_required=false is only supported for reuse-aware roles"]
+    index = load_reuse_index(round_dir)
+    if index is None:
+        return [f"{role}: fresh_review_required=false requires {REUSE_INDEX_REL.as_posix()}"]
+    if index.get("schema_version") != REUSE_INDEX_SCHEMA_VERSION:
+        errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} schema_version must be {REUSE_INDEX_SCHEMA_VERSION}")
+    if index.get("case_id") != case_id:
+        errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} case_id must be {case_id}")
+    if index.get("round_id") != round_id:
+        errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} round_id must be {round_id}")
+    decisions = reuse_decisions_for_role(index, role)
+    if not decisions:
+        return errors + [f"{role}: {REUSE_INDEX_REL.as_posix()} has no decision for {artifact_role}"]
+    if len(decisions) > 1:
+        errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} must contain exactly one decision for {artifact_role}")
+    decision = decisions[0]
+    if decision.get("status") != ReuseStatus.UNCHANGED_REUSABLE.value:
+        errors.append(f"{role}: reuse decision must be unchanged_reusable to skip a fresh semantic review")
+    if decision.get("fresh_semantic_review_required") is not False:
+        errors.append(f"{role}: reuse decision must set fresh_semantic_review_required=false")
+    if decision.get("coverage_satisfied_by") != CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT.value:
+        errors.append(f"{role}: reuse decision must be satisfied by current_reviewed_artifact")
+    if decision.get("next_action") != NextAction.REUSE_EXISTING_REVIEW.value:
+        errors.append(f"{role}: reuse decision next_action must be reuse_existing_review")
+    for field in ("changed_refs", "added_refs", "removed_refs", "missing_current_refs", "not_comparable_refs"):
+        values = decision.get(field)
+        if values != []:
+            errors.append(f"{role}: reuse decision {field} must be empty to skip a fresh semantic review")
+    for field in ("missing_current_source_classes", "missing_prior_source_classes"):
+        values = decision.get(field)
+        if values != []:
+            errors.append(f"{role}: reuse decision {field} must be empty to skip a fresh semantic review")
+    current_hashes, current_errors = current_role_source_hashes_from_reuse_index(index, role)
+    errors.extend(current_errors)
+    relevant_classes = decision.get("relevant_source_classes")
+    expected_classes = sorted(source_class.value for source_class in expected_reuse_source_classes(role))
+    if not isinstance(relevant_classes, list) or sorted(str(item) for item in relevant_classes) != expected_classes:
+        errors.append(f"{role}: reuse decision relevant_source_classes must match role source dependencies")
+    source_sha256 = decision.get("source_sha256")
+    if not isinstance(source_sha256, dict) or not source_sha256:
+        errors.append(f"{role}: reuse decision must record non-empty source_sha256")
+        return errors
+    if not current_errors and {str(ref): str(digest) for ref, digest in source_sha256.items()} != current_hashes:
+        errors.append(f"{role}: reuse decision source_sha256 must match current role source fingerprints")
+    for ref, digest in source_sha256.items():
+        if not isinstance(ref, str) or not is_safe_relative(ref):
+            errors.append(f"{role}: reuse source ref must be relative inside the round: {ref}")
+            continue
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            errors.append(f"{role}: reuse source hash must be a sha256 hex string for {ref}")
+            continue
+        path = round_dir / ref
+        if not path.is_file():
+            errors.append(f"{role}: reuse source ref does not exist: {ref}")
+        elif sha256_file(path) != digest:
+            errors.append(f"{role}: reuse source hash is stale for {ref}")
+    return errors
+
+
+def expected_reuse_artifact_role(role: str) -> ArtifactRole:
+    return ArtifactRole(ROLE_TO_REUSE_ARTIFACT[role])
+
+
+def expected_reuse_source_classes(role: str) -> frozenset[SourceClass]:
+    return source_classes_for_role(expected_reuse_artifact_role(role))
+
+
+def current_role_source_hashes_from_reuse_index(index: dict[str, Any], role: str) -> tuple[dict[str, str], list[str]]:
+    errors: list[str] = []
+    expected_classes = expected_reuse_source_classes(role)
+    expected_class_values = {source_class.value for source_class in expected_classes}
+    records = index.get("current_source_fingerprints")
+    if not isinstance(records, list):
+        return {}, [f"{role}: reuse index current_source_fingerprints must be a list"]
+    hashes: dict[str, str] = {}
+    observed_classes: set[str] = set()
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        source_class = item.get("source_class")
+        if source_class not in expected_class_values:
+            continue
+        ref = item.get("source_ref")
+        digest = item.get("sha256")
+        state = item.get("state")
+        available = item.get("available", True)
+        if not isinstance(source_class, str):
+            continue
+        if not isinstance(ref, str) or not is_safe_relative(ref):
+            errors.append(f"{role}: reuse current source ref must be relative inside the round: {ref}")
+            continue
+        if available is not True or state != "comparable":
+            errors.append(f"{role}: reuse current source must be comparable for {ref}")
+            continue
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            errors.append(f"{role}: reuse current source hash must be sha256 for {ref}")
+            continue
+        observed_classes.add(source_class)
+        hashes[ref] = digest
+    missing = sorted(expected_class_values - observed_classes)
+    if missing:
+        errors.append(f"{role}: reuse index missing current source classes: {', '.join(missing)}")
+    return hashes, errors
 
 
 def coverage_required(round_dir: Path, manifest: dict[str, Any]) -> bool:
@@ -716,6 +928,65 @@ def validate_coverage(
         status = record.get("status")
         if status not in ROLE_STATUSES:
             errors.append(f"{role}: unknown status {status!r}")
+        coverage_required_value = record.get("coverage_required")
+        fresh_required_value = record.get("fresh_review_required")
+        coverage_value = record.get("coverage_satisfied_by")
+        if not isinstance(coverage_required_value, bool):
+            errors.append(f"{role}: coverage_required must be a boolean")
+        if not isinstance(fresh_required_value, bool):
+            errors.append(f"{role}: fresh_review_required must be a boolean")
+        coverage_mode: CoverageSatisfiedBy | None = None
+        if not isinstance(coverage_value, str):
+            errors.append(f"{role}: coverage_satisfied_by must be a string")
+        else:
+            try:
+                coverage_mode = CoverageSatisfiedBy(coverage_value)
+            except ValueError:
+                allowed = [item.value for item in CoverageSatisfiedBy]
+                errors.append(f"{role}: coverage_satisfied_by must be one of {allowed}")
+        if status == "required" and coverage_required_value is not True:
+            errors.append(f"{role}: required roles must set coverage_required=true")
+        if status == "not_applicable" and coverage_required_value is not False:
+            errors.append(f"{role}: not_applicable roles must set coverage_required=false")
+        if coverage_required_value is False and fresh_required_value is True:
+            errors.append(f"{role}: fresh_review_required must be false when coverage_required is false")
+        if fresh_required_value is False and coverage_mode is not None:
+            if not coverage_satisfies_without_fresh_review(coverage_mode):
+                errors.append(f"{role}: non-fresh coverage must use a reusable coverage_satisfied_by value")
+            if status == "required" and coverage_mode != CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT:
+                errors.append(f"{role}: required non-fresh coverage must use current_reviewed_artifact")
+            if status == "required" and coverage_mode == CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT:
+                errors.extend(
+                    validate_reuse_index_decision_for_coverage(
+                        round_dir,
+                        role=role,
+                        case_id=case_id,
+                        round_id=round_id,
+                    )
+                )
+        if record.get("reuse_index_path") not in {"", None, REUSE_INDEX_REL.as_posix()}:
+            errors.append(f"{role}: reuse_index_path must be {REUSE_INDEX_REL.as_posix()} when present")
+        if record.get("reuse_status") not in {
+            "",
+            None,
+            ReuseStatus.UNCHANGED_REUSABLE.value,
+            ReuseStatus.CHANGED_DELTA_REQUIRED.value,
+            ReuseStatus.STALE_OR_UNREVIEWED.value,
+            ReuseStatus.NOT_COMPARABLE.value,
+        }:
+            errors.append(f"{role}: reuse_status is not recognized")
+        if record.get("reuse_next_action") not in {
+            "",
+            None,
+            NextAction.REUSE_EXISTING_REVIEW.value,
+            NextAction.DELTA_REVIEW.value,
+            NextAction.FRESH_ROLE_REVIEW.value,
+            NextAction.MANUAL_LIMITATION.value,
+            NextAction.NOT_COMPARABLE_BACKFILL.value,
+        }:
+            errors.append(f"{role}: reuse_next_action is not recognized")
+        if fresh_required_value is False and record.get("reuse_status") == ReuseStatus.CHANGED_DELTA_REQUIRED.value:
+            errors.append(f"{role}: changed_delta_required reuse cannot skip a fresh or delta semantic review")
         if not str(record.get("trigger", "")).strip():
             errors.append(f"{role}: missing trigger")
         if "required_for" in record and not isinstance(record.get("required_for"), list):
@@ -805,6 +1076,15 @@ def validate_coverage(
             errors.append(f"{role}: reviewed_hash does not match manifest artifact hash for {spec.evidence_path}")
         if reviewed_hash and actual_hash and reviewed_hash != actual_hash:
             errors.append(f"{role}: reviewed_hash does not match current file hash for {spec.evidence_path}")
+        if record.get("fresh_review_required") is False:
+            reviewer_role = str(record.get("reviewer_role", "")).strip()
+            reviewer_agent = str(record.get("reviewer_agent", "")).strip()
+            if not reviewed_hash:
+                errors.append(f"{role}: non-fresh reused coverage must record reviewed_hash")
+            if reviewer_role in {"", "not_recorded"}:
+                errors.append(f"{role}: non-fresh reused coverage must record reviewer_role")
+            if reviewer_agent in {"", "not_recorded"}:
+                errors.append(f"{role}: non-fresh reused coverage must record reviewer_agent")
         if spec.requires_review:
             reviewer_role = str(record.get("reviewer_role", "")).strip()
             reviewer_agent = str(record.get("reviewer_agent", "")).strip()

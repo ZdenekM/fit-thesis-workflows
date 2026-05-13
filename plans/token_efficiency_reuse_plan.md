@@ -827,6 +827,27 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 6 started. Sanity review passed: Slice 5 is committed as
+  `d40eb32`, the only unrelated worktree change is still `TODO.md`, and Slice 6
+  is scoped to materiality coverage state, reuse-aware mandatory role coverage,
+  and wave-gate consumption of that state. This slice must not weaken DEEP mode,
+  independent review, role coverage, or provenance gates; changed thesis/code
+  dependencies must remain a fresh or delta review trigger.
+- 2026-05-13: Slice 6 implementation and agent review complete. Split
+  materiality decisions and agent coverage records into `coverage_required`,
+  `fresh_review_required`, and `coverage_satisfied_by`, taught final/reviewed
+  wave gates to validate agent coverage through the review manifest, and made
+  current reviewed code-consistency/code-quality artifacts reusable only when a
+  current reuse index proves complete role-source coverage. Fixed reviewer
+  findings by requiring complete code role source classes and empty delta
+  fields for non-fresh reuse, forcing final/reviewed waves to fail without
+  `work/review_manifest.json`, and requiring materiality `source_sha256` plus
+  consistent coverage state for round-relative refs. Verification passed:
+  `pants fmt ::`, `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`, targeted materiality /
+  wave-gate / coverage / reuse pytest, `scripts/smoke-review-wave`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Ready to commit Slice 6.
 - 2026-05-13: Slice 5 started. Sanity review passed: Slice 4 is committed as
   `23f7d95`, the only unrelated worktree change is still `TODO.md`, and Slice 5
   is scoped to common briefing generation plus packet rendering changes. Role
