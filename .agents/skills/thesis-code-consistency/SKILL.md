@@ -20,7 +20,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 
 1. Resolve the active case and round from the user's target or `current-round.txt`.
 2. Confirm that the user explicitly authorized agent use in the current request when this check will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
-3. Enumerate `inputs/`, `extracted/`, GitHub intake evidence, and code artifacts. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
+3. Enumerate `inputs/`, `extracted/`, GitHub intake evidence, code artifacts, current-evidence snapshots, reuse-index decisions, role packets, reusable evidence artifacts, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
 4. When quantitative, evaluation, experiment, metric, performance, or result claims matter to text-code consistency, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact. Do not use deterministic text matching to decide whether such claims exist or what they mean. If this role discovers a material prose-only metric/result claim, route it to `thesis-quantitative-claims-review` rather than expanding deterministic raw-text scans.
 5. Identify thesis claims about:
    - implemented features,
@@ -30,7 +30,11 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
    - performance and accuracy,
    - deployment, reproducibility, and user-facing behavior.
 6. If code is present only as an archive or source directory in `inputs/`, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids; activate Serena only on one listed code root at a time. For Python and other supported language roots, prefer Serena symbol overview, definition, and reference tools for non-trivial code inspection before falling back to broad file reads. If you are in a read-only reviewer agent and the prepared workspace is missing, report that limitation instead of silently skipping code checks.
-7. Inspect code artifacts:
+7. Inspect code artifacts through the prepared workspace summary, GitHub intake,
+   relevant claim-basis entries, current `work/context/evidence_capsules.json`
+   capsule refs, and claim-specific source paths first. Open broad source trees
+   only when a thesis claim, changed fingerprint, contradiction, missing anchor,
+   reproducibility question, or reviewer challenge requires it:
    - `outputs/github_code_intake.md`, `inputs/github/`, and `work/github-intake/` when GitHub repo/PR intake was used,
    - `work/code_workspace.md`, `work/serena_roots.json`, and `work/code/` when submitted archives or source directories were prepared with `scripts/prepare-code-workspace`,
    - README and run instructions,

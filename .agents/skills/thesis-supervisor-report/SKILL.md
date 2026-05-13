@@ -56,9 +56,15 @@ supervisor does not know a dimension, the intake must say that explicitly.
 4. Read the effective reviewer profile. Profile style guides wording only; it
    cannot override supervisor input, current-case evidence, privacy, readiness
    gates, or unchecked-work limitations.
-5. Read current thesis/code evidence as needed for the report field being
-   drafted. Use the submitted PDF as the authoritative rendered thesis artifact.
-   Use source zips and code for search, diffs, reproducibility, and evidence.
+5. Inventory current thesis/code evidence, but start from
+   `work/common_briefing.json`, current-evidence snapshots, materiality
+   decisions, reusable evidence artifacts, and `work/context/claim_review_basis.json`
+   when present. Open full thesis, code, source zips, README, result, or note
+   artifacts only for the report field being drafted when a claim is missing an
+   anchor, contradicted, P0/P1 or grade-impacting, challenged, changed since the
+   current evidence snapshot, or not resolvable from capsules. Use the submitted
+   PDF as the authoritative rendered thesis artifact. Use source zips and code
+   for search, diffs, reproducibility, and evidence.
 6. If previous supervisor feedback exists, use it only as optional secondary
    evidence. It may support responsiveness when later artifacts show concrete
    response to prior feedback. If feedback is absent, stale, incomparable, or
@@ -67,10 +73,12 @@ supervisor does not know a dimension, the intake must say that explicitly.
    `thesis-code-quality-review`, or record a typed limitation explaining why one
    could not be performed.
 8. Before spawning role agents, reuse the shared current-evidence,
-   materiality, packet, and wave-gate pattern for the `supervisor_report`
-   workflow when available. Consume compact packet handoffs and
-   `## Synthesis Handoff` sections first; open full artifacts only for material
-   verification or contradiction checks.
+   materiality, packet, reuse-index, claim-basis, and wave-gate pattern for the
+   `supervisor_report` workflow when available. Consume compact packet handoffs
+   and `## Synthesis Handoff` sections first; open full artifacts only for
+   material verification, contradiction checks, missing anchors, or reviewer
+   challenges. This routing does not waive code roles, independent review, report
+   confirmation, or manifest gates.
 9. When metrics, user studies, experiments, figures, literature, GitHub PRs,
    imported Theses.cz similarity reports, or final typography are material to
    the report, use the same specialist workflows as supervisor feedback and

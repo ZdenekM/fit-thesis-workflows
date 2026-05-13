@@ -35,7 +35,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 3. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
 5. Resolve the configured student feedback language and preserve it in the final student-facing output.
-6. Re-check every P0/P1 claim against available assignment context, supervisor deadline context, thesis text, code, README, submitted PDF text, LaTeX sources, previous feedback, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
+6. Re-check every P0/P1 claim through `work/context/claim_review_basis.json`, the draft review basis, role handoffs, and current standalone evidence first. Open assignment context, supervisor deadline context, thesis text, code, README, submitted PDF text, LaTeX sources, previous feedback, or notes only when the claim basis is missing, stale, contradictory, grade-impacting, challenged, or not specific enough to support the final wording. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
 7. Check that supervisor notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, were verified against available evidence and synthesized; remove or reframe anything that merely copies a supervisor preference into student-facing prose.
 8. Remove or soften claims that are speculative, not evidenced, too absolute, or not useful for the current phase.
 9. Merge duplicates and remove low-impact details that distract from the next iteration.
@@ -63,9 +63,10 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 ## Free-Text Boundary
 
 Treat deterministic checker output as prompts or structured evidence, not as a
-semantic verdict. Re-read free-form thesis, README, notes, code, and generated
-feedback prose as an agent before preserving or rejecting a claim. Do not let
-raw keyword or token matches decide final student-facing wording.
+semantic verdict. Start from claim-basis refs, capsules, role handoffs, and
+structured evidence, then open exact free-form thesis, README, notes, code, or
+generated-feedback passages only when needed to preserve or reject a claim. Do
+not let raw keyword or token matches decide final student-facing wording.
 
 ## Priority Calibration
 

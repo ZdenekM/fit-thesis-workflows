@@ -42,8 +42,11 @@ does not control `Student feedback language`.
    use, run `scripts/check-round-ready <case-id> [round-id]`.
 3. Treat the submitted PDF text extract as the rendered source of truth. If a
    PDF exists but no extract is available, use `scripts/extract-pdf-text` first.
-   Use LaTeX/Overleaf sources only for repair hints and exact source search; do
-   not build LaTeX or mutate student sources by default.
+   Start from role packets, current-evidence snapshots, prior
+   `outputs/typography_formal_review.md`, and checker output when present. Use
+   LaTeX/Overleaf sources only for representative repair hints, exact source
+   search, missing anchors, contradictions, or reviewer challenges; do not build
+   LaTeX or mutate student sources by default.
 4. Run `scripts/check-typography-formal <case-id> [round-id]`. Treat warnings as
    reviewer prompts, not automatic findings.
 5. Calibrate by thesis language:

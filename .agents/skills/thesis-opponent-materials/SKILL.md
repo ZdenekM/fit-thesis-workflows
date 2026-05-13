@@ -33,11 +33,11 @@ cases/<case-id>/rounds/<round-id>/
 2. Confirm that the user explicitly authorized agent use in the current request. This workflow requires role-split agents. If explicit authorization is missing, stop before generating or revising opponent materials and ask the user to authorize agents.
 3. Run `scripts/check-round-ready <case-id> [round-id]`. If it fails, stop before generating materials and ask the user to add the formal assignment, private assignment notes, or valid reviewer profile.
 4. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
-5. Read `current-round.txt`, `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes.
+5. Read `current-round.txt` and inventory `notes/assignment.md`, `notes/opponent-intake.md`, `notes/round-notes.md`, thesis text, available code/artifacts, README, experiment results, and human notes. Start analysis from `work/common_briefing.json`, `work/current_evidence_snapshot.json`, materiality decisions, role packets, reusable standalone evidence, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Open full raw sources only for changed fingerprints, missing anchors, contradictions, P0/P1 or grade-impacting verification, reviewer challenges, unsupported synthesis wording, or role scope that cannot be resolved from current capsule refs.
 6. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
 7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
 8. When quantitative, evaluation, experiment, metric, performance, or result claims matter to opponent synthesis, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
-9. Run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow opponent_review <case-id> [round-id]`, and `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/reviewed wave readiness. Packets reduce repeated context; they do not replace this skill, required role coverage, independent review, or manifest validation.
+9. Run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow opponent_review <case-id> [round-id]`, and `scripts/prepare-opponent-packets <case-id> [round-id]` before spawning role-split agents. Use the generated `work/opponent_packets/*.md` packets as the compact role handoff, and regenerate them after assignment/evidence/reproducibility artifacts change. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/reviewed wave readiness. Packets, reuse-index decisions, and capsules reduce repeated context; they do not replace this skill, required semantic role coverage, independent review, approval records, or manifest validation.
 10. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
@@ -74,11 +74,12 @@ cases/<case-id>/rounds/<round-id>/
 ## Free-Text Boundary
 
 Deterministic helper output is a prompt or structured evidence source, not a
-substitute for semantic opponent review. Interpret free-form thesis, README,
-notes, code, and generated prose through role agents; reusable conclusions must
-be recorded as structured evidence with anchors. Do not turn raw keyword or
-token matches into assignment fulfillment, IS-item wording, grading rationale,
-or report-ready findings.
+substitute for semantic opponent review. Start from structured artifacts, role
+handoffs, claim-basis refs, and reusable capsules; open exact free-form thesis,
+README, notes, code, or generated-prose evidence only when needed for a material
+verification trigger. Reusable conclusions must be recorded as structured
+evidence with anchors. Do not turn raw keyword or token matches into assignment
+fulfillment, IS-item wording, grading rationale, or report-ready findings.
 
 For assignment coverage, the text/assignment role should create or update
 `work/assignment_coverage_agent.json` before `scripts/check-assignment-coverage`
@@ -103,8 +104,8 @@ For a large opponent review, split reviewer agents by role:
 
 Use `work/opponent_packets/<role>.md` as the default handoff for each role when
 available. The packets do not replace the skills or evidence checks; they make
-the role scope, available inputs, missing inputs, and constraints explicit before
-agents start.
+the role scope, available inputs, reusable current evidence, missing inputs,
+claim-basis triggers, and constraints explicit before agents start.
 
 Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
 workflow agents, use 1 on memory-constrained machines, and run roles in waves
@@ -117,9 +118,12 @@ after draft generation and `--wave reviewed` after the independent review pass.
 If the gate contradicts an agent's final message, trust the file/checker result
 and repair the artifact or approval record.
 
-The synthesis step must read each available `## Synthesis Handoff` first and
-open the full evidence artifact only for grade-impacting verification,
-contradiction checks, confidence-label calibration, or reviewer challenges.
+The synthesis step must read each available `## Synthesis Handoff`,
+`work/context/claim_review_basis.json`, and current
+`work/context/evidence_capsules.json` capsule refs first. Open the full evidence
+artifact only for grade-impacting verification, contradiction checks, missing
+anchors, unresolved claim-basis triggers, confidence-label calibration, or
+reviewer challenges.
 Translate low-level diagnostics into report impact, grading/IS calibration, or
 manual-check language; do not leak supervisor-style student-action wording into
 opponent materials. The synthesis step must integrate findings into one

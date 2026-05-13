@@ -35,7 +35,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 2. Confirm that the user explicitly authorized agent use in the current request. This review is the required independent agent pass for opponent materials. If explicit authorization is missing, stop before writing reviewed materials and ask the user to authorize agents.
 3. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Preserve reviewer preferences only where they do not conflict with case workflow configuration, readiness gates, evidence requirements, verified notes, or this skill.
 4. If `work/opponent_packets/` exists, use the role packets as a scope checklist for missing role evidence and limitations. Do not treat packets as findings by themselves.
-5. Re-check all P0/P1 risks and grade-impacting statements against available thesis, submitted PDF text, code, README, results, assignment, code-consistency evidence, code-quality/design evidence, literature/citation evidence, figure/media evidence, and notes. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
+5. Re-check all P0/P1 risks and grade-impacting statements through `work/context/claim_review_basis.json`, the draft review basis, role handoffs, and current standalone evidence first. Open thesis, submitted PDF text, code, README, results, assignment, or notes only when the basis is missing, stale, contradicted, grade-impacting, challenged, or not specific enough to support the materials. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
 6. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 7. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, and grade impact.
 8. Verify that assignment fulfillment is assessed point by point.
@@ -58,10 +58,11 @@ If both draft and output files exist, review the draft unless the user explicitl
 ## Free-Text Boundary
 
 Treat deterministic checker output as prompts or structured evidence, not as a
-semantic verdict. Re-read free-form thesis, README, notes, code, and generated
-materials as an agent before preserving grade-impacting claims. Do not let raw
-keyword or token matches decide final opponent-materials wording; require
-evidence anchors or structured review artifacts.
+semantic verdict. Start from claim-basis refs, capsules, role handoffs, and
+structured evidence, then open exact free-form thesis, README, notes, code, or
+generated-materials passages only when needed to preserve a grade-impacting
+claim. Do not let raw keyword or token matches decide final opponent-materials
+wording; require evidence anchors or structured review artifacts.
 
 When challenging or preserving a synthesized finding, read the relevant
 `## Synthesis Handoff` first, then open the full evidence artifact only when the

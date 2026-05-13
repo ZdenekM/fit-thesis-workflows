@@ -46,12 +46,15 @@ revision-diff metric.
    `scripts/check-theses-similarity-report <case-id> [round-id]`. If it fails,
    repair the import/evidence shape or record a typed limitation before
    synthesis.
-3. Read `work/theses_similarity/intake.json` first. Use the PDF/text only for
-   targeted verification of report structure, source rows, matched-passage
-   anchors, and extraction limitations.
-4. Read the current thesis PDF extract, assignment, round notes, and previous
-   rounds as needed. For self-overlap, check whether the source is an earlier
-   version of the same student's work and whether case history supports that.
+3. Read `work/theses_similarity/intake.json`, role packets,
+   current-evidence snapshots, and prior `outputs/theses_similarity_review.md`
+   first. Use the PDF/text only for targeted verification of report structure,
+   source rows, matched-passage anchors, and extraction limitations.
+4. Open the current thesis PDF extract, assignment, round notes, and previous
+   rounds only as needed for matched-passage anchors, self-overlap, missing
+   context, contradictions, or reviewer challenges. For self-overlap, check
+   whether the source is an earlier version of the same student's work and
+   whether case history supports that.
 5. Write or update `work/theses_similarity/assessment.json` using schema
    `theses-similarity-assessment-v1`. Each judgment must be anchored to source
    IDs, passage refs, basis refs, evidence refs, confidence, limitations, and a

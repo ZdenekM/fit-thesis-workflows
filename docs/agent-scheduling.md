@@ -77,6 +77,28 @@ handoffs for spawned agents. They reduce repeated context and prompt drift; they
 do not reduce required role coverage, skill obligations, independent review, or
 manifest/coverage checks.
 
+The main session should inventory available `inputs/`, `extracted/`, `notes/`,
+`work/`, and `outputs/` paths, but should not treat that inventory as permission
+to load every raw source into the parent context. Start from
+`work/common_briefing.json`, role packets, current-evidence snapshots,
+materiality decisions, reuse-index decisions, structured evidence artifacts, and
+`work/context/claim_review_basis.json` when present. Open full thesis, code,
+README, result, note, or generated-output artifacts only for explicit triggers:
+changed source fingerprints, missing anchors, contradiction, P0/P1 or
+grade-impacting verification, reviewer challenge, unsupported synthesis wording,
+or a role packet that cannot be resolved from current
+`work/context/evidence_capsules.json` capsule refs.
+
+Reusable capsules and reuse decisions satisfy context-routing needs only. They
+do not waive DEEP mode, required semantic role coverage, the generator/reviewer
+separation, approval records, review-manifest hashes, or
+`scripts/check-agent-coverage`. Reader or helper agents should stay extractive:
+they may summarize, anchor, and structurally classify evidence by source type,
+source status, extraction confidence, and missing fields, but support verdicts,
+materiality, severity, grade impact, thesis/code consistency judgments, sendable
+wording, and final report calibration belong to the authorized semantic reviewer
+roles and their independent review loop.
+
 After a role wave, run the relevant `scripts/check-review-wave` profile before
 using agent claims from the chat transcript. If an agent says it wrote a file but
 the expected file is missing, empty, stale, or fails whitespace/approval-record

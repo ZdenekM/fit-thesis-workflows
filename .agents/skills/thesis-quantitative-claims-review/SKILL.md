@@ -37,12 +37,16 @@ Prefer compact packet handoffs when available:
 - `work/opponent_packets/quantitative_claims.md`
 - `work/review_materiality/<workflow-profile>/index.json`
 - `work/current_evidence_snapshot.json`
+- `work/context/claim_review_basis.json`
+- `work/reuse/reuse_index.json`
 - `outputs/code_consistency.md`
 - `outputs/figure_media_review.md`
 - `work/code_reproducibility.json`
 
 Open full thesis/result/code artifacts only to verify a material claim, resolve a
-contradiction, or calibrate risk.
+contradiction, fill a missing anchor, respond to reviewer challenge, or
+calibrate grade-impacting risk. Reuse and capsule state route context; they do
+not replace the semantic quantitative review or downstream independent review.
 
 ## Process
 
@@ -176,7 +180,8 @@ Allowed `practical_context` values:
 
 The synthesis agent should use `work/quantitative_claims.json` and the packet's
 `## Quantitative Claims Handoff` first. Open full result artifacts only for
-claim verification, contradictions, or wording calibration.
+claim verification, contradictions, missing anchors, reviewer challenges, or
+wording calibration.
 
 For supervisor feedback, translate material issues into student actions: add a
 baseline, explain unit/scale, qualify a conclusion, include reproducibility

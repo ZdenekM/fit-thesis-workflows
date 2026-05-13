@@ -42,7 +42,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 7. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
 8. State review limits before analysis: what was available, what was static-only, and what was not checked.
 9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
-10. Inspect all current inputs: formal assignment, private assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, and human notes. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
+10. Inventory all current inputs and work artifacts, but start analysis from compact current evidence: `work/common_briefing.json`, `work/current_evidence_snapshot.json`, materiality decisions, role packets, reusable standalone evidence, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Open formal assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, or human notes only for explicit triggers: changed fingerprints, missing anchors, contradiction, P0/P1 verification, reviewer challenge, unsupported synthesis wording, or role scope that cannot be resolved from current capsule refs. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
 11. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
 12. Build a short private map:
    - current thesis phase,
@@ -62,7 +62,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-Before spawning role-split agents, run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow supervisor_feedback <case-id> [round-id]`, and `scripts/prepare-supervisor-packets <case-id> [round-id]` when practical. Use `work/supervisor_packets/*.md` as compact role handoffs. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/final wave readiness. Packets reduce repeated context; they do not replace this skill, role coverage, independent review, or manifest validation.
+Before spawning role-split agents, run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow supervisor_feedback <case-id> [round-id]`, and `scripts/prepare-supervisor-packets <case-id> [round-id]` when practical. Use `work/supervisor_packets/*.md` as compact role handoffs and keep the parent as a coordinator over capsules, claim-basis refs, and targeted drill-down requests. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/final wave readiness. Packets and reuse decisions reduce repeated context; they do not replace this skill, semantic role coverage, independent review, approval records, or manifest validation.
 13. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
 14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
 15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
@@ -76,10 +76,12 @@ Before spawning role-split agents, run `scripts/update-current-evidence-snapshot
 ## Free-Text Boundary
 
 Deterministic checker output is a prompt or structured evidence source, not a
-replacement for semantic reading. Interpret free-form thesis, README, notes,
-code, and generated prose yourself as an agent, verify claims against available
-evidence, and store reusable conclusions as structured artifacts with evidence
-anchors. Do not turn raw keyword or token matches into feedback wording.
+replacement for semantic judgment. Start from structured artifacts, role
+handoffs, claim-basis refs, and reusable capsules; open the exact free-form
+thesis, README, notes, code, or generated-prose evidence needed to verify or
+challenge a claim. Store reusable conclusions as structured artifacts with
+evidence anchors. Do not turn raw keyword or token matches into feedback
+wording.
 
 ## Supervisor Notes Handling
 
@@ -156,11 +158,13 @@ after draft generation and `--wave final` after the review pass when the expecte
 files should exist. If the gate contradicts an agent's final message, trust the
 file/checker result and repair the artifact.
 
-The synthesis step must read each available `## Synthesis Handoff` first and
-open the full evidence artifact only for P0/P1 verification, contradiction
-checks, or reviewer challenges. Translate low-level diagnostics into the
-minimal student action unless the raw detail itself is needed for technical
-truth. Do not leave the user with separate reviewer notes only.
+The synthesis step must read each available `## Synthesis Handoff`,
+`work/context/claim_review_basis.json`, and current
+`work/context/evidence_capsules.json` capsule refs first. Open the full evidence
+artifact only for P0/P1 verification, contradiction checks, missing anchors,
+grade-impacting claims, or reviewer challenges. Translate low-level diagnostics
+into the minimal student action unless the raw detail itself is needed for
+technical truth. Do not leave the user with separate reviewer notes only.
 
 ## Iteration Rules
 

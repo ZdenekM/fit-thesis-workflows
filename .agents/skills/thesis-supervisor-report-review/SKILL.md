@@ -42,6 +42,11 @@ Before reviewing or rewriting a report, confirm explicit agent authorization in
 the current request. This workflow requires an independent agent review.
 
 Review the draft as a formal supervisor report, not as general student feedback:
+start from `work/supervisor_report_trace.json`,
+`work/context/claim_review_basis.json` when present, the draft review basis, and
+current standalone evidence. Open full thesis/code/source artifacts only for
+missing anchors, contradictions, P0/P1 or grade-impacting claims, reviewer
+challenges, or wording that is not supported by the trace.
 
 1. Check that every FIT IS field is present and written for the right audience.
 2. Check that student activity, independence, communication, consultation,

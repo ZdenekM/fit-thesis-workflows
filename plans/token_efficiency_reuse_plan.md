@@ -686,7 +686,7 @@ private raw content during normal synthesis.
 
 ### Slice 8 - Skill Wording And Parent/Synthesis Instructions
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `docs(workflow): route agents through capsules first`
 - Expected paths:
   - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
@@ -827,6 +827,24 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 8 started. Sanity review passed: Slice 7 is committed as
+  `9266d99`, the only unrelated worktree change is still `TODO.md`, and Slice 8
+  is documentation/skill wording only. Scope is capsule-first and claim-basis
+  routing for parent/synthesis and role agents while preserving DEEP mode,
+  semantic role ownership, independent review, role coverage, and provenance
+  gates.
+- 2026-05-13: Slice 8 implementation and agent review complete. Updated
+  supervisor, opponent, report, code, quantitative, literature, typography, and
+  Theses.cz workflow instructions to inventory broadly but start from
+  `work/common_briefing.json`, role packets, current-evidence snapshots,
+  reuse-index decisions, `work/context/evidence_capsules.json`,
+  `work/context/claim_review_basis.json`, and reusable evidence before opening
+  full raw sources. Fixed reviewer findings by mirroring claim-basis/capsule
+  routing in opponent synthesis, naming claim-basis routing in code review
+  skills, and narrowing helper-agent classification to structural/extractive
+  evidence metadata only. Verification passed: targeted line-level inspection of
+  edited skill/doc sections, `git diff --check`, `scripts/check-private`, and
+  `scripts/check-scripts`. Ready to commit Slice 8.
 - 2026-05-13: Slice 7 started. Sanity review passed: Slice 6 is committed as
   `f6e7e54`, the only unrelated worktree change is still `TODO.md`, and Slice 7
   is scoped to role-aware manifest dependencies and claim-basis validation. The
