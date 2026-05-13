@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from thesis_review_workflow.agent_coverage import COVERAGE_REL, build_coverage
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.cli.check_review_manifest import (
     check_helper_checks,
@@ -9,10 +10,12 @@ from thesis_review_workflow.cli.check_review_manifest import (
     required_helper_targets,
 )
 from thesis_review_workflow.cli.init_review_manifest import (
+    helper_dependency_hashes,
     merge_checks,
     output_artifacts,
     required_checks,
     run_check_record,
+    workflow_checker_version,
 )
 from thesis_review_workflow.review_manifest import (
     REUSE_INDEX_REL,
@@ -452,6 +455,118 @@ def test_review_manifest_theses_similarity_targets_exclude_approval_record(tmp_p
     assert targets == {"work/theses_similarity/intake.json", "outputs/theses_similarity_review.md"}
 
 
+def test_review_manifest_requires_agent_coverage_check_target() -> None:
+    round_dir = Path("/synthetic/repo/cases/case-a/rounds/round-a")
+
+    assert required_helper_targets("check-agent-coverage", round_dir) == {COVERAGE_REL.as_posix()}
+
+
+def test_review_manifest_rejects_agent_coverage_check_without_coverage_target(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    coverage = round_dir / COVERAGE_REL
+    output.parent.mkdir(parents=True)
+    coverage.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+    coverage.write_text("{}\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-agent-coverage",
+                "command": "check-agent-coverage case-a round-a",
+                "target_artifacts": ["outputs/feedback_student.md"],
+                "target_sha256": {
+                    "outputs/feedback_student.md": sha256_file(output),
+                    COVERAGE_REL.as_posix(): sha256_file(coverage),
+                },
+                "dependency_sha256": helper_dependency_hashes(round_dir, "check-agent-coverage"),
+                "checker_version": workflow_checker_version(root),
+                "status": "passed",
+                "checked_at": "2026-05-13T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-agent-coverage"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert f"helper_checks check-agent-coverage: missing required target artifact {COVERAGE_REL.as_posix()}" in errors
+
+
+def test_review_manifest_rejects_stale_helper_dependency_hash(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    case_dir = root / "cases" / "case-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    case_dir.mkdir(parents=True)
+    output.parent.mkdir(parents=True)
+    (case_dir / "case.md").write_text("# Case\n", encoding="utf-8")
+    (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    output.write_text("# Feedback\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-supervisor-ready",
+                "command": "check-supervisor-ready case-a round-a",
+                "target_artifacts": ["outputs/feedback_student.md"],
+                "target_sha256": {"outputs/feedback_student.md": sha256_file(output)},
+                "dependency_sha256": {"case:case.md": "0" * 64},
+                "checker_version": workflow_checker_version(root),
+                "status": "passed",
+                "checked_at": "2026-05-13T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-supervisor-ready"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert "helper_checks check-supervisor-ready: dependency_sha256 is stale" in errors
+
+
+def test_review_manifest_rejects_stale_helper_checker_version(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-supervisor-ready",
+                "command": "check-supervisor-ready case-a round-a",
+                "target_artifacts": ["outputs/feedback_student.md"],
+                "target_sha256": {"outputs/feedback_student.md": sha256_file(output)},
+                "dependency_sha256": helper_dependency_hashes(round_dir, "check-supervisor-ready"),
+                "checker_version": "stale-checker-version",
+                "status": "passed",
+                "checked_at": "2026-05-13T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-supervisor-ready"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert "helper_checks check-supervisor-ready: checker_version is stale" in errors
+
+
 def test_review_manifest_requires_calibration_profile_check_targets(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     for rel_path in (
@@ -711,6 +826,7 @@ def test_init_manifest_preserves_status_when_command_surface_changes() -> None:
                 "work/opponent_report_trace.json": "1" * 64,
                 "outputs/oponent_podklady_revidovane.md": "2" * 64,
             },
+            "checker_version": "checker-a",
             "status": "not_recorded",
             "checked_at": "",
             "exit_code": None,
@@ -727,6 +843,7 @@ def test_init_manifest_preserves_status_when_command_surface_changes() -> None:
                     "work/opponent_report_trace.json": "1" * 64,
                     "outputs/oponent_podklady_revidovane.md": "2" * 64,
                 },
+                "checker_version": "checker-a",
                 "status": "passed",
                 "checked_at": "2026-05-07T00:00:00Z",
                 "exit_code": 0,
@@ -739,6 +856,117 @@ def test_init_manifest_preserves_status_when_command_surface_changes() -> None:
 
     assert merged[0]["status"] == "passed"
     assert merged[0]["command"] == "check-opponent-report case-a round-a"
+    assert merged[0]["checker_version"] == "checker-a"
+
+
+def test_init_manifest_marks_changed_checker_version_stale() -> None:
+    generated = [
+        {
+            "check": "check-opponent-report",
+            "command": "check-opponent-report case-a round-a",
+            "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+            "target_sha256": {"outputs/oponent_podklady_revidovane.md": "2" * 64},
+            "checker_version": "checker-b",
+            "status": "not_recorded",
+            "checked_at": "",
+            "exit_code": None,
+            "notes": "new",
+        }
+    ]
+    existing = {
+        "helper_checks": [
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report case-a round-a",
+                "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {"outputs/oponent_podklady_revidovane.md": "2" * 64},
+                "checker_version": "checker-a",
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+                "notes": "old",
+            }
+        ]
+    }
+
+    merged = merge_checks(existing, generated)
+
+    assert merged[0]["status"] == "not_recorded"
+    assert "Checker version changed" in merged[0]["notes"]
+
+
+def test_init_manifest_does_not_reuse_failed_helper_check() -> None:
+    generated = [
+        {
+            "check": "check-opponent-report",
+            "command": "check-opponent-report case-a round-a",
+            "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+            "target_sha256": {"outputs/oponent_podklady_revidovane.md": "2" * 64},
+            "checker_version": "checker-a",
+            "status": "not_recorded",
+            "checked_at": "",
+            "exit_code": None,
+            "notes": "new",
+        }
+    ]
+    existing = {
+        "helper_checks": [
+            {
+                "check": "check-opponent-report",
+                "command": "scripts/check-opponent-report case-a round-a",
+                "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
+                "target_sha256": {"outputs/oponent_podklady_revidovane.md": "2" * 64},
+                "checker_version": "checker-a",
+                "status": "failed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 1,
+                "notes": "old",
+            }
+        ]
+    }
+
+    merged = merge_checks(existing, generated)
+
+    assert merged[0]["status"] == "not_recorded"
+    assert "not a passed reusable result" in merged[0]["notes"]
+
+
+def test_init_manifest_marks_changed_helper_dependency_hash_stale() -> None:
+    generated = [
+        {
+            "check": "check-supervisor-ready",
+            "command": "check-supervisor-ready case-a round-a",
+            "target_artifacts": ["outputs/feedback_student.md"],
+            "target_sha256": {"outputs/feedback_student.md": "2" * 64},
+            "dependency_sha256": {"case:case.md": "b" * 64},
+            "checker_version": "checker-a",
+            "status": "not_recorded",
+            "checked_at": "",
+            "exit_code": None,
+            "notes": "new",
+        }
+    ]
+    existing = {
+        "helper_checks": [
+            {
+                "check": "check-supervisor-ready",
+                "command": "scripts/check-supervisor-ready case-a round-a",
+                "target_artifacts": ["outputs/feedback_student.md"],
+                "target_sha256": {"outputs/feedback_student.md": "2" * 64},
+                "dependency_sha256": {"case:case.md": "a" * 64},
+                "checker_version": "checker-a",
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+                "notes": "old",
+            }
+        ]
+    }
+
+    merged = merge_checks(existing, generated)
+
+    assert merged[0]["status"] == "not_recorded"
+    assert "Helper dependency hash changed" in merged[0]["notes"]
 
 
 def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> None:
@@ -1274,6 +1502,82 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
     assert review["review_basis_path"] == "work/feedback_student_draft.md"
     assert review["approval_record_path"] == "work/reviews/feedback_student_review.json"
     assert manifest["artifacts"][0]["limitations"] == ["Synthetic limitation."]
+
+
+def test_agent_coverage_built_after_review_approval_uses_review_fields(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
+    draft = round_dir / "work" / "vedouci_posudek_draft.md"
+    approval = round_dir / "work" / "reviews" / "supervisor_report_review.json"
+    output.parent.mkdir(parents=True)
+    draft.parent.mkdir(parents=True)
+    approval.parent.mkdir(parents=True)
+    output.write_text("# Posudek vedoucího\n", encoding="utf-8")
+    draft.write_text("# Návrh posudku vedoucího\n", encoding="utf-8")
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "supervisor_report",
+                "reviewer_role": "thesis-supervisor-report-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/vedouci_posudek_revidovany.md",
+                "reviewed_artifact_sha256": sha256_file(output),
+                "review_basis_path": "work/vedouci_posudek_draft.md",
+                "review_basis_sha256": sha256_file(draft),
+                "checks_observed": ["check-supervisor-report", "check-supervisor-report-ready"],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = ensure_manifest({}, "case-a", "round-a")
+    register_artifact(
+        manifest,
+        round_dir,
+        "outputs/vedouci_posudek_revidovany.md",
+        role="thesis-supervisor-report",
+        agent="generator-agent",
+        contribution="generation",
+        review_scope="sendable_final",
+        review_status="not_recorded",
+        reviewer_role="not_recorded",
+        reviewer_agent="not_recorded",
+        reviewed_at="",
+        limitation=[],
+        feeds=[],
+        input_refs=[],
+        evidence_refs=[],
+        check_refs=[],
+        used_findings="",
+        review_basis_path="",
+        notes="",
+    )
+    manifest["helper_checks"] = [
+        {
+            "check": name,
+            "command": f"{name} case-a round-a",
+            "target_artifacts": ["outputs/vedouci_posudek_revidovany.md"],
+            "target_sha256": {"outputs/vedouci_posudek_revidovany.md": sha256_file(output)},
+            "status": "passed",
+            "checked_at": "2026-05-11T00:00:00Z",
+            "exit_code": 0,
+            "notes": "Synthetic passed check.",
+        }
+        for name in ("check-supervisor-report", "check-supervisor-report-ready")
+    ]
+
+    apply_review_approval_records(manifest, round_dir)
+    coverage = build_coverage("case-a", "round-a", round_dir, manifest)
+
+    assert coverage is not None
+    role = next(item for item in coverage["roles"] if item["role"] == "supervisor_report_review")
+    assert role["reviewer_role"] == "thesis-supervisor-report-review"
+    assert role["reviewer_agent"] == "review-agent"
+    assert role["reviewed_hash"] == sha256_file(output)
 
 
 def test_review_approval_records_are_collected_and_hash_validated(tmp_path: Path) -> None:

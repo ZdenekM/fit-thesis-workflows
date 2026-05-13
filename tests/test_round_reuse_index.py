@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from thesis_review_workflow.agent_coverage import COVERAGE_REL
 from thesis_review_workflow.cli.update_round_reuse_index import (
     artifact_review_current,
     backfill_pdf_extract_sidecars,
@@ -63,6 +64,9 @@ def add_reviewed_feedback_with_fresh_helper_gate(round_dir: Path) -> None:
     feedback = round_dir / "outputs" / "feedback_student.md"
     feedback.write_text("# Feedback\n", encoding="utf-8")
     feedback_hash = sha256_file(feedback)
+    coverage = round_dir / COVERAGE_REL
+    write_json(coverage, {"schema_version": "agent-coverage-v1", "roles": []})
+    coverage_hash = sha256_file(coverage)
     write_json(
         round_dir / "work" / "review_manifest.json",
         {
@@ -81,8 +85,11 @@ def add_reviewed_feedback_with_fresh_helper_gate(round_dir: Path) -> None:
                     "check": "check-agent-coverage",
                     "status": "passed",
                     "exit_code": 0,
-                    "target_artifacts": ["outputs/feedback_student.md"],
-                    "target_sha256": {"outputs/feedback_student.md": feedback_hash},
+                    "target_artifacts": ["outputs/feedback_student.md", COVERAGE_REL.as_posix()],
+                    "target_sha256": {
+                        "outputs/feedback_student.md": feedback_hash,
+                        COVERAGE_REL.as_posix(): coverage_hash,
+                    },
                 },
                 {
                     "check": "check-review-manifest",
@@ -130,6 +137,9 @@ def add_reviewed_github_intake_with_fresh_helper_gate(round_dir: Path) -> None:
     output = round_dir / "outputs" / "github_code_intake.md"
     output.write_text("# GitHub Intake\n", encoding="utf-8")
     output_hash = sha256_file(output)
+    coverage = round_dir / COVERAGE_REL
+    write_json(coverage, {"schema_version": "agent-coverage-v1", "roles": []})
+    coverage_hash = sha256_file(coverage)
     write_json(
         round_dir / "work" / "review_manifest.json",
         {
@@ -148,8 +158,11 @@ def add_reviewed_github_intake_with_fresh_helper_gate(round_dir: Path) -> None:
                     "check": "check-agent-coverage",
                     "status": "passed",
                     "exit_code": 0,
-                    "target_artifacts": ["outputs/github_code_intake.md"],
-                    "target_sha256": {"outputs/github_code_intake.md": output_hash},
+                    "target_artifacts": ["outputs/github_code_intake.md", COVERAGE_REL.as_posix()],
+                    "target_sha256": {
+                        "outputs/github_code_intake.md": output_hash,
+                        COVERAGE_REL.as_posix(): coverage_hash,
+                    },
                 }
             ],
         },
@@ -194,6 +207,38 @@ def test_artifact_review_current_requires_review_status_and_fresh_helper_gate(tm
 
     feedback = round_dir / "outputs" / "feedback_student.md"
     feedback_hash = sha256_file(feedback)
+    coverage = round_dir / COVERAGE_REL
+    coverage_hash = sha256_file(coverage)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "artifacts": [
+                {
+                    "path": "outputs/feedback_student.md",
+                    "artifact_sha256": feedback_hash,
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewed_hash": feedback_hash,
+                    },
+                }
+            ],
+            "helper_checks": [
+                {
+                    "check": "check-agent-coverage",
+                    "status": "passed",
+                    "exit_code": 0,
+                    "target_artifacts": ["outputs/feedback_student.md"],
+                    "target_sha256": {
+                        "outputs/feedback_student.md": feedback_hash,
+                        COVERAGE_REL.as_posix(): coverage_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+    assert not artifact_review_current(round_dir, "outputs/feedback_student.md")
+
     write_json(
         round_dir / "work" / "review_manifest.json",
         {

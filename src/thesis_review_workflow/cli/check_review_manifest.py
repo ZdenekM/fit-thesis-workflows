@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.agent_coverage import COVERAGE_REL
 from thesis_review_workflow.agent_coverage import code_evidence_present as inferred_code_evidence_present
 from thesis_review_workflow.agent_coverage import coverage_required
 from thesis_review_workflow.artifact_registry import (
@@ -282,6 +283,8 @@ def check_no_absolute_command(label: str, value: Any, errors: list[str]) -> None
 
 
 def required_helper_targets(name: str, round_dir: Path) -> set[str]:
+    if name == "check-agent-coverage":
+        return {COVERAGE_REL.as_posix()}
     if name == "check-evaluation-claims":
         return {"work/quantitative_claims.json"}
     if name == "check-opponent-report":
@@ -395,9 +398,37 @@ def check_helper_checks(
                         errors.append(f"helper_checks {name}: missing target hash for {target}")
                     elif recorded_hash != sha256_file(path):
                         errors.append(f"helper_checks {name}: target hash is stale for {target}")
+            validate_helper_check_freshness(check, round_dir, errors)
     missing = sorted(required - seen)
     for name in missing:
         errors.append(f"missing required helper check record: {name}")
+
+
+def validate_helper_check_freshness(check: dict[str, Any], round_dir: Path, errors: list[str]) -> None:
+    name = check.get("check")
+    if name == "check-review-manifest" or not isinstance(name, str) or not name:
+        return
+    # Imported lazily to keep the manifest validator usable without importing
+    # init-review-manifest during module import.
+    from thesis_review_workflow.cli.init_review_manifest import (
+        helper_dependency_hashes,
+        repo_root_from_round,
+        workflow_checker_version,
+    )
+
+    current_version = workflow_checker_version(repo_root_from_round(round_dir))
+    recorded_version = check.get("checker_version")
+    if not isinstance(recorded_version, str) or not recorded_version:
+        errors.append(f"helper_checks {name}: missing checker_version")
+    elif recorded_version != current_version:
+        errors.append(f"helper_checks {name}: checker_version is stale")
+
+    recorded_dependencies = check.get("dependency_sha256")
+    current_dependencies = helper_dependency_hashes(round_dir, name)
+    if not isinstance(recorded_dependencies, dict):
+        errors.append(f"helper_checks {name}: missing dependency_sha256")
+    elif recorded_dependencies != current_dependencies:
+        errors.append(f"helper_checks {name}: dependency_sha256 is stale")
 
 
 def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) -> set[str]:

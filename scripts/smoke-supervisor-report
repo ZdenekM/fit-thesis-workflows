@@ -45,38 +45,6 @@ expect_output() {
   fi
 }
 
-mark_manifest_checks_passed() {
-  local manifest="$round_dir/work/review_manifest.json"
-  python3 - "$manifest" <<'PY'
-import json
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-manifest = json.loads(path.read_text(encoding="utf-8"))
-for artifact in manifest.get("artifacts", []):
-    if artifact.get("path") == "outputs/vedouci_posudek_revidovany.md":
-        artifact["generated_by"] = [
-            {
-                "role": "thesis-supervisor-report",
-                "agent": "supervisor-report-smoke-generator",
-                "contribution": "generation",
-                "notes": "Synthetic smoke generated supervisor report.",
-            }
-        ]
-for check in manifest.get("helper_checks", []):
-    if check.get("check") == "check-review-manifest":
-        check["status"] = "not_applicable"
-        check["exit_code"] = None
-        check["checked_at"] = ""
-    else:
-        check["status"] = "passed"
-        check["exit_code"] = 0
-        check["checked_at"] = "2026-05-12T00:02:00Z"
-path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-PY
-}
-
 mkdir -p "$round_dir/notes" "$round_dir/inputs" "$round_dir/extracted" "$round_dir/work" "$round_dir/outputs"
 {
   echo "Work type: BP"
@@ -306,7 +274,15 @@ PY
 expect_success "trace and draft check" "$repo_root/scripts/check-supervisor-report" "$case_id" "$round_id"
 
 expect_success "init manifest before approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
+expect_success "register supervisor report generator" \
+  "$repo_root/scripts/register-review-artifact" \
+  --role thesis-supervisor-report \
+  --agent supervisor-report-smoke-generator \
+  --contribution generation \
+  --review-scope sendable_final \
+  --review-status not_recorded \
+  "$case_id" "$round_id" outputs/vedouci_posudek_revidovany.md
+expect_success "run helper checks before approval" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
 expect_success "write supervisor report approval" \
   "$repo_root/scripts/write-review-approval" \
   --profile supervisor-report \
@@ -315,9 +291,6 @@ expect_success "write supervisor report approval" \
   --check check-supervisor-report \
   "$case_id" "$round_id"
 expect_success "refresh manifest for final wave" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
-expect_success "refresh coverage for final wave" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
 expect_success "supervisor report final wave after approval" \
   "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave final "$case_id" "$round_id"
 expect_success "confirm supervisor report" \
@@ -328,12 +301,7 @@ expect_success "confirm supervisor report" \
   "$case_id" "$round_id"
 expect_success "reviewed and confirmation check" \
   "$repo_root/scripts/check-supervisor-report" --require-reviewed --require-confirmation "$case_id" "$round_id"
-expect_success "refresh manifest after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
-expect_success "apply approval after helper checks" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
-expect_success "refresh coverage after approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-mark_manifest_checks_passed
+expect_success "refresh manifest after approval" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
 expect_success "agent coverage after approval" "$repo_root/scripts/check-agent-coverage" "$case_id" "$round_id"
 expect_success "review manifest after approval" \
   "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" "$round_id"

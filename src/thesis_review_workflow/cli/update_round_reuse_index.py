@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.agent_coverage import COVERAGE_REL
 from thesis_review_workflow.cases import MissingCurrentRound, case_dir, read_current_round, repo_root, resolve_round
 from thesis_review_workflow.code_workspace import workspace_source_fingerprints
 from thesis_review_workflow.ids import validate_id
@@ -431,14 +432,24 @@ def artifact_review_current(round_dir: Path, rel_path: str) -> bool:
             return False
         if not (review.get("reviewed_hash") == current_hash or review.get("evidence_hash") == current_hash):
             return False
-        return helper_checks_current_for_artifact(manifest, rel_path, current_hash)
+        return helper_checks_current_for_artifact(round_dir, manifest, rel_path, current_hash)
     return False
 
 
-def helper_checks_current_for_artifact(manifest: dict[str, Any], rel_path: str, current_hash: str) -> bool:
+def helper_checks_current_for_artifact(
+    round_dir: Path,
+    manifest: dict[str, Any],
+    rel_path: str,
+    current_hash: str,
+) -> bool:
     helper_checks = manifest.get("helper_checks")
     if not isinstance(helper_checks, list):
         return False
+    coverage_rel = COVERAGE_REL.as_posix()
+    coverage_path = round_dir / coverage_rel
+    if not coverage_path.is_file():
+        return False
+    coverage_hash = sha256_file(coverage_path)
     targeted = [
         check
         for check in helper_checks
@@ -452,8 +463,13 @@ def helper_checks_current_for_artifact(manifest: dict[str, Any], rel_path: str, 
     for check in targeted:
         if check.get("status") != "passed" or check.get("exit_code") != 0:
             return False
+        target_set = {target for target in check["target_artifacts"] if isinstance(target, str)}
+        if not {rel_path, coverage_rel}.issubset(target_set):
+            return False
         target_sha256 = check.get("target_sha256")
         if not isinstance(target_sha256, dict) or target_sha256.get(rel_path) != current_hash:
+            return False
+        if target_sha256.get(coverage_rel) != coverage_hash:
             return False
     return True
 

@@ -763,7 +763,7 @@ private raw content during normal synthesis.
 
 ### Slice 10 - Manifest Refresh Ordering And Helper-Check Reuse
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `fix(workflow): make manifest refresh single-pass`
 - Expected paths:
   - `src/thesis_review_workflow/cli/init_review_manifest.py`
@@ -827,6 +827,32 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 10 implementation and agent review complete. Fixed the
+  manifest refresh ordering so review approval records are applied before role
+  coverage and deferred `check-agent-coverage` execution, allowing the supervisor
+  report smoke to use the production register/approval/run-checks path without
+  manual helper-check stamping. Helper-check reuse is now limited to passed
+  read-only records whose logical command, target set, target hashes,
+  dependency hashes, and workflow checker version still match; final
+  `check-review-manifest --require-complete` also recomputes those dependency
+  and checker-version values instead of trusting a manually stamped `passed`
+  record. Fixed reviewer findings by requiring `check-agent-coverage` to bind
+  `work/agent_coverage.json` as a current checked target in both closeout and
+  previous-round reuse decisions. Verification passed: `pants fmt ::`,
+  `pants test tests/test_review_manifest_helpers.py
+  tests/test_review_approvals.py tests/test_workflow_python_contracts.py
+  tests/test_round_reuse_index.py`, `scripts/smoke-review-approval`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-supervisor-report`,
+  `scripts/smoke-agent-coverage`, `scripts/smoke-review-wave`,
+  `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 10 started. Sanity review passed: Slice 9 is committed as
+  `27e7b55`, the only unrelated worktree change is still `TODO.md`, and Slice
+  10 is scoped to manifest refresh ordering plus deterministic helper-check
+  reuse. The slice must not weaken semantic review, approval, role coverage, or
+  provenance gates; any cached helper status must remain keyed to target hashes,
+  command identity, dependency inputs, and checker version.
 - 2026-05-13: Slice 9 implementation and agent review complete. Added
   supervisor submitted-report capture under ignored round workspaces, including
   copied PDF/public-text artifacts, `recorded_by`, hash-bound comparison against

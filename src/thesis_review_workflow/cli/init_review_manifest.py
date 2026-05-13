@@ -50,6 +50,7 @@ from thesis_review_workflow.work_artifacts import collect_supporting_work_artifa
 MANIFEST_REL = Path("work/review_manifest.json")
 INTERNAL_EVIDENCE = internal_evidence_filenames()
 REQUIRE_STANDALONE_REVIEW = explicit_internal_review_filenames()
+REUSABLE_HELPER_CHECK_STATUSES = {"passed"}
 
 
 def now_utc() -> str:
@@ -77,6 +78,88 @@ def target_hashes(round_dir: Path, targets: list[str]) -> dict[str, str]:
         if path.is_file():
             hashes[target] = sha256_file(path)
     return hashes
+
+
+def case_dir_from_round(round_dir: Path) -> Path:
+    return round_dir.parents[1]
+
+
+def repo_root_from_round(round_dir: Path) -> Path:
+    return round_dir.parents[3]
+
+
+def hash_existing_paths(paths: list[tuple[str, Path]]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for label, path in paths:
+        if path.is_file():
+            hashes[label] = sha256_file(path)
+    return hashes
+
+
+def hash_tree(label_prefix: str, base: Path) -> dict[str, str]:
+    if not base.is_dir():
+        return {}
+    hashes: dict[str, str] = {}
+    for path in sorted(base.rglob("*")):
+        if path.is_file():
+            hashes[f"{label_prefix}:{path.relative_to(base).as_posix()}"] = sha256_file(path)
+    return hashes
+
+
+def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]:
+    case_dir = case_dir_from_round(round_dir)
+    root = repo_root_from_round(round_dir)
+    paths = [
+        ("case:case.md", case_dir / "case.md"),
+        ("case:current-round.txt", case_dir / "current-round.txt"),
+    ]
+    if check_name in {
+        "check-supervisor-ready",
+        "check-round-ready",
+        "check-supervisor-report-ready",
+        "check-supervisor-report",
+    }:
+        paths.extend(
+            [
+                ("round:notes/assignment.md", round_dir / "notes" / "assignment.md"),
+                (
+                    "round:notes/supervisor-report-operator-input.md",
+                    round_dir / "notes" / "supervisor-report-operator-input.md",
+                ),
+                ("repo:config/supervisor-deadlines.tsv", root / "config" / "supervisor-deadlines.tsv"),
+                ("repo:profiles/default.md", root / "profiles" / "default.md"),
+                ("repo:profiles/local/default.md", root / "profiles" / "local" / "default.md"),
+            ]
+        )
+    if check_name in {"check-feedback-language", "check-feedback-output"}:
+        paths.append(("round:notes/assignment.md", round_dir / "notes" / "assignment.md"))
+    if check_name == "check-supervisor-report":
+        paths.append(
+            ("round:work/supervisor_report_confirmation.json", round_dir / "work/supervisor_report_confirmation.json")
+        )
+    if check_name == "check-agent-coverage":
+        paths.append(("round:work/reuse/reuse_index.json", round_dir / "work" / "reuse" / "reuse_index.json"))
+    hashes = hash_existing_paths(paths)
+    if check_name in {"check-round-ready", "check-supervisor-ready"}:
+        hashes.update(hash_tree("round:inputs", round_dir / "inputs"))
+        hashes.update(hash_tree("round:extracted", round_dir / "extracted"))
+    if check_name == "check-supervisor-report":
+        hashes.update(hash_tree("round:work/submitted_reports", round_dir / "work" / "submitted_reports"))
+        hashes.update(hash_tree("round:work/report_amendments", round_dir / "work" / "report_amendments"))
+    return hashes
+
+
+def workflow_checker_version(root: Path) -> str:
+    src_dir = root / "src" / "thesis_review_workflow"
+    digest = hashlib.sha256()
+    for path in sorted(src_dir.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256_file(path).encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def source_hashes(round_dir: Path, refs: Any) -> dict[str, str]:
@@ -289,6 +372,8 @@ def required_checks(
     artifact_paths: set[str],
     round_dir: Path,
     manifest: dict[str, Any],
+    *,
+    checker_version: str = "",
 ) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
 
@@ -302,6 +387,8 @@ def required_checks(
                 "command": canonical_command_text(command),
                 "target_artifacts": targets,
                 "target_sha256": target_hashes(round_dir, targets),
+                "dependency_sha256": helper_dependency_hashes(round_dir, name),
+                "checker_version": checker_version,
                 "status": "not_recorded",
                 "checked_at": "",
                 "exit_code": None,
@@ -408,7 +495,8 @@ def required_checks(
             supervisor_report_calibration_profile_check_targets(round_dir),
         )
     if coverage_required(round_dir, manifest):
-        add("check-agent-coverage", f"check-agent-coverage {case_id} {round_id}", sorted(artifact_paths))
+        targets = sorted({*artifact_paths, COVERAGE_REL.as_posix()})
+        add("check-agent-coverage", f"check-agent-coverage {case_id} {round_id}", targets)
     add(
         "check-review-manifest",
         f"check-review-manifest --require-complete {case_id} {round_id}",
@@ -442,6 +530,16 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
             and isinstance(previous.get("command"), str)
             and canonical_command_text(previous["command"]) == canonical_command_text(item.get("command", ""))
         ):
+            generated_version = item.get("checker_version")
+            if (
+                isinstance(generated_version, str)
+                and generated_version
+                and previous.get("checker_version") != generated_version
+            ):
+                stale = dict(item)
+                stale["notes"] = "Checker version changed since the previous check; rerun this helper check."
+                merged.append(stale)
+                continue
             if previous.get("target_artifacts") != item.get("target_artifacts"):
                 stale = dict(item)
                 stale["notes"] = "Target artifact set changed since the previous check; rerun this helper check."
@@ -452,8 +550,19 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
                 stale["notes"] = "Target artifact hash changed since the previous check; rerun this helper check."
                 merged.append(stale)
                 continue
+            if previous.get("dependency_sha256") != item.get("dependency_sha256"):
+                stale = dict(item)
+                stale["notes"] = "Helper dependency hash changed since the previous check; rerun this helper check."
+                merged.append(stale)
+                continue
+            if previous.get("status") not in REUSABLE_HELPER_CHECK_STATUSES or previous.get("exit_code") != 0:
+                stale = dict(item)
+                stale["notes"] = "Previous helper check was not a passed reusable result; rerun this helper check."
+                merged.append(stale)
+                continue
             updated = {**item, **previous}
             updated["command"] = item["command"]
+            updated["checker_version"] = item.get("checker_version", "")
             if not updated.get("target_artifacts"):
                 updated["target_artifacts"] = item["target_artifacts"]
             if not updated.get("target_sha256"):
@@ -462,6 +571,53 @@ def merge_checks(existing: dict[str, Any], generated: list[dict[str, Any]]) -> l
         else:
             merged.append(item)
     return merged
+
+
+def artifact_paths_from_manifest(manifest: dict[str, Any]) -> set[str]:
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return set()
+    return {item["path"] for item in artifacts if isinstance(item, dict) and isinstance(item.get("path"), str)}
+
+
+def refresh_agent_coverage(
+    *,
+    case_id: str,
+    round_id: str,
+    round_dir: Path,
+    manifest: dict[str, Any],
+    existing_coverage: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    coverage = build_coverage(case_id, round_id, round_dir, manifest, existing_coverage)
+    write_coverage(round_dir / COVERAGE_REL, coverage)
+    manifest["supporting_work_artifacts"] = merge_supporting_work_artifacts(
+        manifest.get("supporting_work_artifacts"),
+        collect_work_artifacts(round_dir),
+    )
+    return coverage
+
+
+def refresh_helper_checks(
+    *,
+    case_id: str,
+    round_id: str,
+    round_dir: Path,
+    manifest: dict[str, Any],
+    checker_version: str,
+) -> None:
+    artifact_paths = artifact_paths_from_manifest(manifest)
+    existing = {"helper_checks": manifest.get("helper_checks") or []}
+    manifest["helper_checks"] = merge_checks(
+        existing,
+        required_checks(
+            case_id,
+            round_id,
+            artifact_paths,
+            round_dir,
+            manifest,
+            checker_version=checker_version,
+        ),
+    )
 
 
 def add_artifact_refs(manifest: dict[str, Any], round_dir: Path) -> None:
@@ -523,11 +679,20 @@ def run_check_record(root: Path, round_dir: Path, check: dict[str, Any]) -> None
     check["notes"] = detail or "Executed by init-review-manifest --run-checks."
 
 
-def run_helper_checks(root: Path, manifest_path: Path, manifest: dict[str, Any]) -> None:
+def run_helper_checks(
+    root: Path,
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    *,
+    case_id: str,
+    round_id: str,
+    checker_version: str,
+) -> None:
     checks = manifest.get("helper_checks")
     if not isinstance(checks, list):
         return
     round_dir = manifest_path.parents[1]
+    deferred_agent_check: dict[str, Any] | None = None
     for check in checks:
         if not isinstance(check, dict):
             continue
@@ -540,7 +705,33 @@ def run_helper_checks(root: Path, manifest_path: Path, manifest: dict[str, Any])
                 "it is not executed by init-review-manifest --run-checks."
             )
             continue
+        if check.get("check") == "check-agent-coverage":
+            deferred_agent_check = check
+            continue
         run_check_record(root, round_dir, check)
+    write_manifest(manifest_path, manifest)
+    apply_review_approval_records(manifest, round_dir)
+    refresh_agent_coverage(
+        case_id=case_id,
+        round_id=round_id,
+        round_dir=round_dir,
+        manifest=manifest,
+        existing_coverage=load_json_object(round_dir / COVERAGE_REL),
+    )
+    refresh_helper_checks(
+        case_id=case_id,
+        round_id=round_id,
+        round_dir=round_dir,
+        manifest=manifest,
+        checker_version=checker_version,
+    )
+    add_artifact_refs(manifest, round_dir)
+    apply_artifact_dependency_refs(manifest, round_dir)
+    if deferred_agent_check is not None:
+        for check in manifest.get("helper_checks", []):
+            if isinstance(check, dict) and check.get("check") == "check-agent-coverage":
+                run_check_record(root, round_dir, check)
+                break
     write_manifest(manifest_path, manifest)
 
 
@@ -561,8 +752,8 @@ def main() -> int:
 
     manifest_path = round_dir / MANIFEST_REL
     existing = load_existing(manifest_path)
+    checker_version = workflow_checker_version(root)
     artifacts = output_artifacts(round_dir, existing)
-    artifact_paths = {item["path"] for item in artifacts}
     limitations = existing.get("workflow_limitations")
     if not isinstance(limitations, list):
         limitations = []
@@ -582,6 +773,9 @@ def main() -> int:
     inputs = collect_tree(round_dir, "inputs")
     extracted = collect_tree(round_dir, "extracted")
     notes = collect_tree(round_dir, "notes")
+    previous_helper_checks = existing.get("helper_checks")
+    if not isinstance(previous_helper_checks, list):
+        previous_helper_checks = []
     manifest = {
         "schema_version": "review-manifest-v1",
         "case_id": args.case_id,
@@ -592,7 +786,7 @@ def main() -> int:
         "extracted_artifacts": extracted,
         "notes": notes,
         "supporting_work_artifacts": [],
-        "helper_checks": [],
+        "helper_checks": previous_helper_checks,
         "workflow_limitations": limitations,
         "artifacts": artifacts,
     }
@@ -603,25 +797,44 @@ def main() -> int:
     manifest["supporting_work_artifacts"] = work_artifacts
     add_artifact_refs(manifest, round_dir)
 
-    existing_coverage = load_json_object(round_dir / COVERAGE_REL)
-    write_coverage(
-        round_dir / COVERAGE_REL,
-        build_coverage(args.case_id, round_id, round_dir, manifest, existing_coverage),
+    refresh_helper_checks(
+        case_id=args.case_id,
+        round_id=round_id,
+        round_dir=round_dir,
+        manifest=manifest,
+        checker_version=checker_version,
     )
-    work_artifacts = merge_supporting_work_artifacts(
-        existing.get("supporting_work_artifacts"),
-        collect_work_artifacts(round_dir),
+    add_artifact_refs(manifest, round_dir)
+    apply_review_approval_records(manifest, round_dir)
+    apply_artifact_dependency_refs(manifest, round_dir)
+    refresh_agent_coverage(
+        case_id=args.case_id,
+        round_id=round_id,
+        round_dir=round_dir,
+        manifest=manifest,
+        existing_coverage=load_json_object(round_dir / COVERAGE_REL),
     )
-    manifest["supporting_work_artifacts"] = work_artifacts
-    checks = merge_checks(existing, required_checks(args.case_id, round_id, artifact_paths, round_dir, manifest))
-    manifest["helper_checks"] = checks
+    refresh_helper_checks(
+        case_id=args.case_id,
+        round_id=round_id,
+        round_dir=round_dir,
+        manifest=manifest,
+        checker_version=checker_version,
+    )
     add_artifact_refs(manifest, round_dir)
     apply_review_approval_records(manifest, round_dir)
     apply_artifact_dependency_refs(manifest, round_dir)
 
     write_manifest(manifest_path, manifest)
     if args.run_checks:
-        run_helper_checks(root, manifest_path, manifest)
+        run_helper_checks(
+            root,
+            manifest_path,
+            manifest,
+            case_id=args.case_id,
+            round_id=round_id,
+            checker_version=checker_version,
+        )
         write_manifest(manifest_path, manifest)
     print(f"Wrote {rel_repo(root, manifest_path)}")
     return 0
