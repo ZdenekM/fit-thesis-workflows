@@ -1,6 +1,6 @@
 # Final Supervisor Report Pipeline Optimization Plan
 
-Status: active
+Status: done
 Created: 2026-05-13
 
 ## Goal
@@ -332,7 +332,7 @@ evidence, the intended path after this plan should be:
 
 ### Slice 6 - Final Documentation, Smoke Path, And Archive Decision
 
-- Status: pending
+- Status: done
 - Proposed commit message: `docs(workflow): close final report pipeline cleanup`
 - Expected paths:
   - `README.md`
@@ -442,6 +442,18 @@ evidence, the intended path after this plan should be:
   tests/test_supervisor_report_packets.py`, targeted `pants lint`/`pants check`
   for touched files, `scripts/smoke-supervisor-report-packets`,
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 6 done. Updated the chat-first README path, supervisor
+  report skills, command-surface docs, and TODO state. Extended
+  `scripts/smoke-supervisor-report` to cover code evidence, quantitative
+  materiality resolved by typed limitation, safe manifest registration,
+  clean/silent Theses.cz similarity assessment coverage, review approval,
+  confirmation, manifest/coverage refresh, and closeout. Fixed a mypy issue in
+  `tests/test_agent_coverage.py` found by the final audit. Verification passed:
+  `pants fmt src/thesis_review_workflow:: tests:: scripts::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, the planned pytest set,
+  all planned smoke scripts, `scripts/check-private`, `scripts/check-scripts`,
+  and `git diff --check`.
 
 ## Decision Log
 
@@ -467,4 +479,40 @@ evidence, the intended path after this plan should be:
 
 ## Final Audit
 
-Not started.
+Completed 2026-05-13.
+
+Commands passed:
+
+- `pants fmt src/thesis_review_workflow:: tests:: scripts::`
+- `pants lint src/thesis_review_workflow:: tests:: scripts::`
+- `pants check src/thesis_review_workflow:: tests:: scripts::`
+- `pants test tests/test_review_manifest_helpers.py tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_agent_coverage.py tests/test_supervisor_report.py tests/test_supervisor_report_packets.py tests/test_work_artifacts.py tests/test_workflow_python_contracts.py`
+- `scripts/smoke-supervisor-report`
+- `scripts/smoke-supervisor-report-packets`
+- `scripts/smoke-review-wave`
+- `scripts/smoke-agent-coverage`
+- `scripts/smoke-review-manifest`
+- `scripts/smoke-register-review-artifact`
+- `scripts/smoke-package-workflow-tools`
+- `scripts/check-private`
+- `scripts/check-scripts`
+- `git diff --check`
+
+Initial failure fixed during the audit:
+
+- `pants check src/thesis_review_workflow:: tests:: scripts::` initially found
+  `tests/test_agent_coverage.py:117: error: Value of type "object" is not
+  indexable`; the test now casts the manifest supporting-work list explicitly.
+
+Residual work:
+
+- Native Windows runtime proof for packaged workflow launchers remains open in
+  `TODO.md`; this Linux checkout only proves launcher generation and POSIX
+  execution via `scripts/smoke-package-workflow-tools`.
+- The submitted-code sandbox workflow remains open in `TODO.md` and is outside
+  this plan.
+
+Archive decision:
+
+- Plan is complete and should be moved to
+  `plans/archive/final_supervisor_report_pipeline_optimization_plan.md`.

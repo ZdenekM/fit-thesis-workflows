@@ -138,6 +138,185 @@ EOF
 expect_success "report readiness" "$repo_root/scripts/check-supervisor-report-ready" "$case_id" "$round_id"
 
 python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+
+def write_json(rel_path, payload):
+    path = round_dir / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+(round_dir / "inputs/code").mkdir(parents=True, exist_ok=True)
+(round_dir / "inputs/code/app.py").write_text("def answer():\n    return 42\n", encoding="utf-8")
+(round_dir / "inputs/results.csv").write_text("metric,value\naccuracy,0.82\n", encoding="utf-8")
+(round_dir / "work/code_workspace.md").write_text(
+    "# Code Workspace\n\nPrepared synthetic code root `inputs/code/app.py` for static review.\n",
+    encoding="utf-8",
+)
+write_json(
+    "work/code_reproducibility.json",
+    {
+        "schema_version": "code-reproducibility-v1",
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": "2026-05-12T00:00:00Z",
+        "classification": "static_setup_present",
+        "summary": "Synthetic static code setup is present; no submitted code was executed.",
+        "execution_policy": "static_only_no_submitted_code_executed",
+        "code_evidence": ["inputs/code/app.py"],
+        "roots": [],
+        "run_evidence": [],
+        "evidence_requests": [],
+    },
+)
+write_json(
+    "work/quantitative_claims.json",
+    {
+        "schema_version": "quantitative-claims-v1",
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": "2026-05-12T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-quantitative-claims-review",
+        "producer_agent": "supervisor-report-smoke-quantitative-agent",
+        "authorization_note": "Synthetic smoke authorized.",
+        "source_refs": ["inputs/results.csv"],
+        "limitations": [],
+        "claims": [
+            {
+                "claim_id": "Q1",
+                "summary": "Synthetic result value used only to exercise final-report materiality gates.",
+                "kind": "metric",
+                "status": "plausible",
+                "unit": "ratio",
+                "baseline_status": "stated",
+                "practical_context": "sufficient",
+                "scale_context": "Single synthetic row in inputs/results.csv.",
+                "sample_context": "Smoke fixture with one metric row.",
+                "practical_magnitude": "The value is not used for grading in this smoke.",
+                "overclaim_risk": "low",
+                "reproducibility_refs": ["inputs/results.csv"],
+                "evidence_refs": ["inputs/results.csv"],
+                "requires_reviewer_verification": False,
+            }
+        ],
+    },
+)
+(round_dir / "outputs").mkdir(parents=True, exist_ok=True)
+(round_dir / "outputs/code_consistency.md").write_text(
+    """# Soulad textu s kodem
+
+## Rozsah kontroly
+
+Checked `inputs/code/app.py`, `inputs/results.csv`, and `work/code_workspace.md`.
+
+## Podporena tvrzeni
+
+- Synthetic code evidence is present in `inputs/code/app.py`.
+
+## Nejasna nebo neoverena tvrzeni
+
+| Tvrzeni v textu | Opora v textu | Opora v kodu | Problem |
+|---|---|---|---|
+| Result value | `inputs/results.csv` | `inputs/code/app.py` | static smoke only, no runtime execution |
+
+## Reprodukovatelnost
+
+Static review only; no submitted code was executed, which is the explicit limitation for this smoke.
+
+## Review Status
+
+Reviewed by an authorized code-consistency role and covered by downstream synthesis for the final supervisor report.
+
+## Rucni kontroly
+
+- Manual check limitation: no runtime execution was attempted.
+
+## Synthesis Handoff
+
+- Workflow/audience: supervisor_report final synthesis.
+- Use in synthesis: cite only the static limitation if code execution becomes material.
+- Do not overstate: do not claim runtime validation from this static smoke.
+- P0/P1 anchors: `inputs/code/app.py` and `inputs/results.csv`.
+- Limitations/manual checks: manual check limitation remains no runtime execution.
+- Calibration: final supervisor report smoke with no grading impact.
+- Supervisor action / opponent impact: no student action; this is pipeline evidence only.
+""",
+    encoding="utf-8",
+)
+(round_dir / "outputs/code_quality_review.md").write_text(
+    """# Internal Code Quality Review
+
+## Rozsah kontroly
+
+Reviewed `inputs/code/app.py`, `inputs/results.csv`, and `work/code_workspace.md`.
+
+## Technicky prehled implementace
+
+The synthetic code fixture is a tiny Python function.
+
+## Hlavni technicka rizika
+
+| Priorita | Oblast | Evidence v kodu | Dopad | Doporuceni |
+|---|---|---|---|---|
+| P2 | runtime | `inputs/code/app.py` | static smoke does not execute code | keep runtime claims out of the report |
+
+## Testy, smoke testy a reprodukovatelnost
+
+No submitted code was executed; that limitation is intentional for this smoke.
+
+## README, build a vyvojarska dokumentace
+
+`work/code_workspace.md` records the synthetic prepared root.
+
+## Review Status
+
+Reviewed by an authorized code-quality role and covered by downstream synthesis for the final supervisor report.
+
+## Rucni kontroly
+
+- Manual check limitation: no project dependency setup exists in this smoke.
+
+## Synthesis Handoff
+
+- Workflow/audience: supervisor_report final synthesis.
+- Use in synthesis: use only as static implementation-quality evidence for the pipeline smoke.
+- Do not overstate: do not infer production quality or runtime behavior.
+- P0/P1 anchors: `inputs/code/app.py` and `work/code_workspace.md`.
+- Limitations/manual checks: manual check limitation remains missing real project setup.
+- Calibration: final supervisor report smoke with no grading impact.
+- Supervisor action / opponent impact: no student action; this is pipeline evidence only.
+""",
+    encoding="utf-8",
+)
+write_json(
+    "work/review_manifest.json",
+    {
+        "schema_version": "review-manifest-v1",
+        "case_id": case_id,
+        "round_id": round_id,
+        "workflow_limitations": [
+            {
+                "type": "not_material_to_final",
+                "scope": "quantitative_claims",
+                "trigger": "materiality_next_action",
+                "required_for": ["supervisor_report"],
+                "description": "Synthetic quantitative result exists only to exercise materiality plumbing.",
+                "impact": "Do not use the smoke metric for final report wording or grading.",
+                "status": "closed",
+                "accepted_by": "supervisor-report-smoke",
+            }
+        ],
+    },
+)
+PY
+
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -214,6 +393,17 @@ PY
 
 expect_success "supervisor report materiality" \
   "$repo_root/scripts/check-review-materiality" --workflow supervisor_report --phase final "$case_id" "$round_id"
+python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+index = json.loads((round_dir / "work/review_materiality/supervisor_report/index.json").read_text(encoding="utf-8"))
+quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+assert quantitative["coverage_satisfied_by"] == "typed_limitation", quantitative
+assert all(item["role"] != "quantitative_claims" for item in index["next_actions"]), index["next_actions"]
+PY
 expect_success "supervisor report trace wave" \
   "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave trace "$case_id" "$round_id"
 expect_success "draft supervisor report" "$repo_root/scripts/draft-supervisor-report" "$case_id" "$round_id"
@@ -274,13 +464,33 @@ PY
 expect_success "trace and draft check" "$repo_root/scripts/check-supervisor-report" "$case_id" "$round_id"
 
 expect_success "init manifest before approval" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+expect_success "register code consistency evidence" \
+  "$repo_root/scripts/register-review-artifact" \
+  --agent supervisor-report-smoke-code-consistency \
+  --feeds outputs/vedouci_posudek_revidovany.md \
+  --ref work/code_workspace.md \
+  --ref work/code_reproducibility.json \
+  --ref work/quantitative_claims.json \
+  --used-findings "static code consistency limitation covered by reviewed supervisor report" \
+  "$case_id" "$round_id" outputs/code_consistency.md
+expect_success "register code quality evidence" \
+  "$repo_root/scripts/register-review-artifact" \
+  --agent supervisor-report-smoke-code-quality \
+  --feeds outputs/vedouci_posudek_revidovany.md \
+  --ref work/code_workspace.md \
+  --ref work/code_reproducibility.json \
+  --used-findings "static code quality limitation covered by reviewed supervisor report" \
+  "$case_id" "$round_id" outputs/code_quality_review.md
 expect_success "register supervisor report generator" \
   "$repo_root/scripts/register-review-artifact" \
   --role thesis-supervisor-report \
   --agent supervisor-report-smoke-generator \
-  --contribution generation \
-  --review-scope sendable_final \
-  --review-status not_recorded \
+  --ref notes/supervisor-report-operator-input.md \
+  --ref work/supervisor_report_trace.json \
+  --ref work/vedouci_posudek_draft.md \
+  --ref outputs/code_consistency.md \
+  --ref outputs/code_quality_review.md \
+  --ref work/quantitative_claims.json \
   "$case_id" "$round_id" outputs/vedouci_posudek_revidovany.md
 expect_success "run helper checks before approval" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
 expect_success "write supervisor report approval" \
@@ -290,7 +500,143 @@ expect_success "write supervisor report approval" \
   --check check-supervisor-report-ready \
   --check check-supervisor-report \
   "$case_id" "$round_id"
-expect_success "refresh manifest for final wave" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    build_intake_payload,
+)
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def write_json(rel_path, payload):
+    path = round_dir / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+report_text = """Podobnost 2 %
+Zdrojové dokumenty
+1.
+Synthetic source
+URL: https://example.invalid/synthetic
+Změněno: 2026
+Slov: 10
+Podobnost 2 %
+Vyznačení podobností
+1
+"""
+report_pdf = round_dir / THESES_SIMILARITY_REPORT_REL
+report_pdf.parent.mkdir(parents=True, exist_ok=True)
+report_pdf.write_bytes(b"%PDF synthetic similarity report\n")
+extracted = round_dir / THESES_SIMILARITY_EXTRACTED_TEXT_REL
+extracted.parent.mkdir(parents=True, exist_ok=True)
+extracted.write_text(report_text, encoding="utf-8")
+write_json(
+    THESES_SIMILARITY_INTAKE_REL,
+    build_intake_payload(
+        case_id=case_id,
+        round_id=round_id,
+        generated_at="2026-05-12T00:02:00Z",
+        report_pdf_path=THESES_SIMILARITY_REPORT_REL,
+        report_pdf_sha256=sha(report_pdf),
+        extracted_text_path=THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+        extracted_text_sha256=sha(extracted),
+        report_text=report_text,
+        page_count=1,
+        current_submission_link="matched",
+    ),
+)
+refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
+write_json(
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    {
+        "schema_version": "theses-similarity-assessment-v1",
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": "2026-05-12T00:03:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-theses-similarity-review",
+        "producer_agent": "supervisor-report-smoke-similarity-agent",
+        "authorization_note": "Synthetic smoke authorized.",
+        "source_refs": refs,
+        "source_sha256": {ref: sha(round_dir / ref) for ref in refs},
+        "current_submission_match": "matched",
+        "judgments": [
+            {
+                "judgment_id": "S1",
+                "source_ids": [1],
+                "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
+                "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
+                "category": "no_material_concern",
+                "rationale": "Synthetic clean similarity evidence for silent internal supervisor-report coverage.",
+                "confidence": "high",
+                "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
+                "synthesis_action": "silent",
+                "requires_reviewer_verification": False,
+                "limitations": [],
+            }
+        ],
+        "limitations": [],
+    },
+)
+PY
+expect_success "refresh manifest with similarity evidence" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
+python3 - "$round_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+manifest_path = round_dir / "work/review_manifest.json"
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+assessment_rel = "work/theses_similarity/assessment.json"
+assessment_hash = hashlib.sha256((round_dir / assessment_rel).read_bytes()).hexdigest()
+for artifact in manifest.get("supporting_work_artifacts", []):
+    if artifact.get("path") != assessment_rel:
+        continue
+    artifact["skills"] = ["thesis-theses-similarity-review"]
+    artifact["review_scope"] = "covered_by_synthesis"
+    artifact["independent_review"] = {
+        "status": "not_required",
+        "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+        "used_findings": "silent_internal_evidence:no_material_concern",
+        "evidence_hash": assessment_hash,
+    }
+    break
+else:
+    raise AssertionError(f"missing manifest record for {assessment_rel}")
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+PY
+expect_success "supervisor report materiality after silent similarity" \
+  "$repo_root/scripts/check-review-materiality" --workflow supervisor_report --phase final "$case_id" "$round_id"
+python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+index = json.loads((round_dir / "work/review_materiality/supervisor_report/index.json").read_text(encoding="utf-8"))
+theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+assert theses["coverage_satisfied_by"] == "silent_internal_evidence", theses
+assert all(item["role"] != "theses_similarity" for item in index["next_actions"]), index["next_actions"]
+report = (round_dir / "outputs/vedouci_posudek_revidovany.md").read_text(encoding="utf-8")
+assert not re.search(r"Theses|podobnost|plagi", report, flags=re.IGNORECASE), report
+PY
+expect_success "refresh manifest for final wave" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
 expect_success "supervisor report final wave after approval" \
   "$repo_root/scripts/check-review-wave" --workflow supervisor_report --wave final "$case_id" "$round_id"
 expect_success "confirm supervisor report" \

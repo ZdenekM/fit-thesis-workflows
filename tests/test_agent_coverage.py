@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import cast
 
 from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.theses_similarity import (
@@ -114,7 +115,8 @@ def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: P
     assert errors == []
     assert warnings == []
 
-    human_supporting = [dict(manifest["supporting_work_artifacts"][0])]
+    supporting_records = cast(list[dict[str, object]], manifest["supporting_work_artifacts"])
+    human_supporting = [dict(supporting_records[0])]
     human_supporting[0]["producer_type"] = "human"
     human_supporting[0]["producer_agent"] = None
     human_manifest = {**manifest, "supporting_work_artifacts": human_supporting}

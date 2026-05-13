@@ -99,6 +99,16 @@ Pokud existuje moje historická kalibrace posudků vedoucího, použij ji pro st
 a míru detailu, ne jako důkaz o aktuálním studentovi.
 ```
 
+U finálního posudku vedoucího stačí zadat cíl chatem, ale agent má držet
+pevnou posloupnost: ověřit `check-supervisor-report-ready`, připravit
+role-packets jen při explicitním `Použij agenty`, obnovit current-evidence a
+finální materiality, vyřešit povinné next actions aktuálními artefakty,
+review/synthesis pokrytím nebo typed limitation, vygenerovat trace a draft,
+nechat projít nezávislý review pass, obnovit manifest přes `init-review-manifest
+--run-checks`, potvrdit report pro IS a zavřít ho přes
+`supervisor-report-closeout`. Čisté Theses.cz similarity evidence zůstává
+interní a tiché, pokud strukturované posouzení nemá nevyřešený problém.
+
 ## Další příklady
 
 ### Jen import a příprava kontextu
@@ -599,6 +609,10 @@ scripts/package-workflow-tools
 dist/workflow-tools/bin/check-tooling <case-id>
 dist/workflow-tools/bin/opponent-preflight <case-id>
 dist/workflow-tools/bin/prepare-code-workspace <case-id>
+dist/workflow-tools/bin/check-supervisor-report-ready <case-id>
+dist/workflow-tools/bin/prepare-supervisor-report-packets --agents-authorized <case-id>
+dist/workflow-tools/bin/init-review-manifest --run-checks <case-id> [round-id]
+dist/workflow-tools/bin/supervisor-report-closeout <case-id> [round-id]
 ```
 
 Na Windows použijte `.cmd` nebo PowerShell launcher:
@@ -608,9 +622,12 @@ scripts\package-workflow-tools.cmd
 dist\workflow-tools\bin\check-tooling.cmd <case-id>
 dist\workflow-tools\bin\opponent-preflight.cmd <case-id>
 dist\workflow-tools\bin\prepare-code-workspace.cmd <case-id>
+dist\workflow-tools\bin\check-supervisor-report-ready.cmd <case-id>
+dist\workflow-tools\bin\prepare-supervisor-report-packets.cmd --agents-authorized <case-id>
 dist\workflow-tools\bin\init-review-manifest.cmd --run-checks <case-id> [round-id]
 dist\workflow-tools\bin\check-agent-coverage.cmd <case-id> [round-id]
 dist\workflow-tools\bin\check-review-manifest.cmd --require-complete <case-id> [round-id]
+dist\workflow-tools\bin\supervisor-report-closeout.cmd <case-id> [round-id]
 ```
 
 ```powershell
@@ -618,9 +635,12 @@ dist\workflow-tools\bin\check-review-manifest.cmd --require-complete <case-id> [
 .\dist\workflow-tools\bin\check-tooling.ps1 <case-id>
 .\dist\workflow-tools\bin\opponent-preflight.ps1 <case-id>
 .\dist\workflow-tools\bin\prepare-code-workspace.ps1 <case-id>
+.\dist\workflow-tools\bin\check-supervisor-report-ready.ps1 <case-id>
+.\dist\workflow-tools\bin\prepare-supervisor-report-packets.ps1 --agents-authorized <case-id>
 .\dist\workflow-tools\bin\init-review-manifest.ps1 --run-checks <case-id> [round-id]
 .\dist\workflow-tools\bin\check-agent-coverage.ps1 <case-id> [round-id]
 .\dist\workflow-tools\bin\check-review-manifest.ps1 --require-complete <case-id> [round-id]
+.\dist\workflow-tools\bin\supervisor-report-closeout.ps1 <case-id> [round-id]
 ```
 
 `scripts/package-workflow-tools` a jeho `.cmd`/`.ps1` varianty spustí jediné
@@ -644,8 +664,16 @@ zadání a přidá deadline kalibraci. Formální posudek vedoucího má vlastn�
 navazující bránu `check-supervisor-report-ready`, která vyžaduje i reportový
 vstup vedoucího. Draft posudku se po vytvoření strukturovaného trace generuje
 příkazem `draft-supervisor-report` a kontroluje příkazem
-`check-supervisor-report`. `check-round-ready` je obecnější brána pro oponentní
-a interní materiály bez supervisor deadline kalibrace.
+`check-supervisor-report`. `prepare-supervisor-report-packets --agents-authorized`
+obnoví current-evidence snapshot, spustí finální materiality pro
+`supervisor_report` a vypíše jen role packets, které jsou podle strukturovaných
+artefaktů nebo typed limitations stále potřeba. Po nezávislém review reportu
+patří před IS ještě `confirm-supervisor-report` a potom
+`supervisor-report-closeout`; closeout znovu obnoví current evidence, final
+materiality, manifest/approval/coverage stav, final review wave, případné
+hash-bound submitted-report/amendment záznamy a repo hygiene. `check-round-ready`
+je obecnější brána pro oponentní a interní materiály bez supervisor deadline
+kalibrace.
 
 Pro odložené nebo srpnové obhajoby uveďte přesné datum do `case.md`:
 

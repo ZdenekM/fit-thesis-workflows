@@ -96,6 +96,12 @@ Supervisor-report review packets must list both owned outputs,
 [round-id]`. If that contract is absent, ask the parent session to regenerate
 packets before reviewing.
 
+After writing the reviewed output and approval record, ask the parent session to
+refresh provenance with `scripts/init-review-manifest --run-checks <case-id>
+[round-id]`. The report is still not ready for IS until the human supervisor
+confirms it with `scripts/confirm-supervisor-report` and
+`scripts/supervisor-report-closeout` passes.
+
 ## Agent Final Response Contract
 
 Write full review output to the owned round files and keep the chat final

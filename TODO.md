@@ -2,10 +2,6 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Finish supervisor-report closeout integration for final materiality, submitted reports, and final wording amendments.
-   - `scripts/supervisor-report-closeout` should ensure `check-review-materiality --workflow supervisor_report --phase final` has produced current materiality decisions, or run the read-only materiality check itself before the review-wave gate.
-   - Closeout should validate existing `record-submitted-supervisor-report` and `record-report-amendment` records when present, and tell the operator exactly which hash-bound submitted-report or amendment gate is missing.
-   - Keep submitted PDFs, extracted text, amendment records, and operator logs under the ignored case workspace; do not move real reports into tracked fixtures.
 - [ ] Add native Windows runtime proof for packaged workflow launchers.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.

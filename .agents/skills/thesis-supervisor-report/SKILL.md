@@ -72,30 +72,41 @@ supervisor does not know a dimension, the intake must say that explicitly.
 7. When code is present, use both `thesis-code-consistency` and
    `thesis-code-quality-review`, or record a typed limitation explaining why one
    could not be performed.
-8. Before spawning role agents, reuse the shared current-evidence,
-   materiality, packet, reuse-index, claim-basis, and wave-gate pattern for the
-   `supervisor_report` workflow when available. Consume compact packet handoffs
-   and `## Synthesis Handoff` sections first; open full artifacts only for
-   material verification, contradiction checks, missing anchors, or reviewer
-   challenges. This routing does not waive code roles, independent review, report
-   confirmation, or manifest gates.
-9. When metrics, user studies, experiments, figures, literature, GitHub PRs,
+8. Before spawning role agents, run
+   `scripts/prepare-supervisor-report-packets --agents-authorized <case-id> [round-id]`
+   after confirming the current request authorizes role agents and the
+   independent review loop. Packet preparation refreshes current evidence and
+   final `supervisor_report` materiality before writing role instructions.
+9. Resolve every required materiality next action before trace/draft synthesis:
+   use current structured/reviewed evidence, synthesis-covered evidence, or a
+   typed limitation. Consume compact packet handoffs and `## Synthesis Handoff`
+   sections first; open full artifacts only for material verification,
+   contradiction checks, missing anchors, or reviewer challenges. This routing
+   does not waive code roles, independent review, report confirmation, or
+   manifest gates.
+10. When metrics, user studies, experiments, figures, literature, GitHub PRs,
    imported Theses.cz similarity reports, or final typography are material to
    the report, use the same specialist workflows as supervisor feedback and
    opponent materials. Clean or resolved similarity-report findings should stay
    silent in formal prose unless the supervisor explicitly needs an
    institutional note.
-10. Write or update `work/supervisor_report_trace.json` with field-level
+11. Write or update `work/supervisor_report_trace.json` with field-level
    evidence refs, supervisor-input refs, optional feedback-history status,
    grade/points state, uncertainty, manual checks, and limitations.
-11. Generate or update `work/vedouci_posudek_draft.md`. Keep the official report
+12. Generate or update `work/vedouci_posudek_draft.md`. Keep the official report
     fields separate from `Komentar pro studenta`, which is visible only to the
     student in IS and is not part of the printed official report.
-12. Run an independent reviewer using `thesis-supervisor-report-review`. The
+13. Run an independent reviewer using `thesis-supervisor-report-review`. The
     reviewed draft goes to `outputs/vedouci_posudek_revidovany.md`.
-13. Treat the reviewed Markdown as a draft for the human supervisor until
+14. Refresh provenance with `scripts/init-review-manifest --run-checks <case-id>
+    [round-id]`, then treat the reviewed Markdown as a draft for the human
+    supervisor until
     `work/supervisor_report_confirmation.json` confirms grade, points, official
     text, and private student comment for IS entry.
+15. After confirmation, run `scripts/supervisor-report-closeout <case-id>
+    [round-id]`. Closeout rechecks current evidence, final materiality,
+    manifest/coverage state, final review wave, submitted-report/amendment
+    records when present, and repo hygiene.
 
 ## FIT IS Fields
 

@@ -30,6 +30,18 @@ particular, `check-supervisor-report-ready`, `prepare-supervisor-report-packets`
 logical `scripts/<tool>` name in development checkouts and through generated
 `.cmd`/`.ps1` launchers after packaging.
 
+The final supervisor-report operator path is command-surface sensitive because
+it is used by role agents as well as humans. `prepare-supervisor-report-packets`
+must be run only after current-request agent authorization is explicit; its
+normal invocation includes `--agents-authorized` and refreshes current evidence
+plus final `supervisor_report` materiality before packet emission. After the
+reviewed report and `work/reviews/supervisor_report_review.json` exist,
+`init-review-manifest --run-checks`, `confirm-supervisor-report`, and
+`supervisor-report-closeout` are the supported closeout surface. Closeout
+performs the manifest refresh before final-wave validation and again after
+checks that may update provenance; operators should not edit
+`work/review_manifest.json` by hand for normal final-report registration.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a
