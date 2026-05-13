@@ -298,7 +298,7 @@ keep weaker instructions.
 
 ### Slice 2 - Add Profile Contract Tests And Normalize Existing Profiles
 
-- Status: planned
+- Status: done
 - Proposed commit message: `test(workflow): validate thesis agent profile contracts`
 - Expected paths:
   - `.codex/config.toml`
@@ -441,6 +441,15 @@ keep weaker instructions.
   `pants check src/thesis_review_workflow:: tests:: .codex/hooks::`,
   `pants test tests/test_agent_profile_contracts.py`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 2 done. Normalized the five existing Codex agent profiles
+  against the registry contract, including private-case boundaries, tracked-file
+  boundaries, allowed writes or read-only language, owning skill/source, and
+  concise handoff contracts. Replaced the old hardcoded five-profile smoke with
+  registry-driven checks for configured profiles. Verification passed:
+  `pants fmt src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `pants test tests/test_agent_profile_contracts.py tests/test_workflow_python_contracts.py`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
 
 ## Decision Log
 
@@ -462,6 +471,10 @@ keep weaker instructions.
 - Standalone evidence producer and reviewer roles must be different unless a
   typed limitation records why the artifact is not being treated as final
   standalone evidence.
+- Keep Slice 2 green by validating existing `.codex/config.toml` entries against
+  the registry and normalized profile contract first; the exhaustive "all
+  `profile` rows must have config files" assertion lands after Slice 3 adds the
+  missing profile files.
 
 ## Final Audit
 

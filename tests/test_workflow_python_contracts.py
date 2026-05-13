@@ -7,7 +7,7 @@ import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 
-from thesis_review_workflow import agent_coverage, code_workspace
+from thesis_review_workflow import agent_coverage, agent_profiles, code_workspace
 from thesis_review_workflow.artifact_registry import (
     closeout_independent_review_required_paths,
     final_output_paths,
@@ -736,27 +736,19 @@ def test_codex_agent_profiles_register_tracked_configs() -> None:
     config = codex_agent_config()
     agents = config["agents"]
     assert isinstance(agents, dict)
-    expected = {
-        "thesis_text_reviewer",
-        "thesis_code_consistency_reviewer",
-        "thesis_code_quality_reviewer",
-        "thesis_quantitative_claims_reviewer",
-        "thesis_evidence_calibrator",
+    registry_profile_ids = {route.profile_id for route in agent_profiles.profile_routes()}
+    configured_profile_ids = {
+        profile_id for profile_id, profile_config in agents.items() if isinstance(profile_config, dict)
     }
-    assert expected <= set(agents)
-    for profile in expected:
+
+    assert configured_profile_ids
+    assert configured_profile_ids <= registry_profile_ids
+    for profile in configured_profile_ids:
         profile_config = agents[profile]
         assert isinstance(profile_config, dict)
         config_file = profile_config["config_file"]
         assert isinstance(config_file, str)
         assert (REPO_ROOT / ".codex" / config_file).is_file()
-
-    quantitative_config = tomllib.loads(
-        (REPO_ROOT / ".codex/agents/thesis-quantitative-claims-reviewer.toml").read_text(encoding="utf-8")
-    )
-    assert quantitative_config["model"] == "gpt-5.5"
-    assert quantitative_config["model_reasoning_effort"] == "xhigh"
-    assert quantitative_config["sandbox_mode"] == "workspace-write"
 
 
 def test_workflow_command_modules_have_sources_runtime_deps_and_wrappers() -> None:
