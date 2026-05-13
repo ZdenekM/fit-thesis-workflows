@@ -622,7 +622,7 @@ private raw content during normal synthesis.
 
 ### Slice 6 - Materiality And Wave-Gate Reuse Consumption
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `feat(workflow): separate role coverage from fresh review`
 - Expected paths:
   - `src/thesis_review_workflow/review_materiality.py`
@@ -719,7 +719,7 @@ private raw content during normal synthesis.
 
 ### Slice 9 - Submitted Report Capture And Amendment Deltas
 
-- Status: pending
+- Status: complete
 - Proposed commit message: `feat(workflow): record submitted supervisor report state`
 - Expected paths:
   - `scripts/record-submitted-supervisor-report`
@@ -827,6 +827,35 @@ private raw content during normal synthesis.
 
 ## Progress
 
+- 2026-05-13: Slice 9 implementation and agent review complete. Added
+  supervisor submitted-report capture under ignored round workspaces, including
+  copied PDF/public-text artifacts, `recorded_by`, hash-bound comparison against
+  reviewed Markdown and supervisor confirmation, and validation that recomputes
+  public-text, grade, point, and archive-readiness state from the bound files.
+  Added bounded report-amendment records for non-material post-review edits:
+  private/style deltas stay compact, public-text deltas now require the current
+  canonical supervisor-report review approval and review manifest, and grade,
+  point, evidence-anchor, stale confirmation, or stale approval changes require
+  normal semantic review. Fixed reviewer findings by rejecting tampered stored
+  booleans, binding amendments to confirmation/review approval, cleaning copied
+  files/snapshots after failed CLI attempts, and making
+  `check-supervisor-report` flag orphan submitted-report or amendment state.
+  Verification passed: `pants fmt ::`, `pants lint src/thesis_review_workflow::
+  tests:: scripts::`, `pants check src/thesis_review_workflow:: tests::
+  scripts::`, `pants test tests/test_submitted_reports.py
+  tests/test_report_amendments.py tests/test_draft_supervisor_report.py`,
+  `scripts/smoke-record-submitted-supervisor-report`,
+  `scripts/smoke-record-report-amendment`, `scripts/smoke-supervisor-report`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. The reviewer-noted
+  double manifest refresh in `scripts/smoke-supervisor-report` remains the
+  planned Slice 10 root-cause fix, not a semantic-review weakening.
+- 2026-05-13: Slice 9 started. Sanity review passed: Slice 8 is committed as
+  `c56b493`, the only unrelated worktree change is still `TODO.md`, and Slice 9
+  is scoped to supervisor submitted-report capture plus bounded post-review
+  amendment deltas. New commands must go through the standard command surface
+  and Windows/package coverage, keep PDFs/extracts/amendment state under ignored
+  case workspaces, and must not claim opponent submitted-report support.
 - 2026-05-13: Slice 8 started. Sanity review passed: Slice 7 is committed as
   `9266d99`, the only unrelated worktree change is still `TODO.md`, and Slice 8
   is documentation/skill wording only. Scope is capsule-first and claim-basis

@@ -17,6 +17,11 @@ SUPERVISOR_REPORT_DRAFT_REL = "work/vedouci_posudek_draft.md"
 SUPERVISOR_REPORT_REVIEWED_REL = "outputs/vedouci_posudek_revidovany.md"
 SUPERVISOR_REPORT_REVIEW_REL = "work/reviews/supervisor_report_review.json"
 SUPERVISOR_REPORT_CONFIRMATION_REL = "work/supervisor_report_confirmation.json"
+SUPERVISOR_REPORT_SUBMITTED_DIR_REL = "work/submitted_reports"
+SUPERVISOR_REPORT_SUBMITTED_RECORD_REL = "work/submitted_reports/supervisor_report.json"
+SUPERVISOR_REPORT_SUBMITTED_PDF_REL = "work/submitted_reports/supervisor_report.pdf"
+SUPERVISOR_REPORT_SUBMITTED_TEXT_REL = "work/submitted_reports/supervisor_report_public_text.txt"
+SUPERVISOR_REPORT_AMENDMENTS_DIR_REL = "work/report_amendments"
 
 SUPERVISOR_REPORT_TITLE_HEADINGS = ("# Návrh posudku vedoucího", "# Posudek vedoucího")
 SUPERVISOR_REPORT_SECTION_HEADINGS = (
@@ -115,6 +120,11 @@ def public_report_text(text: str) -> str:
         if not in_private:
             result.append(line)
     return "\n".join(result)
+
+
+def private_student_comment_text(text: str) -> str:
+    lines = strip_metadata_comments(text).splitlines()
+    return section_text(lines, SUPERVISOR_REPORT_PRIVATE_HEADING, stop_pattern=r"^##\s+")
 
 
 def section_has_content(lines: list[str], heading: str) -> bool:

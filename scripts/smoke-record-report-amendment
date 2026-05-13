@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__report_amendment_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+tmp_dir="$(mktemp -d)"
+out_file="/tmp/report-amendment-smoke.$$.out"
+
+cleanup() {
+  rm -f "$out_file"
+  rm -rf "$repo_root/cases/$case_id" "$tmp_dir"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/outputs" "$round_dir/work"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+write_report() {
+  local path="$1"
+  local private="$2"
+  local grade="${3:-B}"
+  local points="${4:-82}"
+  cat >"$path" <<EOF
+# Posudek vedoucího
+
+## Informace k zadání
+
+Zadání bylo splněno.
+
+## Práce s literaturou
+
+Student pracoval s literaturou.
+
+## Aktivita během řešení, konzultace, komunikace
+
+Student konzultoval průběžně.
+
+## Aktivita při dokončování
+
+Definitivní obsah byl konzultován.
+
+## Publikační činnost, ocenění
+
+Publikace nejsou.
+
+## Celkové hodnocení
+
+Práci doporučuji hodnotit jako velmi dobrou.
+
+Známka: $grade
+Body: $points
+
+## Komentář pro studenta
+
+$private
+EOF
+}
+
+write_report "$tmp_dir/before.md" "Děkuji za práci."
+write_report "$round_dir/outputs/vedouci_posudek_revidovany.md" "Děkuji za práci a přeji hodně zdaru."
+cp "$tmp_dir/before.md" "$round_dir/work/vedouci_posudek_draft.md"
+python3 - "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
+draft_rel = "work/vedouci_posudek_draft.md"
+confirmation_rel = "work/supervisor_report_confirmation.json"
+approval_rel = "work/reviews/supervisor_report_review.json"
+manifest_rel = "work/review_manifest.json"
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+text = (round_dir / reviewed_rel).read_text(encoding="utf-8")
+grade = re.search(r"\bZnámka:\s*([A-F])\b", text).group(1)
+points = int(re.search(r"\bBody:\s*(\d{1,3})\b", text).group(1))
+confirmation = {
+    "schema_version": "supervisor-report-confirmation-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-13T00:00:00Z",
+    "producer_type": "human",
+    "producer_role": "supervisor",
+    "producer_agent": None,
+    "human_reviewer_note": "Confirmed.",
+    "source_refs": [reviewed_rel],
+    "limitations": [],
+    "reviewed_report_path": reviewed_rel,
+    "reviewed_report_sha256": sha(round_dir / reviewed_rel),
+    "grade": grade,
+    "points": points,
+    "official_text_confirmed": True,
+    "student_comment_confirmed": True,
+    "ready_for_is": True,
+    "confirmed_by": "supervisor",
+    "confirmed_at": "2026-05-13T00:00:00Z",
+}
+approval = {
+    "schema_version": "review-approval-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "workflow_profile": "supervisor_report",
+    "reviewer_role": "thesis-supervisor-report-review",
+    "reviewer_agent": "smoke-reviewer",
+    "verdict": "approved",
+    "blocking_findings_count": 0,
+    "reviewed_artifact_path": reviewed_rel,
+    "reviewed_artifact_sha256": sha(round_dir / reviewed_rel),
+    "review_basis_path": draft_rel,
+    "review_basis_sha256": sha(round_dir / draft_rel),
+    "checks_observed": ["check-supervisor-report", "check-supervisor-report-ready"],
+    "limitations": [],
+    "timestamp": "2026-05-13T00:00:00Z",
+}
+manifest = {
+    "schema_version": "review-manifest-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "artifacts": [],
+    "helper_checks": [
+        {
+            "check": name,
+            "status": "passed",
+            "exit_code": 0,
+            "checked_at": "2026-05-13T00:00:00Z",
+            "target_artifacts": [reviewed_rel],
+            "target_sha256": {reviewed_rel: sha(round_dir / reviewed_rel)},
+        }
+        for name in ("check-supervisor-report", "check-supervisor-report-ready")
+    ],
+}
+(round_dir / confirmation_rel).parent.mkdir(parents=True, exist_ok=True)
+(round_dir / confirmation_rel).write_text(json.dumps(confirmation, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+(round_dir / approval_rel).parent.mkdir(parents=True, exist_ok=True)
+(round_dir / approval_rel).write_text(json.dumps(approval, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+(round_dir / manifest_rel).write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+
+"$repo_root/scripts/record-report-amendment" \
+  --type private_comment_delta \
+  --previous-reviewed "$tmp_dir/before.md" \
+  --approved-by smoke-supervisor \
+  --rationale "Private comment wording cleanup only." \
+  --amended-at 2026-05-13T00:00:00Z \
+  "$case_id" "$round_id" >"$out_file"
+
+python3 - "$round_dir/work/report_amendments/2026-05-13T00-00-00Z-private_comment_delta.json" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "report-amendment-v1"
+assert payload["approval_status"] == "delta_approved"
+assert payload["private_comment_changed"] is True
+assert payload["public_text_changed"] is False
+assert payload["fresh_approval_artifact_sha256"] == payload["current_artifact_sha256"]
+PY
+
+write_report "$tmp_dir/before-grade.md" "Děkuji za práci." B 82
+write_report "$round_dir/outputs/vedouci_posudek_revidovany.md" "Děkuji za práci." A 90
+if "$repo_root/scripts/record-report-amendment" \
+  --type public_text_delta \
+  --previous-reviewed "$tmp_dir/before-grade.md" \
+  --approved-by smoke-supervisor \
+  --rationale "Attempted grade change." \
+  --amended-at 2026-05-13T00:01:00Z \
+  "$case_id" "$round_id" >"$out_file" 2>&1; then
+  echo "Expected grade-changing amendment to fail" >&2
+  cat "$out_file" >&2
+  exit 1
+fi
+
+grep -Fq "normal semantic review" "$out_file"
+echo "Report amendment smoke passed"

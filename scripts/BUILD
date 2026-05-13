@@ -48,6 +48,8 @@ shell_sources(
         "prepare-opponent-packets",
         "prepare-supervisor-report-packets",
         "prepare-supervisor-packets",
+        "record-report-amendment",
+        "record-submitted-supervisor-report",
         "register-review-artifact",
         "supervisor-report-closeout",
         "smoke-agent-coverage",
@@ -73,6 +75,8 @@ shell_sources(
         "smoke-opponent-report",
         "smoke-package-workflow-tools",
         "smoke-prepare-code-workspace",
+        "smoke-record-report-amendment",
+        "smoke-record-submitted-supervisor-report",
         "smoke-supervisor-report-calibration-profile",
         "smoke-supervisor-report-packets",
         "smoke-supervisor-packets",
@@ -149,6 +153,8 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:prepare_opponent_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_report_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_packets",
+    "src/thesis_review_workflow/cli:record_report_amendment",
+    "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:supervisor_report_closeout",
     "src/thesis_review_workflow/cli:supervisor_deadline",
@@ -614,6 +620,26 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-supervisor-packets",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_report_amendment_tool",
+    entry_point="thesis_review_workflow.cli.record_report_amendment:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-report-amendment",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_submitted_supervisor_report_tool",
+    entry_point="thesis_review_workflow.cli.record_submitted_supervisor_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-submitted-supervisor-report",
     tags=["workflow-tool"],
 )
 

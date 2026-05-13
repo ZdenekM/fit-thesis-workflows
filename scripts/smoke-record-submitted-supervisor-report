@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__submitted_supervisor_report_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+tmp_dir="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "$repo_root/cases/$case_id" "$tmp_dir"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/outputs" "$round_dir/work"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+python3 - "$round_dir" "$tmp_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+tmp_dir = pathlib.Path(sys.argv[2])
+reviewed_rel = "outputs/vedouci_posudek_revidovany.md"
+confirmation_rel = "work/supervisor_report_confirmation.json"
+reviewed = round_dir / reviewed_rel
+reviewed.write_text(
+    """# Posudek vedoucího
+
+## Informace k zadání
+
+Zadání bylo splněno.
+
+## Práce s literaturou
+
+Student pracoval s literaturou.
+
+## Aktivita během řešení, konzultace, komunikace
+
+Student konzultoval průběžně.
+
+## Aktivita při dokončování
+
+Definitivní obsah byl konzultován.
+
+## Publikační činnost, ocenění
+
+Publikace nejsou.
+
+## Celkové hodnocení
+
+Práci doporučuji hodnotit jako velmi dobrou.
+
+Známka: B
+Body: 82
+
+## Komentář pro studenta
+
+Děkuji za práci.
+""",
+    encoding="utf-8",
+)
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+confirmation = {
+    "schema_version": "supervisor-report-confirmation-v1",
+    "case_id": "CASE_PLACEHOLDER",
+    "round_id": "round-a",
+    "generated_at": "2026-05-13T00:00:00Z",
+    "producer_type": "human",
+    "producer_role": "supervisor",
+    "producer_agent": None,
+    "human_reviewer_note": "Confirmed.",
+    "source_refs": [reviewed_rel],
+    "limitations": [],
+    "reviewed_report_path": reviewed_rel,
+    "reviewed_report_sha256": sha(reviewed),
+    "grade": "B",
+    "points": 82,
+    "official_text_confirmed": True,
+    "student_comment_confirmed": True,
+    "ready_for_is": True,
+    "confirmed_by": "supervisor",
+    "confirmed_at": "2026-05-13T00:00:00Z",
+}
+confirmation["case_id"] = round_dir.parents[1].name
+(round_dir / confirmation_rel).write_text(json.dumps(confirmation, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+public = reviewed.read_text(encoding="utf-8").split("## Komentář pro studenta", 1)[0].strip() + "\n"
+(tmp_dir / "submitted.pdf").write_bytes(b"%PDF-1.4\n% synthetic submitted report\n")
+(tmp_dir / "submitted_public.txt").write_text(public, encoding="utf-8")
+PY
+
+"$repo_root/scripts/record-submitted-supervisor-report" \
+  --pdf "$tmp_dir/submitted.pdf" \
+  --public-text-file "$tmp_dir/submitted_public.txt" \
+  --recorded-by smoke-operator \
+  --submitted-at 2026-05-13T00:00:00Z \
+  "$case_id" "$round_id" >/tmp/submitted-supervisor-report-smoke.out
+
+python3 - "$round_dir/work/submitted_reports/supervisor_report.json" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "submitted-report-v1"
+assert payload["report_kind"] == "supervisor_report"
+assert payload["recorded_by"] == "smoke-operator"
+assert payload["ready_for_archive"] is True
+assert payload["public_text_normalized_match"] is True
+assert payload["grade"] == "B"
+assert payload["points"] == 82
+PY
+
+rm -f /tmp/submitted-supervisor-report-smoke.out
+echo "Submitted supervisor report smoke passed"

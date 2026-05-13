@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 
+from thesis_review_workflow.amendments import validate_report_amendment_record
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -21,9 +22,13 @@ from thesis_review_workflow.structured_evidence import (
     SUPERVISOR_REPORT_TRACE_REL,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.submitted_reports import validate_submitted_report_record
 from thesis_review_workflow.supervisor_report import (
+    SUPERVISOR_REPORT_AMENDMENTS_DIR_REL,
     SUPERVISOR_REPORT_DRAFT_REL,
     SUPERVISOR_REPORT_REVIEWED_REL,
+    SUPERVISOR_REPORT_SUBMITTED_DIR_REL,
+    SUPERVISOR_REPORT_SUBMITTED_RECORD_REL,
     confirmation_grade_points,
     extract_markdown_grade_points,
     require_concrete_grade_points,
@@ -167,6 +172,53 @@ def main(argv: list[str]) -> int:
                 )
     elif args.require_confirmation:
         errors.append(f"missing supervisor report confirmation: {SUPERVISOR_REPORT_CONFIRMATION_REL}")
+
+    submitted_record_path = round_dir / SUPERVISOR_REPORT_SUBMITTED_RECORD_REL
+    if submitted_record_path.is_file():
+        submitted_record = load_json_object(submitted_record_path, errors)
+        if submitted_record is not None:
+            errors.extend(
+                validate_submitted_report_record(
+                    submitted_record,
+                    round_dir=round_dir,
+                    case_id=args.case_id,
+                    round_id=round_id,
+                    rel_path=SUPERVISOR_REPORT_SUBMITTED_RECORD_REL,
+                )
+            )
+    else:
+        submitted_dir = round_dir / SUPERVISOR_REPORT_SUBMITTED_DIR_REL
+        if submitted_dir.is_dir() and any(path.is_file() for path in submitted_dir.iterdir()):
+            errors.append(
+                f"{SUPERVISOR_REPORT_SUBMITTED_DIR_REL}: submitted-report files require "
+                f"{SUPERVISOR_REPORT_SUBMITTED_RECORD_REL}"
+            )
+
+    amendment_dir = round_dir / SUPERVISOR_REPORT_AMENDMENTS_DIR_REL
+    if amendment_dir.is_dir():
+        amendment_records: list[dict[str, object]] = []
+        for amendment_path in sorted(amendment_dir.glob("*.json")):
+            amendment_record = load_json_object(amendment_path, errors)
+            if amendment_record is not None:
+                amendment_records.append(amendment_record)
+                errors.extend(
+                    validate_report_amendment_record(
+                        amendment_record,
+                        round_dir=round_dir,
+                        case_id=args.case_id,
+                        round_id=round_id,
+                        rel_path=amendment_path.relative_to(round_dir).as_posix(),
+                    )
+                )
+        referenced_snapshots = {
+            record.get("previous_snapshot_path")
+            for record in amendment_records
+            if isinstance(record.get("previous_snapshot_path"), str)
+        }
+        for snapshot_path in sorted(amendment_dir.glob("*-before.md")):
+            snapshot_rel = snapshot_path.relative_to(round_dir).as_posix()
+            if snapshot_rel not in referenced_snapshots:
+                errors.append(f"{snapshot_rel}: amendment snapshot has no matching JSON record")
 
     if errors:
         for error in errors:
