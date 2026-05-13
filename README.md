@@ -359,6 +359,10 @@ Pro větší práci má agent rozdělit role, typicky:
 - kalibrace evidence a tvrzení,
 - syntéza do finálního Markdownu.
 
+Stabilní Codex agent role profily a jejich vazba na repo-local skilly jsou v
+`docs/agent-profile-matrix.md`. To jsou `.codex/agents/*` profily pro spawnuté
+workflow role; nejsou to case `Reviewer profile:` preference z `case.md`.
+
 Paralelní review znamená pokrytí rolí, ne neomezený počet živých agentů.
 Výchozí limit jsou nejvýš 2 současně běžící spawnutí workflow agenti; na stroji
 s omezenou RAM má agent použít 1. Vyšší souběh vyžaduje nejdřív vědomou změnu

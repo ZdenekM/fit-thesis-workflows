@@ -1,6 +1,6 @@
 # Codex Agent Role Profiles Plan
 
-Status: active
+Status: done
 Created: 2026-05-13
 
 ## Goal
@@ -401,7 +401,7 @@ keep weaker instructions.
 
 ### Slice 5 - Documentation And Closeout
 
-- Status: planned
+- Status: done
 - Proposed commit message: `docs(workflow): document agent profile routing`
 - Expected paths:
   - `README.md`
@@ -469,6 +469,10 @@ keep weaker instructions.
   `pants check src/thesis_review_workflow:: tests:: .codex/hooks::`,
   `pants test tests/test_agent_profile_contracts.py`, `scripts/check-private`,
   `scripts/check-scripts`, and `git diff --check`.
+- 2026-05-13: Slice 5 done. Updated README's role section to point to
+  `docs/agent-profile-matrix.md` while keeping the top path chat-first. `TODO.md`
+  did not contain profile-registry follow-up work, so no TODO edit was needed.
+  Final audit passed and the plan is ready to archive.
 
 ## Decision Log
 
@@ -501,7 +505,9 @@ keep weaker instructions.
 
 ## Final Audit
 
-Not started. Close with:
+Completed on 2026-05-13.
+
+Commands run:
 
 ```bash
 pants fmt ::
@@ -513,5 +519,11 @@ scripts/check-scripts
 git diff --check
 ```
 
-If the test file is merged into an existing suite, replace the targeted pytest
-command with the final actual target before archiving this plan.
+Results: all passed.
+
+Residual risks: no known profile-registry TODO remains. Future workflow roles
+must update `src/thesis_review_workflow/agent_profiles.py`,
+`docs/agent-profile-matrix.md`, `.codex/config.toml`, and profile contract tests
+together.
+
+Archive decision: done; move to `plans/archive/reviewer_agent_profiles_plan.md`.
