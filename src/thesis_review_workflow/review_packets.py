@@ -52,8 +52,6 @@ SNAPSHOT_SOURCE_PATHS = (
     "work/current_evidence_snapshot.json",
     "work/code_workspace.md",
     "work/serena_roots.json",
-    "work/review_manifest.json",
-    "work/agent_coverage.json",
     "outputs/github_code_intake.md",
     "outputs/oponent_podklady_revidovane.md",
     "work/opponent_report_trace.json",

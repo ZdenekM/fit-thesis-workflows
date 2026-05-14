@@ -83,6 +83,9 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     supervisor_packet = round_dir / "work" / "supervisor_packets" / "text_assignment.md"
     supervisor_packet.parent.mkdir(parents=True, exist_ok=True)
     supervisor_packet.write_text("# Supervisor Packet\n", encoding="utf-8")
+    supervisor_report_packet = round_dir / "work" / "supervisor_report_packets" / "trace.md"
+    supervisor_report_packet.parent.mkdir(parents=True, exist_ok=True)
+    supervisor_report_packet.write_text("# Supervisor Report Packet\n", encoding="utf-8")
 
     records = collect_supporting_work_artifacts(round_dir)
 
@@ -95,6 +98,7 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     assert by_path["work/theses_similarity/intake.json"]["producer_role"] == "import-theses-report"
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
+    assert by_path["work/supervisor_report_packets/trace.md"]["kind"] == "text"
 
 
 def test_validate_supporting_work_artifacts_rejects_stale_hash_and_wrong_case(tmp_path: Path) -> None:

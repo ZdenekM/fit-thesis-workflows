@@ -105,6 +105,19 @@ for future automation.
 
 Promoted to: `AGENTS.md`, `README.md`.
 
+### 2026-05-14: Operator Wording Feedback Should Calibrate Profiles
+
+Status: promoted
+
+Operator corrections to generated report or feedback wording can reveal stable
+style and assessment preferences. Finish and re-review the current artifact
+first, then classify the correction: case-specific, durable personal preference,
+or general workflow rule. Durable personal preferences belong in the active
+private reviewer profile; general workflow rules belong in skills, docs,
+templates, or TODO. Do not promote case-specific facts or student details.
+
+Promoted to: `AGENTS.md`, `profiles/local/default.md`.
+
 ### 2026-05-04: Thesis Headings Need Structure Review
 
 Status: promoted
