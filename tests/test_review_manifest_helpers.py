@@ -22,6 +22,7 @@ from thesis_review_workflow.cli.init_review_manifest import (
 from thesis_review_workflow.review_manifest import (
     REUSE_INDEX_REL,
     apply_artifact_dependency_refs,
+    apply_artifact_registration_sidecars,
     apply_review_approval_records,
     ensure_manifest,
     merge_supporting_work_artifacts,
@@ -1014,7 +1015,9 @@ def test_register_output_artifact_records_review_metadata(tmp_path: Path) -> Non
     assert entry["generated_by"][0]["agent"] == "generator-agent"
     assert entry["independent_review"]["reviewed_hash"] == entry["artifact_sha256"]
     assert entry["limitations"] == ["Static review only."]
-    assert "outputs/oponent_podklady_revidovane.md" in entry["evidence_refs"]
+    assert entry["feeds"] == ["outputs/oponent_podklady_revidovane.md"]
+    assert "outputs/oponent_podklady_revidovane.md" not in entry["evidence_refs"]
+    assert "outputs/oponent_podklady_revidovane.md" not in entry["source_sha256"]
     assert entry["source_sha256"]["work/code_reproducibility.json"] == sha256_file(
         round_dir / "work/code_reproducibility.json"
     )
@@ -2013,6 +2016,108 @@ def test_register_refs_survive_init_manifest_refresh(tmp_path: Path) -> None:
     assert refreshed[0]["check_refs"] == ["check-code-quality-review"]
 
 
+def test_review_artifact_registration_sidecar_updates_manifest_without_hashing_handoffs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final = round_dir / "outputs" / "feedback_student.md"
+    output = round_dir / "outputs" / "code_quality_review.md"
+    assignment = round_dir / "notes" / "assignment.md"
+    briefing = round_dir / "work" / "common_briefing.json"
+    sidecar = round_dir / "work" / "review_artifacts" / "code_quality_review.json"
+    output.parent.mkdir(parents=True)
+    assignment.parent.mkdir(parents=True)
+    briefing.parent.mkdir(parents=True)
+    sidecar.parent.mkdir(parents=True)
+    final.write_text("# Feedback\n", encoding="utf-8")
+    output.write_text("# Internal Code Quality Review\n", encoding="utf-8")
+    assignment.write_text("# Assignment\n", encoding="utf-8")
+    briefing.write_text('{"schema_version":"common-briefing-v1"}\n', encoding="utf-8")
+    sidecar.write_text(
+        json.dumps(
+            {
+                "schema_version": "review-artifact-registration-v1",
+                "artifact_path": "outputs/code_quality_review.md",
+                "agent": "code-agent",
+                "contribution": "generation",
+                "feeds": ["outputs/feedback_student.md"],
+                "input_refs": ["notes/assignment.md"],
+                "handoff_refs": ["work/common_briefing.json"],
+                "used_findings": "Used implementation readability risk.",
+                "limitations": ["Covered by final synthesis review."],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = ensure_manifest({}, "case-a", "round-a")
+
+    apply_artifact_registration_sidecars(manifest, round_dir)
+
+    entry = next(item for item in manifest["artifacts"] if item["path"] == "outputs/code_quality_review.md")
+    assert entry["generated_by"][0]["agent"] == "code-agent"
+    assert entry["independent_review"]["status"] == "not_required"
+    assert entry["independent_review"]["covered_by_artifact"] == "outputs/feedback_student.md"
+    assert entry["independent_review"]["evidence_hash"] == entry["artifact_sha256"]
+    assert entry["input_refs"] == ["notes/assignment.md"]
+    assert "outputs/feedback_student.md" not in entry.get("evidence_refs", [])
+    assert entry["handoff_refs"] == ["work/common_briefing.json"]
+    assert "outputs/feedback_student.md" not in entry.get("source_sha256", {})
+    assert "work/common_briefing.json" not in entry.get("source_sha256", {})
+
+
+def test_register_work_role_output_records_review_and_synthesis_metadata(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final = round_dir / "outputs" / "feedback_student.md"
+    evidence = round_dir / "work" / "quantitative_claims.json"
+    source = round_dir / "extracted" / "thesis.txt"
+    briefing = round_dir / "work" / "common_briefing.json"
+    final.parent.mkdir(parents=True)
+    evidence.parent.mkdir(parents=True)
+    source.parent.mkdir(parents=True)
+    final.write_text("# Feedback\n", encoding="utf-8")
+    evidence.write_text('{"schema_version":"quantitative-claims-v1","claims":[]}\n', encoding="utf-8")
+    source.write_text("Quantitative claim source.\n", encoding="utf-8")
+    briefing.write_text('{"schema_version":"common-briefing-v1"}\n', encoding="utf-8")
+    manifest = ensure_manifest({}, "case-a", "round-a")
+
+    register_artifact(
+        manifest,
+        round_dir,
+        "work/quantitative_claims.json",
+        role="thesis-quantitative-claims-review",
+        agent="quant-agent",
+        contribution="generation",
+        review_scope="covered_by_synthesis",
+        review_status="not_required",
+        reviewer_role="not_recorded",
+        reviewer_agent="not_recorded",
+        reviewed_at="",
+        limitation=["Covered by final synthesis."],
+        feeds=["outputs/feedback_student.md"],
+        input_refs=["extracted/thesis.txt"],
+        evidence_refs=[],
+        handoff_refs=["work/common_briefing.json"],
+        check_refs=["check-evaluation-claims"],
+        used_findings="Used metric-scale sanity check.",
+        review_basis_path="",
+        notes="Synthetic work evidence registration.",
+    )
+
+    entry = next(
+        item for item in manifest["supporting_work_artifacts"] if item["path"] == "work/quantitative_claims.json"
+    )
+    assert entry["generated_by"][0]["agent"] == "quant-agent"
+    assert entry["skills"] == ["thesis-quantitative-claims-review"]
+    assert entry["independent_review"]["status"] == "not_required"
+    assert entry["independent_review"]["covered_by_artifact"] == "outputs/feedback_student.md"
+    assert entry["independent_review"]["evidence_hash"] == entry["artifact_sha256"]
+    assert entry["independent_review"]["used_findings"] == "Used metric-scale sanity check."
+    assert entry["feeds"] == ["outputs/feedback_student.md"]
+    assert "outputs/feedback_student.md" not in entry.get("evidence_refs", [])
+    assert entry["source_sha256"] == {"extracted/thesis.txt": sha256_file(source)}
+    assert entry["handoff_refs"] == ["work/common_briefing.json"]
+    assert entry["check_refs"] == ["check-evaluation-claims"]
+
+
 def test_register_review_artifact_auto_classifies_refs_and_common_output_preset() -> None:
     parser = register_review_artifact.build_parser()
     args = parser.parse_args(
@@ -2030,6 +2135,8 @@ def test_register_review_artifact_auto_classifies_refs_and_common_output_preset(
             "extracted/thesis.txt",
             "--ref",
             "work/quantitative_claims.json",
+            "--ref",
+            "work/common_briefing.json",
         ]
     )
 
@@ -2042,6 +2149,7 @@ def test_register_review_artifact_auto_classifies_refs_and_common_output_preset(
     assert options["review_status"] == "not_required"
     assert options["input_refs"] == ["notes/assignment.md", "extracted/thesis.txt"]
     assert options["evidence_refs"] == ["work/quantitative_claims.json"]
+    assert options["handoff_refs"] == ["work/common_briefing.json"]
 
 
 def test_register_review_artifact_rejects_accidental_ref_misclassification() -> None:
@@ -2078,6 +2186,20 @@ def test_register_review_artifact_rejects_accidental_ref_misclassification() -> 
     assert errors == []
     assert options is not None
     assert options["evidence_refs"] == ["notes/assignment.md"]
+
+    handoff_args = parser.parse_args(
+        [
+            "case-a",
+            "round-a",
+            "outputs/code_quality_review.md",
+            "--evidence-ref",
+            "work/common_briefing.json",
+        ]
+    )
+    options, errors = register_review_artifact.registration_options(handoff_args)
+
+    assert options is None
+    assert any("use --handoff-ref" in error for error in errors)
 
 
 def test_init_manifest_uses_reviewed_supervisor_report_as_synthesis_target(tmp_path: Path) -> None:
@@ -2157,6 +2279,50 @@ def test_artifact_dependency_refs_use_claim_basis_without_blanket_notes_or_work(
     assert "work/unrelated.json" not in artifact["evidence_refs"]
     assert "outputs/code_quality_review.md" not in artifact["evidence_refs"]
     assert set(artifact["source_sha256"]) == set(artifact["input_refs"] + artifact["evidence_refs"])
+
+
+def test_final_artifact_packet_dependencies_are_handoff_refs_not_semantic_sources(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    feedback = round_dir / "outputs" / "feedback_student.md"
+    packet = round_dir / "work" / "supervisor_packets" / "code_quality.md"
+    briefing = round_dir / "work" / "common_briefing.json"
+    feedback.parent.mkdir(parents=True)
+    packet.parent.mkdir(parents=True)
+    feedback.write_text("# Feedback\n", encoding="utf-8")
+    packet.write_text("# Code quality packet\n", encoding="utf-8")
+    briefing.write_text('{"schema_version":"common-briefing-v1"}\n', encoding="utf-8")
+    manifest = {
+        "supporting_work_artifacts": [
+            {"path": "work/common_briefing.json"},
+            {"path": "work/supervisor_packets/code_quality.md"},
+        ],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "artifact_type": "supervisor_feedback",
+                "artifact_sha256": sha256_file(feedback),
+                "review_scope": "sendable_final",
+                "skills": ["thesis-supervisor-feedback", "thesis-supervisor-feedback-review"],
+                "generated_by": [],
+                "independent_review": {"status": "not_recorded"},
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+    }
+
+    apply_artifact_dependency_refs(manifest, round_dir)
+
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact = artifacts[0]
+    assert isinstance(artifact, dict)
+    assert "work/common_briefing.json" in artifact["handoff_refs"]
+    assert "work/supervisor_packets/code_quality.md" in artifact["handoff_refs"]
+    assert "work/common_briefing.json" not in artifact["evidence_refs"]
+    assert "work/supervisor_packets/code_quality.md" not in artifact["evidence_refs"]
+    assert "work/common_briefing.json" not in artifact.get("source_sha256", {})
+    assert "work/supervisor_packets/code_quality.md" not in artifact.get("source_sha256", {})
 
 
 def test_claim_basis_dependency_refs_apply_only_to_matching_final_artifact(tmp_path: Path) -> None:

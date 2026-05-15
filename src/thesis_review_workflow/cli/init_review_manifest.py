@@ -36,6 +36,7 @@ from thesis_review_workflow.opponent_calibration import calibration_profile_chec
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import (
     apply_artifact_dependency_refs,
+    apply_artifact_registration_sidecars,
     apply_review_approval_records,
     merge_supporting_work_artifacts,
 )
@@ -355,6 +356,10 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
                 if field in previous:
                     entry[field] = previous[field]
             entry["dependency_refs_source"] = "registered"
+        if "handoff_refs" in previous:
+            entry["handoff_refs"] = previous["handoff_refs"]
+        if "feeds" in previous:
+            entry["feeds"] = previous["feeds"]
         if "check_refs" in previous:
             entry["check_refs"] = previous["check_refs"]
         source_refs: list[str] = []
@@ -797,6 +802,7 @@ def main() -> int:
         collect_work_artifacts(round_dir),
     )
     manifest["supporting_work_artifacts"] = work_artifacts
+    apply_artifact_registration_sidecars(manifest, round_dir)
     add_artifact_refs(manifest, round_dir)
 
     refresh_helper_checks(

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from thesis_review_workflow.artifact_registry import OutputArtifactSpec, output_spec
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -21,16 +19,10 @@ from thesis_review_workflow.review_manifest import (
     ensure_manifest,
     load_manifest,
     register_artifact,
+    registration_defaults,
     validate_dependency_ref_classification,
     write_manifest,
 )
-
-ROLE_PRESETS = {
-    "outputs/code_consistency.md": "thesis-code-consistency",
-    "outputs/code_quality_review.md": "thesis-code-quality-review",
-    "outputs/theses_similarity_review.md": "thesis-theses-similarity-review",
-    "outputs/vedouci_posudek_revidovany.md": "thesis-supervisor-report-review",
-}
 
 
 def now_utc() -> str:
@@ -59,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ref", action="append", default=[])
     parser.add_argument("--input-ref", action="append", default=[])
     parser.add_argument("--evidence-ref", action="append", default=[])
+    parser.add_argument("--handoff-ref", action="append", default=[])
     parser.add_argument("--check-ref", action="append", default=[])
     parser.add_argument("--allow-ref-class-override", action="store_true")
     parser.add_argument("--used-findings", default="")
@@ -68,22 +61,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def artifact_spec_for_path(artifact_path: str) -> OutputArtifactSpec | None:
-    path = Path(artifact_path)
-    if len(path.parts) == 2 and path.parts[0] == "outputs":
-        return output_spec(path.name)
-    return None
-
-
 def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | None, list[str]]:
     errors: list[str] = []
-    auto_input_refs, auto_evidence_refs, unknown_refs = classify_dependency_refs(args.ref)
+    auto_input_refs, auto_evidence_refs, auto_handoff_refs, unknown_refs = classify_dependency_refs(args.ref)
     for ref in unknown_refs:
         errors.append(
-            f"--ref {ref}: cannot classify dependency; use --input-ref, --evidence-ref, or --check-ref explicitly"
+            f"--ref {ref}: cannot classify dependency; use --input-ref, --evidence-ref, --handoff-ref, "
+            "or --check-ref explicitly"
         )
     input_refs = [*args.input_ref, *auto_input_refs]
     evidence_refs = [*args.evidence_ref, *auto_evidence_refs]
+    handoff_refs = [*args.handoff_ref, *auto_handoff_refs]
     errors.extend(
         validate_dependency_ref_classification(
             field="input_refs",
@@ -98,22 +86,31 @@ def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
             allow_override=args.allow_ref_class_override,
         )
     )
+    errors.extend(
+        validate_dependency_ref_classification(
+            field="handoff_refs",
+            refs=args.handoff_ref,
+            allow_override=args.allow_ref_class_override,
+        )
+    )
     if errors:
         return None, errors
 
-    role = args.role or "not_recorded"
-    review_scope = args.review_scope
-    review_status = args.review_status or "not_recorded"
     if args.preset == "auto":
-        spec = artifact_spec_for_path(args.artifact_path)
-        role = args.role or ROLE_PRESETS.get(args.artifact_path) or (spec.skills[0] if spec else "not_recorded")
-        if review_scope is None and spec is not None:
-            if spec.internal_evidence and args.feeds:
-                review_scope = "covered_by_synthesis"
-            else:
-                review_scope = spec.review_scope
-        if args.review_status is None and review_scope == "covered_by_synthesis":
-            review_status = "not_required"
+        defaults = registration_defaults(
+            args.artifact_path,
+            feeds=args.feeds,
+            role=args.role,
+            review_scope=args.review_scope,
+            review_status=args.review_status,
+        )
+        role = str(defaults["role"] or "not_recorded")
+        review_scope = defaults["review_scope"]
+        review_status = str(defaults["review_status"] or "not_recorded")
+    else:
+        role = args.role or "not_recorded"
+        review_scope = args.review_scope
+        review_status = args.review_status or "not_recorded"
 
     return (
         {
@@ -122,6 +119,7 @@ def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
             "review_status": review_status,
             "input_refs": input_refs,
             "evidence_refs": evidence_refs,
+            "handoff_refs": handoff_refs,
         },
         [],
     )
@@ -160,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
             feeds=args.feeds,
             input_refs=options["input_refs"],
             evidence_refs=options["evidence_refs"],
+            handoff_refs=options["handoff_refs"],
             check_refs=args.check_ref,
             used_findings=args.used_findings,
             review_basis_path=args.review_basis_path,

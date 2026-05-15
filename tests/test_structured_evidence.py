@@ -485,11 +485,13 @@ def test_build_current_evidence_snapshot_rejects_unsafe_source_refs_before_hashi
 def test_current_evidence_default_source_refs_expands_review_records(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     write_text(round_dir, "work/review_manifest.json", "{}\n")
+    write_text(round_dir, "work/agent_coverage.json", "{}\n")
     write_text(round_dir, "work/reviews/supervisor_feedback_review.json", "{}\n")
 
     refs = current_evidence_default_source_refs(round_dir)
 
-    assert "work/review_manifest.json" in refs
+    assert "work/review_manifest.json" not in refs
+    assert "work/agent_coverage.json" not in refs
     assert "work/reviews/supervisor_feedback_review.json" in refs
     assert "outputs/github_code_intake.md" not in refs
 
@@ -682,6 +684,34 @@ def test_validate_supervisor_report_trace_accepts_complete_payload(tmp_path: Pat
     create_round_refs(round_dir)
     write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, supervisor_feedback_history_payload(round_dir))
     write_json(round_dir / SUPERVISOR_REPORT_TRACE_REL, supervisor_trace_payload(round_dir))
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        SUPERVISOR_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_supervisor_report_trace_allows_expected_future_refs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_json(round_dir / SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL, supervisor_feedback_history_payload(round_dir))
+    payload = supervisor_trace_payload(round_dir)
+    payload["manual_checks"] = [
+        {
+            "check_id": "review-final-output",
+            "instruction": "Check the final reviewed report after draft and review are written.",
+            "evidence_refs": ["notes/supervisor-report-operator-input.md"],
+            "expected_future_refs": [
+                "work/vedouci_posudek_draft.md",
+                "outputs/vedouci_posudek_revidovany.md",
+            ],
+        }
+    ]
+    write_json(round_dir / SUPERVISOR_REPORT_TRACE_REL, payload)
 
     errors = validate_structured_evidence_artifact(
         round_dir,

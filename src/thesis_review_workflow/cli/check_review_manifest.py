@@ -155,6 +155,7 @@ def check_ref_list(
     location = {
         "input_refs": "manifest inputs/extracted_artifacts/notes",
         "evidence_refs": "manifest supporting_work_artifacts/artifacts",
+        "handoff_refs": "manifest supporting_work_artifacts/artifacts",
     }.get(field, "manifest inputs, work, or outputs")
     if not isinstance(refs, list):
         errors.append(f"{artifact_path}: {field} must be a list")
@@ -787,6 +788,16 @@ def check_artifacts(
                 field="check_refs",
                 refs=artifact.get("check_refs"),
                 allowed_paths=set(),
+                allowed_checks=helper_names,
+                round_dir=round_dir,
+                errors=errors,
+            )
+        if "handoff_refs" in artifact:
+            check_ref_list(
+                artifact_path=path_value,
+                field="handoff_refs",
+                refs=artifact.get("handoff_refs"),
+                allowed_paths=work_paths | artifact_paths,
                 allowed_checks=helper_names,
                 round_dir=round_dir,
                 errors=errors,

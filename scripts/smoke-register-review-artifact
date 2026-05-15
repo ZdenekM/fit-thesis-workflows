@@ -93,7 +93,7 @@ expect_success "register reference comparison" "$repo_root/scripts/register-revi
   --reviewed-at 2026-05-06T00:10:00Z \
   --limitation "Synthetic comparison only." \
   --evidence-ref outputs/oponent_podklady_revidovane.md \
-  --evidence-ref work/opponent_packets/code_quality_findings.md \
+  --handoff-ref work/opponent_packets/code_quality_findings.md \
   --used-findings "Used only current-case supported calibration differences." \
   --notes "Registered by smoke."
 
@@ -137,8 +137,9 @@ assert comparison["independent_review"]["status"] == "reviewed", comparison
 assert comparison["independent_review"]["reviewed_hash"] == comparison["artifact_sha256"], comparison
 assert comparison["independent_review"]["reviewer_agent"] == "comparison-reviewer", comparison
 assert "outputs/oponent_podklady_revidovane.md" in comparison["evidence_refs"], comparison
+assert "work/opponent_packets/code_quality_findings.md" in comparison["handoff_refs"], comparison
 assert comparison["source_sha256"]["outputs/oponent_podklady_revidovane.md"], comparison
-assert comparison["source_sha256"]["work/opponent_packets/code_quality_findings.md"], comparison
+assert "work/opponent_packets/code_quality_findings.md" not in comparison["source_sha256"], comparison
 packet = next(item for item in manifest["artifacts"] if item["path"] == "outputs/opponent_reading_packet.md")
 assert packet["artifact_type"] == "opponent_reading_packet", packet
 assert packet["review_scope"] == "internal_only", packet

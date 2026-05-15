@@ -100,8 +100,6 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "work/code_workspace.md",
     "work/serena_roots.json",
     "work/code_reproducibility.json",
-    "work/review_manifest.json",
-    "work/agent_coverage.json",
     "work/quantitative_claims.json",
     "outputs/github_code_intake.md",
     "outputs/feedback_student.md",
@@ -1187,7 +1185,7 @@ def _validate_refs(
                     errors.append(f"{nested_path} must be list")
                     continue
                 for index, ref in enumerate(nested, start=1):
-                    ref_must_exist = require_existing_refs and key != "report_refs"
+                    ref_must_exist = require_existing_refs and key not in {"report_refs", "expected_future_refs"}
                     _validate_ref(ref, f"{nested_path} item {index}", round_dir, ref_must_exist, errors)
             elif key == "source_materials_path":
                 _validate_ref(nested, nested_path, round_dir, require_existing_refs, errors)

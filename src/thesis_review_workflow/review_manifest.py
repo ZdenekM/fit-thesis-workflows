@@ -45,6 +45,28 @@ REGISTERED_DEPENDENCY_REFS_SOURCE = "registered"
 GENERATED_DEPENDENCY_REFS_SOURCE = "generated"
 INPUT_DEPENDENCY_PREFIXES = ("notes/", "inputs/", "extracted/")
 EVIDENCE_DEPENDENCY_PREFIXES = ("work/", "outputs/")
+HANDOFF_DEPENDENCY_REFS = {
+    COMMON_BRIEFING_REL,
+    "work/review_run_trace.json",
+    "work/review_role_plan.json",
+}
+HANDOFF_DEPENDENCY_PREFIXES = (
+    "work/opponent_packets/",
+    "work/supervisor_packets/",
+    "work/supervisor_report_packets/",
+)
+REGISTRATION_SIDECAR_SCHEMA = "review-artifact-registration-v1"
+REGISTRATION_SIDECAR_GLOB = "work/review_artifacts/*.json"
+REGISTRATION_ROLE_OVERRIDES = {
+    "outputs/vedouci_posudek_revidovany.md": "thesis-supervisor-report-review",
+    "work/quantitative_claims.json": "thesis-quantitative-claims-review",
+    "work/supervisor_report_trace.json": "thesis-supervisor-report",
+    "work/opponent_report_trace.json": "thesis-opponent-materials",
+    "work/feedback_student_draft.md": "thesis-supervisor-feedback",
+    "work/vedouci_posudek_draft.md": "thesis-supervisor-report",
+    "work/oponent_podklady_draft.md": "thesis-opponent-materials",
+    "work/oponent_posudek_draft.md": "thesis-opponent-report-review",
+}
 
 
 def load_manifest(path: Path) -> dict[str, Any]:
@@ -112,6 +134,8 @@ def validate_artifact_rel_path(rel_path: str, round_dir: Path) -> Path:
 
 
 def dependency_ref_kind(ref: str) -> str:
+    if ref in HANDOFF_DEPENDENCY_REFS or ref.startswith(HANDOFF_DEPENDENCY_PREFIXES):
+        return "handoff"
     if ref.startswith(INPUT_DEPENDENCY_PREFIXES):
         return "input"
     if ref.startswith(EVIDENCE_DEPENDENCY_PREFIXES):
@@ -119,9 +143,10 @@ def dependency_ref_kind(ref: str) -> str:
     return "unknown"
 
 
-def classify_dependency_refs(refs: list[str]) -> tuple[list[str], list[str], list[str]]:
+def classify_dependency_refs(refs: list[str]) -> tuple[list[str], list[str], list[str], list[str]]:
     input_refs: list[str] = []
     evidence_refs: list[str] = []
+    handoff_refs: list[str] = []
     unknown_refs: list[str] = []
     for ref in refs:
         kind = dependency_ref_kind(ref)
@@ -129,9 +154,11 @@ def classify_dependency_refs(refs: list[str]) -> tuple[list[str], list[str], lis
             input_refs.append(ref)
         elif kind == "evidence":
             evidence_refs.append(ref)
+        elif kind == "handoff":
+            handoff_refs.append(ref)
         else:
             unknown_refs.append(ref)
-    return input_refs, evidence_refs, unknown_refs
+    return input_refs, evidence_refs, handoff_refs, unknown_refs
 
 
 def validate_dependency_ref_classification(
@@ -142,14 +169,18 @@ def validate_dependency_ref_classification(
 ) -> list[str]:
     if allow_override:
         return []
-    expected_kind = "input" if field == "input_refs" else "evidence" if field == "evidence_refs" else None
+    expected_kind = (
+        "input"
+        if field == "input_refs"
+        else "evidence" if field == "evidence_refs" else "handoff" if field == "handoff_refs" else None
+    )
     if expected_kind is None:
         return []
     errors: list[str] = []
     for ref in refs:
         kind = dependency_ref_kind(ref)
         if kind != "unknown" and kind != expected_kind:
-            target = "--input-ref" if kind == "input" else "--evidence-ref"
+            target = "--input-ref" if kind == "input" else "--handoff-ref" if kind == "handoff" else "--evidence-ref"
             errors.append(
                 f"{field}: {ref} is a {kind} dependency by path; use {target} or pass "
                 "--allow-ref-class-override with an explicit rationale in --notes"
@@ -169,6 +200,41 @@ def validate_round_rel_values(label: str, values: list[str], *, allow_checks: bo
 
 def output_defaults(rel_path: str) -> tuple[str, list[str], str]:
     return registry_output_defaults(rel_path)
+
+
+def registration_defaults(
+    artifact_path: str,
+    *,
+    feeds: list[str],
+    role: str | None = None,
+    review_scope: str | None = None,
+    review_status: str | None = None,
+) -> dict[str, str | None]:
+    spec = output_spec(artifact_path)
+    default_role = REGISTRATION_ROLE_OVERRIDES.get(artifact_path)
+    if default_role is None and spec is not None and spec.skills:
+        default_role = spec.skills[0]
+    if default_role is None:
+        default_role = "not_recorded"
+
+    resolved_scope = review_scope
+    if resolved_scope is None and spec is not None:
+        if spec.internal_evidence and feeds:
+            resolved_scope = "covered_by_synthesis"
+        else:
+            resolved_scope = spec.review_scope
+    if resolved_scope is None and artifact_path in REGISTRATION_ROLE_OVERRIDES:
+        resolved_scope = "covered_by_synthesis" if feeds else "internal_only"
+
+    resolved_status = review_status
+    if resolved_status is None:
+        resolved_status = "not_required" if resolved_scope == "covered_by_synthesis" else "not_recorded"
+
+    return {
+        "role": role or default_role,
+        "review_scope": resolved_scope,
+        "review_status": resolved_status,
+    }
 
 
 def generated_record(role: str, agent: str, contribution: str, notes: str) -> dict[str, str]:
@@ -359,20 +425,21 @@ def artifact_dependency_refs(
     manifest: dict[str, Any],
     artifact: dict[str, Any],
     round_dir: Path,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     path = artifact.get("path")
     if not isinstance(path, str):
-        return [], []
+        return [], [], []
     artifact_type = str(artifact.get("artifact_type") or output_defaults(path)[0])
     spec = output_spec(path)
     input_refs: list[str] = []
     evidence_refs: list[str] = []
+    handoff_refs: list[str] = []
 
     if spec and spec.final_output:
         claim_inputs, claim_evidence = claim_basis_dependency_refs(round_dir, artifact_path=path, artifact=artifact)
         input_refs.extend(claim_inputs)
         evidence_refs.extend(claim_evidence)
-        evidence_refs.extend(packet_dependency_refs(round_dir, artifact_type))
+        handoff_refs.extend(packet_dependency_refs(round_dir, artifact_type))
 
     reuse_inputs, reuse_evidence = reuse_index_dependency_refs(round_dir, artifact_type)
     input_refs.extend(reuse_inputs)
@@ -381,7 +448,7 @@ def artifact_dependency_refs(
     review = artifact.get("independent_review")
     if isinstance(review, dict):
         append_ref(evidence_refs, review.get("review_basis_path"))
-    return append_unique([], input_refs), append_unique([], evidence_refs)
+    return append_unique([], input_refs), append_unique([], evidence_refs), append_unique([], handoff_refs)
 
 
 def apply_artifact_dependency_refs(manifest: dict[str, Any], round_dir: Path) -> None:
@@ -391,13 +458,15 @@ def apply_artifact_dependency_refs(manifest: dict[str, Any], round_dir: Path) ->
     for artifact in artifacts:
         if not isinstance(artifact, dict):
             continue
-        input_refs, evidence_refs = artifact_dependency_refs(manifest, artifact, round_dir)
+        input_refs, evidence_refs, handoff_refs = artifact_dependency_refs(manifest, artifact, round_dir)
         if artifact.get("dependency_refs_source") == REGISTERED_DEPENDENCY_REFS_SOURCE:
             artifact["input_refs"] = append_unique(artifact.get("input_refs"), input_refs)
             artifact["evidence_refs"] = append_unique(artifact.get("evidence_refs"), evidence_refs)
+            artifact["handoff_refs"] = append_unique(artifact.get("handoff_refs"), handoff_refs)
         else:
             artifact["input_refs"] = input_refs
             artifact["evidence_refs"] = evidence_refs
+            artifact["handoff_refs"] = handoff_refs
             artifact["dependency_refs_source"] = GENERATED_DEPENDENCY_REFS_SOURCE
         source_refs: list[str] = []
         for field in ("input_refs", "evidence_refs"):
@@ -406,6 +475,8 @@ def apply_artifact_dependency_refs(manifest: dict[str, Any], round_dir: Path) ->
                 source_refs.extend(ref for ref in values if isinstance(ref, str))
         if source_refs:
             artifact["source_sha256"] = source_hashes(round_dir, append_unique([], source_refs))
+        else:
+            artifact.pop("source_sha256", None)
 
 
 def upsert_output_artifact(
@@ -425,6 +496,7 @@ def upsert_output_artifact(
     feeds: list[str],
     input_refs: list[str],
     evidence_refs: list[str],
+    handoff_refs: list[str] | None = None,
     check_refs: list[str],
     used_findings: str,
     review_basis_path: str,
@@ -486,14 +558,19 @@ def upsert_output_artifact(
         review_basis_sha256=review_basis_sha256,
     )
     existing["limitations"] = append_unique(existing.get("limitations"), limitation)
+    existing["feeds"] = append_unique(existing.get("feeds"), feeds)
     existing["input_refs"] = append_unique(existing.get("input_refs"), input_refs)
-    existing["evidence_refs"] = append_unique(existing.get("evidence_refs"), evidence_refs + feeds)
+    existing["evidence_refs"] = append_unique(existing.get("evidence_refs"), evidence_refs)
+    if handoff_refs:
+        existing["handoff_refs"] = append_unique(existing.get("handoff_refs"), handoff_refs)
     if input_refs or evidence_refs:
         existing["dependency_refs_source"] = REGISTERED_DEPENDENCY_REFS_SOURCE
     existing["check_refs"] = append_unique(existing.get("check_refs"), check_refs)
     source_refs = append_unique([], existing["input_refs"] + existing["evidence_refs"])
     if source_refs:
         existing["source_sha256"] = source_hashes(round_dir, source_refs)
+    else:
+        existing.pop("source_sha256", None)
     if notes:
         existing["notes"] = notes
 
@@ -513,13 +590,27 @@ def upsert_work_artifact(
     *,
     role: str,
     agent: str,
+    contribution: str,
     review_scope: str | None,
+    review_status: str,
+    reviewer_role: str,
+    reviewer_agent: str,
+    reviewed_at: str,
     limitation: list[str],
     feeds: list[str],
+    handoff_refs: list[str] | None = None,
+    input_refs: list[str] | None = None,
+    evidence_refs: list[str] | None = None,
+    check_refs: list[str] | None = None,
+    used_findings: str = "",
+    review_basis_path: str = "",
     notes: str,
 ) -> None:
     path = validate_artifact_rel_path(rel_path, round_dir)
     current_hash = sha256_file(path)
+    input_refs = input_refs or []
+    evidence_refs = evidence_refs or []
+    check_refs = check_refs or []
     records = manifest.setdefault("supporting_work_artifacts", [])
     existing = next((item for item in records if isinstance(item, dict) and item.get("path") == rel_path), None)
     if existing is None:
@@ -529,8 +620,45 @@ def upsert_work_artifact(
     existing["role"] = role or existing.get("role") or "not_recorded"
     existing["agent"] = agent or existing.get("agent") or "not_recorded"
     existing["review_scope"] = review_scope or existing.get("review_scope") or "internal_only"
+    if role and role != "not_recorded":
+        existing["skills"] = append_unique(existing.get("skills"), [role])
+    existing["generated_by"] = append_unique_generated(
+        existing.get("generated_by"),
+        generated_record(role, agent, contribution, notes),
+    )
+    covered_by = feeds[0] if existing["review_scope"] == "covered_by_synthesis" and feeds else ""
+    reviewed_hash = current_hash if review_status in {"reviewed", "reviewed_with_notes"} else ""
+    evidence_hash = current_hash if existing["review_scope"] == "covered_by_synthesis" else ""
+    review_basis_sha256 = ""
+    if review_basis_path:
+        basis_path = validate_artifact_rel_path(review_basis_path, round_dir)
+        review_basis_sha256 = sha256_file(basis_path)
+    existing["independent_review"] = review_record(
+        status=review_status,
+        reviewer_role=reviewer_role,
+        reviewer_agent=reviewer_agent,
+        reviewed_at=reviewed_at,
+        reviewed_hash=reviewed_hash,
+        covered_by=covered_by,
+        used_findings=used_findings,
+        exception="",
+        notes=notes,
+        evidence_hash=evidence_hash,
+        review_basis_path=review_basis_path,
+        review_basis_sha256=review_basis_sha256,
+    )
     existing["limitations"] = append_unique(existing.get("limitations"), limitation)
     existing["feeds"] = append_unique(existing.get("feeds"), feeds)
+    existing["input_refs"] = append_unique(existing.get("input_refs"), input_refs)
+    existing["evidence_refs"] = append_unique(existing.get("evidence_refs"), evidence_refs)
+    if handoff_refs:
+        existing["handoff_refs"] = append_unique(existing.get("handoff_refs"), handoff_refs)
+    existing["check_refs"] = append_unique(existing.get("check_refs"), check_refs)
+    source_refs = append_unique([], existing["input_refs"] + existing["evidence_refs"])
+    if source_refs:
+        existing["source_sha256"] = source_hashes(round_dir, source_refs)
+    else:
+        existing.pop("source_sha256", None)
     if notes:
         existing["notes"] = notes
 
@@ -552,6 +680,7 @@ def register_artifact(
     feeds: list[str],
     input_refs: list[str],
     evidence_refs: list[str],
+    handoff_refs: list[str] | None = None,
     check_refs: list[str],
     used_findings: str,
     review_basis_path: str,
@@ -560,6 +689,7 @@ def register_artifact(
     validate_round_rel_values("feeds", feeds)
     validate_round_rel_values("input refs", input_refs)
     validate_round_rel_values("evidence refs", evidence_refs)
+    validate_round_rel_values("handoff refs", handoff_refs or [])
     validate_round_rel_values("check refs", check_refs, allow_checks=True)
     if rel_path.startswith("outputs/"):
         upsert_output_artifact(
@@ -578,6 +708,7 @@ def register_artifact(
             feeds=feeds,
             input_refs=input_refs,
             evidence_refs=evidence_refs,
+            handoff_refs=handoff_refs,
             check_refs=check_refs,
             used_findings=used_findings,
             review_basis_path=review_basis_path,
@@ -590,11 +721,72 @@ def register_artifact(
         rel_path,
         role=role,
         agent=agent,
+        contribution=contribution,
         review_scope=review_scope,
+        review_status=review_status,
+        reviewer_role=reviewer_role,
+        reviewer_agent=reviewer_agent,
+        reviewed_at=reviewed_at,
         limitation=limitation,
         feeds=feeds,
+        handoff_refs=handoff_refs,
+        input_refs=input_refs,
+        evidence_refs=evidence_refs,
+        check_refs=check_refs,
+        used_findings=used_findings,
+        review_basis_path=review_basis_path,
         notes=notes,
     )
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def apply_artifact_registration_sidecars(manifest: dict[str, Any], round_dir: Path) -> None:
+    for path in sorted(round_dir.glob(REGISTRATION_SIDECAR_GLOB)):
+        loaded = load_round_json(round_dir, path.relative_to(round_dir).as_posix())
+        if loaded is None:
+            raise ValueError(f"{path.relative_to(round_dir).as_posix()}: invalid review artifact registration sidecar")
+        if loaded.get("schema_version") != REGISTRATION_SIDECAR_SCHEMA:
+            raise ValueError(
+                f"{path.relative_to(round_dir).as_posix()}: schema_version must be {REGISTRATION_SIDECAR_SCHEMA}"
+            )
+        artifact_path = loaded.get("artifact_path")
+        if not isinstance(artifact_path, str) or not artifact_path:
+            raise ValueError(f"{path.relative_to(round_dir).as_posix()}: artifact_path must be a non-empty string")
+        feeds = _string_list(loaded.get("feeds"))
+        defaults = registration_defaults(
+            artifact_path,
+            feeds=feeds,
+            role=loaded.get("role") if isinstance(loaded.get("role"), str) else None,
+            review_scope=loaded.get("review_scope") if isinstance(loaded.get("review_scope"), str) else None,
+            review_status=loaded.get("review_status") if isinstance(loaded.get("review_status"), str) else None,
+        )
+        register_artifact(
+            manifest,
+            round_dir,
+            artifact_path,
+            role=str(defaults["role"] or "not_recorded"),
+            agent=str(loaded.get("agent") or "not_recorded"),
+            contribution=str(loaded.get("contribution") or "generation"),
+            review_scope=defaults["review_scope"] if isinstance(defaults["review_scope"], str) else None,
+            review_status=str(defaults["review_status"] or "not_recorded"),
+            reviewer_role=str(loaded.get("reviewer_role") or "not_recorded"),
+            reviewer_agent=str(loaded.get("reviewer_agent") or "not_recorded"),
+            reviewed_at=str(loaded.get("reviewed_at") or ""),
+            limitation=_string_list(loaded.get("limitations")),
+            feeds=feeds,
+            input_refs=_string_list(loaded.get("input_refs")),
+            evidence_refs=_string_list(loaded.get("evidence_refs")),
+            handoff_refs=_string_list(loaded.get("handoff_refs")),
+            check_refs=_string_list(loaded.get("check_refs")),
+            used_findings=str(loaded.get("used_findings") or ""),
+            review_basis_path=str(loaded.get("review_basis_path") or ""),
+            notes=str(loaded.get("notes") or ""),
+        )
 
 
 def apply_review_approval_records(manifest: dict[str, Any], round_dir: Path) -> None:
@@ -668,7 +860,12 @@ def merge_supporting_work_artifacts(
                 "feeds",
                 "notes",
                 "skills",
+                "generated_by",
                 "independent_review",
+                "input_refs",
+                "evidence_refs",
+                "handoff_refs",
+                "check_refs",
                 "source_sha256",
             ):
                 if key in previous and key not in generated:

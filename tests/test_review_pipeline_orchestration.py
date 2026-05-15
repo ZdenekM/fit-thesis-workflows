@@ -17,6 +17,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     artifact_next_action_state,
     build_review_role_plan_payload,
     build_review_run_trace_payload,
+    coverage_role_for_packet_role,
     normalize_metadata_fields,
     plan_review_round_start,
     trace_profile_summary,
@@ -318,6 +319,21 @@ def test_review_role_plan_projects_packet_activation_and_code_contract(tmp_path:
     assert payload["code_bearing_contract"]["required_roles"] == ["code_consistency", "code_quality"]
     assert all(len(wave["roles"]) <= 2 for wave in payload["wave_schedule"])
     assert validate_review_role_plan_payload(payload, round_dir=round_dir) == []
+
+
+def test_role_plan_uses_canonical_agent_coverage_roles_for_review_packets() -> None:
+    from thesis_review_workflow import opponent_packets, supervisor_packets, supervisor_report_packets
+
+    supervisor_profile = review_profiles.get_workflow_review_profile("supervisor_feedback")
+    supervisor_final = next(role for role in supervisor_packets.PACKET_ROLES if role.key == "final_review")
+    report_profile = review_profiles.get_workflow_review_profile("supervisor_report")
+    report_final = next(role for role in supervisor_report_packets.PACKET_ROLES if role.key == "report_review")
+    opponent_profile = review_profiles.get_workflow_review_profile("opponent_materials")
+    materials_review = next(role for role in opponent_packets.PACKET_ROLES if role.key == "materials_review")
+
+    assert coverage_role_for_packet_role(supervisor_profile, supervisor_final) == "supervisor_feedback_review"
+    assert coverage_role_for_packet_role(report_profile, report_final) == "supervisor_report_review"
+    assert coverage_role_for_packet_role(opponent_profile, materials_review) == "opponent_materials_review"
 
 
 def test_materiality_next_action_states_distinguish_present_artifact_gaps(tmp_path: Path) -> None:

@@ -144,6 +144,7 @@ WORK_ARTIFACT_GLOBS = (
     "work/supervisor_packets/*.md",
     "work/supervisor_report_packets/*.md",
     "work/review_materiality/*.json",
+    "work/review_artifacts/*.json",
     "work/reviews/*.json",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",

@@ -361,7 +361,8 @@ def role_plan_record(
 ) -> dict[str, Any]:
     active = role_is_active(round_dir, role, case_id=case_id, round_id=round_id)
     reuse_projection = reuse_projection_for_role(round_dir, role.key)
-    coverage_projection = agent_coverage_projection_for_role(round_dir, role.key)
+    coverage_role = coverage_role_for_packet_role(profile, role)
+    coverage_projection = agent_coverage_projection_for_role(round_dir, coverage_role)
     materiality_projection = materiality_projection_for_role(round_dir, role.key, profile=profile)
     state = role_plan_state(
         active=active,
@@ -373,11 +374,13 @@ def role_plan_record(
     packet_path = f"{packet_dir}/{role.key}.md"
     record: dict[str, Any] = {
         "role": role.key,
+        "coverage_role": coverage_role,
         "title": role.title,
         "skill": role.skill,
         "state": state,
         "activation": role.activation,
         "expected_output": role.expected_output,
+        "registration_preset": registration_preset_for_role(role),
         "packet_path": packet_path,
         "packet_status": "present" if (round_dir / packet_path).is_file() else "missing",
         "output_status": output_status(round_dir, role.expected_output, case_id=case_id, round_id=round_id),
@@ -433,6 +436,25 @@ def role_plan_state(
         if status == REUSE_CHANGED_DELTA_REQUIRED:
             return "delta_review"
     return "required_fresh"
+
+
+def coverage_role_for_packet_role(profile: WorkflowReviewProfile, role: PacketRole) -> str:
+    if role.key in {"final_review", "report_review"}:
+        return profile.final_review_role
+    if role.key == "materials_review":
+        return "opponent_materials_review"
+    if role.key == "trace":
+        return "supervisor_report_trace"
+    if role.key == "report_trace":
+        return "opponent_report_trace"
+    return role.key
+
+
+def registration_preset_for_role(role: PacketRole) -> str:
+    first_path = role.expected_output.split(" and ", 1)[0]
+    if first_path.startswith("outputs/") or first_path.startswith("work/"):
+        return first_path
+    return ""
 
 
 def output_status(round_dir: Path, expected_output: str, *, case_id: str, round_id: str) -> str:

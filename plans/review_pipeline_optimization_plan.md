@@ -581,17 +581,22 @@ Out of scope:
 
 ### Slice 5 - Role Output Registration And Manifest Convergence
 
-- Status: pending
+- Status: completed 2026-05-15
 - Proposed commit message: `fix(workflow): register review role outputs`
 - Expected paths:
   - `src/thesis_review_workflow/review_manifest.py`
+  - `src/thesis_review_workflow/cli/check_review_manifest.py`
   - `src/thesis_review_workflow/cli/register_review_artifact.py`
   - `src/thesis_review_workflow/cli/init_review_manifest.py`
   - `src/thesis_review_workflow/review_packets.py`
   - `src/thesis_review_workflow/review_pipeline_orchestration.py`
   - `src/thesis_review_workflow/review_profiles.py`
+  - `src/thesis_review_workflow/structured_evidence.py`
+  - `src/thesis_review_workflow/work_artifacts.py`
+  - `scripts/smoke-register-review-artifact`
   - `tests/test_review_manifest_helpers.py`
   - `tests/test_review_pipeline_orchestration.py`
+  - `tests/test_structured_evidence.py`
 - Tasks:
   - Add presets or sidecar consumption for common review artifacts:
     `outputs/github_code_intake.md`, `outputs/code_consistency.md`,
@@ -622,16 +627,17 @@ Out of scope:
     `check-agent-coverage`, and
     `check-review-manifest --require-complete` without manual manifest surgery.
 - Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests::`
-  - `pants check src/thesis_review_workflow:: tests::`
-  - `pants test tests/test_review_manifest_helpers.py tests/test_review_pipeline_orchestration.py`
-  - `scripts/smoke-review-manifest`
-  - `scripts/smoke-register-review-artifact`
-  - `scripts/smoke-agent-coverage`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
+  - `pants fmt ::` - passed
+  - `pants lint src/thesis_review_workflow:: tests::` - passed
+  - `pants check src/thesis_review_workflow:: tests::` - passed
+  - `pants test tests/test_review_manifest_helpers.py tests/test_review_pipeline_orchestration.py` - passed
+  - `pants test tests/test_structured_evidence.py tests/test_work_artifacts.py tests/test_agent_coverage.py` - passed as additional focused coverage for expected-future refs, sidecar work artifacts, and role coverage records
+  - `scripts/smoke-review-manifest` - passed
+  - `scripts/smoke-register-review-artifact` - passed
+  - `scripts/smoke-agent-coverage` - passed
+  - `scripts/check-private` - passed
+  - `scripts/check-scripts` - passed
+  - `git diff --check` - passed
 
 ### Slice 6 - Profile Closeout Dispatcher
 
@@ -953,6 +959,32 @@ Out of scope:
   Residual risks: role agents are still spawned by the parent agent, not by the
   deterministic command; manifest convergence for role outputs and closeout
   consumption of the role plan remain intentionally deferred to Slices 5 and 6.
+- 2026-05-15: Slice 5 completed. Added manifest-sidecar consumption for
+  `work/review_artifacts/*.json`, shared registration defaults for output and
+  work role artifacts, `handoff_refs` for packets/common briefings/run
+  traces/role plans, and richer work-artifact registration metadata for
+  generator role, agent, contribution, covered-by-synthesis target,
+  independent-review status, checks, limitations, and source hashes. Updated
+  `register-review-artifact`, `init-review-manifest`, manifest validation,
+  role-plan records, and smoke coverage so generated packet context is no
+  longer treated as semantic evidence or included in `source_sha256`. Structured
+  evidence now allows typed `expected_future_refs` without weakening ordinary
+  evidence-ref existence checks, and current-evidence defaults no longer include
+  self-updating closeout artifacts such as the manifest and agent coverage.
+  Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `pants test tests/test_review_manifest_helpers.py tests/test_review_pipeline_orchestration.py tests/test_structured_evidence.py tests/test_work_artifacts.py tests/test_agent_coverage.py`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-register-review-artifact`,
+  `scripts/smoke-agent-coverage`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. Subagent review findings
+  were folded into the slice: sidecars use shared registration defaults, role
+  plans record canonical coverage roles and registration presets, packet/common
+  briefing dependencies are modeled as handoffs, and final/synthesis `feeds`
+  remain review-coverage metadata rather than hash-bound semantic sources.
+  Residual risks: late role outputs can now register cleanly, but a single
+  closeout command that refreshes role plan, manifest, coverage, and profile
+  gates in the exact final order is still deferred to Slice 6.
 
 ## Decision Log
 
