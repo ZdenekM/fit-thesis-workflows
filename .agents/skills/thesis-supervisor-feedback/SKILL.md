@@ -62,16 +62,51 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-Before spawning role-split agents, run `scripts/update-current-evidence-snapshot <case-id> [round-id]`, `scripts/check-review-materiality --workflow supervisor_feedback <case-id> [round-id]`, and `scripts/prepare-supervisor-packets <case-id> [round-id]` when practical. Use `work/supervisor_packets/*.md` as compact role handoffs and keep the parent as a coordinator over capsules, claim-basis refs, and targeted drill-down requests. Packets render materiality `next_actions`; resolve required GitHub, quantitative, and Theses.cz similarity-report actions with a current artifact or a typed `work/review_manifest.json` limitation that records `trigger`, `scope`, `type`, `required_for`, `description`, `impact`, `status`, and `accepted_by` or `reviewer_role` before synthesis/final wave readiness. Packets and reuse decisions reduce repeated context; they do not replace this skill, semantic role coverage, independent review, approval records, or manifest validation.
-13. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
-14. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
-15. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-16. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
-17. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
-18. If an imported Theses.cz similarity report is present, run `thesis-theses-similarity-review` before synthesis or record a typed limitation. Keep no-concern or resolved findings silent in student-facing feedback; surface only material unresolved concerns or concrete student actions.
-19. Prioritize issues by impact on current phase. Do not list every possible improvement.
-20. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
-21. After the final output and checks exist, run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record generator/reviewer roles and any unavailable evidence in `work/review_manifest.json`, then run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. For every internal evidence artifact marked `covered_by_synthesis`, record a compact `used_findings` summary and evidence hash. If the final Markdown changes after review, the output is draft again: rerun independent review and refresh `work/reviews/supervisor_feedback_review.json`, or record an explicit typed exception/limitation accepted by closeout. Manifest refresh alone is insufficient.
+13. Before spawning role-split agents, use the optimized deterministic
+    boundary: `scripts/review-round-start --profile supervisor_feedback
+    <case-id> [round-id]` to confirm current materials and write
+    `work/review_run_trace.json`, then `scripts/prepare-review-round --profile
+    supervisor_feedback <case-id> [round-id]` to write
+    `work/review_role_plan.json` and supervisor packets. Do not manually
+    reconstruct role needs from chat when a current role plan can be generated.
+    Use `work/supervisor_packets/*.md` as compact role handoffs and keep the
+    parent as a coordinator over capsules, claim-basis refs, and targeted
+    drill-down requests. Role states in `work/review_role_plan.json` decide
+    whether a role needs fresh review, scoped delta review, current reviewed
+    reuse, or a concrete typed limitation. Packets render materiality
+    `next_actions`; resolve required GitHub, quantitative, and Theses.cz
+    similarity-report actions with a current artifact or a typed
+    `work/review_manifest.json` limitation that records `trigger`, `scope`,
+    `type`, `required_for`, `description`, `impact`, `status`, and
+    `accepted_by` or `reviewer_role` before synthesis/final wave readiness.
+    Packets and reuse decisions reduce repeated context; they do not replace
+    this skill, semantic role coverage, independent review, approval records,
+    or manifest validation.
+14. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
+15. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
+16. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+17. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
+18. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
+19. If an imported Theses.cz similarity report is present, run `thesis-theses-similarity-review` before synthesis or record a typed limitation. Keep no-concern or resolved findings silent in student-facing feedback; surface only material unresolved concerns or concrete student actions.
+20. Prioritize issues by impact on current phase. Do not list every possible improvement.
+21. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different explicitly authorized reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+22. After each role output is written, use `scripts/register-review-artifact`
+    or its sidecar path so `work/review_manifest.json` records generator role,
+    source hashes, checks, limitations, and synthesis use as the output is
+    created. After the final output and checks exist, run
+    `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record
+    generator/reviewer roles and any unavailable evidence in
+    `work/review_manifest.json`, then run
+    `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+    For every internal evidence artifact marked `covered_by_synthesis`, record
+    a compact `used_findings` summary and evidence hash. If the final Markdown
+    changes after review, the output is draft again: rerun independent review
+    and refresh `work/reviews/supervisor_feedback_review.json`, or record a
+    hash-bound `work/review_deltas/*.json` via `scripts/record-review-delta`
+    when the change is a bounded operator delta with a typed exception or
+    profile-review reopening. Manifest refresh alone is insufficient. Finish
+    optimized rounds with `scripts/review-round-closeout --profile
+    supervisor_feedback <case-id> [round-id]`.
 
 ## Free-Text Boundary
 
@@ -117,6 +152,30 @@ include only fixes that are quick and improve readability or professional
 presentation; do not make minor title polish compete with blockers. Short
 illustrative rewrites are acceptable, but avoid renaming a whole thesis
 structure for the student.
+
+## Implementation Readability And Test Layering
+
+For code-backed theses, check whether implementation chapters explain the
+architecture, algorithmic principles, state/data flow, and design choices at a
+level useful to a supervisor or opponent. A chapter that mostly enumerates
+functions, endpoints, files, or classes may be accurate but still weak for
+defense because the reviewer has to infer the principle from code-shaped prose.
+
+Prefer diagrams, tables, or compact state/flow summaries over long verbal
+descriptions for complex geometry, pick/place phases, state machines,
+multi-component runtime flows, and algorithms where examples across several
+input objects would clarify the behavior. Use figure/media review for material
+visual-content claims; student-facing feedback may still recommend adding a
+diagram when the absence itself harms readability.
+
+When reviewing tests, distinguish deterministic algorithmic components from
+integration/runtime wiring. Standalone geometry, parsing, planning-candidate,
+metric, or transformation logic often deserves focused unit tests with
+deterministic inputs; ROS/MoveIt/service/database/browser integration tests
+then prove that the pieces work together. If a near-final thesis has only
+integration tests for an isolated algorithm, phrase it as a calibrated
+limitation or quick improvement, not as a demand for a broad late rewrite unless
+it affects technical truth or assignment fulfillment.
 
 ## Phase Calibration
 

@@ -79,13 +79,23 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 
 When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
-After writing or revising `outputs/code_quality_review.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the artifact is standalone final evidence or only covered by a downstream synthesis review. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+After writing or revising `outputs/code_quality_review.md`, register the
+artifact through the current `work/review_role_plan.json` preset when available,
+usually with `scripts/register-review-artifact <case-id> <round-id>
+outputs/code_quality_review.md --role code_quality`, including source refs,
+checks, limitations, and whether downstream synthesis uses the findings. Then
+run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record
+whether the artifact is standalone final evidence or only covered by a
+downstream synthesis review. Before relying on it, run
+`scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
-Supervisor-report role packets must include the expected output path, this
-artifact skeleton, and the validator command
-`scripts/check-code-quality-review --require-synthesis-handoff <case-id> [round-id]`.
-If the packet omits that contract, ask the parent session to regenerate the
-packets before writing final evidence.
+Code-bearing workflow role packets must include the expected output path, this
+artifact skeleton, registration preset, and the validator command
+`scripts/check-code-quality-review --require-synthesis-handoff <case-id>
+[round-id]`. If the packet or `work/review_role_plan.json` omits that contract,
+ask the parent session to regenerate the round plan before writing final
+evidence. Workflow profiles, materiality profiles, wave workflows, Codex agent
+profiles, and reviewer preference profiles are separate concepts.
 
 ## Agent Final Response Contract
 

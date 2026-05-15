@@ -1,6 +1,6 @@
 # Review Pipeline Optimization Plan
 
-Status: active
+Status: done
 Created: 2026-05-15
 
 Execution readiness: ready for autonomous, slice-by-slice implementation after
@@ -802,7 +802,7 @@ Out of scope:
 
 ### Slice 9 - Documentation, Skills, TODO Reconciliation, And Archive
 
-- Status: pending
+- Status: completed 2026-05-15
 - Proposed commit message: `docs(workflow): document optimized review pipeline`
 - Expected paths:
   - `README.md`
@@ -860,6 +860,8 @@ Out of scope:
   - `scripts/check-scripts`
   - `git status --short --untracked-files=all`
   - `git diff --check`
+  - Result 2026-05-15: passed, with advisory developer-hygiene findings
+    recorded in `Final Audit`.
 
 ## Progress
 
@@ -1071,6 +1073,37 @@ Out of scope:
   validates the contract but does not semantically infer affected claims from
   free-form artifact text. Skill/README/TODO promotion guidance remains
   deferred to Slice 9.
+- 2026-05-15: Slice 9 completed. Kept `README.md` chat-first while adding the
+  optimized review-round lifecycle, generated artifact inventory,
+  `work/review_deltas/*.json` behavior, and packaged Linux/cmd/PowerShell
+  examples for `review-round-start`, `prepare-review-round`,
+  `review-round-closeout`, and `record-review-delta` in the lower-level
+  reference sections. Updated `docs/agent-scheduling.md` and
+  `docs/opponent-review-workflow.md` so `work/review_role_plan.json`,
+  bounded role waves, workflow-profile vocabulary, and delegated
+  profile-specific commands are explicit. Updated supervisor/opponent parent
+  skills, final-review skills, and standalone evidence skills to use the shared
+  round-start/prepare/closeout path, role-plan states, artifact registration,
+  code-bearing code consistency plus code quality expectations, and post-review
+  operator deltas. Reconciled `TODO.md` by removing the completed shared
+  pipeline item and archived this plan after final audit. Verification passed:
+  `git diff --check`, `pants fmt ::`, `pants lint ::`, `pants check ::`,
+  `pants test tests::`, `pants run :vulture`, `pants run :jscpd`,
+  `pants run :omen`, `scripts/smoke-review-round-start`,
+  `scripts/smoke-prepare-review-round`, `scripts/smoke-review-round-closeout`,
+  `scripts/smoke-record-review-delta`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and
+  `git status --short --untracked-files=all`. Subagent review findings were
+  folded into the slice: the top README path remains chat-first, opponent docs
+  present the generic shared path as default, packaged command examples include
+  the new command surface, skills treat the role plan as the wave source of
+  truth, and final-review paths point post-review changes to
+  `record-review-delta`.
+  Residual risks: the target 25-35 minute timing improvement has not yet been
+  measured on a fresh real code-bearing pilot round after these changes; native
+  Windows runtime proof remains an explicit TODO item; developer-hygiene tools
+  report advisory duplication/hotspot signals but no failing exit code; semantic
+  role execution remains parent-agent orchestrated rather than shell-automated.
 
 ## Decision Log
 
@@ -1105,16 +1138,31 @@ Out of scope:
 
 ## Final Audit
 
-- 2026-05-15 multi-agent plan review: two read-only agents reviewed the plan.
-  Findings were folded directly into this file rather than left as external
-  commentary.
-- `scripts/check-private`: passed.
-- `scripts/check-scripts`: passed.
-- `git diff --check`: passed for tracked changes in the dirty worktree.
-- `git diff --no-index --check /dev/null plans/review_pipeline_optimization_plan.md`:
-  passed for this currently untracked plan file.
-- Residual risk: the plan intentionally changes the supervisor-feedback approval
-  record contract to `work/reviews/supervisor_feedback_review.json`; Slice 1 must
-  update all existing feedback-student-named approval references atomically and
-  without compatibility aliases.
-- Archive decision: keep active under `plans/` until Slice 9 completes.
+- 2026-05-15 Slice 9 final audit: implementation completed through Slice 9 and
+  the plan is archived under `plans/archive/`.
+- Multi-agent review: two Slice 9 read-only agents reviewed operator docs and
+  skill surfaces. Findings were folded into README placement, opponent docs,
+  packaged command examples, role-plan guidance, artifact registration guidance,
+  and operator-delta review-loop wording.
+- Commands passed: `git diff --check`, `pants fmt ::`, `pants lint ::`,
+  `pants check ::`, `pants test tests::`, `pants run :vulture`,
+  `pants run :jscpd`, `pants run :omen`, `scripts/smoke-review-round-start`,
+  `scripts/smoke-prepare-review-round`, `scripts/smoke-review-round-closeout`,
+  `scripts/smoke-record-review-delta`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and
+  `git status --short --untracked-files=all`.
+- Advisory developer-hygiene evidence: `pants run :jscpd` exited 0 while
+  reporting 17 Python clone groups; `pants run :omen` exited 0 with grade `A`
+  and overall score `91.16`, while listing hotspot files for future repo-health
+  attention. These are not thesis case-pipeline gates.
+- Timing evidence: deterministic smokes and full repo checks passed, but the
+  desired 25-35 minute elapsed-time target still needs measurement on a fresh
+  real code-bearing supervisor-feedback or comparable pilot round after this
+  implementation.
+- Residual risks: native Windows runtime proof remains open in `TODO.md`;
+  semantic role agents are still spawned and synthesized by the parent agent,
+  not automated from shell scripts; post-review delta classification remains an
+  explicit operator/parent-agent contract rather than deterministic free-text
+  inference.
+- Archive decision: archive now; any future timing proof, native Windows CI, or
+  further automation belongs in `TODO.md` or a new focused plan.

@@ -63,12 +63,16 @@ revision-diff metric.
    with a `## Synthesis Handoff` section. Keep raw report URLs, hashes, local
    paths, and source internals out of downstream-facing prose.
 7. Run `scripts/check-theses-similarity-report <case-id> [round-id]` again.
-8. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]`. If the
-   artifact is standalone final evidence, run an independent evidence
+8. Register the artifact through the current `work/review_role_plan.json` preset
+   when available, usually with `scripts/register-review-artifact <case-id>
+   <round-id> outputs/theses_similarity_review.md --role theses_similarity`,
+   including source refs, checks, limitations, and downstream synthesis use.
+   Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`.
+   If the artifact is standalone final evidence, run an independent evidence
    calibration pass and write
-   `scripts/write-review-approval --profile theses-similarity-review <case-id> [round-id]`.
-   If it is covered by supervisor/opponent synthesis, record the used findings
-   and evidence hash in the manifest.
+   `scripts/write-review-approval --profile theses-similarity-review <case-id>
+   [round-id]`. If it is covered by supervisor/opponent synthesis, record the
+   used findings and evidence hash in the manifest.
 9. In supervisor-report packet mode, ensure the packet lists
    `work/theses_similarity/assessment.json`, `outputs/theses_similarity_review.md`,
    schema `theses-similarity-assessment-v1`, and validator

@@ -69,7 +69,15 @@ for example `work/literature/`.
 
 When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
-After writing or revising `outputs/literature_citation_review.md`, run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the artifact is standalone final evidence or only covered by a downstream synthesis review. Before relying on it, run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+After writing or revising `outputs/literature_citation_review.md`, register the
+artifact through the current `work/review_role_plan.json` preset when available,
+usually with `scripts/register-review-artifact <case-id> <round-id>
+outputs/literature_citation_review.md --role literature_citation`, including
+source refs, checks, limitations, and downstream synthesis use. Then run
+`scripts/init-review-manifest --run-checks <case-id> [round-id]` and record
+whether the artifact is standalone final evidence or only covered by a
+downstream synthesis review. Before relying on it, run
+`scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Agent Final Response Contract
 

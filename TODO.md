@@ -23,12 +23,6 @@
    - Add write-mode `scripts/migrate-case` and bulk `scripts/migrate-cases` only after the dry-run contract is reviewed against real operator needs.
    - Include `--backup`, `--case`, `--all`, and `--from/--to` style controls with explicit idempotence tests.
    - Preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
-- [ ] Implement the shared review-round start/prepare/closeout pipeline from `plans/review_pipeline_optimization_plan.md`.
-   - Keep `review-round-start` and `prepare-review-round` as separate deterministic steps before semantic agents run.
-   - Route supervisor feedback, supervisor reports, opponent materials, and opponent-report review through workflow-profile adapters instead of a parallel supervisor-only command family.
-   - Closeout should consume the role plan, manifest, agent coverage, profile approval records, output checks, private-data checks, script checks, and whitespace/diff hygiene.
-   - Preserve the canonical supervisor-feedback approval record `work/reviews/supervisor_feedback_review.json`; do not keep a legacy feedback-student-named approval contract.
-   - Keep the bundle transparent: print the exact underlying checks and their pass/fail status.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 

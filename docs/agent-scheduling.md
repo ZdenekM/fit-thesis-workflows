@@ -79,6 +79,27 @@ handoffs for spawned agents. They reduce repeated context and prompt drift; they
 do not reduce required role coverage, skill obligations, independent review, or
 manifest/coverage checks.
 
+Optimized rounds should reach role spawning through the deterministic boundary
+`review-round-start` followed by `prepare-review-round`. The second command
+writes `work/review_role_plan.json`; parent agents should treat that plan as
+the wave schedule and role-state source of truth rather than reconstructing
+role needs from chat. Role states mean:
+
+- `required_fresh`: spawn or otherwise produce current role evidence, then
+  register the output or record a concrete typed limitation;
+- `delta_review`: current evidence changed enough that a scoped role review is
+  required even if prior reviewed evidence exists;
+- `reusable_current`: current `work/agent_coverage.json` and reuse-index
+  evidence already satisfy coverage with a current reviewed artifact;
+- `blocked_with_typed_limitation`: closeout needs a concrete limitation record
+  rather than silent omission.
+
+`review-round-start`, `prepare-review-round`, and `review-round-closeout` are
+workflow-profile commands. They use values such as `supervisor_feedback`,
+`supervisor_report`, `opponent_materials`, and `opponent_report_review`; those
+are not Codex agent profiles from `.codex/agents/` or
+`docs/agent-profile-matrix.md`.
+
 The main session should inventory available `inputs/`, `extracted/`, `notes/`,
 `work/`, and `outputs/` paths, but should not treat that inventory as permission
 to load every raw source into the parent context. Start from

@@ -41,6 +41,10 @@ skill pravidlo nebo TODO pro budoucí helper.
 Case data pod `cases/` jsou ignorovaná gitem. Do repozitáře patří workflow,
 skripty, šablony a profily, ne soukromé studentské materiály.
 
+Agent si pod kapotou hlídá deterministické kroky pro aktuální materiály,
+role-plan, role vlny, manifest, nezávislé review a closeout; operátor obvykle
+jen řekne, co chce zpracovat a že má agent použít agenty.
+
 ## Co napsat agentovi
 
 Níže jsou copy-paste recepty. První tři pokrývají nejběžnější práci; další
@@ -287,6 +291,15 @@ Nejběžnější výstupy jsou:
   review vlny,
 - `work/reviews/*_review.json` - strukturovaný approval record nezávislého
   finálního review s hashem revidovaného artefaktu a review basis,
+- `work/review_run_trace.json` - case-private stopa round-start, role-plan,
+  role-wave, synthesis, independent-review, operator-delta a closeout fází,
+- `work/review_role_plan.json` - plán povinných rolí, role states, packet refs,
+  reuse projekcí, typed limitations a bounded wave schedule před spawnutím
+  agentů,
+- `work/review_artifacts/*.json` - průběžné sidecary pro manifest registraci
+  role-owned výstupů,
+- `work/review_deltas/*.json` - hash-bound záznam post-review změn, námitek,
+  typovaných výjimek a obecných workflow lessons po revidovaném výstupu,
 - `work/review_manifest.json` - interní manifest vstupů, výstupů, helper checků,
   skillů, rolí agentů, review stavu, hashů výstupů a omezení,
 - `work/agent_coverage.json` - interní role matrix pro povinné agentní role,
@@ -492,12 +505,18 @@ scripts/update-current-evidence-snapshot <case-id>
 scripts/import-theses-report <case-id> /path/to/theses-report.pdf
 scripts/check-theses-similarity-report <case-id>
 scripts/check-review-materiality --workflow supervisor_feedback <case-id>
+scripts/review-round-start --profile supervisor_feedback <case-id>
+scripts/prepare-review-round --profile supervisor_feedback <case-id>
 scripts/prepare-supervisor-packets <case-id>
 scripts/check-review-materiality --workflow opponent_review <case-id>
+scripts/review-round-start --profile opponent_materials <case-id>
+scripts/prepare-review-round --profile opponent_materials <case-id>
 scripts/prepare-opponent-packets <case-id>
 scripts/check-review-wave --workflow supervisor_feedback --wave draft <case-id>
 scripts/register-review-artifact <case-id> <round-id> outputs/code_quality_review.md --role code_quality
 scripts/write-review-approval --profile supervisor-feedback --reviewer-agent <agent-id> <case-id>
+scripts/review-round-closeout --profile supervisor_feedback <case-id>
+scripts/record-review-delta --profile supervisor_feedback --type material_claim_delta --previous-artifact /path/to/reviewed-before.md --affected-section feedback.body --evidence-ref outputs/code_quality_review.md --rationale "operator challenged reviewed wording" <case-id>
 ```
 
 `scripts/check-review-materiality` nepíše verdikty o kvalitě práce. Z
@@ -516,6 +535,16 @@ limitation pro takovou akci patří do
 nezávislé kontrole. Pro kanonické profily vyplní správnou dvojici
 reviewed-artifact/review-basis a hash binding; neřeší obsahovou kontrolu místo
 review agenta.
+
+Nový nebo navazující round má sdílenou deterministic kostru:
+`review-round-start` potvrdí aktuální materiály a zapíše
+`work/review_run_trace.json`; `prepare-review-round` vytvoří
+`work/review_role_plan.json`, packet refs, role states a bounded wave schedule;
+autorizovaní agenti běží podle tohoto plánu; `review-round-closeout` pak
+zkontroluje role plan, manifest, coverage, approvals, unresolved deltas a
+profilové gates. Workflow profily jako `supervisor_feedback`,
+`supervisor_report`, `opponent_materials` nebo `opponent_report_review` nejsou
+Codex agent profily z `.codex/agents/`.
 
 Časté finální kontroly:
 
@@ -538,9 +567,10 @@ scripts/check-review-manifest --require-complete <case-id>
 
 Když closeout hlásí stale review hash, approval record nebo review-basis hash,
 neopravujte hash ručně. Buď vraťte artefakt do draft stavu a spusťte nové
-nezávislé review, nebo zapište výslovnou typovanou výjimku s omezením. U
-odesílatelných a standalone finálních artefaktů musí approval record odpovídat
-aktuálnímu souboru, jinak je review neplatné.
+nezávislé review, nebo pro post-review opravu zapište strukturovanou deltu přes
+`record-review-delta` s affected sections, evidence anchors, typovanou výjimkou
+nebo reopening next action. U odesílatelných a standalone finálních artefaktů
+musí approval record odpovídat aktuálnímu souboru, jinak je review neplatné.
 
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 
@@ -609,9 +639,13 @@ scripts/package-workflow-tools
 dist/workflow-tools/bin/check-tooling <case-id>
 dist/workflow-tools/bin/opponent-preflight <case-id>
 dist/workflow-tools/bin/prepare-code-workspace <case-id>
+dist/workflow-tools/bin/review-round-start --profile supervisor_feedback <case-id>
+dist/workflow-tools/bin/prepare-review-round --profile supervisor_feedback <case-id>
 dist/workflow-tools/bin/check-supervisor-report-ready <case-id>
 dist/workflow-tools/bin/prepare-supervisor-report-packets --agents-authorized <case-id>
 dist/workflow-tools/bin/init-review-manifest --run-checks <case-id> [round-id]
+dist/workflow-tools/bin/review-round-closeout --profile supervisor_feedback <case-id> [round-id]
+dist/workflow-tools/bin/record-review-delta --profile supervisor_feedback --type style_only --previous-artifact /path/to/reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
 dist/workflow-tools/bin/supervisor-report-closeout <case-id> [round-id]
 ```
 
@@ -622,11 +656,15 @@ scripts\package-workflow-tools.cmd
 dist\workflow-tools\bin\check-tooling.cmd <case-id>
 dist\workflow-tools\bin\opponent-preflight.cmd <case-id>
 dist\workflow-tools\bin\prepare-code-workspace.cmd <case-id>
+dist\workflow-tools\bin\review-round-start.cmd --profile supervisor_feedback <case-id>
+dist\workflow-tools\bin\prepare-review-round.cmd --profile supervisor_feedback <case-id>
 dist\workflow-tools\bin\check-supervisor-report-ready.cmd <case-id>
 dist\workflow-tools\bin\prepare-supervisor-report-packets.cmd --agents-authorized <case-id>
 dist\workflow-tools\bin\init-review-manifest.cmd --run-checks <case-id> [round-id]
 dist\workflow-tools\bin\check-agent-coverage.cmd <case-id> [round-id]
 dist\workflow-tools\bin\check-review-manifest.cmd --require-complete <case-id> [round-id]
+dist\workflow-tools\bin\review-round-closeout.cmd --profile supervisor_feedback <case-id> [round-id]
+dist\workflow-tools\bin\record-review-delta.cmd --profile supervisor_feedback --type style_only --previous-artifact C:\path\to\reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
 dist\workflow-tools\bin\supervisor-report-closeout.cmd <case-id> [round-id]
 ```
 
@@ -635,11 +673,15 @@ dist\workflow-tools\bin\supervisor-report-closeout.cmd <case-id> [round-id]
 .\dist\workflow-tools\bin\check-tooling.ps1 <case-id>
 .\dist\workflow-tools\bin\opponent-preflight.ps1 <case-id>
 .\dist\workflow-tools\bin\prepare-code-workspace.ps1 <case-id>
+.\dist\workflow-tools\bin\review-round-start.ps1 --profile supervisor_feedback <case-id>
+.\dist\workflow-tools\bin\prepare-review-round.ps1 --profile supervisor_feedback <case-id>
 .\dist\workflow-tools\bin\check-supervisor-report-ready.ps1 <case-id>
 .\dist\workflow-tools\bin\prepare-supervisor-report-packets.ps1 --agents-authorized <case-id>
 .\dist\workflow-tools\bin\init-review-manifest.ps1 --run-checks <case-id> [round-id]
 .\dist\workflow-tools\bin\check-agent-coverage.ps1 <case-id> [round-id]
 .\dist\workflow-tools\bin\check-review-manifest.ps1 --require-complete <case-id> [round-id]
+.\dist\workflow-tools\bin\review-round-closeout.ps1 --profile supervisor_feedback <case-id> [round-id]
+.\dist\workflow-tools\bin\record-review-delta.ps1 --profile supervisor_feedback --type style_only --previous-artifact C:\path\to\reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
 .\dist\workflow-tools\bin\supervisor-report-closeout.ps1 <case-id> [round-id]
 ```
 

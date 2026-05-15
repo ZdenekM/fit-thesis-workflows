@@ -53,7 +53,7 @@ If both draft and output files exist, review the draft unless the user explicitl
 20. When text structure affects report quality, verify that the materials considered chapter and section headings: title length, match to content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Do not inflate minor title polish into a grade-impacting claim unless it materially harms readability or orientation.
 21. After writing `outputs/oponent_podklady_revidovane.md`, create or update `work/opponent_report_trace.json` with the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty ledger, current reviewed-materials hash, producer metadata, and evidence refs. This trace is the only deterministic input for `scripts/draft-opponent-report`; do not leave report drafting to token matching over reviewed Markdown.
 22. Run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before closeout. Treat warnings as operator prompts and either address them or state why they are acceptable. If `scripts/draft-opponent-report` is needed, run it only after the trace validates.
-23. After writing `outputs/oponent_podklady_revidovane.md`, write or update `work/reviews/opponent_materials_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
+23. After writing `outputs/oponent_podklady_revidovane.md`, write or update `work/reviews/opponent_materials_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this review pass, the reviewed hash, and compact `used_findings` summaries for evidence artifacts covered by synthesis in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. Post-review operator corrections belong in `work/review_deltas/*.json` via `scripts/record-review-delta --profile opponent_materials`; material claim and evidence-challenge deltas reopen this reviewed-materials path before closeout can pass.
 
 ## Free-Text Boundary
 
@@ -113,6 +113,7 @@ itself remains optional until the operator wants an IS-structured bridge draft.
 Before closeout, validate it with:
 
 ```bash
+scripts/review-round-closeout --profile opponent_materials <case-id> [round-id]
 scripts/check-opponent-materials <case-id> [round-id]
 scripts/check-opponent-report <case-id> [round-id]  # validates trace and any existing draft
 scripts/draft-opponent-report <case-id> [round-id]  # optional, only after trace exists

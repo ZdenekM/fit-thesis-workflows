@@ -157,10 +157,13 @@ A downstream synthesis review certifies only the findings it uses, not the whole
 standalone artifact.
 
 After writing or revising `outputs/github_code_intake.md`, run
-`scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether the intake
-is standalone final evidence or only covered by downstream synthesis. Before
-relying on it, run `scripts/check-review-manifest --require-complete <case-id>
-[round-id]`.
+`scripts/register-review-artifact <case-id> <round-id>
+outputs/github_code_intake.md --role github_intake` when the current
+`work/review_role_plan.json` includes the GitHub intake role, then
+`scripts/init-review-manifest --run-checks <case-id> [round-id]` and record
+whether the intake is standalone final evidence or only covered by downstream
+synthesis. Before relying on it, run `scripts/check-review-manifest
+--require-complete <case-id> [round-id]`.
 
 ## Agent Final Response Contract
 

@@ -68,7 +68,11 @@ not replace the semantic quantitative review or downstream independent review.
    - overclaim risk for supervisor action or opponent report wording.
 5. Write `work/quantitative_claims.json` using the schema below.
 6. Run `scripts/check-evaluation-claims <case-id> [round-id]`.
-7. If the artifact will be used as standalone final evidence, run an independent
+7. Register the artifact through the current `work/review_role_plan.json` preset
+   when available, usually with `scripts/register-review-artifact <case-id>
+   <round-id> work/quantitative_claims.json --role quantitative_claims`,
+   including source refs, checks, limitations, and downstream synthesis use.
+8. If the artifact will be used as standalone final evidence, run an independent
    evidence-calibration review before relying on it. A downstream synthesis
    review certifies only the findings it actually uses.
 

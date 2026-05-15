@@ -12,7 +12,21 @@ ani neotvírejte kliknutím; Windows je může zkusit otevřít jako dokument.
 
 ## Intake And Preflight
 
-Začněte příkazem:
+V optimalizovaném roundu začněte sdílenou deterministic hranicí:
+
+```bash
+scripts/review-round-start --profile opponent_materials <case-id> [round-id]
+scripts/prepare-review-round --profile opponent_materials <case-id> [round-id]
+```
+
+První příkaz potvrdí aktuální materiály, import/extract/code workspace a zapíše
+`work/review_run_trace.json`. Druhý příkaz připraví role packets a
+`work/review_role_plan.json`; agenti se spawnují až podle tohoto plánu. Hodnota
+`opponent_materials` je workflow/operator surface mapovaná na canonical
+materiality profil `opponent_review`, ne Codex agent profile.
+
+Nižší profilový preflight zůstává dostupný a používá se přímo nebo delegovaně
+ze shared path:
 
 ```bash
 scripts/opponent-preflight <case-id> [round-id]
@@ -203,10 +217,14 @@ posudku tokenově.
 Finální oponentský gate:
 
 ```bash
+scripts/review-round-closeout --profile opponent_materials <case-id> [round-id]
 scripts/opponent-closeout <case-id> [round-id]
 ```
 
-Closeout znovu projde revidované podklady, report trace, případný report draft,
+`review-round-closeout` je shared closeout: ověří role plan, manifest, coverage,
+approval records, unresolved `work/review_deltas/*.json` a profile gate. Pro
+oponentské materiály potom deleguje profilové kontroly do `opponent-closeout`,
+který znovu projde revidované podklady, report trace, případný report draft,
 manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
 
 ## Opponent-Facing Boundary

@@ -118,6 +118,36 @@ templates, or TODO. Do not promote case-specific facts or student details.
 
 Promoted to: `AGENTS.md`, `profiles/local/default.md`.
 
+### 2026-05-15: Ask For New Round Materials When Prompt Implies Them
+
+Status: promoted
+
+When an operator asks for a follow-up thesis-feedback round and says the student
+added, finished, or changed current chapters, tests, code, or other materials,
+first verify that the active case contains a matching newer PDF/source
+zip/code artifact. If the newest artifacts in the case are older than the
+operator-described update, ask for the new materials before generating
+sendable feedback, unless the operator explicitly wants a provisional
+stale-artifact review.
+
+Promoted to: `AGENTS.md`.
+
+### 2026-05-15: Implementation Text Needs Principles, Visuals, And Test Layers
+
+Status: promoted
+
+For code-backed theses, review implementation chapters for opponent-readable
+explanation: architecture, algorithmic principle, state/data flow, and design
+choice should not collapse into a list of functions, endpoints, files, or
+classes. Prefer diagrams or tables over dense prose for geometric algorithms,
+workflow phases, state machines, and multi-component runtime flows. When
+evaluating tests, distinguish deterministic algorithmic units from integration
+tests that exercise service/runtime wiring. If a final-round thesis has only
+integration tests for an isolated algorithm, surface it as a calibrated
+limitation without implying that the whole work must be rewritten.
+
+Promoted to: `AGENTS.md`, supervisor/opponent/report skills.
+
 ### 2026-05-04: Thesis Headings Need Structure Review
 
 Status: promoted

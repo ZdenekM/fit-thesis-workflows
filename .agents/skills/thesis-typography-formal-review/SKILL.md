@@ -70,9 +70,14 @@ does not control `Student feedback language`.
    `scripts/check-typography-formal --require-output <case-id> [round-id]`
    again and make sure the artifact reflects either the warnings or an explicit
    limitation.
-10. Run `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record whether
-   the typography/formal evidence is standalone final evidence or only covered by
-   downstream supervisor/opponent synthesis. Before relying on it, run
+10. Register the artifact through the current `work/review_role_plan.json`
+   preset when available, usually with `scripts/register-review-artifact
+   <case-id> <round-id> outputs/typography_formal_review.md --role
+   typography_formal`, including source refs, checks, limitations, and
+   downstream synthesis use. Then run `scripts/init-review-manifest --run-checks
+   <case-id> [round-id]` and record whether the typography/formal evidence is
+   standalone final evidence or only covered by downstream supervisor/opponent
+   synthesis. Before relying on it, run
    `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## When To Use

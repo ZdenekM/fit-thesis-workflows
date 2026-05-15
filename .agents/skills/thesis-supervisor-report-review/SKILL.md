@@ -87,6 +87,12 @@ reviewer role, checks, limitations, and timestamp.
 Material edits after review reopen draft state. The supervisor still must
 confirm grade, points, official text, and private student comment in
 `work/supervisor_report_confirmation.json` before the report is ready for IS.
+Post-review operator corrections must be recorded as
+`work/review_deltas/*.json` with `scripts/record-review-delta` instead of
+manual hash edits. Use profile `supervisor_report`, the appropriate delta type,
+a previous reviewed snapshot, affected sections, and evidence refs; material
+claim or evidence-challenge deltas reopen this independent review path before
+closeout can pass.
 
 Supervisor-report review packets must list both owned outputs,
 `outputs/vedouci_posudek_revidovany.md` and
@@ -100,7 +106,7 @@ After writing the reviewed output and approval record, ask the parent session to
 refresh provenance with `scripts/init-review-manifest --run-checks <case-id>
 [round-id]`. The report is still not ready for IS until the human supervisor
 confirms it with `scripts/confirm-supervisor-report` and
-`scripts/supervisor-report-closeout` passes.
+`scripts/review-round-closeout --profile supervisor_report` passes.
 
 ## Agent Final Response Contract
 

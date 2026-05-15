@@ -72,11 +72,15 @@ supervisor does not know a dimension, the intake must say that explicitly.
 7. When code is present, use both `thesis-code-consistency` and
    `thesis-code-quality-review`, or record a typed limitation explaining why one
    could not be performed.
-8. Before spawning role agents, run
-   `scripts/prepare-supervisor-report-packets --agents-authorized <case-id> [round-id]`
-   after confirming the current request authorizes role agents and the
-   independent review loop. Packet preparation refreshes current evidence and
-   final `supervisor_report` materiality before writing role instructions.
+8. Before spawning role agents, use the optimized deterministic boundary after
+   confirming the current request authorizes role agents and the independent
+   review loop: `scripts/review-round-start --profile supervisor_report
+   <case-id> [round-id]`, then `scripts/prepare-review-round --profile
+   supervisor_report <case-id> [round-id]`. The second command delegates to
+   supervisor-report packet preparation, refreshes current evidence and final
+   `supervisor_report` materiality, and writes `work/review_role_plan.json`.
+   Treat that role plan as the source of truth for role states, packet paths,
+   expected outputs, registration presets, reuse, and typed limitations.
 9. Resolve every required materiality next action before trace/draft synthesis:
    use current structured/reviewed evidence, synthesis-covered evidence, or a
    typed limitation. Consume compact packet handoffs and `## Synthesis Handoff`
@@ -90,6 +94,11 @@ supervisor does not know a dimension, the intake must say that explicitly.
    opponent materials. Clean or resolved similarity-report findings should stay
    silent in formal prose unless the supervisor explicitly needs an
    institutional note.
+   For code-backed work, include implementation-text readability and test-layer
+   fit in the evidence calibration when material: distinguish high-level
+   explanation from function inventories, prefer visual summaries for complex
+   algorithms or workflows, and separate unit evidence for deterministic
+   algorithmic components from integration evidence for runtime wiring.
 11. Write or update `work/supervisor_report_trace.json` with field-level
    evidence refs, supervisor-input refs, optional feedback-history status,
    grade/points state, uncertainty, manual checks, and limitations.
@@ -103,10 +112,11 @@ supervisor does not know a dimension, the intake must say that explicitly.
     supervisor until
     `work/supervisor_report_confirmation.json` confirms grade, points, official
     text, and private student comment for IS entry.
-15. After confirmation, run `scripts/supervisor-report-closeout <case-id>
-    [round-id]`. Closeout rechecks current evidence, final materiality,
-    manifest/coverage state, final review wave, submitted-report/amendment
-    records when present, and repo hygiene.
+15. After confirmation, run `scripts/review-round-closeout --profile
+    supervisor_report <case-id> [round-id]`. The shared closeout validates the
+    role plan, manifest, coverage, approvals, unresolved
+    `work/review_deltas/*.json`, and then delegates profile-specific report
+    checks to `scripts/supervisor-report-closeout`.
 
 ## FIT IS Fields
 
@@ -138,6 +148,14 @@ Cover these sections:
   that supports that narrow statement.
 - Keep internal paths, hashes, packet names, review state, and local workspace
   details out of official prose.
+- After role outputs are written, register them through
+  `scripts/register-review-artifact` or a role-plan sidecar before final
+  manifest refresh, so generator role, source hashes, checks, limitations, and
+  synthesis use are not reconstructed manually at closeout.
+- Post-review operator corrections belong in `work/review_deltas/*.json` via
+  `scripts/record-review-delta`; material claim and evidence-challenge deltas
+  reopen profile review, while style/preference deltas need a current approval
+  or typed exception.
 
 ## Style
 
