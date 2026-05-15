@@ -1,4 +1,4 @@
-"""Record a bounded post-review report amendment."""
+"""Record a supervisor-report post-review amendment through the shared delta ledger."""
 
 from __future__ import annotations
 
@@ -32,8 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scripts/record-report-amendment",
         description=(
-            "Record a compact, hash-bound delta for a non-material post-review supervisor-report edit. "
-            "Material claim, grade, point, or evidence-anchor changes must use normal semantic review."
+            "Profile-specific wrapper around record-review-delta for supervisor-report edits. "
+            "The canonical record is written under work/review_deltas."
         ),
     )
     parser.add_argument("case_id")
@@ -42,12 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--type",
         required=True,
         choices=["style_only", "public_text_delta", "private_comment_delta", "material_claim_delta"],
-        help="bounded amendment class; material_claim_delta is rejected and requires normal review",
+        help="report amendment class; material_claim_delta reopens normal semantic review",
     )
     parser.add_argument("--previous-reviewed", required=True, help="previous reviewed Markdown snapshot")
     parser.add_argument("--current-artifact", default=SUPERVISOR_REPORT_REVIEWED_REL)
     parser.add_argument("--approved-by", required=True, help="human or reviewer identity approving the bounded delta")
-    parser.add_argument("--rationale", required=True, help="why this delta is non-material")
+    parser.add_argument("--rationale", required=True, help="why this delta is bounded, or why review must reopen")
     parser.add_argument("--amended-at", default="", help="ISO timestamp; defaults to current UTC time")
     parser.add_argument("--force", action="store_true", help="overwrite existing amendment record/snapshot")
     return parser

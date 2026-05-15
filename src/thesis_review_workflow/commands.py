@@ -61,6 +61,7 @@ WORKFLOW_COMMAND_MODULES = {
     "prepare-supervisor-packets": "thesis_review_workflow.cli.prepare_supervisor_packets",
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
     "record-report-amendment": "thesis_review_workflow.cli.record_report_amendment",
+    "record-review-delta": "thesis_review_workflow.cli.record_review_delta",
     "record-submitted-supervisor-report": "thesis_review_workflow.cli.record_submitted_supervisor_report",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
     "review-round-closeout": "thesis_review_workflow.cli.review_round_closeout",

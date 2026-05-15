@@ -51,6 +51,7 @@ shell_sources(
         "prepare-supervisor-report-packets",
         "prepare-supervisor-packets",
         "record-report-amendment",
+        "record-review-delta",
         "record-submitted-supervisor-report",
         "register-review-artifact",
         "review-round-closeout",
@@ -82,6 +83,7 @@ shell_sources(
         "smoke-prepare-code-workspace",
         "smoke-prepare-review-round",
         "smoke-record-report-amendment",
+        "smoke-record-review-delta",
         "smoke-record-submitted-supervisor-report",
         "smoke-supervisor-report-calibration-profile",
         "smoke-supervisor-report-packets",
@@ -112,6 +114,7 @@ files(
         "BUILD",
         "smoke-package-workflow-tools",
         "smoke-record-report-amendment",
+        "smoke-record-review-delta",
         "smoke-record-submitted-supervisor-report",
         "smoke-prepare-review-round",
         "smoke-review-round-closeout",
@@ -169,6 +172,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:prepare_supervisor_report_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_packets",
     "src/thesis_review_workflow/cli:record_report_amendment",
+    "src/thesis_review_workflow/cli:record_review_delta",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:review_round_closeout",
@@ -667,6 +671,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/record-report-amendment",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_review_delta_tool",
+    entry_point="thesis_review_workflow.cli.record_review_delta:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-review-delta",
     tags=["workflow-tool"],
 )
 

@@ -18,6 +18,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import Step, print_step, run_step
+from thesis_review_workflow.review_delta import review_delta_closeout_errors
 from thesis_review_workflow.review_packets import sha256_file
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
@@ -121,6 +122,23 @@ def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: 
     )
 
 
+def review_delta_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
+    errors = review_delta_closeout_errors(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id)
+    if errors:
+        return Step(
+            label="Review delta closeout",
+            command=None,
+            returncode=1,
+            output="\n".join(f"- {error}" for error in errors),
+        )
+    return Step(
+        label="Review delta closeout",
+        command=None,
+        returncode=0,
+        output="No unresolved review deltas block closeout.",
+    )
+
+
 def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_id: str) -> list[Step]:
     profile = get_workflow_review_profile(profile_id)
     workflow, wave = closeout_wave_for_profile(profile_id)
@@ -148,6 +166,7 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
         )
     round_dir = root / "cases" / case_id / "rounds" / round_id
     steps.append(role_plan_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
+    steps.append(review_delta_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
 
     delegated = DELEGATED_CLOSEOUT_COMMANDS.get(profile_id)
     if delegated:

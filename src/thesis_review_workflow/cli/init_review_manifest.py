@@ -146,7 +146,7 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
         hashes.update(hash_tree("round:extracted", round_dir / "extracted"))
     if check_name == "check-supervisor-report":
         hashes.update(hash_tree("round:work/submitted_reports", round_dir / "work" / "submitted_reports"))
-        hashes.update(hash_tree("round:work/report_amendments", round_dir / "work" / "report_amendments"))
+        hashes.update(hash_tree("round:work/review_deltas", round_dir / "work" / "review_deltas"))
     return hashes
 
 

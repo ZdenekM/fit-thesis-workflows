@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from thesis_review_workflow.amendments import validate_report_amendment_record
 from thesis_review_workflow.cli.context import (
@@ -24,7 +25,7 @@ from thesis_review_workflow.structured_evidence import (
 )
 from thesis_review_workflow.submitted_reports import validate_submitted_report_record
 from thesis_review_workflow.supervisor_report import (
-    SUPERVISOR_REPORT_AMENDMENTS_DIR_REL,
+    SUPERVISOR_REPORT_DELTAS_DIR_REL,
     SUPERVISOR_REPORT_DRAFT_REL,
     SUPERVISOR_REPORT_REVIEWED_REL,
     SUPERVISOR_REPORT_SUBMITTED_DIR_REL,
@@ -194,31 +195,19 @@ def main(argv: list[str]) -> int:
                 f"{SUPERVISOR_REPORT_SUBMITTED_RECORD_REL}"
             )
 
-    amendment_dir = round_dir / SUPERVISOR_REPORT_AMENDMENTS_DIR_REL
-    if amendment_dir.is_dir():
-        amendment_records: list[dict[str, object]] = []
-        for amendment_path in sorted(amendment_dir.glob("*.json")):
-            amendment_record = load_json_object(amendment_path, errors)
-            if amendment_record is not None:
-                amendment_records.append(amendment_record)
-                errors.extend(
-                    validate_report_amendment_record(
-                        amendment_record,
-                        round_dir=round_dir,
-                        case_id=args.case_id,
-                        round_id=round_id,
-                        rel_path=amendment_path.relative_to(round_dir).as_posix(),
-                    )
-                )
-        referenced_snapshots = {
-            record.get("previous_snapshot_path")
-            for record in amendment_records
-            if isinstance(record.get("previous_snapshot_path"), str)
-        }
-        for snapshot_path in sorted(amendment_dir.glob("*-before.md")):
+    delta_dir = round_dir / SUPERVISOR_REPORT_DELTAS_DIR_REL
+    if delta_dir.is_dir():
+        referenced_snapshots = load_supervisor_report_delta_records(
+            delta_dir,
+            round_dir,
+            case_id=args.case_id,
+            round_id=round_id,
+            errors=errors,
+        )
+        for snapshot_path in sorted(delta_dir.glob("*-before.*")):
             snapshot_rel = snapshot_path.relative_to(round_dir).as_posix()
             if snapshot_rel not in referenced_snapshots:
-                errors.append(f"{snapshot_rel}: amendment snapshot has no matching JSON record")
+                errors.append(f"{snapshot_rel}: review delta snapshot has no matching JSON record")
 
     if errors:
         for error in errors:
@@ -230,6 +219,36 @@ def main(argv: list[str]) -> int:
 
 def console_main() -> int:
     return main(sys.argv)
+
+
+def load_supervisor_report_delta_records(
+    delta_dir: Path,
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    errors: list[str],
+) -> set[str]:
+    referenced_snapshots: set[str] = set()
+    for amendment_path in sorted(delta_dir.glob("*.json")):
+        amendment_record = load_json_object(amendment_path, errors)
+        if amendment_record is None:
+            continue
+        previous_artifact = amendment_record.get("previous_artifact_path")
+        if isinstance(previous_artifact, str):
+            referenced_snapshots.add(previous_artifact)
+        if amendment_record.get("profile_id") != "supervisor_report":
+            continue
+        errors.extend(
+            validate_report_amendment_record(
+                amendment_record,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+                rel_path=amendment_path.relative_to(round_dir).as_posix(),
+            )
+        )
+    return referenced_snapshots
 
 
 def load_json_object(path, errors: list[str]) -> dict[str, object] | None:

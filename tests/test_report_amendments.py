@@ -9,6 +9,7 @@ from thesis_review_workflow.amendments import (
 )
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.cli import record_report_amendment
+from thesis_review_workflow.cli.check_supervisor_report import load_supervisor_report_delta_records
 from thesis_review_workflow.review_approvals import REVIEW_APPROVAL_SCHEMA
 from thesis_review_workflow.review_manifest import MANIFEST_REL
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS
@@ -170,9 +171,10 @@ def test_private_comment_amendment_records_fresh_approved_hash(tmp_path: Path) -
         rationale="Private comment wording cleanup only.",
     )
 
-    assert payload["approval_status"] == "delta_approved"
-    assert payload["fresh_approval_artifact_sha256"] == payload["current_artifact_sha256"]
-    assert payload["review_approval_path"] == SUPERVISOR_REPORT_REVIEW_REL
+    assert payload["schema_version"] == "review-delta-v1"
+    assert payload["status"] == "bounded_delta"
+    assert payload["approval_status"] == "current"
+    assert payload["approval_record_path"] == SUPERVISOR_REPORT_REVIEW_REL
     assert payload["supervisor_confirmation_path"] == SUPERVISOR_REPORT_CONFIRMATION_REL
     assert payload["private_comment_changed"] is True
     assert payload["public_text_changed"] is False
@@ -200,16 +202,14 @@ def test_public_text_amendment_rejects_grade_change(tmp_path: Path) -> None:
     )
 
 
-def test_material_claim_delta_requires_normal_semantic_review(tmp_path: Path) -> None:
+def test_material_claim_delta_reopens_profile_review(tmp_path: Path) -> None:
     round_dir, snapshot_rel = write_amendment_pair(
         tmp_path,
         previous=report_text(),
         current=report_text(public_extra=" Doplněna materiální formulace."),
     )
 
-    assert_value_error_contains(
-        "normal semantic review",
-        build_report_amendment_payload,
+    payload = build_report_amendment_payload(
         round_dir,
         case_id="case-a",
         round_id="round-a",
@@ -219,6 +219,42 @@ def test_material_claim_delta_requires_normal_semantic_review(tmp_path: Path) ->
         approved_by="supervisor",
         rationale="Material change.",
     )
+
+    assert payload["delta_type"] == "material_claim_delta"
+    assert payload["independent_review_reopened"] is True
+    assert "check-review-wave --workflow supervisor_report --wave final" in payload["next_action"]
+
+
+def test_supervisor_report_delta_scan_ignores_other_profiles_without_orphaning_snapshots(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    delta_dir = round_dir / "work" / "review_deltas"
+    snapshot_rel = "work/review_deltas/2026-05-15T12-00-00Z-style_only-before.md"
+    snapshot_path = round_dir / snapshot_rel
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("previous feedback\n", encoding="utf-8")
+    (delta_dir / "2026-05-15T12-00-00Z-style_only.json").write_text(
+        json.dumps(
+            {
+                "profile_id": "supervisor_feedback",
+                "previous_artifact_path": snapshot_rel,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    errors: list[str] = []
+
+    referenced = load_supervisor_report_delta_records(
+        delta_dir,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        errors=errors,
+    )
+
+    assert errors == []
+    assert referenced == {snapshot_rel}
 
 
 def test_public_text_amendment_requires_current_review_approval(tmp_path: Path) -> None:
@@ -231,7 +267,7 @@ def test_public_text_amendment_requires_current_review_approval(tmp_path: Path) 
     current_path.write_text(report_text(public_extra=" Upraveno po schválení."), encoding="utf-8")
 
     assert_value_error_contains(
-        "review approval is stale",
+        "non-material delta requires current approval record",
         build_report_amendment_payload,
         round_dir,
         case_id="case-a",

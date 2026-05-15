@@ -160,17 +160,18 @@ PY
   --amended-at 2026-05-13T00:00:00Z \
   "$case_id" "$round_id" >"$out_file"
 
-python3 - "$round_dir/work/report_amendments/2026-05-13T00-00-00Z-private_comment_delta.json" <<'PY'
+python3 - "$round_dir/work/review_deltas/2026-05-13T00-00-00Z-private_comment_delta.json" <<'PY'
 import json
 import pathlib
 import sys
 
 payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-assert payload["schema_version"] == "report-amendment-v1"
-assert payload["approval_status"] == "delta_approved"
+assert payload["schema_version"] == "review-delta-v1"
+assert payload["status"] == "bounded_delta"
+assert payload["approval_status"] == "current"
 assert payload["private_comment_changed"] is True
 assert payload["public_text_changed"] is False
-assert payload["fresh_approval_artifact_sha256"] == payload["current_artifact_sha256"]
+assert payload["approval_record_path"] == "work/reviews/supervisor_report_review.json"
 PY
 
 write_report "$tmp_dir/before-grade.md" "Děkuji za práci." B 82
@@ -187,5 +188,5 @@ if "$repo_root/scripts/record-report-amendment" \
   exit 1
 fi
 
-grep -Fq "normal semantic review" "$out_file"
+grep -Fq "non-material delta requires current approval record" "$out_file"
 echo "Report amendment smoke passed"

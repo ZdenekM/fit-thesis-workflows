@@ -24,6 +24,7 @@ from thesis_review_workflow.opponent_calibration import (
 )
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
+from thesis_review_workflow.review_delta import is_review_delta_artifact, validate_review_delta_record
 from thesis_review_workflow.review_packets import (
     COMMON_BRIEFING_REL,
     COMMON_BRIEFING_SCHEMA_VERSION,
@@ -145,6 +146,8 @@ WORK_ARTIFACT_GLOBS = (
     "work/supervisor_report_packets/*.md",
     "work/review_materiality/*.json",
     "work/review_artifacts/*.json",
+    "work/review_deltas/*.json",
+    "work/review_deltas/*-before.*",
     "work/reviews/*.json",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",
@@ -319,6 +322,21 @@ def validate_supporting_work_artifacts(
                     round_id=round_id,
                 )
             )
+        elif is_review_delta_artifact(rel_path):
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"{rel_path}: invalid JSON: {exc.msg}")
+            else:
+                errors.extend(
+                    validate_review_delta_record(
+                        loaded,
+                        round_dir=round_dir,
+                        case_id=case_id,
+                        round_id=round_id,
+                        rel_path=rel_path,
+                    )
+                )
         elif is_opponent_calibration_artifact(rel_path):
             errors.extend(
                 validate_opponent_calibration_artifact(

@@ -41,6 +41,13 @@ reviewed report and `work/reviews/supervisor_report_review.json` exist,
 performs the manifest refresh before final-wave validation and again after
 checks that may update provenance; operators should not edit
 `work/review_manifest.json` by hand for normal final-report registration.
+Post-review operator corrections use `record-review-delta`, which writes the
+canonical `work/review_deltas/*.json` record for style/preference corrections,
+evidence challenges, material claim changes, and durable workflow lessons.
+`record-report-amendment` remains only a supervisor-report convenience wrapper
+around that shared delta record; it does not maintain a separate amendment
+ledger. Material claim and evidence-challenge deltas reopen the relevant
+profile independent review before closeout can pass.
 
 The optimized review pipeline uses shared round-level commands before
 workflow-specific packet generation. `review-round-start` is the deterministic

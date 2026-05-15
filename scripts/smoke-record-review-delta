@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case_id="__review_delta_smoke_$$"
+round_id="round-a"
+case_dir="$repo_root/cases/$case_id"
+round_dir="$case_dir/rounds/$round_id"
+out_file="/tmp/review-delta-smoke.$$.out"
+trap 'rm -rf "$case_dir" "$out_file"' EXIT
+
+mkdir -p "$round_dir/outputs"
+cat >"$case_dir/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Reviewer profile: default
+Student feedback language: cs
+EOF
+printf '%s\n' "$round_id" >"$case_dir/current-round.txt"
+cat >"$round_dir/outputs/feedback_student.md" <<'EOF'
+# Feedback
+
+Opravená formulace bez změny věcného obsahu.
+EOF
+
+previous="/tmp/review-delta-previous.$$.md"
+cat >"$previous" <<'EOF'
+# Feedback
+
+Opravená formulace bez změny věcného obsahu.
+EOF
+
+"$repo_root/scripts/record-review-delta" \
+  "$case_id" "$round_id" \
+  --profile supervisor_feedback \
+  --type style_only \
+  --previous-artifact "$previous" \
+  --current-artifact outputs/feedback_student.md \
+  --affected-section feedback.body \
+  --rationale "Style-only smoke delta." \
+  --typed-exception-type style_only_no_visible_change \
+  --typed-exception-rationale "Smoke fixture has no independent approval record." \
+  --approved-by smoke \
+  --generated-at 2026-05-15T12:00:00Z >"$out_file"
+
+record="$round_dir/work/review_deltas/2026-05-15T12-00-00Z-style_only.json"
+python3 - "$record" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "review-delta-v1"
+assert payload["delta_type"] == "style_only"
+assert payload["independent_review_reopened"] is False
+assert payload["typed_exception"]["type"] == "style_only_no_visible_change"
+assert payload["current_artifact_path"] == "outputs/feedback_student.md"
+PY
+
+rm -f "$previous"
+echo "Review delta smoke passed"

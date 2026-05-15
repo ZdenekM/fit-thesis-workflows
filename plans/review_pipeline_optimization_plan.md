@@ -746,7 +746,7 @@ Out of scope:
 
 ### Slice 8 - Generic Operator Delta And Durable Lesson Promotion
 
-- Status: pending
+- Status: completed 2026-05-15
 - Proposed commit message: `feat(workflow): handle reviewed artifact deltas`
 - Expected paths:
   - `src/thesis_review_workflow/review_delta.py`
@@ -795,6 +795,10 @@ Out of scope:
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
+  - Result 2026-05-15: passed. Extra wrapper regression smoke
+    `scripts/smoke-record-report-amendment` also passed because this slice
+    moved report amendments onto the shared `work/review_deltas/*.json`
+    ledger.
 
 ### Slice 9 - Documentation, Skills, TODO Reconciliation, And Archive
 
@@ -1036,6 +1040,37 @@ Out of scope:
   Residual risks: role-plan reuse still depends on `update-round-reuse-index`
   and manifest/coverage refreshes having run before planning; operator-delta
   reopening of previously reviewed artifacts remains deferred to Slice 8.
+- 2026-05-15: Slice 8 completed. Added canonical
+  `work/review_deltas/*.json` records for post-review operator deltas, with
+  hash-bound previous/current artifacts, affected sections, evidence anchors,
+  typed exceptions, promotion targets, canonical closeout rerun gates, and
+  profile-specific independent-review reopening for evidence challenges,
+  material claim deltas, and general workflow lessons. `record-review-delta` is
+  wired through the logical command map, POSIX wrapper, Pants PEX target,
+  packaged launcher contract, command docs, and smoke coverage. The previous
+  supervisor-report amendment flow now writes the shared delta schema through a
+  thin `record-report-amendment` wrapper rather than a separate ledger, and
+  closeout checks unresolved deltas before final profile gates pass.
+  Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_delta.py tests/test_report_amendments.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-record-review-delta`,
+  `scripts/smoke-record-report-amendment`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. Subagent review findings
+  were folded into the slice: supervisor-report checks no longer orphan
+  snapshots owned by other workflow profiles in the shared delta directory,
+  `evidence_challenge` requires an explicit safe evidence anchor,
+  `WORKFLOW_MEMORY.md` is not accepted as a terminal durable promotion target,
+  closeout gate/next-action text is validated against canonical profile
+  guidance, and closeout no longer displays an invalid partial
+  `record-review-delta` command.
+  Residual risks: delta records intentionally depend on explicit parent-agent
+  or operator classification of the change; deterministic code records and
+  validates the contract but does not semantically infer affected claims from
+  free-form artifact text. Skill/README/TODO promotion guidance remains
+  deferred to Slice 9.
 
 ## Decision Log
 

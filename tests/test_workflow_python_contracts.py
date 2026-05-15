@@ -603,6 +603,24 @@ def test_supervisor_report_submission_helpers_are_packaged_and_smoked() -> None:
         assert f"scripts/{tool_name}" in smoke_text
 
 
+def test_record_review_delta_is_packaged_and_smoked() -> None:
+    shell_sources = scripts_shell_sources()
+    pex_targets = workflow_pex_targets()
+    cli_sources = cli_python_sources()
+    runtime_deps = workflow_runtime_deps()
+    tool_name = "record-review-delta"
+    module = WORKFLOW_COMMAND_MODULES[tool_name]
+    module_name = module.rsplit(".", 1)[-1]
+    smoke_text = (REPO_ROOT / "scripts" / "smoke-record-review-delta").read_text(encoding="utf-8")
+
+    assert cli_sources[module_name] == f"{module_name}.py"
+    assert f"src/thesis_review_workflow/cli:{module_name}" in runtime_deps
+    assert pex_targets[tool_name]["entry_point"] == f"{module}:console_main"
+    assert tool_name in shell_sources
+    assert "smoke-record-review-delta" in shell_sources
+    assert "scripts/record-review-delta" in smoke_text
+
+
 def test_review_round_start_is_packaged_and_smoked() -> None:
     shell_sources = scripts_shell_sources()
     pex_targets = workflow_pex_targets()

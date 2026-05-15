@@ -1,21 +1,24 @@
-"""Bounded post-review report amendment records."""
+"""Supervisor-report wrapper around shared post-review delta records."""
 
 from __future__ import annotations
 
-import difflib
-import hashlib
 import json
 import re
-import shutil
 from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import validate_review_approval_with_manifest
+from thesis_review_workflow.review_delta import REVIEW_DELTA_SCHEMA, build_review_delta_payload
+from thesis_review_workflow.review_delta import copy_previous_snapshot as _copy_previous_snapshot
+from thesis_review_workflow.review_delta import (
+    review_delta_record_rel,
+    review_delta_snapshot_rel,
+    validate_review_delta_record,
+)
 from thesis_review_workflow.review_manifest import MANIFEST_REL, load_manifest
 from thesis_review_workflow.supervisor_report import (
-    SUPERVISOR_REPORT_AMENDMENTS_DIR_REL,
     SUPERVISOR_REPORT_CONFIRMATION_REL,
     SUPERVISOR_REPORT_REVIEW_REL,
     SUPERVISOR_REPORT_REVIEWED_REL,
@@ -26,14 +29,9 @@ from thesis_review_workflow.supervisor_report import (
     strip_metadata_comments,
 )
 
-REPORT_AMENDMENT_SCHEMA = "report-amendment-v1"
+REPORT_AMENDMENT_SCHEMA = REVIEW_DELTA_SCHEMA
 AMENDMENT_TYPES = {"style_only", "public_text_delta", "private_comment_delta", "material_claim_delta"}
 NON_MATERIAL_AMENDMENT_TYPES = {"style_only", "public_text_delta", "private_comment_delta"}
-MAX_DIFF_LINES = 160
-
-
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def normalize_text(text: str) -> str:
@@ -41,40 +39,35 @@ def normalize_text(text: str) -> str:
 
 
 def amendment_record_rel(amended_at: str, amendment_type: str) -> str:
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", amended_at).strip("-") or "amendment"
-    return f"{SUPERVISOR_REPORT_AMENDMENTS_DIR_REL}/{slug}-{amendment_type}.json"
+    return review_delta_record_rel(amended_at, amendment_type)
 
 
 def amendment_snapshot_rel(amended_at: str, amendment_type: str) -> str:
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", amended_at).strip("-") or "amendment"
-    return f"{SUPERVISOR_REPORT_AMENDMENTS_DIR_REL}/{slug}-{amendment_type}-before.md"
+    return review_delta_snapshot_rel(amended_at, amendment_type, suffix=".md")
 
 
 def copy_previous_snapshot(source: Path, round_dir: Path, rel_path: str, *, force: bool = False) -> str:
-    if not source.is_file():
-        raise ValueError(f"previous report snapshot is not a file: {source}")
-    target = round_dir / rel_path
-    if target.exists() and not force:
-        raise ValueError(f"refusing to overwrite existing amendment snapshot without --force: {rel_path}")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if source.resolve() != target.resolve():
-        shutil.copy2(source, target)
-    return rel_path
+    return _copy_previous_snapshot(source, round_dir, rel_path, force=force)
 
 
-def diff_lines(previous_text: str, current_text: str) -> list[str]:
-    lines = list(
-        difflib.unified_diff(
-            previous_text.splitlines(),
-            current_text.splitlines(),
-            fromfile="previous",
-            tofile="current",
-            lineterm="",
-        )
-    )
-    if len(lines) > MAX_DIFF_LINES:
-        return [*lines[:MAX_DIFF_LINES], f"... truncated after {MAX_DIFF_LINES} diff lines"]
-    return lines
+def report_delta_type(amendment_type: str) -> str:
+    if amendment_type == "style_only":
+        return "style_only"
+    if amendment_type in {"public_text_delta", "private_comment_delta"}:
+        return "operator_preference"
+    if amendment_type == "material_claim_delta":
+        return "material_claim_delta"
+    raise ValueError(f"amendment_type must be one of {', '.join(sorted(AMENDMENT_TYPES))}")
+
+
+def report_affected_sections(amendment_type: str) -> list[str]:
+    if amendment_type == "private_comment_delta":
+        return ["supervisor_report.private_student_comment"]
+    if amendment_type == "public_text_delta":
+        return ["supervisor_report.public_text"]
+    if amendment_type == "style_only":
+        return ["supervisor_report.visible_text"]
+    return ["supervisor_report.material_claim"]
 
 
 def build_report_amendment_payload(
@@ -89,22 +82,39 @@ def build_report_amendment_payload(
     approved_by: str,
     rationale: str,
 ) -> dict[str, Any]:
-    if amendment_type not in AMENDMENT_TYPES:
-        raise ValueError(f"amendment_type must be one of {', '.join(sorted(AMENDMENT_TYPES))}")
-    if amendment_type == "material_claim_delta":
-        raise ValueError("material_claim_delta requires normal semantic review; do not record a bounded amendment")
+    delta_type = report_delta_type(amendment_type)
     if not approved_by.strip():
-        raise ValueError("--approved-by is required for bounded report amendments")
+        raise ValueError("--approved-by is required for report amendment deltas")
     if not rationale.strip():
-        raise ValueError("--rationale is required for bounded report amendments")
-    if not is_safe_round_relative_path(previous_snapshot_rel) or not is_safe_round_relative_path(current_artifact_rel):
-        raise ValueError("amendment paths must be safe round-relative paths")
-    previous_path = round_dir / previous_snapshot_rel
-    current_path = round_dir / current_artifact_rel
-    if not previous_path.is_file():
-        raise ValueError(f"missing previous amendment snapshot: {previous_snapshot_rel}")
-    if not current_path.is_file():
-        raise ValueError(f"missing current report artifact: {current_artifact_rel}")
+        raise ValueError("--rationale is required for report amendment deltas")
+    payload = build_review_delta_payload(
+        round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        profile_id="supervisor_report",
+        delta_type=delta_type,
+        previous_snapshot_rel=previous_snapshot_rel,
+        current_artifact_rel=current_artifact_rel,
+        generated_at=amended_at,
+        rationale=rationale,
+        affected_sections=report_affected_sections(amendment_type),
+        approval_record_rel=SUPERVISOR_REPORT_REVIEW_REL,
+        typed_exception_type="",
+        typed_exception_rationale="",
+        approved_by=approved_by,
+    )
+    payload.update(report_specific_fields(round_dir, payload, amendment_type=amendment_type, approved_by=approved_by))
+    errors = validate_report_amendment_record(payload, round_dir=round_dir)
+    if errors:
+        raise ValueError("\n".join(errors))
+    return payload
+
+
+def report_specific_fields(
+    round_dir: Path, payload: dict[str, Any], *, amendment_type: str, approved_by: str
+) -> dict[str, Any]:
+    previous_path = round_dir / str(payload["previous_artifact_path"])
+    current_path = round_dir / str(payload["current_artifact_path"])
     previous_text = previous_path.read_text(encoding="utf-8")
     current_text = current_path.read_text(encoding="utf-8")
     previous_grade_points = extract_markdown_grade_points(previous_text, require=True)
@@ -116,55 +126,34 @@ def build_report_amendment_payload(
     previous_visible = strip_metadata_comments(previous_text)
     current_visible = strip_metadata_comments(current_text)
     confirmation = load_json_object(round_dir / SUPERVISOR_REPORT_CONFIRMATION_REL, SUPERVISOR_REPORT_CONFIRMATION_REL)
-    approval = load_json_object(round_dir / SUPERVISOR_REPORT_REVIEW_REL, SUPERVISOR_REPORT_REVIEW_REL)
-    payload = {
-        "schema_version": REPORT_AMENDMENT_SCHEMA,
-        "case_id": case_id,
-        "round_id": round_id,
-        "generated_at": amended_at,
-        "producer_type": "human",
-        "producer_role": "record-report-amendment",
-        "producer_agent": None,
-        "human_reviewer_note": rationale.strip(),
+    source_refs = list(payload.get("source_refs", []))
+    for ref in (SUPERVISOR_REPORT_CONFIRMATION_REL, SUPERVISOR_REPORT_REVIEW_REL):
+        if (round_dir / ref).is_file() and ref not in source_refs:
+            source_refs.append(ref)
+    source_sha256 = dict(payload.get("source_sha256", {}))
+    for ref in source_refs:
+        path = round_dir / ref
+        if path.is_file():
+            source_sha256[ref] = sha256_file(path)
+    return {
         "report_kind": "supervisor_report",
         "amendment_type": amendment_type,
-        "approval_status": "delta_approved",
         "approved_by": approved_by.strip(),
-        "approved_at": amended_at,
-        "requires_semantic_review": False,
-        "previous_snapshot_path": previous_snapshot_rel,
-        "previous_snapshot_sha256": sha256_file(previous_path),
-        "current_artifact_path": current_artifact_rel,
-        "current_artifact_sha256": sha256_file(current_path),
+        "approved_at": payload["generated_at"],
+        "requires_semantic_review": bool(payload.get("independent_review_reopened")),
         "supervisor_confirmation_path": SUPERVISOR_REPORT_CONFIRMATION_REL,
         "supervisor_confirmation_sha256": sha256_file(round_dir / SUPERVISOR_REPORT_CONFIRMATION_REL),
-        "review_approval_path": SUPERVISOR_REPORT_REVIEW_REL,
-        "review_approval_sha256": sha256_file(round_dir / SUPERVISOR_REPORT_REVIEW_REL),
-        "review_approval_reviewed_artifact_sha256": approval.get("reviewed_artifact_sha256"),
-        "fresh_approval_artifact_sha256": sha256_file(current_path),
-        "source_refs": [
-            previous_snapshot_rel,
-            current_artifact_rel,
-            SUPERVISOR_REPORT_CONFIRMATION_REL,
-            SUPERVISOR_REPORT_REVIEW_REL,
-        ],
-        "limitations": [],
+        "confirmed_grade": confirmation_grade_points(confirmation).grade,
+        "confirmed_points": confirmation_grade_points(confirmation).points,
         "grade_changed": (previous_grade_points.grade, previous_grade_points.points)
         != (current_grade_points.grade, current_grade_points.points),
         "evidence_anchor_changed": _metadata_fingerprint(previous_text) != _metadata_fingerprint(current_text),
         "public_text_changed": normalize_text(previous_public) != normalize_text(current_public),
         "private_comment_changed": normalize_text(previous_private) != normalize_text(current_private),
         "normalized_visible_text_changed": normalize_text(previous_visible) != normalize_text(current_visible),
-        "previous_public_text_normalized_sha256": sha256_text(normalize_text(previous_public)),
-        "current_public_text_normalized_sha256": sha256_text(normalize_text(current_public)),
-        "confirmed_grade": confirmation_grade_points(confirmation).grade,
-        "confirmed_points": confirmation_grade_points(confirmation).points,
-        "compact_diff": diff_lines(previous_text, current_text),
+        "source_refs": source_refs,
+        "source_sha256": source_sha256,
     }
-    errors = validate_report_amendment_record(payload, round_dir=round_dir)
-    if errors:
-        raise ValueError("\n".join(errors))
-    return payload
 
 
 def validate_report_amendment_record(
@@ -175,20 +164,23 @@ def validate_report_amendment_record(
     round_id: str | None = None,
     rel_path: str = "report amendment",
 ) -> list[str]:
-    errors: list[str] = []
+    errors = validate_review_delta_record(
+        loaded,
+        round_dir=round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        profile_id="supervisor_report",
+        rel_path=rel_path,
+    )
     if not isinstance(loaded, dict):
-        return [f"{rel_path}: report amendment record must be an object"]
-    if loaded.get("schema_version") != REPORT_AMENDMENT_SCHEMA:
-        errors.append(f"{rel_path}: schema_version must be {REPORT_AMENDMENT_SCHEMA}")
-    if case_id is not None and loaded.get("case_id") != case_id:
-        errors.append(f"{rel_path}: case_id does not match requested case")
-    if round_id is not None and loaded.get("round_id") != round_id:
-        errors.append(f"{rel_path}: round_id does not match requested round")
+        return errors
+    if loaded.get("report_kind") != "supervisor_report":
+        errors.append(f"{rel_path}: report_kind must be supervisor_report")
     amendment_type = loaded.get("amendment_type")
-    if amendment_type not in NON_MATERIAL_AMENDMENT_TYPES:
-        errors.append(f"{rel_path}: amendment_type must be a non-material bounded type")
+    if amendment_type not in AMENDMENT_TYPES:
+        errors.append(f"{rel_path}: amendment_type must be one of {', '.join(sorted(AMENDMENT_TYPES))}")
     previous_path = _validate_hash_bound_path(
-        loaded, rel_path, round_dir, "previous_snapshot_path", "previous_snapshot_sha256", errors
+        loaded, rel_path, round_dir, "previous_artifact_path", "previous_artifact_sha256", errors
     )
     current_path = _validate_hash_bound_path(
         loaded, rel_path, round_dir, "current_artifact_path", "current_artifact_sha256", errors
@@ -197,10 +189,10 @@ def validate_report_amendment_record(
         loaded, rel_path, round_dir, "supervisor_confirmation_path", "supervisor_confirmation_sha256", errors
     )
     approval_path = _validate_hash_bound_path(
-        loaded, rel_path, round_dir, "review_approval_path", "review_approval_sha256", errors
+        loaded, rel_path, round_dir, "approval_record_path", "approval_record_sha256", errors
     )
     if previous_path is not None and current_path is not None and isinstance(amendment_type, str):
-        _validate_recomputed_amendment_state(
+        _validate_recomputed_report_state(
             loaded,
             rel_path,
             amendment_type=amendment_type,
@@ -210,17 +202,17 @@ def validate_report_amendment_record(
             approval_path=approval_path,
             errors=errors,
         )
-    if loaded.get("approval_status") != "delta_approved":
-        errors.append(f"{rel_path}: approval_status must be delta_approved")
-    if loaded.get("requires_semantic_review") is not False:
-        errors.append(f"{rel_path}: bounded amendment must not require semantic review")
+    if amendment_type in NON_MATERIAL_AMENDMENT_TYPES and loaded.get("requires_semantic_review") is not False:
+        errors.append(f"{rel_path}: bounded report amendment must not require semantic review")
+    if amendment_type == "material_claim_delta" and loaded.get("independent_review_reopened") is not True:
+        errors.append(f"{rel_path}: material_claim_delta must reopen independent review")
     if loaded.get("supervisor_confirmation_path") != SUPERVISOR_REPORT_CONFIRMATION_REL:
         errors.append(f"{rel_path}: supervisor_confirmation_path must be {SUPERVISOR_REPORT_CONFIRMATION_REL}")
-    if loaded.get("review_approval_path") != SUPERVISOR_REPORT_REVIEW_REL:
-        errors.append(f"{rel_path}: review_approval_path must be {SUPERVISOR_REPORT_REVIEW_REL}")
+    if loaded.get("approval_record_path") != SUPERVISOR_REPORT_REVIEW_REL:
+        errors.append(f"{rel_path}: approval_record_path must be {SUPERVISOR_REPORT_REVIEW_REL}")
     if not isinstance(loaded.get("approved_by"), str) or not str(loaded.get("approved_by")).strip():
         errors.append(f"{rel_path}: approved_by must be a non-empty string")
-    if loaded.get("review_approval_path") == SUPERVISOR_REPORT_REVIEW_REL:
+    if loaded.get("approval_record_path") == SUPERVISOR_REPORT_REVIEW_REL:
         approval_payload = None
         approval_file = round_dir / SUPERVISOR_REPORT_REVIEW_REL
         if approval_file.is_file():
@@ -241,18 +233,6 @@ def validate_report_amendment_record(
                     reviewed_artifact_path=SUPERVISOR_REPORT_REVIEWED_REL,
                 )
             )
-    if loaded.get("grade_changed") is True:
-        errors.append(f"{rel_path}: grade or points changed; run normal semantic review")
-    if loaded.get("evidence_anchor_changed") is True:
-        errors.append(f"{rel_path}: evidence anchor metadata changed; run normal semantic review")
-    if amendment_type == "style_only" and loaded.get("normalized_visible_text_changed") is True:
-        errors.append(f"{rel_path}: style_only amendment cannot change normalized visible text")
-    if amendment_type == "private_comment_delta" and loaded.get("public_text_changed") is True:
-        errors.append(f"{rel_path}: private_comment_delta cannot change public report text")
-    if amendment_type == "public_text_delta" and loaded.get("public_text_changed") is not True:
-        errors.append(f"{rel_path}: public_text_delta must change public report text")
-    if not isinstance(loaded.get("compact_diff"), list) or not loaded.get("compact_diff"):
-        errors.append(f"{rel_path}: compact_diff must be a non-empty list")
     return errors
 
 
@@ -278,7 +258,7 @@ def _validate_hash_bound_path(
     return path
 
 
-def _validate_recomputed_amendment_state(
+def _validate_recomputed_report_state(
     loaded: dict[str, Any],
     rel_path: str,
     *,
@@ -311,17 +291,13 @@ def _validate_recomputed_amendment_state(
             approval = load_json_object(approval_path, f"{rel_path}: review approval")
         except ValueError as exc:
             errors.append(str(exc))
-    expected = {
+    expected: dict[str, object] = {
         "grade_changed": (previous_grade_points.grade, previous_grade_points.points)
         != (current_grade_points.grade, current_grade_points.points),
         "evidence_anchor_changed": _metadata_fingerprint(previous_text) != _metadata_fingerprint(current_text),
         "public_text_changed": normalize_text(previous_public) != normalize_text(current_public),
         "private_comment_changed": normalize_text(previous_private) != normalize_text(current_private),
         "normalized_visible_text_changed": normalize_text(previous_visible) != normalize_text(current_visible),
-        "previous_public_text_normalized_sha256": sha256_text(normalize_text(previous_public)),
-        "current_public_text_normalized_sha256": sha256_text(normalize_text(current_public)),
-        "fresh_approval_artifact_sha256": sha256_file(current_path),
-        "compact_diff": diff_lines(previous_text, current_text),
     }
     if confirmation is not None:
         confirmation_values = confirmation_grade_points(confirmation)
@@ -331,19 +307,16 @@ def _validate_recomputed_amendment_state(
             errors.append(f"{rel_path}: supervisor confirmation must target current_artifact_path")
         if confirmation.get("reviewed_report_sha256") != sha256_file(current_path):
             errors.append(f"{rel_path}: supervisor confirmation is stale for current artifact")
-    if approval is not None:
-        expected["review_approval_reviewed_artifact_sha256"] = approval.get("reviewed_artifact_sha256")
-        if approval.get("reviewed_artifact_path") != loaded.get("current_artifact_path"):
-            errors.append(f"{rel_path}: review approval must target current_artifact_path")
-        if approval.get("reviewed_artifact_sha256") != sha256_file(current_path):
-            errors.append(f"{rel_path}: review approval is stale for current artifact")
+    if approval is not None and approval.get("reviewed_artifact_path") != loaded.get("current_artifact_path"):
+        errors.append(f"{rel_path}: review approval must target current_artifact_path")
     for field, expected_value in expected.items():
         if loaded.get(field) != expected_value:
             errors.append(f"{rel_path}: {field} is stale")
-    if expected["grade_changed"] is True:
-        errors.append(f"{rel_path}: grade or points changed; run normal semantic review")
-    if expected["evidence_anchor_changed"] is True:
-        errors.append(f"{rel_path}: evidence anchor metadata changed; run normal semantic review")
+    if amendment_type in NON_MATERIAL_AMENDMENT_TYPES:
+        if expected["grade_changed"] is True:
+            errors.append(f"{rel_path}: grade or points changed; record material_claim_delta and rerun review")
+        if expected["evidence_anchor_changed"] is True:
+            errors.append(f"{rel_path}: evidence anchor metadata changed; record material_claim_delta and rerun review")
     if amendment_type == "style_only" and expected["normalized_visible_text_changed"] is True:
         errors.append(f"{rel_path}: style_only amendment cannot change normalized visible text")
     if amendment_type == "private_comment_delta" and expected["public_text_changed"] is True:

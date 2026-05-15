@@ -21,7 +21,7 @@ SUPERVISOR_REPORT_SUBMITTED_DIR_REL = "work/submitted_reports"
 SUPERVISOR_REPORT_SUBMITTED_RECORD_REL = "work/submitted_reports/supervisor_report.json"
 SUPERVISOR_REPORT_SUBMITTED_PDF_REL = "work/submitted_reports/supervisor_report.pdf"
 SUPERVISOR_REPORT_SUBMITTED_TEXT_REL = "work/submitted_reports/supervisor_report_public_text.txt"
-SUPERVISOR_REPORT_AMENDMENTS_DIR_REL = "work/report_amendments"
+SUPERVISOR_REPORT_DELTAS_DIR_REL = "work/review_deltas"
 
 SUPERVISOR_REPORT_TITLE_HEADINGS = ("# Návrh posudku vedoucího", "# Posudek vedoucího")
 SUPERVISOR_REPORT_SECTION_HEADINGS = (
