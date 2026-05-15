@@ -641,7 +641,7 @@ Out of scope:
 
 ### Slice 6 - Profile Closeout Dispatcher
 
-- Status: pending
+- Status: completed 2026-05-15
 - Proposed commit message: `feat(workflow): close review rounds`
 - Expected paths:
   - `scripts/review-round-closeout`
@@ -654,6 +654,8 @@ Out of scope:
   - `src/thesis_review_workflow/review_profiles.py`
   - `tests/test_review_pipeline_orchestration.py`
   - `tests/test_workflow_python_contracts.py`
+  - `scripts/smoke-opponent-closeout`
+  - `scripts/smoke-package-workflow-tools`
   - `scripts/smoke-review-round-closeout`
 - Tasks:
   - Implement `scripts/review-round-closeout` from the Slice 1 profile registry.
@@ -690,17 +692,17 @@ Out of scope:
   - Update `docs/workflow-command-surface.md` and workflow command-contract tests
     for the generic command and any delegated profile commands.
 - Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests:: scripts::`
-  - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-review-round-closeout`
-  - `scripts/smoke-opponent-closeout`
-  - `scripts/smoke-supervisor-report`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
+  - `pants fmt ::` - passed
+  - `pants lint src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants check src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py` - passed
+  - `scripts/smoke-review-round-closeout` - passed
+  - `scripts/smoke-opponent-closeout` - passed
+  - `scripts/smoke-supervisor-report` - passed
+  - `scripts/smoke-package-workflow-tools` - passed
+  - `scripts/check-private` - passed
+  - `scripts/check-scripts` - passed
+  - `git diff --check` - passed
 
 ### Slice 7 - Role-Plan Reuse Integration For Repeated Rounds
 
@@ -985,6 +987,30 @@ Out of scope:
   Residual risks: late role outputs can now register cleanly, but a single
   closeout command that refreshes role plan, manifest, coverage, and profile
   gates in the exact final order is still deferred to Slice 6.
+- 2026-05-15: Slice 6 completed. Added the shared `review-round-closeout`
+  command with POSIX wrapper, Python CLI, command map entry, Pants PEX target,
+  generated-launcher contract coverage, command-surface docs, and synthetic
+  smoke coverage. The dispatcher resolves workflow profiles from explicit input
+  or private role/trace artifacts, runs profile readiness gates, refreshes
+  manifest/materiality/coverage, validates `work/review_role_plan.json` before
+  relying on scheduled roles, runs the final review wave for generic profiles,
+  delegates supervisor-report and opponent-materials profile-specific checks to
+  existing closeout commands, records closeout trace events, and reruns manifest
+  completeness after trace updates. Subagent review findings were folded into
+  the slice: required/delta role-plan states now require a registered
+  manifest/agent-coverage-backed output or concrete typed limitation rather
+  than raw file presence; trace appends reject case/round/profile mismatches;
+  and closeout no longer writes a `passed` trace event before the first final
+  post-trace manifest gates run. Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-review-round-closeout`, `scripts/smoke-opponent-closeout`,
+  `scripts/smoke-supervisor-report`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Residual risks: closeout still relies on parent-agent orchestration for actual
+  role-agent execution; repeated-round reuse semantics and operator-delta
+  reopening remain deferred to Slices 7 and 8.
 
 ## Decision Log
 

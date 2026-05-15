@@ -59,6 +59,15 @@ role states, packet refs, bounded wave schedule, materiality next-action states,
 reuse projection, and code-bearing role coverage. It prepares files for the
 parent agent to spawn authorized role agents; it does not spawn agents itself.
 
+`review-round-closeout` is the shared final closeout surface for optimized
+rounds. It refreshes the manifest, validates `work/review_role_plan.json`
+against current role outputs, runs the profile final-wave gate, refreshes
+coverage and manifest completeness, records a closeout trace event, and then
+refreshes the manifest again so the trace hash is not stale. For
+`supervisor_report`, `opponent_review`, and `opponent_materials`, the generic
+command delegates profile-specific checks to `supervisor-report-closeout` or
+`opponent-closeout` while preserving the shared role-plan and trace boundary.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a

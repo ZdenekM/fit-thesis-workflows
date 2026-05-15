@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__review_round_closeout_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/review-round-closeout-smoke.$$.out"
+err_file="/tmp/review-round-closeout-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+## Formal Assignment Artifacts
+
+- present
+
+## Formal Assignment Text Or Summary
+
+- 2025/2026 assignment summary present.
+
+## Private Assignment Notes For Student
+
+- None.
+EOF
+
+cat >"$round_dir/work/feedback_student_draft.md" <<'EOF'
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 2026-05-15
+
+## Krátké celkové shrnutí
+
+Text má českou diakritiku a konkrétní obsah.
+
+## Rozsah kontroly
+
+- Kontrola vychází ze syntetického zadání, dostupného textu a finálního výstupu.
+- Bez omezení mimo záměrně malou smoke fixture.
+
+## Odhad fáze práce a doporučené zaměření
+
+Text.
+
+## Co se od minulé verze posunulo
+
+Text.
+
+## Co je na práci už dobré
+
+Text.
+
+## Nejvyšší priority pro aktuální iteraci
+
+| priorita | kde se to projevuje | co udělat |
+| --- | --- | --- |
+| P1 | zadání | doplnit konkrétní kontrolu |
+
+## Splnění zadání
+
+Text.
+
+## Připomínky k textu práce
+
+Text.
+
+## Soulad textu s kódem
+
+Text.
+
+## Co z minulé zpětné vazby zůstává
+
+Text.
+
+## Doporučený plán dalších úprav
+
+Text.
+
+## Checklist pro aktuální fázi
+
+- [ ] Zkontrolovat zadání.
+- [ ] Doplnit ověřitelné odkazy na text.
+- [ ] Projít finální podobu před odevzdáním.
+EOF
+cp "$round_dir/work/feedback_student_draft.md" "$round_dir/outputs/feedback_student.md"
+
+expect_success "register final feedback" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" outputs/feedback_student.md \
+  --role thesis-supervisor-feedback \
+  --agent generator-agent \
+  --review-scope sendable_final \
+  --limitation "Synthetic smoke fixture." \
+  --notes "Registered by review-round-closeout smoke."
+
+expect_success "pre-approval manifest checks" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id"
+
+expect_success "write feedback approval" "$repo_root/scripts/write-review-approval" \
+  "$case_id" "$round_id" \
+  --profile supervisor-feedback \
+  --reviewer-agent review-agent \
+  --check check-supervisor-ready \
+  --check check-feedback-language \
+  --check check-feedback-output \
+  --used-findings "Synthetic reviewed feedback smoke."
+
+expect_success "current evidence snapshot" "$repo_root/scripts/update-current-evidence-snapshot" \
+  --no-known \
+  --source-ref outputs/feedback_student.md \
+  "$case_id" "$round_id"
+
+expect_success "prepare role plan" "$repo_root/scripts/prepare-review-round" \
+  --profile supervisor_feedback \
+  --skip-ready-check \
+  "$case_id" "$round_id"
+
+cat >"$round_dir/work/supervisor_packets/text_assignment_findings.md" <<'EOF'
+# Text Assignment Findings
+
+Synthetic text/assignment role output for closeout smoke.
+EOF
+expect_success "register text assignment role output" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" work/supervisor_packets/text_assignment_findings.md \
+  --role text_assignment \
+  --agent text-assignment-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --feeds outputs/feedback_student.md \
+  --input-ref notes/assignment.md \
+  --limitation "Synthetic role output fixture." \
+  --used-findings "Synthetic text-assignment finding used by final feedback smoke."
+
+expect_success "review-round closeout" "$repo_root/scripts/review-round-closeout" \
+  --profile supervisor_feedback \
+  --skip-repo-hygiene \
+  "$case_id" "$round_id"
+
+python3 - "$round_dir/work/review_run_trace.json" "$round_dir/work/review_role_plan.json" <<'PY'
+import json
+import pathlib
+import sys
+
+trace = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+plan = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+assert trace["schema_version"] == "review-run-trace-v1", trace
+assert any(item["phase"] == "closeout" and item["status"] == "passed" for item in trace["events"]), trace
+assert plan["schema_version"] == "review-role-plan-v1", plan
+roles = {item["role"]: item for item in plan["role_states"]}
+assert roles["final_review"]["coverage_role"] == "supervisor_feedback_review", roles["final_review"]
+PY
+
+echo "Review round closeout smoke passed"

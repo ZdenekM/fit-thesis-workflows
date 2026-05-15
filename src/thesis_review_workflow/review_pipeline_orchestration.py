@@ -80,6 +80,7 @@ ROLE_PLAN_STATES = {
     "blocked_with_typed_limitation",
     "not_material",
 }
+ROLE_PLAN_CLOSEOUT_REQUIRED_STATES = {"required_fresh", "delta_review"}
 REUSE_UNCHANGED_REUSABLE = "unchanged_reusable"
 REUSE_CHANGED_DELTA_REQUIRED = "changed_delta_required"
 REUSE_CURRENT_REVIEWED_ARTIFACT = "current_reviewed_artifact"
@@ -586,7 +587,12 @@ def agent_coverage_projection_for_role(round_dir: Path, role: str) -> dict[str, 
                 "status": str(item.get("status", "")),
                 "coverage_satisfied_by": str(item.get("coverage_satisfied_by", "")),
                 "fresh_review_required": item.get("fresh_review_required", ""),
+                "reuse_status": str(item.get("reuse_status", "")),
+                "reuse_next_action": str(item.get("reuse_next_action", "")),
             }
+            output_evidence = item.get("output_evidence")
+            if isinstance(output_evidence, list):
+                projection["output_evidence"] = [ref for ref in output_evidence if isinstance(ref, str)]
             typed_limitation = item.get("typed_limitation")
             if isinstance(typed_limitation, dict):
                 projection["typed_limitation"] = typed_limitation
@@ -849,6 +855,138 @@ def validate_review_role_plan_payload(payload: dict[str, Any], *, round_dir: Pat
     elif not isinstance(contract, dict):
         errors.append("code_bearing_contract must be an object")
     return errors
+
+
+def closeout_wave_for_profile(profile_id: str) -> tuple[str, str]:
+    profile = get_workflow_review_profile(profile_id)
+    if profile.effective_wave_workflow == "opponent_materials":
+        return profile.effective_wave_workflow, "reviewed"
+    return profile.effective_wave_workflow, "final"
+
+
+def load_review_role_plan(round_dir: Path) -> dict[str, Any] | None:
+    path = round_dir / REVIEW_ROLE_PLAN_REL
+    if not path.is_file():
+        return None
+    return _load_json_object(path)
+
+
+def validate_role_plan_for_closeout(
+    payload: dict[str, Any] | None,
+    *,
+    round_dir: Path,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+) -> list[str]:
+    if payload is None:
+        return [f"{REVIEW_ROLE_PLAN_REL} is missing; run prepare-review-round before closeout"]
+    errors = validate_review_role_plan_payload(payload, round_dir=round_dir)
+    if payload.get("case_id") != case_id:
+        errors.append(f"role plan case_id must be {case_id}")
+    if payload.get("round_id") != round_id:
+        errors.append(f"role plan round_id must be {round_id}")
+    if payload.get("profile_id") != profile_id:
+        errors.append(f"role plan profile_id must be {profile_id}")
+
+    manifest = role_plan_manifest_projection(round_dir)
+    for record in payload.get("role_states", []):
+        if not isinstance(record, dict):
+            continue
+        role = str(record.get("role", ""))
+        state = str(record.get("state", ""))
+        coverage_role = str(record.get("coverage_role") or role)
+        coverage_projection = agent_coverage_projection_for_role(round_dir, coverage_role)
+        if state in ROLE_PLAN_CLOSEOUT_REQUIRED_STATES:
+            if role_output_or_limitation_present(round_dir, manifest, record, coverage_projection):
+                continue
+            expected = str(record.get("registration_preset") or record.get("expected_output") or "").split(" and ", 1)[
+                0
+            ]
+            errors.append(
+                f"{role}: role plan state {state} requires current output or typed limitation; "
+                f"expected {expected or 'registered role output'}"
+            )
+        elif state == "reusable_current":
+            if coverage_projection.get("coverage_satisfied_by") != REUSE_CURRENT_REVIEWED_ARTIFACT:
+                errors.append(
+                    f"{role}: reusable_current requires current reviewed coverage in work/agent_coverage.json"
+                )
+        elif state == "blocked_with_typed_limitation":
+            if not typed_limitation_present(record, coverage_projection):
+                errors.append(f"{role}: blocked_with_typed_limitation requires a concrete typed limitation")
+    return errors
+
+
+def role_output_or_limitation_present(
+    round_dir: Path,
+    manifest: dict[str, Any],
+    record: dict[str, Any],
+    coverage_projection: dict[str, Any],
+) -> bool:
+    if typed_limitation_present(record, coverage_projection):
+        return True
+    refs: list[str] = []
+    output_evidence = coverage_projection.get("output_evidence")
+    if isinstance(output_evidence, list):
+        refs.extend(ref for ref in output_evidence if isinstance(ref, str))
+    preset = record.get("registration_preset")
+    if isinstance(preset, str) and preset:
+        refs.append(preset)
+    expected = record.get("expected_output")
+    if isinstance(expected, str) and expected:
+        refs.append(expected.split(" and ", 1)[0])
+    return any(role_output_ref_registered_current(round_dir, manifest, ref, coverage_projection) for ref in refs)
+
+
+def role_output_ref_registered_current(
+    round_dir: Path,
+    manifest: dict[str, Any],
+    rel_path: str,
+    coverage_projection: dict[str, Any],
+) -> bool:
+    if not is_safe_round_relative_path(rel_path) or not (round_dir / rel_path).is_file():
+        return False
+    if rel_path in coverage_projection.get("output_evidence", []):
+        return True
+    record = manifest_record_for_path(manifest, rel_path)
+    if record is None:
+        return False
+    recorded_hash = record.get("artifact_sha256")
+    current_hash = sha256_file(round_dir / rel_path)
+    if not isinstance(recorded_hash, str) or not current_hash or recorded_hash != current_hash:
+        return False
+    generated = record.get("generated_by")
+    if isinstance(generated, list) and any(isinstance(item, dict) for item in generated):
+        return True
+    role = str(record.get("role", "")).strip()
+    agent = str(record.get("agent", "")).strip()
+    if role and role != "not_recorded" and agent and agent != "not_recorded":
+        return True
+    producer_role = str(record.get("producer_role", "")).strip()
+    producer_agent = str(record.get("producer_agent", "")).strip()
+    return bool(producer_role and producer_agent)
+
+
+def manifest_record_for_path(manifest: dict[str, Any], rel_path: str) -> dict[str, Any] | None:
+    for collection in ("artifacts", "supporting_work_artifacts"):
+        records = manifest.get(collection)
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            if isinstance(record, dict) and record.get("path") == rel_path:
+                return record
+    return None
+
+
+def typed_limitation_present(record: dict[str, Any], coverage_projection: dict[str, Any]) -> bool:
+    materiality = record.get("materiality_projection")
+    if isinstance(materiality, dict) and materiality.get("coverage_state") == "typed_limitation":
+        return True
+    limitation = coverage_projection.get("typed_limitation")
+    if not isinstance(limitation, dict):
+        return False
+    return bool(str(limitation.get("type", "")).strip() and str(limitation.get("description", "")).strip())
 
 
 def _validate_role_plan_record(record: object, prefix: str, errors: list[str]) -> None:

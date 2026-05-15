@@ -53,6 +53,7 @@ shell_sources(
         "record-report-amendment",
         "record-submitted-supervisor-report",
         "register-review-artifact",
+        "review-round-closeout",
         "review-round-start",
         "supervisor-report-closeout",
         "smoke-agent-coverage",
@@ -89,6 +90,7 @@ shell_sources(
         "smoke-register-review-artifact",
         "smoke-review-approval",
         "smoke-review-manifest",
+        "smoke-review-round-closeout",
         "smoke-review-round-start",
         "smoke-round-reuse-index",
         "smoke-review-wave",
@@ -112,6 +114,7 @@ files(
         "smoke-record-report-amendment",
         "smoke-record-submitted-supervisor-report",
         "smoke-prepare-review-round",
+        "smoke-review-round-closeout",
         "smoke-review-round-start",
     ],
 )
@@ -168,6 +171,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_report_amendment",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:register_review_artifact",
+    "src/thesis_review_workflow/cli:review_round_closeout",
     "src/thesis_review_workflow/cli:review_round_start",
     "src/thesis_review_workflow/cli:supervisor_report_closeout",
     "src/thesis_review_workflow/cli:supervisor_deadline",
@@ -683,6 +687,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/register-review-artifact",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="review_round_closeout_tool",
+    entry_point="thesis_review_workflow.cli.review_round_closeout:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/review-round-closeout",
     tags=["workflow-tool"],
 )
 

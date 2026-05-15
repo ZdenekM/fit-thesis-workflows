@@ -17,12 +17,14 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     artifact_next_action_state,
     build_review_role_plan_payload,
     build_review_run_trace_payload,
+    closeout_wave_for_profile,
     coverage_role_for_packet_role,
     normalize_metadata_fields,
     plan_review_round_start,
     trace_profile_summary,
     validate_review_role_plan_payload,
     validate_review_run_trace_payload,
+    validate_role_plan_for_closeout,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -334,6 +336,226 @@ def test_role_plan_uses_canonical_agent_coverage_roles_for_review_packets() -> N
     assert coverage_role_for_packet_role(supervisor_profile, supervisor_final) == "supervisor_feedback_review"
     assert coverage_role_for_packet_role(report_profile, report_final) == "supervisor_report_review"
     assert coverage_role_for_packet_role(opponent_profile, materials_review) == "opponent_materials_review"
+
+
+def minimal_closeout_role_plan(*, state: str = "required_fresh") -> dict[str, object]:
+    return {
+        "schema_version": REVIEW_ROLE_PLAN_SCHEMA,
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "profile_id": "supervisor_feedback",
+        "workflow_profile": "supervisor_feedback",
+        "materiality_profile": "supervisor_feedback",
+        "operator_surface": "supervisor_feedback",
+        "final_artifact": "outputs/feedback_student.md",
+        "approval_record": "work/reviews/supervisor_feedback_review.json",
+        "generated_at": "2026-05-15T12:00:00Z",
+        "role_plan_path": REVIEW_ROLE_PLAN_REL,
+        "packet_command": "prepare-supervisor-packets",
+        "packet_dir": "work/supervisor_packets",
+        "common_briefing": "work/common_briefing.json",
+        "source_contracts": [],
+        "role_states": [
+            {
+                "role": "final_review",
+                "coverage_role": "supervisor_feedback_review",
+                "title": "Final review",
+                "skill": "thesis-supervisor-feedback-review",
+                "state": state,
+                "activation": "final review",
+                "expected_output": "outputs/feedback_student.md",
+                "registration_preset": "outputs/feedback_student.md",
+                "packet_path": "work/supervisor_packets/final_review.md",
+            }
+        ],
+        "wave_schedule": [],
+        "code_bearing_contract": {"status": "satisfied"},
+    }
+
+
+def test_role_plan_closeout_requires_output_for_required_roles(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert any("final_review: role plan state required_fresh requires current output" in error for error in errors)
+
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert any("final_review: role plan state required_fresh requires current output" in error for error in errors)
+
+    manifest = round_dir / "work" / "review_manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "review-manifest-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "supporting_work_artifacts": [],
+                "artifacts": [
+                    {
+                        "path": "outputs/feedback_student.md",
+                        "artifact_sha256": review_materiality.sha256_file(output),
+                        "generated_by": [{"role": "thesis-supervisor-feedback", "agent": "generator-a"}],
+                        "independent_review": {
+                            "status": "reviewed",
+                            "reviewer_role": "thesis-supervisor-feedback-review",
+                            "reviewer_agent": "reviewer-a",
+                            "reviewed_hash": review_materiality.sha256_file(output),
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert errors == []
+
+
+def test_role_plan_closeout_reusable_current_requires_coverage_record(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan(state="reusable_current")
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert errors == ["final_review: reusable_current requires current reviewed coverage in work/agent_coverage.json"]
+
+    coverage = round_dir / "work" / "agent_coverage.json"
+    coverage.parent.mkdir(parents=True)
+    coverage.write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "supervisor_feedback_review",
+                        "status": "required",
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "fresh_review_required": False,
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        validate_role_plan_for_closeout(
+            payload,
+            round_dir=round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="supervisor_feedback",
+        )
+        == []
+    )
+
+
+def test_role_plan_closeout_requires_registered_work_role_output(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    role = payload["role_states"][0]  # type: ignore[index]
+    assert isinstance(role, dict)
+    role.update(
+        {
+            "role": "text_assignment",
+            "coverage_role": "text_assignment",
+            "skill": "thesis-text-reviewer",
+            "expected_output": "work/supervisor_packets/text_assignment_findings.md",
+            "registration_preset": "work/supervisor_packets/text_assignment_findings.md",
+            "packet_path": "work/supervisor_packets/text_assignment.md",
+        }
+    )
+    output = round_dir / "work" / "supervisor_packets" / "text_assignment_findings.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Findings\n", encoding="utf-8")
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert any("text_assignment: role plan state required_fresh requires current output" in error for error in errors)
+
+    manifest = round_dir / "work" / "review_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "review-manifest-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "supporting_work_artifacts": [
+                    {
+                        "path": "work/supervisor_packets/text_assignment_findings.md",
+                        "artifact_sha256": review_materiality.sha256_file(output),
+                        "generated_by": [{"role": "text_assignment", "agent": "text-agent"}],
+                    }
+                ],
+                "artifacts": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        validate_role_plan_for_closeout(
+            payload,
+            round_dir=round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="supervisor_feedback",
+        )
+        == []
+    )
+
+
+def test_closeout_wave_maps_profile_operator_surfaces() -> None:
+    assert closeout_wave_for_profile("supervisor_feedback") == ("supervisor_feedback", "final")
+    assert closeout_wave_for_profile("supervisor_report") == ("supervisor_report", "final")
+    assert closeout_wave_for_profile("opponent_materials") == ("opponent_materials", "reviewed")
+    assert closeout_wave_for_profile("opponent_report_review") == ("opponent_report_review", "final")
 
 
 def test_materiality_next_action_states_distinguish_present_artifact_gaps(tmp_path: Path) -> None:

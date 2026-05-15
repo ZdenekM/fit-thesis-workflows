@@ -230,6 +230,8 @@ expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/draft-opponent-r
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/init-review-manifest" --run-checks "${case_prefix}_sourceless"
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/check-review-manifest" --require-complete "${case_prefix}_sourceless"
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/opponent-closeout" "${case_prefix}_sourceless"
+expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/review-round-closeout" \
+  --profile supervisor_feedback "${case_prefix}_sourceless"
 
 if WORKFLOW_TOOLS_PYTHON=/bin/false "$repo_root/dist/workflow-tools/bin/check-tooling" --help >"$tmp_output" 2>&1; then
   echo "Python version guard unexpectedly passed with WORKFLOW_TOOLS_PYTHON=/bin/false" >&2

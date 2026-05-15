@@ -63,6 +63,7 @@ WORKFLOW_COMMAND_MODULES = {
     "record-report-amendment": "thesis_review_workflow.cli.record_report_amendment",
     "record-submitted-supervisor-report": "thesis_review_workflow.cli.record_submitted_supervisor_report",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
+    "review-round-closeout": "thesis_review_workflow.cli.review_round_closeout",
     "review-round-start": "thesis_review_workflow.cli.review_round_start",
     "supervisor-report-closeout": "thesis_review_workflow.cli.supervisor_report_closeout",
     "supervisor-deadline": "thesis_review_workflow.cli.supervisor_deadline",

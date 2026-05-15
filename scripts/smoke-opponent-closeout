@@ -372,10 +372,24 @@ prepare_reviewed_case() {
   make_case "$case_id" "$round_id"
   local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
   write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
+  cp "$round_dir/outputs/oponent_podklady_revidovane.md" "$round_dir/work/oponent_podklady_draft.md"
   write_report_trace "$case_id" "$round_id"
-  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
-  mark_opponent_reviewed "$round_dir"
-  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id" >/dev/null
+  "$repo_root/scripts/register-review-artifact" "$case_id" "$round_id" outputs/oponent_podklady_revidovane.md \
+    --role thesis-opponent-materials \
+    --agent generator-agent \
+    --review-scope standalone_final \
+    --input-ref notes/assignment.md \
+    --limitation "Synthetic smoke fixture." \
+    --notes "Registered by opponent closeout smoke." >/dev/null
+  "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id" >/dev/null
+  "$repo_root/scripts/write-review-approval" "$case_id" "$round_id" \
+    --profile opponent-materials \
+    --reviewer-agent reviewer-agent \
+    --check check-round-ready \
+    --check check-opponent-materials \
+    --check check-opponent-report \
+    --used-findings "Synthetic reviewed opponent materials smoke." >/dev/null
+  "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id" >/dev/null
   block_typography_role "$round_dir"
 }
 
