@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from thesis_review_workflow import agent_coverage, agent_profiles
+from thesis_review_workflow import agent_coverage, agent_profiles, review_profiles
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -176,6 +176,22 @@ def test_agent_coverage_role_specs_are_routed_by_profile_registry(tmp_path: Path
         assert route.status == "profile"
         assert route.profile_id is not None
         assert spec.evidence_path in route.owned_outputs
+
+
+def test_workflow_review_profiles_cross_link_to_agent_profile_routes() -> None:
+    routes = agent_profiles.profile_routes()
+
+    for profile in review_profiles.workflow_review_profiles():
+        matches = [
+            route
+            for route in routes
+            if profile.final_artifact in route.owned_outputs and profile.approval_record in route.owned_outputs
+        ]
+        assert len(matches) == 1
+        final_review_route = matches[0]
+        assert final_review_route.status == "profile"
+        assert "code_consistency" in profile.code_bearing_roles
+        assert "code_quality" in profile.code_bearing_roles
 
 
 def test_session_start_hook_points_to_profile_matrix_without_stale_role_subset() -> None:

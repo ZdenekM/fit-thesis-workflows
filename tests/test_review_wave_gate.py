@@ -86,7 +86,7 @@ def test_approval_record_is_hash_bound_to_reviewed_artifact_and_basis(tmp_path: 
     output.write_text("# Reviewed\n", encoding="utf-8")
     basis.write_text("# Draft\n", encoding="utf-8")
     write_json(
-        round_dir / "work" / "reviews" / "feedback_student_review.json",
+        round_dir / "work" / "reviews" / "supervisor_feedback_review.json",
         {
             "workflow_profile": "supervisor_feedback",
             "reviewer_role": "thesis-supervisor-feedback-review",
@@ -112,7 +112,7 @@ def test_approval_record_is_hash_bound_to_reviewed_artifact_and_basis(tmp_path: 
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
                     "approval_record": {
-                        "path": "work/reviews/feedback_student_review.json",
+                        "path": "work/reviews/supervisor_feedback_review.json",
                         "reviewed_artifact_path": "outputs/feedback_student.md",
                     },
                 }
@@ -146,7 +146,7 @@ def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Pa
     output.parent.mkdir()
     output.write_text("# Reviewed\n", encoding="utf-8")
     write_json(
-        round_dir / "work" / "reviews" / "feedback_student_review.json",
+        round_dir / "work" / "reviews" / "supervisor_feedback_review.json",
         {
             "workflow_profile": "supervisor_feedback",
             "reviewer_role": "thesis-supervisor-feedback-review",
@@ -171,7 +171,7 @@ def test_approval_record_rejects_negative_verdict_and_missing_basis(tmp_path: Pa
                 {
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
-                    "approval_record": "work/reviews/feedback_student_review.json",
+                    "approval_record": "work/reviews/supervisor_feedback_review.json",
                 }
             ],
         },
@@ -198,7 +198,7 @@ def test_approval_record_rejects_approved_with_blocking_findings(tmp_path: Path)
     output.write_text("# Reviewed\n", encoding="utf-8")
     basis.write_text("# Draft\n", encoding="utf-8")
     write_json(
-        round_dir / "work" / "reviews" / "feedback_student_review.json",
+        round_dir / "work" / "reviews" / "supervisor_feedback_review.json",
         {
             "workflow_profile": "supervisor_feedback",
             "reviewer_role": "thesis-supervisor-feedback-review",
@@ -223,7 +223,7 @@ def test_approval_record_rejects_approved_with_blocking_findings(tmp_path: Path)
                 {
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
-                    "approval_record": "work/reviews/feedback_student_review.json",
+                    "approval_record": "work/reviews/supervisor_feedback_review.json",
                 }
             ],
         },
@@ -253,7 +253,7 @@ def test_approval_record_spec_rejects_unsafe_reviewed_artifact_path(tmp_path: Pa
                     "role": "feedback_review",
                     "path": "outputs/feedback_student.md",
                     "approval_record": {
-                        "path": "work/reviews/feedback_student_review.json",
+                        "path": "work/reviews/supervisor_feedback_review.json",
                         "reviewed_artifact_path": "../escape.md",
                     },
                 }

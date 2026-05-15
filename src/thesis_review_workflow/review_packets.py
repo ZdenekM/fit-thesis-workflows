@@ -68,7 +68,7 @@ SNAPSHOT_SOURCE_PATHS = (
     THESES_SIMILARITY_REVIEW_DRAFT_REL,
     THESES_SIMILARITY_REVIEW_REL,
     THESES_SIMILARITY_REVIEW_APPROVAL_REL,
-    "work/reviews/feedback_student_review.json",
+    "work/reviews/supervisor_feedback_review.json",
     "work/reviews/opponent_materials_review.json",
     "work/reviews/opponent_report_review.json",
     "work/reviews/supervisor_report_review.json",

@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
+from thesis_review_workflow.review_pipeline_orchestration import REVIEW_RUN_TRACE_REL, REVIEW_RUN_TRACE_SCHEMA
 from thesis_review_workflow.work_artifacts import (
     collect_supporting_work_artifacts,
     sha256_file,
@@ -187,6 +188,49 @@ def test_reuse_index_is_case_bound_supporting_work_artifact(tmp_path: Path) -> N
 
     assert by_path["work/reuse/reuse_index.json"]["schema_version"] == "round-reuse-index-v1"
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
+def test_review_run_trace_is_case_bound_supporting_work_artifact(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    write_json(
+        round_dir / REVIEW_RUN_TRACE_REL,
+        {
+            "schema_version": REVIEW_RUN_TRACE_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "profile_id": "supervisor_feedback",
+            "workflow_profile": "supervisor_feedback",
+            "materiality_profile": "supervisor_feedback",
+            "operator_surface": "supervisor_feedback",
+            "generated_at": "2026-05-15T12:00:00Z",
+            "trace_path": REVIEW_RUN_TRACE_REL,
+            "events": [
+                {
+                    "phase": "start",
+                    "status": "passed",
+                    "source_refs": ["inputs/thesis.pdf"],
+                    "output_refs": [REVIEW_RUN_TRACE_REL],
+                    "source_sha256": {"inputs/thesis.pdf": "a" * 64},
+                    "output_sha256": {REVIEW_RUN_TRACE_REL: "b" * 64},
+                    "notes": [],
+                }
+            ],
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path[REVIEW_RUN_TRACE_REL]["schema_version"] == REVIEW_RUN_TRACE_SCHEMA
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+    payload = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
+    payload["events"][0]["source_sha256"]["inputs/thesis.pdf"] = "not-hex"
+    write_json(round_dir / REVIEW_RUN_TRACE_REL, payload)
+    records = collect_supporting_work_artifacts(round_dir)
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("source_sha256['inputs/thesis.pdf'] must be a sha256 hex string" in error for error in errors)
 
 
 def test_context_handoff_artifacts_are_case_bound_supporting_work_artifacts(tmp_path: Path) -> None:

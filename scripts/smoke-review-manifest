@@ -174,7 +174,7 @@ def final_review_paths(artifact):
     rel_path = artifact["path"]
     artifact_type = artifact["artifact_type"]
     if rel_path == "outputs/feedback_student.md":
-        return "supervisor_feedback", "work/feedback_student_draft.md", "work/reviews/feedback_student_review.json"
+        return "supervisor_feedback", "work/feedback_student_draft.md", "work/reviews/supervisor_feedback_review.json"
     if rel_path == "outputs/oponent_podklady_revidovane.md":
         return "opponent_review", "work/oponent_podklady_draft.md", "work/reviews/opponent_materials_review.json"
     if rel_path == "outputs/feedback_k_posudku.md":
@@ -307,7 +307,7 @@ def final_review_paths(artifact):
     rel_path = artifact["path"]
     artifact_type = artifact["artifact_type"]
     if rel_path == "outputs/feedback_student.md":
-        return "supervisor_feedback", "work/feedback_student_draft.md", "work/reviews/feedback_student_review.json"
+        return "supervisor_feedback", "work/feedback_student_draft.md", "work/reviews/supervisor_feedback_review.json"
     if rel_path == "outputs/oponent_podklady_revidovane.md":
         return "opponent_review", "work/oponent_podklady_draft.md", "work/reviews/opponent_materials_review.json"
     if rel_path == "outputs/feedback_k_posudku.md":

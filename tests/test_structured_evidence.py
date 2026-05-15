@@ -485,12 +485,12 @@ def test_build_current_evidence_snapshot_rejects_unsafe_source_refs_before_hashi
 def test_current_evidence_default_source_refs_expands_review_records(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     write_text(round_dir, "work/review_manifest.json", "{}\n")
-    write_text(round_dir, "work/reviews/feedback_student_review.json", "{}\n")
+    write_text(round_dir, "work/reviews/supervisor_feedback_review.json", "{}\n")
 
     refs = current_evidence_default_source_refs(round_dir)
 
     assert "work/review_manifest.json" in refs
-    assert "work/reviews/feedback_student_review.json" in refs
+    assert "work/reviews/supervisor_feedback_review.json" in refs
     assert "outputs/github_code_intake.md" not in refs
 
 

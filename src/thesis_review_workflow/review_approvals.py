@@ -39,7 +39,7 @@ APPROVAL_PROFILES = {
     "supervisor-feedback": ReviewApprovalProfile(
         profile="supervisor-feedback",
         workflow_profile="supervisor_feedback",
-        approval_path="work/reviews/feedback_student_review.json",
+        approval_path="work/reviews/supervisor_feedback_review.json",
         reviewed_artifact_path="outputs/feedback_student.md",
         review_basis_candidates=("work/feedback_student_draft.md",),
         reviewer_role="thesis-supervisor-feedback-review",

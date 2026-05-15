@@ -9,6 +9,12 @@ The structured source of truth is
 `src/thesis_review_workflow/agent_profiles.py`. Update that registry first, then
 keep this table synchronized.
 
+This matrix is not the workflow-profile registry. Workflow profiles such as
+`supervisor_feedback`, `supervisor_report`, `opponent_review`,
+`opponent_materials`, and `opponent_report_review` are registered in
+`src/thesis_review_workflow/review_profiles.py`; this page only maps the
+spawned Codex role profiles used by those workflows.
+
 Command routing: `scripts/<tool>` examples in this document are Linux/dev
 shorthand and logical workflow command names. On Windows, package the workflow
 tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching

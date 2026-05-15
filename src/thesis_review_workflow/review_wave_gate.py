@@ -218,7 +218,7 @@ def builtin_wave_spec(workflow: str, wave: str) -> WaveSpec:
                     paths=("outputs/feedback_student.md",),
                     checks=(_check("check-feedback-language"), _check("check-feedback-output")),
                     approval_record=ApprovalRecordExpectation(
-                        "work/reviews/feedback_student_review.json",
+                        "work/reviews/supervisor_feedback_review.json",
                         reviewed_artifact_path="outputs/feedback_student.md",
                     ),
                 ),

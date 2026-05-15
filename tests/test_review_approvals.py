@@ -88,7 +88,7 @@ def test_write_review_approval_creates_hash_bound_supervisor_record(tmp_path: Pa
     )
 
     assert result == 0
-    payload = json.loads((round_dir / "work" / "reviews" / "feedback_student_review.json").read_text())
+    payload = json.loads((round_dir / "work" / "reviews" / "supervisor_feedback_review.json").read_text())
     assert payload["schema_version"] == REVIEW_APPROVAL_SCHEMA
     assert payload["reviewed_artifact_sha256"] == sha256_file(output)
     assert payload["review_basis_sha256"] == sha256_file(draft)
@@ -208,7 +208,7 @@ def test_write_review_approval_rejects_generator_as_reviewer(tmp_path: Path, mon
     )
 
     assert result == 1
-    assert not (round_dir / "work" / "reviews" / "feedback_student_review.json").exists()
+    assert not (round_dir / "work" / "reviews" / "supervisor_feedback_review.json").exists()
 
 
 def test_write_review_approval_rejects_missing_custom_fields(tmp_path: Path, monkeypatch) -> None:
@@ -263,7 +263,7 @@ def test_write_review_approval_rejects_self_certified_checks(tmp_path: Path, mon
     )
 
     assert result == 1
-    assert not (round_dir / "work" / "reviews" / "feedback_student_review.json").exists()
+    assert not (round_dir / "work" / "reviews" / "supervisor_feedback_review.json").exists()
 
 
 def test_write_review_approval_rejects_canonical_role_override(tmp_path: Path, monkeypatch) -> None:

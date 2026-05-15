@@ -105,10 +105,10 @@ import sys
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 artifacts = {item["path"]: item for item in manifest["artifacts"]}
 review = artifacts["outputs/feedback_student.md"]["independent_review"]
-assert review["approval_record_path"] == "work/reviews/feedback_student_review.json"
+assert review["approval_record_path"] == "work/reviews/supervisor_feedback_review.json"
 assert review["reviewer_agent"] == "approval-smoke-reviewer"
 supporting = {item["path"] for item in manifest["supporting_work_artifacts"]}
-assert "work/reviews/feedback_student_review.json" in supporting
+assert "work/reviews/supervisor_feedback_review.json" in supporting
 PY
 
 rm -f /tmp/review-approval-smoke.out

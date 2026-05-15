@@ -1,15 +1,16 @@
 # Supervisor Workflow Closeout Plan
 
-Status: planned
+Status: superseded
 Created: 2026-05-06
+Superseded: 2026-05-15 by `plans/review_pipeline_optimization_plan.md`
 
 ## Goal
 
 Add transparent supervisor-feedback preflight and closeout bundles comparable to
 the opponent workflow, without changing the content policy for student-facing
-feedback. The result should make missing inputs, stale provenance, role-coverage
-gaps, feedback-language errors, and repo hygiene failures visible before a
-supervisor feedback artifact is treated as ready.
+feedback. This standalone supervisor-only command family is superseded by the
+shared `review-round-start` / `prepare-review-round` /
+`review-round-closeout` path in `plans/review_pipeline_optimization_plan.md`.
 
 ## Audit Base
 
@@ -31,7 +32,7 @@ Current supervisor surfaces:
   `scripts/check-feedback-output <case-id> [round-id]` validate the final
   student-facing supervisor feedback shape.
 
-Current gap:
+Current gap, preserved here only as superseded context:
 
 - Supervisor feedback has required gates in instructions, but no single
   transparent operator command equivalent to opponent preflight/closeout.
@@ -97,166 +98,28 @@ Supervisor closeout should hard-fail on:
 - `git diff --check`.
 
 Supervisor closeout should consume structured provenance prepared by
-`scripts/init-review-manifest --run-checks`, not parse review-agent prose. For
-reviewed supervisor feedback this means `work/reviews/feedback_student_review.json`
-is the integration contract: it hash-binds `outputs/feedback_student.md`, the
-review basis draft, reviewer role, verdict, observed checks, and limitations.
-Material edits after that record is written must surface as stale hashes in the
-manifest gate.
+`scripts/init-review-manifest --run-checks`, not parse review-agent prose. The
+active shared plan owns the canonical supervisor-feedback approval path and the
+generic closeout dispatcher contract.
 
 Supervisor closeout should print every underlying command before running it and
 show pass/fail status for each one.
 
-## Scope
+## Superseded Scope
 
-In scope:
+No slices in this plan are active. The shared review-pipeline plan owns the
+replacement command surface:
 
-- add `scripts/supervisor-preflight`;
-- add `scripts/supervisor-closeout`;
-- package both commands through the standard workflow tool surface;
-- add deterministic tests for command planning, hard/warn semantics, and command
-  ordering;
-- add smoke tests with anonymized synthetic cases;
-- update README and supervisor skills with the new command names after they
-  exist;
-- keep supervisor deadline maintenance as a recurring data task.
+- `review-round-start` for deterministic import, freshness, extraction, trace,
+  and readiness-gate preparation;
+- `prepare-review-round` for role-plan, packet, wave, and role-progress
+  preparation before semantic agents run;
+- `review-round-closeout` for manifest, role coverage, approval-record,
+  profile-output, privacy, script, and whitespace gates.
 
-Out of scope:
-
-- case-format detector or migration implementation;
-- changing generated feedback wording policy;
-- changing reviewer-profile or deadline data;
-- executing submitted student code;
-- replacing the required independent review loop for sendable feedback;
-- making advisory assignment/evidence checks into grading or quality
-  conclusions.
-
-## Slices
-
-### Slice 1 - Plan Review And Command Planner
-
-- Status: pending
-- Proposed commit message: `docs(workflow): plan supervisor closeout work`
-- Expected paths:
-  - `plans/supervisor_workflow_closeout_plan.md`
-  - `src/thesis_review_workflow/supervisor_checks.py`
-  - `tests/test_supervisor_checks.py`
-- Tasks:
-  - Review this plan with agents before implementation.
-  - Scan `WORKFLOW_MEMORY.md` and promote only relevant active lessons into this
-    plan or supervisor docs/skills; do not treat memory as a second instruction
-    system.
-  - Add a pure command planner for preflight and closeout steps.
-  - Encode hard versus diagnostic steps as typed data, not stringly shell
-    control flow.
-  - Test command ordering and required hard gates.
-- Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests::`
-  - `pants check src/thesis_review_workflow:: tests::`
-  - `pants test tests/test_supervisor_checks.py`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
-
-### Slice 2 - Supervisor Preflight Command
-
-- Status: pending
-- Proposed commit message: `feat(workflow): add supervisor preflight`
-- Expected paths:
-  - `scripts/supervisor-preflight`
-  - `scripts/BUILD`
-  - `src/thesis_review_workflow/commands.py`
-  - `src/thesis_review_workflow/cli/supervisor_preflight.py`
-  - `src/thesis_review_workflow/cli/BUILD`
-  - `tests/test_supervisor_checks.py`
-  - `tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-supervisor-preflight`
-- Tasks:
-  - Implement the command from the typed preflight plan.
-  - Hard-fail on supervisor readiness and required missing inputs.
-  - Print diagnostic `case-doctor` status without replacing readiness checks.
-  - After the relevant agent/human-authored structured artifacts exist, run
-    assignment coverage, evidence requirements, and evaluation-claim validators
-    as diagnostics; do not run those semantic checks as pre-agent inference.
-  - Prepare code workspace only when code evidence exists and static review
-    needs inspectable source.
-  - Package the command and add smoke coverage.
-- Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests:: scripts::`
-  - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_supervisor_checks.py tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-supervisor-preflight`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
-
-### Slice 3 - Supervisor Closeout Command
-
-- Status: pending
-- Proposed commit message: `feat(workflow): add supervisor closeout`
-- Expected paths:
-  - `scripts/supervisor-closeout`
-  - `scripts/BUILD`
-  - `src/thesis_review_workflow/commands.py`
-  - `src/thesis_review_workflow/cli/supervisor_closeout.py`
-  - `src/thesis_review_workflow/cli/BUILD`
-  - `tests/test_supervisor_checks.py`
-  - `tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-supervisor-closeout`
-- Tasks:
-  - Implement closeout as an ordered bundle of existing required gates.
-  - Hard-fail on readiness, manifest update, required agent coverage, manifest
-    completeness, feedback language/output, private checks, script checks, and
-    whitespace hygiene.
-  - Print the exact commands and pass/fail status.
-  - Keep Omen and other dev-hygiene targets outside the case closeout command.
-  - Package the command and add smoke coverage.
-- Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests:: scripts::`
-  - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_supervisor_checks.py tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-supervisor-closeout`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
-
-### Slice 4 - Documentation, TODO Reconciliation, And Archive
-
-- Status: pending
-- Proposed commit message: `docs(workflow): close supervisor workflow plan`
-- Expected paths:
-  - `README.md`
-  - `.agents/skills/thesis-supervisor-feedback/SKILL.md`
-  - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
-  - `TODO.md`
-  - `plans/supervisor_workflow_closeout_plan.md`
-  - `plans/archive/supervisor_workflow_closeout_plan.md`
-- Tasks:
-  - Update supervisor workflow docs and skills to use the new preflight and
-    closeout commands.
-  - Keep deadline maintenance as recurring data work unless verified deadline
-    data was changed.
-  - Reconcile TODO for only the completed supervisor closeout scope.
-  - Run final hygiene including Omen.
-  - Archive this plan after final audit.
-- Verification:
-  - `pants fmt ::`
-  - `pants lint ::`
-  - `pants check ::`
-  - `pants test tests::`
-  - `scripts/smoke-supervisor-preflight`
-  - `scripts/smoke-supervisor-closeout`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git status --short --untracked-files=all`
-  - `pants run :omen`
-  - `git diff --check`
+Remaining supervisor-specific diagnostics should be implemented as profile
+adapters under that shared command surface, not as a separate
+`supervisor-preflight` / `supervisor-closeout` family.
 
 ## Deferred TODO Items
 
@@ -269,7 +132,11 @@ Out of scope:
 
 ## Progress
 
-- Not started.
+- 2026-05-15: Superseded before implementation by
+  `plans/review_pipeline_optimization_plan.md` Slice 1. The generic review
+  pipeline now owns `review-round-start`, `prepare-review-round`, and
+  `review-round-closeout`; no parallel supervisor-only command family should be
+  implemented from this plan.
 
 ## Decision Log
 
@@ -277,7 +144,12 @@ Out of scope:
   The closeout command should bundle existing supervisor gates rather than
   weakening the generated-artifact review loop or adding new feedback content
   policy.
+- 2026-05-15: Superseded by the shared review pipeline to avoid duplicating
+  supervisor-only closeout ownership next to opponent and supervisor-report
+  closeout dispatchers.
 
 ## Final Audit
 
-Not run yet.
+- Superseded without implementation. Remaining supervisor-feedback closeout
+  work is carried by `plans/review_pipeline_optimization_plan.md`; deadline
+  data maintenance remains in `TODO.md`.

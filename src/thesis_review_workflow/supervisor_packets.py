@@ -389,7 +389,7 @@ PACKET_ROLES = (
         ),
         role_inputs=(
             "work/feedback_student_draft.md",
-            "work/reviews/feedback_student_review.json",
+            "work/reviews/supervisor_feedback_review.json",
         ),
         constraints=(
             "Do not write final feedback without checking the current draft path.",

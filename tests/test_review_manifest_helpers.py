@@ -1443,7 +1443,7 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     output = round_dir / "outputs" / "feedback_student.md"
     draft = round_dir / "work" / "feedback_student_draft.md"
-    approval = round_dir / "work" / "reviews" / "feedback_student_review.json"
+    approval = round_dir / "work" / "reviews" / "supervisor_feedback_review.json"
     output.parent.mkdir(parents=True)
     draft.parent.mkdir(parents=True)
     approval.parent.mkdir(parents=True)
@@ -1514,7 +1514,7 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
     assert review["reviewer_agent"] == "review-agent"
     assert review["reviewed_hash"] == sha256_file(output)
     assert review["review_basis_path"] == "work/feedback_student_draft.md"
-    assert review["approval_record_path"] == "work/reviews/feedback_student_review.json"
+    assert review["approval_record_path"] == "work/reviews/supervisor_feedback_review.json"
     assert manifest["artifacts"][0]["limitations"] == ["Synthetic limitation."]
 
 
@@ -1709,7 +1709,7 @@ def test_review_manifest_requires_approval_record_as_supporting_work_artifact(tm
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
     output = round_dir / "outputs" / "feedback_student.md"
     draft = round_dir / "work" / "feedback_student_draft.md"
-    approval = round_dir / "work" / "reviews" / "feedback_student_review.json"
+    approval = round_dir / "work" / "reviews" / "supervisor_feedback_review.json"
     output.parent.mkdir(parents=True)
     draft.parent.mkdir(parents=True)
     approval.parent.mkdir(parents=True)
@@ -1768,7 +1768,7 @@ def test_review_manifest_requires_approval_record_as_supporting_work_artifact(tm
                     "reviewed_hash": sha256_file(output),
                     "review_basis_path": "work/feedback_student_draft.md",
                     "review_basis_sha256": sha256_file(draft),
-                    "approval_record_path": "work/reviews/feedback_student_review.json",
+                    "approval_record_path": "work/reviews/supervisor_feedback_review.json",
                 },
                 "helper_checks": [],
                 "limitations": [],
@@ -2403,7 +2403,7 @@ def test_review_manifest_enforces_canonical_approval_review_basis_path(tmp_path:
     canonical_draft.write_text("# Canonical draft\n", encoding="utf-8")
     other_draft.write_text("# Other draft\n", encoding="utf-8")
     write_claim_review_basis(round_dir, draft_ref="work/other_draft.md")
-    approval = round_dir / "work" / "reviews" / "feedback_student_review.json"
+    approval = round_dir / "work" / "reviews" / "supervisor_feedback_review.json"
     approval.parent.mkdir(parents=True)
     approval.write_text(
         json.dumps(
@@ -2437,7 +2437,7 @@ def test_review_manifest_enforces_canonical_approval_review_basis_path(tmp_path:
         "notes": [],
         "supporting_work_artifacts": [
             {"path": CLAIM_REVIEW_BASIS_REL, "kind": "json"},
-            {"path": "work/reviews/feedback_student_review.json", "kind": "json"},
+            {"path": "work/reviews/supervisor_feedback_review.json", "kind": "json"},
         ],
         "workflow_limitations": [],
         "helper_checks": [],
@@ -2455,7 +2455,7 @@ def test_review_manifest_enforces_canonical_approval_review_basis_path(tmp_path:
                     "reviewer_agent": "review-agent",
                     "reviewed_at": "2026-05-13T00:00:00Z",
                     "reviewed_hash": sha256_file(output),
-                    "approval_record_path": "work/reviews/feedback_student_review.json",
+                    "approval_record_path": "work/reviews/supervisor_feedback_review.json",
                     "review_basis_path": "work/other_draft.md",
                 },
                 "helper_checks": [],
@@ -2503,7 +2503,7 @@ def test_review_manifest_reports_missing_approval_record_without_crashing(tmp_pa
                     "reviewer_agent": "review-agent",
                     "reviewed_at": "2026-05-13T00:00:00Z",
                     "reviewed_hash": sha256_file(output),
-                    "approval_record_path": "work/reviews/feedback_student_review.json",
+                    "approval_record_path": "work/reviews/supervisor_feedback_review.json",
                 },
                 "helper_checks": [],
                 "limitations": [],
@@ -2516,7 +2516,9 @@ def test_review_manifest_reports_missing_approval_record_without_crashing(tmp_pa
 
     check_manifest(manifest, "case-a", "round-a", root, round_dir, True, errors, [])
 
-    assert any("work/reviews/feedback_student_review.json: missing review approval record" in error for error in errors)
+    assert any(
+        "work/reviews/supervisor_feedback_review.json: missing review approval record" in error for error in errors
+    )
 
 
 def test_merge_supporting_work_artifacts_keeps_registered_only_work_artifact() -> None:
