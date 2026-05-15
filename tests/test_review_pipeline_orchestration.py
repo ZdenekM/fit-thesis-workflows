@@ -7,15 +7,20 @@ from pathlib import Path
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
 from thesis_review_workflow.cli import review_round_start
 from thesis_review_workflow.review_pipeline_orchestration import (
+    REVIEW_ROLE_PLAN_REL,
+    REVIEW_ROLE_PLAN_SCHEMA,
     REVIEW_RUN_TRACE_REL,
     REVIEW_RUN_TRACE_SCHEMA,
     ROUND_START_NEXT_COMMAND,
     ReviewRunTraceEvent,
     RoundMaterialDescriptor,
+    artifact_next_action_state,
+    build_review_role_plan_payload,
     build_review_run_trace_payload,
     normalize_metadata_fields,
     plan_review_round_start,
     trace_profile_summary,
+    validate_review_role_plan_payload,
     validate_review_run_trace_payload,
 )
 
@@ -285,6 +290,182 @@ def test_metadata_newline_diagnostics_are_explicit_and_structural() -> None:
     assert normalized["assignment_summary"] == "First line\nSecond line"
     assert normalized["short_note"] == "plain"
     assert diagnostics[0].code == "literal_escaped_newline"
+
+
+def test_review_role_plan_projects_packet_activation_and_code_contract(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "outputs").mkdir()
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert payload["schema_version"] == REVIEW_ROLE_PLAN_SCHEMA
+    assert payload["role_plan_path"] == REVIEW_ROLE_PLAN_REL
+    assert payload["packet_command"] == "prepare-supervisor-packets"
+    assert roles["code_consistency"]["state"] == "required_fresh"
+    assert roles["code_quality"]["state"] == "required_fresh"
+    assert roles["figure_media"]["state"] == "not_material"
+    assert payload["code_bearing_contract"]["status"] == "satisfied"
+    assert payload["code_bearing_contract"]["required_roles"] == ["code_consistency", "code_quality"]
+    assert all(len(wave["roles"]) <= 2 for wave in payload["wave_schedule"])
+    assert validate_review_role_plan_payload(payload, round_dir=round_dir) == []
+
+
+def test_materiality_next_action_states_distinguish_present_artifact_gaps(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "theses_similarity_review.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Review\n", encoding="utf-8")
+
+    synthesis_state = artifact_next_action_state(
+        round_dir,
+        "outputs/theses_similarity_review.md",
+        case_id="case-a",
+        round_id="round-a",
+        action={
+            "reason": (
+                "outputs/theses_similarity_review.md is present but not independently reviewed "
+                "or covered by the current reviewed synthesis artifact."
+            )
+        },
+    )
+    standalone_state = artifact_next_action_state(
+        round_dir,
+        "outputs/theses_similarity_review.md",
+        case_id="case-a",
+        round_id="round-a",
+        action={"reason": "Artifact exists but still needs standalone independent review."},
+    )
+
+    assert synthesis_state == "present_but_not_synthesis_covered"
+    assert standalone_state == "present_but_not_standalone_reviewed"
+
+
+def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work" / "reuse").mkdir(parents=True)
+    (round_dir / "work").mkdir(exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "reuse" / "reuse_index.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "round-reuse-index-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-15T12:00:00Z",
+                "producer": "test",
+                "current_source_fingerprints": [],
+                "decisions": [
+                    {
+                        "artifact_role": "code_consistency",
+                        "status": "unchanged_reusable",
+                        "fresh_semantic_review_required": False,
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "next_action": "reuse_existing_review",
+                    },
+                    {
+                        "artifact_role": "code_quality",
+                        "status": "changed_delta_required",
+                        "fresh_semantic_review_required": True,
+                        "coverage_satisfied_by": "fresh_role_review",
+                        "next_action": "delta_review",
+                    },
+                ],
+                "limitations": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["code_consistency"]["state"] == "reusable_current"
+    assert roles["code_quality"]["state"] == "delta_review"
+    scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
+    assert "code_consistency" not in scheduled_roles
+    assert "code_quality" in scheduled_roles
+
+
+def test_review_role_plan_projects_existing_agent_coverage_block_without_scheduling(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "agent_coverage.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "updated_at": "2026-05-15T12:00:00Z",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "code_quality",
+                        "status": "blocked",
+                        "coverage_satisfied_by": "typed_limitation",
+                        "fresh_review_required": False,
+                        "typed_limitation": {
+                            "role": "code_quality",
+                            "type": "unavailable_tool",
+                            "description": "Omen was unavailable in the operator environment.",
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["code_quality"]["state"] == "blocked_with_typed_limitation"
+    scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
+    assert "code_quality" not in scheduled_roles
+    assert payload["code_bearing_contract"]["status"] == "satisfied"
+
+
+def test_review_role_plan_blocks_code_archive_without_prepared_code_workspace(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir / "inputs" / "code.zip").write_bytes(b"synthetic")
+
+    try:
+        build_review_role_plan_payload(
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="supervisor_feedback",
+            generated_at="2026-05-15T12:00:00Z",
+            round_dir=round_dir,
+        )
+    except ValueError as exc:
+        assert "code_bearing_contract is blocked" in str(exc)
+    else:
+        raise AssertionError("raw code archive without prepared workspace did not block role-plan generation")
 
 
 def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypatch) -> None:

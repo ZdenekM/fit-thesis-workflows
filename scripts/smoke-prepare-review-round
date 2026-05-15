@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__prepare_review_round_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/prepare-review-round.$$.out"
+err_file="/tmp/prepare-review-round.$$.err"
+
+cleanup() {
+  rm -rf "$repo_root/cases/$case_id"
+  rm -f "$out_file" "$err_file"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir"/{notes,inputs,extracted,work,outputs}
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Reviewer profile: default
+Deadline mode: standard
+EOF
+printf '%s\n' "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+- Implement and evaluate a synthetic thesis-review helper.
+
+## Private Assignment Notes For Student
+
+- Synthetic private note.
+EOF
+printf '%s\n' "%PDF synthetic smoke" >"$round_dir/inputs/thesis.pdf"
+printf '%s\n' "Synthetic extracted thesis text." >"$round_dir/extracted/thesis.txt"
+printf '%s\n' "Prepared code root: inputs/submitted-src" >"$round_dir/work/code_workspace.md"
+printf '%s\n' '{"classification": "static_setup_present"}' >"$round_dir/work/code_reproducibility.json"
+
+"$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
+  --profile supervisor_feedback \
+  --thesis-pdf inputs/thesis.pdf \
+  --dry-run >"$out_file" 2>"$err_file"
+
+"$repo_root/scripts/prepare-review-round" "$case_id" "$round_id" \
+  --skip-ready-check >"$out_file" 2>"$err_file"
+
+role_plan="$round_dir/work/review_role_plan.json"
+test -f "$role_plan"
+test -f "$round_dir/work/supervisor_packets/text_assignment.md"
+test -f "$round_dir/work/supervisor_packets/code_consistency.md"
+test -f "$round_dir/work/supervisor_packets/code_quality.md"
+test -f "$round_dir/work/common_briefing.json"
+
+python3 - "$role_plan" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "review-role-plan-v1"
+assert payload["profile_id"] == "supervisor_feedback"
+assert payload["packet_command"] == "prepare-supervisor-packets"
+roles = {item["role"]: item for item in payload["role_states"]}
+assert roles["code_consistency"]["state"] == "required_fresh"
+assert roles["code_quality"]["state"] == "required_fresh"
+assert roles["figure_media"]["state"] == "not_material"
+assert payload["code_bearing_contract"]["status"] == "satisfied"
+assert payload["code_bearing_contract"]["required_roles"] == ["code_consistency", "code_quality"]
+assert all(len(wave["roles"]) <= 2 for wave in payload["wave_schedule"])
+assert all("blocked_with_typed_limitation" not in wave["roles"] for wave in payload["wave_schedule"])
+PY
+
+echo "Prepare review round smoke passed"

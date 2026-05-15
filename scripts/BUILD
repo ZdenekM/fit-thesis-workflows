@@ -46,6 +46,7 @@ shell_sources(
         "opponent-preflight",
         "package-workflow-tools",
         "prepare-code-workspace",
+        "prepare-review-round",
         "prepare-opponent-packets",
         "prepare-supervisor-report-packets",
         "prepare-supervisor-packets",
@@ -78,6 +79,7 @@ shell_sources(
         "smoke-opponent-report",
         "smoke-package-workflow-tools",
         "smoke-prepare-code-workspace",
+        "smoke-prepare-review-round",
         "smoke-record-report-amendment",
         "smoke-record-submitted-supervisor-report",
         "smoke-supervisor-report-calibration-profile",
@@ -109,6 +111,7 @@ files(
         "smoke-package-workflow-tools",
         "smoke-record-report-amendment",
         "smoke-record-submitted-supervisor-report",
+        "smoke-prepare-review-round",
         "smoke-review-round-start",
     ],
 )
@@ -158,6 +161,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:opponent_closeout",
     "src/thesis_review_workflow/cli:opponent_preflight",
     "src/thesis_review_workflow/cli:prepare_code_workspace",
+    "src/thesis_review_workflow/cli:prepare_review_round",
     "src/thesis_review_workflow/cli:prepare_opponent_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_report_packets",
     "src/thesis_review_workflow/cli:prepare_supervisor_packets",
@@ -609,6 +613,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/prepare-code-workspace",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="prepare_review_round_tool",
+    entry_point="thesis_review_workflow.cli.prepare_review_round:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/prepare-review-round",
     tags=["workflow-tool"],
 )
 

@@ -30,8 +30,11 @@ from thesis_review_workflow.review_packets import (
     validate_common_briefing_payload,
 )
 from thesis_review_workflow.review_pipeline_orchestration import (
+    REVIEW_ROLE_PLAN_REL,
+    REVIEW_ROLE_PLAN_SCHEMA,
     REVIEW_RUN_TRACE_REL,
     REVIEW_RUN_TRACE_SCHEMA,
+    validate_review_role_plan_payload,
     validate_review_run_trace_payload,
 )
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
@@ -60,6 +63,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/github-intake/snapshot-manifest.json": {"github-snapshot-manifest-v1"},
     "work/reuse/reuse_index.json": {"round-reuse-index-v1"},
     REVIEW_RUN_TRACE_REL: {REVIEW_RUN_TRACE_SCHEMA},
+    REVIEW_ROLE_PLAN_REL: {REVIEW_ROLE_PLAN_SCHEMA},
     COMMON_BRIEFING_REL: {COMMON_BRIEFING_SCHEMA_VERSION},
     EVIDENCE_CAPSULES_REL: {EVIDENCE_CAPSULE_SCHEMA},
     CLAIM_REVIEW_BASIS_REL: {CLAIM_REVIEW_BASIS_SCHEMA},
@@ -80,6 +84,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/github-intake/snapshot-manifest.json": {"repositories": list, "pull_requests": list},
     "work/reuse/reuse_index.json": {"current_source_fingerprints": list, "decisions": list},
     REVIEW_RUN_TRACE_REL: {"events": list, "workflow_profile": str, "operator_surface": str},
+    REVIEW_ROLE_PLAN_REL: {"role_states": list, "wave_schedule": list, "code_bearing_contract": dict},
     COMMON_BRIEFING_REL: {"common_inputs": list, "context_handoffs": list},
     EVIDENCE_CAPSULES_REL: {"capsules": list},
     CLAIM_REVIEW_BASIS_REL: {"claims": list},
@@ -107,6 +112,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/github-intake/snapshot-manifest.json",
     "work/reuse/reuse_index.json",
     REVIEW_RUN_TRACE_REL,
+    REVIEW_ROLE_PLAN_REL,
     COMMON_BRIEFING_REL,
     EVIDENCE_CAPSULES_REL,
     CLAIM_REVIEW_BASIS_REL,
@@ -406,3 +412,5 @@ def validate_json_work_artifact(
         )
     elif rel_path == REVIEW_RUN_TRACE_REL:
         errors.extend(validate_review_run_trace_payload(loaded))
+    elif rel_path == REVIEW_ROLE_PLAN_REL:
+        errors.extend(validate_review_role_plan_payload(loaded, round_dir=round_dir))

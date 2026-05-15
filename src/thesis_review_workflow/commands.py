@@ -55,6 +55,7 @@ WORKFLOW_COMMAND_MODULES = {
     "new-case": "thesis_review_workflow.cli.new_case",
     "opponent-closeout": "thesis_review_workflow.cli.opponent_closeout",
     "opponent-preflight": "thesis_review_workflow.cli.opponent_preflight",
+    "prepare-review-round": "thesis_review_workflow.cli.prepare_review_round",
     "prepare-opponent-packets": "thesis_review_workflow.cli.prepare_opponent_packets",
     "prepare-supervisor-report-packets": "thesis_review_workflow.cli.prepare_supervisor_report_packets",
     "prepare-supervisor-packets": "thesis_review_workflow.cli.prepare_supervisor_packets",

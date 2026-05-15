@@ -4,7 +4,12 @@ from pathlib import Path
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
-from thesis_review_workflow.review_pipeline_orchestration import REVIEW_RUN_TRACE_REL, REVIEW_RUN_TRACE_SCHEMA
+from thesis_review_workflow.review_pipeline_orchestration import (
+    REVIEW_ROLE_PLAN_REL,
+    REVIEW_ROLE_PLAN_SCHEMA,
+    REVIEW_RUN_TRACE_REL,
+    REVIEW_RUN_TRACE_SCHEMA,
+)
 from thesis_review_workflow.work_artifacts import (
     collect_supporting_work_artifacts,
     sha256_file,
@@ -231,6 +236,71 @@ def test_review_run_trace_is_case_bound_supporting_work_artifact(tmp_path: Path)
     errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
 
     assert any("source_sha256['inputs/thesis.pdf'] must be a sha256 hex string" in error for error in errors)
+
+
+def test_review_role_plan_is_case_bound_supporting_work_artifact(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    write_json(
+        round_dir / REVIEW_ROLE_PLAN_REL,
+        {
+            "schema_version": REVIEW_ROLE_PLAN_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "profile_id": "supervisor_feedback",
+            "workflow_profile": "supervisor_feedback",
+            "materiality_profile": "supervisor_feedback",
+            "operator_surface": "supervisor_feedback",
+            "final_artifact": "outputs/feedback_student.md",
+            "approval_record": "work/reviews/supervisor_feedback_review.json",
+            "generated_at": "2026-05-15T12:00:00Z",
+            "role_plan_path": REVIEW_ROLE_PLAN_REL,
+            "packet_command": "prepare-supervisor-packets",
+            "packet_dir": "work/supervisor_packets",
+            "common_briefing": COMMON_BRIEFING_REL,
+            "source_contracts": [],
+            "role_states": [
+                {
+                    "role": "text_assignment",
+                    "title": "Text And Assignment Coverage",
+                    "skill": "thesis-supervisor-feedback",
+                    "state": "required_fresh",
+                    "activation": "mandatory",
+                    "expected_output": "work/supervisor_packets/text_assignment_findings.md",
+                    "packet_path": "work/supervisor_packets/text_assignment.md",
+                    "packet_status": "present",
+                    "output_status": "missing_artifact",
+                    "role_inputs": [],
+                    "reuse_projection": {},
+                    "agent_coverage_projection": {},
+                    "materiality_projection": {},
+                    "materiality_profile": "supervisor_feedback",
+                    "open_full_artifact_triggers": ["missing_anchor"],
+                }
+            ],
+            "wave_schedule": [{"wave_id": "evidence_1_1", "max_concurrent_agents": 2, "roles": ["text_assignment"]}],
+            "code_bearing_contract": {
+                "applies": True,
+                "code_evidence_present": False,
+                "source": "prepared_workspace_or_manifest_projection",
+                "required_roles": [],
+                "satisfied_roles": [],
+                "status": "satisfied",
+            },
+            "materiality_next_actions": [],
+            "materiality_errors": [],
+            "advisory_static_analysis": {
+                "tool": "omen",
+                "state": "tool_unavailable",
+                "reason": "not present",
+            },
+        },
+    )
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+
+    assert by_path[REVIEW_ROLE_PLAN_REL]["schema_version"] == REVIEW_ROLE_PLAN_SCHEMA
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
 
 
 def test_context_handoff_artifacts_are_case_bound_supporting_work_artifacts(tmp_path: Path) -> None:

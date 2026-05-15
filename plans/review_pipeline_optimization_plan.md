@@ -506,7 +506,7 @@ Out of scope:
 
 ### Slice 4 - Required Role Plan And Packet Wave Preparation
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): plan review role waves`
 - Expected paths:
   - `scripts/prepare-review-round`
@@ -564,19 +564,20 @@ Out of scope:
     `available_with_findings`, `available_no_findings`,
     `unsupported_or_uninformative`, and `tool_unavailable`.
 - Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests:: scripts::`
-  - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_review_pipeline_orchestration.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-review-round-start`
-  - `scripts/smoke-prepare-review-round`
-  - `scripts/smoke-supervisor-packets`
-  - `scripts/smoke-opponent-packets`
-  - `scripts/smoke-supervisor-report-packets`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
+  - `pants fmt ::` - passed
+  - `pants lint src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants check src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants test tests/test_review_pipeline_orchestration.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py` - passed
+  - `pants test tests/test_work_artifacts.py` - passed
+  - `scripts/smoke-review-round-start` - passed
+  - `scripts/smoke-prepare-review-round` - passed
+  - `scripts/smoke-supervisor-packets` - passed
+  - `scripts/smoke-opponent-packets` - passed
+  - `scripts/smoke-supervisor-report-packets` - passed
+  - `scripts/smoke-package-workflow-tools` - passed
+  - `scripts/check-private` - passed
+  - `scripts/check-scripts` - passed
+  - `git diff --check` - passed
 
 ### Slice 5 - Role Output Registration And Manifest Convergence
 
@@ -926,6 +927,32 @@ Out of scope:
   Residual risks: `review-round-start --dry-run` is only a deterministic preview
   for smoke/contract validation; actual role-plan writing remains intentionally
   deferred to Slice 4 through `prepare-review-round`.
+- 2026-05-15: Slice 4 completed. Added `prepare-review-round` as the separate
+  deterministic packet/role-plan boundary, delegating packet emission to the
+  existing supervisor-feedback, supervisor-report, and opponent packet commands
+  before writing `work/review_role_plan.json`. The role plan records workflow
+  and materiality profiles, packet refs, source contracts, projected role
+  states, bounded waves with max concurrency 2, role-progress artifact states,
+  reuse-index and agent-coverage crosswalks, typed materiality next-action
+  states, advisory Omen availability, and the code-bearing contract requiring
+  both code consistency and code quality to be scheduled, reused, or covered by
+  a typed limitation when code evidence is present. Verification passed:
+  `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_pipeline_orchestration.py tests/test_supervisor_packets.py tests/test_supervisor_report_packets.py tests/test_opponent_packets.py tests/test_workflow_python_contracts.py`,
+  `pants test tests/test_work_artifacts.py`, `scripts/smoke-review-round-start`,
+  `scripts/smoke-prepare-review-round`, `scripts/smoke-supervisor-packets`,
+  `scripts/smoke-opponent-packets`, `scripts/smoke-supervisor-report-packets`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. Subagent review findings were
+  folded into the slice: the implementation delegates to existing packet
+  generators instead of reimplementing activation, and the initially considered
+  second limitation input surface was removed so typed limitations remain owned
+  by existing manifest/materiality/agent-coverage records.
+  Residual risks: role agents are still spawned by the parent agent, not by the
+  deterministic command; manifest convergence for role outputs and closeout
+  consumption of the role plan remain intentionally deferred to Slices 5 and 6.
 
 ## Decision Log
 

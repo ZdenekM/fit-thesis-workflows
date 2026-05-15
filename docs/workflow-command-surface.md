@@ -52,6 +52,13 @@ these are not Codex agent profiles. The command deliberately stops at the
 `prepare-review-round <case-id> <round-id>` boundary and must not write
 `work/review_role_plan.json`.
 
+`prepare-review-round` is the next deterministic boundary. It reads the
+`review-round-start` trace, delegates packet emission to the existing
+profile-specific packet command, and writes `work/review_role_plan.json` with
+role states, packet refs, bounded wave schedule, materiality next-action states,
+reuse projection, and code-bearing role coverage. It prepares files for the
+parent agent to spawn authorized role agents; it does not spawn agents itself.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a
