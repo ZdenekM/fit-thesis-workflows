@@ -4,8 +4,12 @@ from thesis_review_workflow import review_approvals, review_materiality, review_
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_REL,
     REVIEW_RUN_TRACE_SCHEMA,
+    ROUND_START_NEXT_COMMAND,
     ReviewRunTraceEvent,
+    RoundMaterialDescriptor,
     build_review_run_trace_payload,
+    normalize_metadata_fields,
+    plan_review_round_start,
     trace_profile_summary,
     validate_review_run_trace_payload,
 )
@@ -136,3 +140,141 @@ def test_unknown_workflow_profile_is_rejected() -> None:
         assert "unknown workflow review profile" in str(exc)
     else:
         raise AssertionError("unknown workflow review profile was accepted")
+
+
+def test_round_start_planner_accepts_explicit_current_materials_and_stops_at_prepare_boundary() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        fresh_materials_expected=True,
+        materials=(
+            RoundMaterialDescriptor("thesis_pdf", path="inputs/thesis.pdf", currentness="newer_than_previous"),
+            RoundMaterialDescriptor("code_archive", path="inputs/code.zip", currentness="current"),
+        ),
+    )
+
+    assert plan.ok
+    assert plan.next_command == ROUND_START_NEXT_COMMAND
+    assert plan.readiness_gates == ("check-supervisor-ready",)
+    assert [action.action_id for action in plan.actions] == [
+        "extract_pdf_text",
+        "prepare_code_workspace",
+        "update_current_evidence",
+        "update_reuse_index",
+        "run_readiness_gate",
+        "prepare_role_plan",
+    ]
+    assert plan.actions[-1].command == "prepare-review-round <case-id> <round-id>"
+
+
+def test_round_start_planner_blocks_when_fresh_materials_are_expected_but_only_stale_exist() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        fresh_materials_expected=True,
+        materials=(RoundMaterialDescriptor("thesis_pdf", path="inputs/thesis.pdf", currentness="stale"),),
+    )
+
+    assert not plan.ok
+    assert plan.blockers[0].code == "fresh_materials_missing"
+    assert plan.actions == ()
+
+
+def test_round_start_planner_allows_typed_provisional_stale_review() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        fresh_materials_expected=True,
+        provisional_stale_review=True,
+        materials=(RoundMaterialDescriptor("thesis_pdf", path="inputs/thesis.pdf", currentness="stale"),),
+    )
+
+    assert plan.ok
+    assert any(diagnostic.code == "provisional_stale_review" for diagnostic in plan.diagnostics)
+    assert any(action.action_id == "extract_pdf_text" for action in plan.actions)
+
+
+def test_round_start_profile_gate_selection_is_profile_specific() -> None:
+    expected = {
+        "supervisor_feedback": ("check-supervisor-ready",),
+        "supervisor_report": ("check-supervisor-report-ready",),
+        "opponent_review": ("check-round-ready",),
+        "opponent_materials": ("check-round-ready",),
+        "opponent_report_review": ("check-opponent-report",),
+    }
+
+    for profile_id, gates in expected.items():
+        plan = plan_review_round_start(
+            case_id="case-a",
+            round_id="round-a",
+            profile_id=profile_id,
+            materials=(RoundMaterialDescriptor("thesis_pdf", path="inputs/thesis.pdf"),),
+        )
+        assert plan.readiness_gates == gates
+        assert [action.command for action in plan.actions if action.action_id == "run_readiness_gate"] == [
+            f"{gate} <case-id> <round-id>" for gate in gates
+        ]
+
+
+def test_round_start_planner_adds_supervisor_report_required_note_action() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_report",
+        materials=(RoundMaterialDescriptor("thesis_pdf", path="inputs/thesis.pdf"),),
+    )
+
+    assert any(
+        action.action_id == "ensure_profile_note"
+        and action.target_refs == ("notes/supervisor-report-operator-input.md",)
+        for action in plan.actions
+    )
+
+
+def test_round_start_planner_classifies_parent_submission_bundles_without_code_discovery() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+        materials=(
+            RoundMaterialDescriptor(
+                "submission_bundle",
+                path="inputs/submission.zip",
+                bundle_classification="container_bundle",
+                decomposed_authoritative_refs=("inputs/thesis.pdf", "inputs/code.zip"),
+            ),
+            RoundMaterialDescriptor("code_archive", path="inputs/code.zip"),
+        ),
+    )
+
+    assert plan.workflow_profile == "opponent_review"
+    assert plan.materiality_profile == "opponent_review"
+    assert plan.actions[0].action_id == "classify_bundle"
+    assert plan.actions[0].material_refs == ("inputs/submission.zip",)
+    assert plan.actions[0].target_refs == ("inputs/thesis.pdf", "inputs/code.zip")
+    assert [action.action_id for action in plan.actions].count("prepare_code_workspace") == 1
+
+
+def test_round_start_planner_rejects_unsafe_material_paths() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        materials=(RoundMaterialDescriptor("thesis_pdf", path="../private.pdf"),),
+    )
+
+    assert not plan.ok
+    assert any("path must be a safe round-relative path" in blocker.message for blocker in plan.blockers)
+
+
+def test_metadata_newline_diagnostics_are_explicit_and_structural() -> None:
+    normalized, diagnostics = normalize_metadata_fields(
+        {"assignment_summary": "First line\\nSecond line", "short_note": "plain"}
+    )
+
+    assert normalized["assignment_summary"] == "First line\nSecond line"
+    assert normalized["short_note"] == "plain"
+    assert diagnostics[0].code == "literal_escaped_newline"

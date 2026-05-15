@@ -399,7 +399,7 @@ Out of scope:
 
 ### Slice 2 - Round-Start Planner And Fresh-Material Contract
 
-- Status: pending
+- Status: completed 2026-05-15
 - Proposed commit message: `feat(workflow): plan review round start`
 - Expected paths:
   - `src/thesis_review_workflow/review_pipeline_orchestration.py`
@@ -455,6 +455,7 @@ Out of scope:
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git diff --check`
+  - Result 2026-05-15: passed.
 
 ### Slice 3 - Review Round Start Command
 
@@ -892,6 +893,18 @@ Out of scope:
   Residual risks: archived historical plans still mention the old approval name
   as history; generic round-start and closeout commands are not implemented
   until later slices.
+- 2026-05-15: Slice 2 completed. Added the pure round-start planner with
+  explicit material descriptors, fresh/current/stale/provisional-stale handling,
+  profile readiness-gate selection, supervisor-report note planning,
+  container/reference bundle classification, code-workspace/GitHub/current
+  evidence/reuse/role-plan action planning, and literal escaped-newline
+  diagnostics. Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `pants test tests/test_review_pipeline_orchestration.py`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Residual risks: the planner is intentionally pure and does not write
+  `work/review_run_trace.json` or perform imports until Slice 3 exposes the CLI.
 
 ## Decision Log
 
