@@ -93,6 +93,30 @@ class NextAction(StrEnum):
     NOT_COMPARABLE_BACKFILL = "not_comparable_backfill"
 
 
+# Workflow role-plan roles that may be satisfied from hash-bound reuse evidence.
+# This map intentionally covers standalone evidence roles only. Final synthesis,
+# trace, and independent-review workflow roles stay profile-specific and must
+# not be skipped from a same-named reusable final artifact.
+ROLE_PLAN_REUSE_ARTIFACTS: dict[str, ArtifactRole] = {
+    "text_assignment": ArtifactRole.TEXT_ASSIGNMENT,
+    "text_structure_assignment": ArtifactRole.TEXT_ASSIGNMENT,
+    "code_consistency": ArtifactRole.CODE_CONSISTENCY,
+    "code_quality": ArtifactRole.CODE_QUALITY,
+    "quantitative_claims": ArtifactRole.QUANTITATIVE_CLAIMS,
+    "literature_citation": ArtifactRole.LITERATURE_CITATION,
+    "figure_media": ArtifactRole.FIGURE_MEDIA,
+    "typography_formal": ArtifactRole.TYPOGRAPHY_FORMAL,
+    "theses_similarity": ArtifactRole.THESES_SIMILARITY,
+    "github_intake": ArtifactRole.GITHUB_CODE_INTAKE,
+}
+
+
+def artifact_role_for_role_plan_role(role: str) -> ArtifactRole | None:
+    """Return the reusable artifact role for a workflow role-plan role, if any."""
+
+    return ROLE_PLAN_REUSE_ARTIFACTS.get(role)
+
+
 FRESH_REVIEW_SATISFYING_COVERAGE = frozenset({CoverageSatisfiedBy.FRESH_ROLE_REVIEW})
 REUSABLE_COVERAGE = frozenset(
     {

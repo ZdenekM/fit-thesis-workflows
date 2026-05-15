@@ -592,7 +592,67 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work" / "reuse").mkdir(parents=True)
     (round_dir / "work").mkdir(exist_ok=True)
+    (round_dir / "work" / "review_materiality" / "supervisor_feedback").mkdir(parents=True)
     (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "agent_coverage.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "updated_at": "2026-05-15T12:00:00Z",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "code_consistency",
+                        "status": "required",
+                        "coverage_required": True,
+                        "fresh_review_required": False,
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "reuse_status": "unchanged_reusable",
+                        "reuse_next_action": "reuse_existing_review",
+                    },
+                    {
+                        "role": "figure_media",
+                        "status": "required",
+                        "coverage_required": True,
+                        "fresh_review_required": False,
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "reuse_status": "unchanged_reusable",
+                        "reuse_next_action": "reuse_existing_review",
+                    },
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "review-materiality-decision-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "workflow_profile": "supervisor_feedback",
+                "role": "figure_media",
+                "recommendation": "material",
+                "coverage_required": True,
+                "fresh_review_required": True,
+                "coverage_satisfied_by": "fresh_role_review",
+                "coverage_state": "fresh_review_required",
+                "scope": "explicit_request",
+                "impact": "material visual evidence exists",
+                "reason": "operator requested figure/media review for this round",
+                "generated_at": "2026-05-15T12:00:00Z",
+                "producer_role": "test",
+                "source_refs": ["operator-request:figure_media"],
+                "source_sha256": {},
+                "limitations": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (round_dir / "work" / "reuse" / "reuse_index.json").write_text(
         json.dumps(
             {
@@ -609,6 +669,24 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
                         "fresh_semantic_review_required": False,
                         "coverage_satisfied_by": "current_reviewed_artifact",
                         "next_action": "reuse_existing_review",
+                        "candidate_round_id": "round-prior",
+                        "candidate_artifacts": [
+                            {
+                                "path": "outputs/code_consistency.md",
+                                "sha256": "a" * 64,
+                                "review_current": True,
+                            }
+                        ],
+                        "source_sha256": {"work/code_workspace.md": "b" * 64},
+                        "unchanged_refs": ["work/code_workspace.md"],
+                        "changed_refs": [],
+                        "added_refs": [],
+                        "removed_refs": [],
+                        "missing_current_refs": [],
+                        "not_comparable_refs": [],
+                        "missing_current_source_classes": [],
+                        "missing_prior_source_classes": [],
+                        "reasons": ["role-relevant sources unchanged and reviewed coverage is current"],
                     },
                     {
                         "artifact_role": "code_quality",
@@ -616,6 +694,32 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
                         "fresh_semantic_review_required": True,
                         "coverage_satisfied_by": "fresh_role_review",
                         "next_action": "delta_review",
+                        "source_sha256": {"work/code_workspace.md": "b" * 64},
+                    },
+                    {
+                        "artifact_role": "figure_media",
+                        "status": "unchanged_reusable",
+                        "fresh_semantic_review_required": False,
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "next_action": "reuse_existing_review",
+                        "candidate_round_id": "round-prior",
+                        "candidate_artifacts": [
+                            {
+                                "path": "outputs/figure_media_review.md",
+                                "sha256": "c" * 64,
+                                "review_current": True,
+                            }
+                        ],
+                        "source_sha256": {"work/media_presence_inventory.jsonl": "d" * 64},
+                        "unchanged_refs": ["work/media_presence_inventory.jsonl"],
+                        "changed_refs": [],
+                        "added_refs": [],
+                        "removed_refs": [],
+                        "missing_current_refs": [],
+                        "not_comparable_refs": [],
+                        "missing_current_source_classes": [],
+                        "missing_prior_source_classes": [],
+                        "reasons": ["role-relevant sources unchanged and reviewed coverage is current"],
                     },
                 ],
                 "limitations": [],
@@ -635,10 +739,70 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
 
     roles = {item["role"]: item for item in payload["role_states"]}
     assert roles["code_consistency"]["state"] == "reusable_current"
+    assert roles["code_consistency"]["reuse_projection"]["artifact_role"] == "code_consistency"
+    assert roles["code_consistency"]["reuse_projection"]["candidate_round_id"] == "round-prior"
+    assert roles["code_consistency"]["reuse_projection"]["source_sha256"] == {"work/code_workspace.md": "b" * 64}
     assert roles["code_quality"]["state"] == "delta_review"
+    assert roles["figure_media"]["state"] == "reusable_current"
+    assert roles["figure_media"]["reuse_projection"]["artifact_role"] == "figure_media"
+    assert roles["figure_media"]["reuse_projection"]["candidate_artifacts"] == [
+        {"path": "outputs/figure_media_review.md", "sha256": "c" * 64, "review_current": True}
+    ]
     scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
     assert "code_consistency" not in scheduled_roles
     assert "code_quality" in scheduled_roles
+    assert "figure_media" not in scheduled_roles
+
+
+def test_review_role_plan_does_not_skip_from_reuse_index_without_agent_coverage(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work" / "reuse").mkdir(parents=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "reuse" / "reuse_index.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "round-reuse-index-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-15T12:00:00Z",
+                "producer": "test",
+                "current_source_fingerprints": [],
+                "decisions": [
+                    {
+                        "artifact_role": "code_consistency",
+                        "status": "unchanged_reusable",
+                        "fresh_semantic_review_required": False,
+                        "coverage_satisfied_by": "current_reviewed_artifact",
+                        "next_action": "reuse_existing_review",
+                        "source_sha256": {"work/code_workspace.md": "b" * 64},
+                        "changed_refs": [],
+                        "added_refs": [],
+                        "removed_refs": [],
+                        "missing_current_refs": [],
+                        "not_comparable_refs": [],
+                    }
+                ],
+                "limitations": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["code_consistency"]["reuse_projection"]["reuse_status"] == "unchanged_reusable"
+    assert roles["code_consistency"]["agent_coverage_projection"]["status"] == "missing"
+    assert roles["code_consistency"]["state"] == "required_fresh"
+    scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
+    assert "code_consistency" in scheduled_roles
 
 
 def test_review_role_plan_projects_existing_agent_coverage_block_without_scheduling(tmp_path: Path) -> None:

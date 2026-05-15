@@ -17,11 +17,13 @@ from thesis_review_workflow.artifact_registry import final_output_paths, opponen
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import (
     REUSE_INDEX_SCHEMA_VERSION,
+    ROLE_PLAN_REUSE_ARTIFACTS,
     ArtifactRole,
     CoverageSatisfiedBy,
     NextAction,
     ReuseStatus,
     SourceClass,
+    artifact_role_for_role_plan_role,
     coverage_satisfies_without_fresh_review,
     source_classes_for_role,
 )
@@ -35,11 +37,7 @@ COVERAGE_REL = Path("work/agent_coverage.json")
 REUSE_INDEX_REL = Path("work/reuse/reuse_index.json")
 SCHEMA_VERSION = "agent-coverage-v1"
 ROLE_STATUSES = {"required", "blocked", "not_applicable"}
-REUSE_AWARE_ROLES = {"code_consistency", "code_quality"}
-ROLE_TO_REUSE_ARTIFACT = {
-    "code_consistency": "code_consistency",
-    "code_quality": "code_quality",
-}
+REUSE_AWARE_ROLES = frozenset(ROLE_PLAN_REUSE_ARTIFACTS)
 LIMITATION_TYPES = {
     "unavailable_evidence",
     "unavailable_tool",
@@ -193,7 +191,7 @@ def load_reuse_index(round_dir: Path) -> dict[str, Any] | None:
 
 
 def reuse_decision_for_role(round_dir: Path, role: str) -> dict[str, Any] | None:
-    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    artifact_role = artifact_role_for_role_plan_role(role)
     if artifact_role is None:
         return None
     index = load_reuse_index(round_dir)
@@ -203,20 +201,20 @@ def reuse_decision_for_role(round_dir: Path, role: str) -> dict[str, Any] | None
     if not isinstance(decisions, list):
         return None
     for decision in decisions:
-        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role:
+        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role.value:
             return decision
     return None
 
 
 def reuse_decisions_for_role(index: dict[str, Any], role: str) -> list[dict[str, Any]]:
-    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    artifact_role = artifact_role_for_role_plan_role(role)
     decisions = index.get("decisions")
     if artifact_role is None or not isinstance(decisions, list):
         return []
     return [
         decision
         for decision in decisions
-        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role
+        if isinstance(decision, dict) and decision.get("artifact_role") == artifact_role.value
     ]
 
 
@@ -780,7 +778,7 @@ def validate_reuse_index_decision_for_coverage(
     round_id: str,
 ) -> list[str]:
     errors: list[str] = []
-    artifact_role = ROLE_TO_REUSE_ARTIFACT.get(role)
+    artifact_role = artifact_role_for_role_plan_role(role)
     if artifact_role is None:
         return [f"{role}: fresh_review_required=false is only supported for reuse-aware roles"]
     index = load_reuse_index(round_dir)
@@ -794,7 +792,7 @@ def validate_reuse_index_decision_for_coverage(
         errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} round_id must be {round_id}")
     decisions = reuse_decisions_for_role(index, role)
     if not decisions:
-        return errors + [f"{role}: {REUSE_INDEX_REL.as_posix()} has no decision for {artifact_role}"]
+        return errors + [f"{role}: {REUSE_INDEX_REL.as_posix()} has no decision for {artifact_role.value}"]
     if len(decisions) > 1:
         errors.append(f"{role}: {REUSE_INDEX_REL.as_posix()} must contain exactly one decision for {artifact_role}")
     decision = decisions[0]
@@ -842,7 +840,10 @@ def validate_reuse_index_decision_for_coverage(
 
 
 def expected_reuse_artifact_role(role: str) -> ArtifactRole:
-    return ArtifactRole(ROLE_TO_REUSE_ARTIFACT[role])
+    artifact_role = artifact_role_for_role_plan_role(role)
+    if artifact_role is None:
+        raise KeyError(role)
+    return artifact_role
 
 
 def expected_reuse_source_classes(role: str) -> frozenset[SourceClass]:

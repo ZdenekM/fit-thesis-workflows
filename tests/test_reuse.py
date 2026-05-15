@@ -1,10 +1,12 @@
 from thesis_review_workflow.reuse import (
+    ROLE_PLAN_REUSE_ARTIFACTS,
     ArtifactRole,
     CoverageSatisfiedBy,
     NextAction,
     ReuseStatus,
     SourceClass,
     SourceFingerprint,
+    artifact_role_for_role_plan_role,
     compare_source_fingerprints,
     decide_reuse,
     source_classes_for_role,
@@ -282,6 +284,17 @@ def test_every_artifact_role_has_source_dependency_mapping() -> None:
         dependencies = source_classes_for_role(role)
         assert dependencies
         assert all(isinstance(source_class, SourceClass) for source_class in dependencies)
+
+
+def test_role_plan_reuse_map_only_covers_standalone_evidence_roles() -> None:
+    assert artifact_role_for_role_plan_role("code_consistency") == ArtifactRole.CODE_CONSISTENCY
+    assert artifact_role_for_role_plan_role("text_structure_assignment") == ArtifactRole.TEXT_ASSIGNMENT
+    assert artifact_role_for_role_plan_role("github_intake") == ArtifactRole.GITHUB_CODE_INTAKE
+    assert artifact_role_for_role_plan_role("figure_media") == ArtifactRole.FIGURE_MEDIA
+    assert "supervisor_feedback" not in {role.value for role in ROLE_PLAN_REUSE_ARTIFACTS.values()}
+    assert artifact_role_for_role_plan_role("synthesis") is None
+    assert artifact_role_for_role_plan_role("final_review") is None
+    assert artifact_role_for_role_plan_role("report_review") is None
 
 
 def test_common_briefing_and_role_packet_dependencies_include_handoff_context() -> None:

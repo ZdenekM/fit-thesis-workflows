@@ -706,7 +706,7 @@ Out of scope:
 
 ### Slice 7 - Role-Plan Reuse Integration For Repeated Rounds
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): reuse review role plans`
 - Expected paths:
   - `src/thesis_review_workflow/reuse.py`
@@ -1011,6 +1011,31 @@ Out of scope:
   Residual risks: closeout still relies on parent-agent orchestration for actual
   role-agent execution; repeated-round reuse semantics and operator-delta
   reopening remain deferred to Slices 7 and 8.
+- 2026-05-15: Slice 7 completed. Added a single reusable role-plan mapping from
+  workflow roles to hash-bound artifact roles, extended `work/review_role_plan.json`
+  reuse projections beyond code roles, and kept final synthesis/trace/review
+  roles unmapped so profile-specific wording and confidence calibration still
+  require their own workflow review. `work/reuse/reuse_index.json` remains the
+  source of truth for source-fingerprint comparison and delta decisions, while
+  `reusable_current` role-plan states now require current
+  `work/agent_coverage.json` coverage satisfied by `current_reviewed_artifact`
+  instead of trusting raw reuse-index data alone. Agent coverage validation uses
+  the same mapping, so non-fresh coverage remains tied to reuse-index schema,
+  current source hashes, and reviewed evidence; opponent `text_structure_assignment`
+  maps to the assignment evidence contract. Verification passed: `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests::`,
+  `pants check src/thesis_review_workflow:: tests::`,
+  `pants test tests/test_reuse.py tests/test_review_pipeline_orchestration.py`,
+  additional regression coverage via
+  `pants test tests/test_agent_coverage.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-round-reuse-index`, `scripts/check-private`,
+  `scripts/check-scripts`, and `git diff --check`. Subagent review findings
+  were folded into the slice: raw reuse-index `unchanged_reusable` no longer
+  skips scheduling without agent coverage, and the opponent assignment role is
+  included in the conservative evidence-role mapping.
+  Residual risks: role-plan reuse still depends on `update-round-reuse-index`
+  and manifest/coverage refreshes having run before planning; operator-delta
+  reopening of previously reviewed artifacts remains deferred to Slice 8.
 
 ## Decision Log
 

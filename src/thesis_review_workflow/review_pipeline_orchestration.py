@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.reuse import artifact_role_for_role_plan_role
 from thesis_review_workflow.review_materiality import (
     profile_index_rel,
     role_file_for_profile,
@@ -421,19 +422,13 @@ def role_plan_state(
         return "not_material"
     if materiality_projection.get("recommendation") == "not_material":
         return "not_material"
-    if role.key in {"code_consistency", "code_quality"}:
+    if reuse_projection.get("artifact_role"):
         if (
             agent_coverage_projection.get("fresh_review_required") is False
             and agent_coverage_projection.get("coverage_satisfied_by") == REUSE_CURRENT_REVIEWED_ARTIFACT
         ):
             return "reusable_current"
         status = reuse_projection.get("reuse_status")
-        if (
-            status == REUSE_UNCHANGED_REUSABLE
-            and reuse_projection.get("fresh_review_required") is False
-            and reuse_projection.get("coverage_satisfied_by") == REUSE_CURRENT_REVIEWED_ARTIFACT
-        ):
-            return "reusable_current"
         if status == REUSE_CHANGED_DELTA_REQUIRED:
             return "delta_review"
     return "required_fresh"
@@ -483,33 +478,80 @@ def role_input_record(round_dir: Path, rel_path: str, *, case_id: str, round_id:
     return record
 
 
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _string_dict(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: digest for key, digest in value.items() if isinstance(key, str) and isinstance(digest, str)}
+
+
 def reuse_projection_for_role(round_dir: Path, role: str) -> dict[str, Any]:
     path = round_dir / REUSE_INDEX_REL
+    artifact_role = artifact_role_for_role_plan_role(role)
     projection: dict[str, Any] = {
         "reuse_index_path": REUSE_INDEX_REL,
+        "artifact_role": artifact_role.value if artifact_role is not None else "",
         "reuse_status": "",
         "fresh_review_required": True,
         "coverage_satisfied_by": "fresh_role_review",
         "reuse_next_action": "",
+        "candidate_round_id": "",
+        "candidate_artifacts": [],
+        "source_sha256": {},
+        "unchanged_refs": [],
+        "changed_refs": [],
+        "added_refs": [],
+        "removed_refs": [],
+        "missing_current_refs": [],
+        "not_comparable_refs": [],
+        "missing_current_source_classes": [],
+        "missing_prior_source_classes": [],
+        "reasons": [],
     }
-    if role not in {"code_consistency", "code_quality"} or not path.is_file():
+    if artifact_role is None or not path.is_file():
         return projection
     try:
         loaded = _load_json_object(path)
     except ValueError as exc:
         projection["error"] = str(exc)
         return projection
-    artifact_role = "code_consistency" if role == "code_consistency" else "code_quality"
     decisions = loaded.get("decisions")
     if not isinstance(decisions, list):
         projection["error"] = "reuse index decisions must be a list"
         return projection
     for item in decisions:
-        if isinstance(item, dict) and item.get("artifact_role") == artifact_role:
+        if isinstance(item, dict) and item.get("artifact_role") == artifact_role.value:
+            fresh_required = item.get("fresh_semantic_review_required")
             projection["reuse_status"] = str(item.get("status", ""))
-            projection["fresh_review_required"] = item.get("fresh_semantic_review_required", True)
+            projection["fresh_review_required"] = fresh_required if isinstance(fresh_required, bool) else True
             projection["coverage_satisfied_by"] = str(item.get("coverage_satisfied_by", ""))
             projection["reuse_next_action"] = str(item.get("next_action", ""))
+            candidate_round_id = item.get("candidate_round_id")
+            projection["candidate_round_id"] = candidate_round_id if isinstance(candidate_round_id, str) else ""
+            candidate_artifacts = item.get("candidate_artifacts")
+            projection["candidate_artifacts"] = (
+                [artifact for artifact in candidate_artifacts if isinstance(artifact, dict)]
+                if isinstance(candidate_artifacts, list)
+                else []
+            )
+            projection["source_sha256"] = _string_dict(item.get("source_sha256"))
+            for field in (
+                "unchanged_refs",
+                "changed_refs",
+                "added_refs",
+                "removed_refs",
+                "missing_current_refs",
+                "not_comparable_refs",
+                "missing_current_source_classes",
+                "missing_prior_source_classes",
+                "reasons",
+            ):
+                projection[field] = _string_list(item.get(field))
             break
     return projection
 
