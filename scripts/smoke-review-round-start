@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__review_round_start_smoke_$$"
+case_dir="$repo_root/cases/$case_id"
+out_file="/tmp/review-round-start.$$.out"
+err_file="/tmp/review-round-start.$$.err"
+
+cleanup() {
+  rm -rf "$case_dir"
+  rm -f "$out_file" "$err_file"
+}
+trap cleanup EXIT
+
+mkdir -p "$case_dir/rounds/round-a"/{notes,inputs,extracted,work,outputs}
+cat >"$case_dir/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Thesis language: auto
+Reviewer profile: default
+EOF
+printf '%s\n' "round-a" >"$case_dir/current-round.txt"
+printf '%s\n' "%PDF synthetic smoke" >"$case_dir/rounds/round-a/inputs/thesis.pdf"
+
+"$repo_root/scripts/review-round-start" "$case_id" round-a \
+  --profile supervisor_feedback \
+  --fresh-materials-expected \
+  --thesis-pdf inputs/thesis.pdf \
+  --metadata "assignment=First line\\nSecond line" \
+  --dry-run >"$out_file" 2>"$err_file"
+
+trace="$case_dir/rounds/round-a/work/review_run_trace.json"
+test -f "$trace"
+if ! grep -Fq "literal_escaped_newline" "$out_file"; then
+  echo "Expected metadata newline diagnostic" >&2
+  cat "$out_file" >&2
+  cat "$err_file" >&2
+  exit 1
+fi
+if [[ -f "$case_dir/rounds/round-a/work/review_role_plan.json" ]]; then
+  echo "review-round-start must not write work/review_role_plan.json" >&2
+  exit 1
+fi
+
+python3 - "$trace" <<'PY'
+import json
+import pathlib
+import sys
+
+trace = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert trace["schema_version"] == "review-run-trace-v1"
+assert trace["profile_id"] == "supervisor_feedback"
+events = trace["events"]
+assert any(event["status"] == "skipped" and event["phase"] == "extraction" for event in events)
+assert any(event["status"] == "planned" and event["phase"] == "role_plan" for event in events)
+assert all("github" not in " ".join(event.get("source_refs", [])) for event in events)
+PY
+
+echo "Review round start smoke passed"

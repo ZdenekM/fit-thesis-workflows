@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import shutil
+from pathlib import Path
+
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
+from thesis_review_workflow.cli import review_round_start
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_REL,
     REVIEW_RUN_TRACE_SCHEMA,
@@ -13,6 +18,8 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     trace_profile_summary,
     validate_review_run_trace_payload,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_workflow_profile_registry_shape_and_approval_names() -> None:
@@ -278,3 +285,106 @@ def test_metadata_newline_diagnostics_are_explicit_and_structural() -> None:
     assert normalized["assignment_summary"] == "First line\nSecond line"
     assert normalized["short_note"] == "plain"
     assert diagnostics[0].code == "literal_escaped_newline"
+
+
+def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypatch) -> None:
+    case_id = "__review_round_start_pytest"
+    round_id = "round-a"
+    case_dir = REPO_ROOT / "cases" / case_id
+    shutil.rmtree(case_dir, ignore_errors=True)
+    monkeypatch.setattr(review_round_start, "repo_root", lambda: REPO_ROOT)
+    monkeypatch.setattr(review_round_start, "git_ignored", lambda root, path: True)
+    try:
+        round_dir = case_dir / "rounds" / round_id
+        for child in ("notes", "inputs", "extracted", "work", "outputs"):
+            (round_dir / child).mkdir(parents=True, exist_ok=True)
+        (case_dir / "case.md").write_text(
+            "\n".join(
+                [
+                    "Work type: BP",
+                    "Academic year: 2025/2026",
+                    "Student feedback language: cs",
+                    "Thesis language: auto",
+                    "Reviewer profile: default",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (case_dir / "current-round.txt").write_text(f"{round_id}\n", encoding="utf-8")
+        (round_dir / "inputs" / "thesis.pdf").write_text("%PDF synthetic\n", encoding="utf-8")
+
+        result = review_round_start.run_round_start(
+            [
+                "review-round-start",
+                case_id,
+                round_id,
+                "--profile",
+                "supervisor_feedback",
+                "--fresh-materials-expected",
+                "--thesis-pdf",
+                "inputs/thesis.pdf",
+                "--metadata",
+                "assignment=First line\\nSecond line",
+                "--dry-run",
+                "--generated-at",
+                "2026-05-15T12:00:00Z",
+            ]
+        )
+
+        assert result == 0
+        assert not (round_dir / "work" / "review_role_plan.json").exists()
+        trace = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
+        assert trace["schema_version"] == REVIEW_RUN_TRACE_SCHEMA
+        assert trace["profile_id"] == "supervisor_feedback"
+        assert trace["generated_at"] == "2026-05-15T12:00:00Z"
+        assert any(event["phase"] == "extraction" and event["status"] == "skipped" for event in trace["events"])
+        assert any(event["phase"] == "role_plan" and event["status"] == "planned" for event in trace["events"])
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_review_round_start_cli_blocks_unsafe_material_and_records_trace(monkeypatch) -> None:
+    case_id = "__review_round_start_blocked_pytest"
+    round_id = "round-a"
+    case_dir = REPO_ROOT / "cases" / case_id
+    shutil.rmtree(case_dir, ignore_errors=True)
+    monkeypatch.setattr(review_round_start, "repo_root", lambda: REPO_ROOT)
+    monkeypatch.setattr(review_round_start, "git_ignored", lambda root, path: True)
+    try:
+        round_dir = case_dir / "rounds" / round_id
+        for child in ("notes", "inputs", "extracted", "work", "outputs"):
+            (round_dir / child).mkdir(parents=True, exist_ok=True)
+        (case_dir / "case.md").write_text("Work type: BP\nReviewer profile: default\n", encoding="utf-8")
+        (case_dir / "current-round.txt").write_text(f"{round_id}\n", encoding="utf-8")
+
+        result = review_round_start.run_round_start(
+            [
+                "review-round-start",
+                case_id,
+                round_id,
+                "--profile",
+                "supervisor_feedback",
+                "--thesis-pdf",
+                "../private.pdf",
+                "--generated-at",
+                "2026-05-15T12:00:00Z",
+            ]
+        )
+
+        assert result == 1
+        trace = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
+        assert any(event["phase"] == "start" and event["status"] == "blocked" for event in trace["events"])
+        assert all("../private.pdf" not in event.get("source_refs", []) for event in trace["events"])
+        assert "../private.pdf" not in json.dumps(trace)
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_review_round_start_metadata_file_reads_caller_path(tmp_path: Path) -> None:
+    metadata_path = tmp_path / "assignment.txt"
+    metadata_path.write_text("Line one\nLine two\n", encoding="utf-8")
+
+    fields = review_round_start.metadata_fields([], [f"assignment={metadata_path}"])
+
+    assert fields == {"assignment": "Line one\nLine two\n"}

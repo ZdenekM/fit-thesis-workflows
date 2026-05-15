@@ -52,6 +52,7 @@ shell_sources(
         "record-report-amendment",
         "record-submitted-supervisor-report",
         "register-review-artifact",
+        "review-round-start",
         "supervisor-report-closeout",
         "smoke-agent-coverage",
         "smoke-audit-context-budget",
@@ -86,6 +87,7 @@ shell_sources(
         "smoke-register-review-artifact",
         "smoke-review-approval",
         "smoke-review-manifest",
+        "smoke-review-round-start",
         "smoke-round-reuse-index",
         "smoke-review-wave",
         "smoke-reviewer-profile",
@@ -107,6 +109,7 @@ files(
         "smoke-package-workflow-tools",
         "smoke-record-report-amendment",
         "smoke-record-submitted-supervisor-report",
+        "smoke-review-round-start",
     ],
 )
 
@@ -161,6 +164,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_report_amendment",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:register_review_artifact",
+    "src/thesis_review_workflow/cli:review_round_start",
     "src/thesis_review_workflow/cli:supervisor_report_closeout",
     "src/thesis_review_workflow/cli:supervisor_deadline",
     "src/thesis_review_workflow/cli:update_current_evidence_snapshot",
@@ -665,6 +669,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/register-review-artifact",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="review_round_start_tool",
+    entry_point="thesis_review_workflow.cli.review_round_start:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/review-round-start",
     tags=["workflow-tool"],
 )
 

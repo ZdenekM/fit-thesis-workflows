@@ -42,6 +42,16 @@ performs the manifest refresh before final-wave validation and again after
 checks that may update provenance; operators should not edit
 `work/review_manifest.json` by hand for normal final-report registration.
 
+The optimized review pipeline uses shared round-level commands before
+workflow-specific packet generation. `review-round-start` is the deterministic
+entrypoint for current-material registration, PDF extraction, GitHub/code
+workspace preparation, current-evidence refresh, reuse-index refresh, readiness
+gates, and `work/review_run_trace.json`. It accepts workflow review profiles
+such as `supervisor_feedback`, `supervisor_report`, and `opponent_materials`;
+these are not Codex agent profiles. The command deliberately stops at the
+`prepare-review-round <case-id> <round-id>` boundary and must not write
+`work/review_role_plan.json`.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a

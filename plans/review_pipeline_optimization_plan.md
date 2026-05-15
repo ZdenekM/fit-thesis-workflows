@@ -459,7 +459,7 @@ Out of scope:
 
 ### Slice 3 - Review Round Start Command
 
-- Status: pending
+- Status: completed
 - Proposed commit message: `feat(workflow): start review rounds`
 - Expected paths:
   - `scripts/review-round-start`
@@ -494,15 +494,15 @@ Out of scope:
     so the logical command, POSIX wrapper, PEX target, and generated `.cmd`/`.ps1`
     launchers stay aligned.
 - Verification:
-  - `pants fmt ::`
-  - `pants lint src/thesis_review_workflow:: tests:: scripts::`
-  - `pants check src/thesis_review_workflow:: tests:: scripts::`
-  - `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py`
-  - `scripts/smoke-review-round-start`
-  - `scripts/smoke-package-workflow-tools`
-  - `scripts/check-private`
-  - `scripts/check-scripts`
-  - `git diff --check`
+  - `pants fmt ::` - passed
+  - `pants lint src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants check src/thesis_review_workflow:: tests:: scripts::` - passed
+  - `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py` - passed
+  - `scripts/smoke-review-round-start` - passed
+  - `scripts/smoke-package-workflow-tools` - passed
+  - `scripts/check-private` - passed
+  - `scripts/check-scripts` - passed
+  - `git diff --check` - passed
 
 ### Slice 4 - Required Role Plan And Packet Wave Preparation
 
@@ -905,6 +905,27 @@ Out of scope:
   `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
   Residual risks: the planner is intentionally pure and does not write
   `work/review_run_trace.json` or perform imports until Slice 3 exposes the CLI.
+- 2026-05-15: Slice 3 completed. Added `review-round-start` as the shared
+  deterministic round-start command, wired it through the logical command map,
+  POSIX wrapper, Pants PEX target, packaged launcher contract, smoke coverage,
+  and workflow command docs. The command accepts explicit workflow profiles and
+  material descriptors, normalizes metadata-file/literal-newline inputs through
+  the Slice 2 planner, writes `work/review_run_trace.json`, can execute the
+  existing extract/GitHub/code-workspace/current-evidence/reuse/readiness helper
+  steps, and records `prepare-review-round` only as the next planned boundary
+  without writing `work/review_role_plan.json`. Verification passed:
+  `pants fmt ::`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`,
+  `pants check src/thesis_review_workflow:: tests:: scripts::`,
+  `pants test tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-review-round-start`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`.
+  Subagent patch review found that raw invalid material paths could leak into
+  trace blocker notes; this was fixed by recording trace-safe typed blocker
+  codes while keeping input-specific diagnostics on stderr.
+  Residual risks: `review-round-start --dry-run` is only a deterministic preview
+  for smoke/contract validation; actual role-plan writing remains intentionally
+  deferred to Slice 4 through `prepare-review-round`.
 
 ## Decision Log
 

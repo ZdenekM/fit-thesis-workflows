@@ -54,6 +54,7 @@ python_source(name="prepare_supervisor_packets", source="prepare_supervisor_pack
 python_source(name="record_report_amendment", source="record_report_amendment.py")
 python_source(name="record_submitted_supervisor_report", source="record_submitted_supervisor_report.py")
 python_source(name="register_review_artifact", source="register_review_artifact.py")
+python_source(name="review_round_start", source="review_round_start.py")
 python_source(name="supervisor_deadline", source="supervisor_deadline.py")
 python_source(name="supervisor_report_closeout", source="supervisor_report_closeout.py")
 python_source(name="update_current_evidence_snapshot", source="update_current_evidence_snapshot.py")
