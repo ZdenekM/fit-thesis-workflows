@@ -252,6 +252,7 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
     paths = {
         "outputs/code_consistency.md",
         "outputs/code_quality_review.md",
+        "outputs/literature_citation_review.md",
         "outputs/revision_diff.md",
         "outputs/reviewer_calibration_profile.md",
     }
@@ -271,11 +272,13 @@ def test_review_manifest_requires_internal_evidence_validators_when_artifacts_ex
 
     assert "check-code-consistency" in init_names
     assert "check-code-quality-review" in init_names
+    assert "check-literature-citation-review" in init_names
     assert "check-revision-diff" in init_names
     assert "check-opponent-calibration-profile" in init_names
     assert "check-evaluation-claims" in init_names
     assert "check-code-consistency" in check_names
     assert "check-code-quality-review" in check_names
+    assert "check-literature-citation-review" in check_names
     assert "check-revision-diff" in check_names
     assert "check-opponent-calibration-profile" in check_names
     assert "check-evaluation-claims" in check_names

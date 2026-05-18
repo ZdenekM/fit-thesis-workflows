@@ -148,6 +148,86 @@ limitation without implying that the whole work must be rewritten.
 
 Promoted to: `AGENTS.md`, supervisor/opponent/report skills.
 
+### 2026-05-18: Calibrate Overclaims Against Practical Impact
+
+Status: promoted
+
+When a thesis statement is stronger than the available evidence, first decide
+whether it is a serious defect, a reproducibility uncertainty, or mainly
+imprecise wording. If the implementation contains a plausible alternate
+configuration for a claimed runtime path but the submitted default/build artifact
+does not prove it was used, formulate the issue as a manual-check or
+reproducibility uncertainty. If broad wording such as large scale, modular,
+easily extensible, guaranteed, or fully supported is only partially supported,
+calibrate it as an overclaim according to practical impact instead of treating it
+as automatically grade-impacting.
+
+Promoted to: `thesis-code-consistency`, `thesis-opponent-materials`,
+`thesis-opponent-materials-review`.
+
+### 2026-05-18: Required Role Failures Must Stop The Pipeline
+
+Status: promoted
+
+When a required role agent or helper fails to produce expected artifacts, the
+workflow must stop before synthesis or closeout. Report the failed role, expected
+paths, observed files, and checker result to the operator. Do not silently
+substitute a smaller parent-generated artifact and mark coverage as satisfied;
+rerun/repair the role, or record a blocked typed limitation only after the
+operator chooses that route.
+
+Promoted to: `AGENTS.md`, `docs/agent-scheduling.md`,
+`thesis-figure-media-review`, `thesis-opponent-materials`, agent-coverage and
+figure/media checkers.
+
+### 2026-05-18: Targeted Literature Source Acquisition
+
+Status: promoted
+
+Literature/citation review must not leave selected key or suspicious citations
+as manual external-source work just because no local PDFs were submitted. The
+role should triage the bibliography, legally resolve public metadata/PDFs for
+only material or suspicious items, cache evidence under the ignored
+`work/literature/` workspace, and record the result in
+`work/literature/source_acquisition.json`. The handoff must hash-bind the
+thesis/bibliography `source_refs` with `source_sha256`. If access is blocked or
+the operator disables external lookup, that limitation must be explicit in the
+structured handoff; a blanket "no local PDFs, no external papers read"
+limitation is not enough for pipeline-ready evidence.
+
+Promoted to: `thesis-literature-citation-review`,
+`scripts/check-literature-citation-review`, review manifest checks.
+
+### 2026-05-18: Omen Has Separate Repo And Case Roles
+
+Status: promoted
+
+`pants run :omen` is developer hygiene for this workflow repository and its
+`omen.toml` intentionally ignores `cases/` to avoid scanning private thesis
+data. That privacy boundary does not prohibit targeted Omen use on submitted
+student code after it has been prepared under an ignored case workspace. In
+thesis code-quality review, Omen is optional advisory evidence only: MCP may be
+used when scoped to a real prepared root, CLI may be used with cwd/path set to
+that root, and zero-file MCP results for non-empty submitted code must be
+reported as a tool/path-handling limitation rather than a code-quality signal.
+
+Promoted to: `AGENTS.md`, `thesis-code-quality-review`, packet prompts, dev
+hygiene docs.
+
+### 2026-05-18: Case Operations Need A Reconstruction Trail
+
+Status: promoted
+
+When a case pipeline role fails, is skipped, is replaced by parent fallback, or
+gets recalibrated by the operator, that must not remain only in chat history or
+inside a generated artifact. Record the operational fact in a round-local
+append-only `work/operation_log.jsonl` event with the affected artifacts/checks.
+The log is intentionally separate from manifest hash gating: the manifest proves
+reviewed artifact freshness, while the operation log reconstructs how the round
+got there.
+
+Promoted to: `AGENTS.md`, README, `record-workflow-operation`, `case-doctor`.
+
 ### 2026-05-04: Thesis Headings Need Structure Review
 
 Status: promoted

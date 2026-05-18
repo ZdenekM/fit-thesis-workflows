@@ -32,6 +32,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import canonical_command_text, repo_command_environment, resolve_repo_command
+from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.review_manifest import (
@@ -449,6 +450,12 @@ def required_checks(
             "check-figure-media-review",
             f"check-figure-media-review {case_id} {round_id}",
             ["outputs/figure_media_review.md"],
+        )
+    if "outputs/literature_citation_review.md" in artifact_paths:
+        add(
+            "check-literature-citation-review",
+            f"check-literature-citation-review {case_id} {round_id}",
+            ["outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL],
         )
     if "outputs/typography_formal_review.md" in artifact_paths:
         add(

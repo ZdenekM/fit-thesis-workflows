@@ -68,7 +68,13 @@ thesis claim depends on them.
 14. Do not run graph/table quality checks such as axis-label, unit, legend, scale, or readability audits as part of this iteration. If those concerns are obvious, record them as manual checks or route result claims to evaluation-claim review.
 15. Summarize only actionable findings into supervisor feedback or opponent materials. Keep the reusable inventory, context table, and cache details internal.
 16. After writing `outputs/figure_media_review.md` and `work/figure_media/visual_inventory.jsonl`, run `scripts/check-figure-media-review <case-id> [round-id]`. Fix hard failures before relying on the artifact. Treat warnings as operator prompts and either address them or record the limitation.
-17. Register the artifact through the current `work/review_role_plan.json`
+17. If the role agent cannot produce both expected files, stop before downstream
+    synthesis. Report the failed role, expected output paths, observed files,
+    and checker result to the operator. Do not replace the missing role output
+    with a parent-generated limited report as if the required role passed; rerun
+    or repair the role, or record a blocked typed limitation only after the
+    operator chooses that route.
+18. Register the artifact through the current `work/review_role_plan.json`
     preset when available, usually with `scripts/register-review-artifact
     <case-id> <round-id> outputs/figure_media_review.md --role figure_media`,
     including source refs, checks, limitations, and downstream synthesis use.

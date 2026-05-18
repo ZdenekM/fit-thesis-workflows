@@ -13,10 +13,20 @@ from thesis_review_workflow.claim_review_basis import (
     CLAIM_REVIEW_BASIS_SCHEMA,
     validate_claim_review_basis_payload,
 )
+from thesis_review_workflow.code_quality_omen import (
+    CODE_QUALITY_OMEN_REL,
+    CODE_QUALITY_OMEN_SCHEMA,
+    validate_code_quality_omen_payload,
+)
 from thesis_review_workflow.evidence_capsules import (
     EVIDENCE_CAPSULE_SCHEMA,
     EVIDENCE_CAPSULES_REL,
     validate_evidence_capsules_payload,
+)
+from thesis_review_workflow.literature_source_acquisition import (
+    SOURCE_ACQUISITION_REL,
+    SOURCE_ACQUISITION_SCHEMA,
+    validate_source_acquisition_payload,
 )
 from thesis_review_workflow.opponent_calibration import (
     is_opponent_calibration_artifact,
@@ -61,6 +71,8 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/supervisor_report_confirmation.json": {"supervisor-report-confirmation-v1"},
     "work/current_evidence_snapshot.json": {"current-evidence-snapshot-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
+    CODE_QUALITY_OMEN_REL: {CODE_QUALITY_OMEN_SCHEMA},
+    SOURCE_ACQUISITION_REL: {SOURCE_ACQUISITION_SCHEMA},
     "work/github-intake/snapshot-manifest.json": {"github-snapshot-manifest-v1"},
     "work/reuse/reuse_index.json": {"round-reuse-index-v1"},
     REVIEW_RUN_TRACE_REL: {REVIEW_RUN_TRACE_SCHEMA},
@@ -82,6 +94,13 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     "work/supervisor_report_confirmation.json": {"ready_for_is": bool},
     "work/current_evidence_snapshot.json": {"items": list},
     "work/code_reproducibility.json": {"classification": str},
+    CODE_QUALITY_OMEN_REL: {"tool": str, "status": str, "invocation": dict, "summary": dict},
+    SOURCE_ACQUISITION_REL: {
+        "source_resolution_policy": str,
+        "target_selection_policy": dict,
+        "source_sha256": dict,
+        "citations": list,
+    },
     "work/github-intake/snapshot-manifest.json": {"repositories": list, "pull_requests": list},
     "work/reuse/reuse_index.json": {"current_source_fingerprints": list, "decisions": list},
     REVIEW_RUN_TRACE_REL: {"events": list, "workflow_profile": str, "operator_surface": str},
@@ -110,6 +129,8 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/serena_roots.json",
     "work/agent_coverage.json",
     "work/code/.prepare-code-workspace-manifest.json",
+    CODE_QUALITY_OMEN_REL,
+    "work/code_quality_omen.md",
     "work/github-intake/snapshot-manifest.json",
     "work/reuse/reuse_index.json",
     REVIEW_RUN_TRACE_REL,
@@ -133,6 +154,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/opponent_report_revision_request.json",
     "work/opponent_calibration_refresh_eligibility.json",
     "work/code_reproducibility.json",
+    SOURCE_ACQUISITION_REL,
     "work/media_presence_inventory.jsonl",
     THESES_SIMILARITY_INTAKE_REL,
     THESES_SIMILARITY_ASSESSMENT_REL,
@@ -433,3 +455,23 @@ def validate_json_work_artifact(
         errors.extend(validate_review_run_trace_payload(loaded))
     elif rel_path == REVIEW_ROLE_PLAN_REL:
         errors.extend(validate_review_role_plan_payload(loaded, round_dir=round_dir))
+    elif rel_path == CODE_QUALITY_OMEN_REL:
+        errors.extend(
+            validate_code_quality_omen_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == SOURCE_ACQUISITION_REL:
+        errors.extend(
+            validate_source_acquisition_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )

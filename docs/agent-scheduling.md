@@ -128,6 +128,13 @@ the expected file is missing, empty, stale, or fails whitespace/approval-record
 validation, trust the file system and checker result. The next step is to repair
 or regenerate the artifact, not to rely on the agent final message.
 
+If a required role agent or helper fails, times out, or exits without the
+expected role-owned artifact, stop the wave. Do not satisfy role coverage by
+writing a smaller parent-owned substitute and continuing. Report the failed
+role, expected path, observed state, and checker result to the operator, then
+rerun/repair the role or record a blocked typed limitation only after the
+operator has chosen that route.
+
 Structured final-review approval records belong under `work/reviews/*_review.json`.
 They are part of closeout provenance: a material edit after approval requires a
 fresh review or an explicit typed exception, never a manual hash adjustment.

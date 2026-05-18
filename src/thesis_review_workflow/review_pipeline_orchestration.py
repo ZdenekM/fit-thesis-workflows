@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from thesis_review_workflow import agent_coverage
+from thesis_review_workflow.code_quality_omen import CODE_QUALITY_OMEN_REL, load_omen_advisory_state
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import artifact_role_for_role_plan_role
 from thesis_review_workflow.review_materiality import (
@@ -415,7 +416,8 @@ def role_plan_state(
     materiality_projection: dict[str, Any],
 ) -> str:
     if agent_coverage_projection.get("status") == "blocked":
-        return "blocked_with_typed_limitation"
+        if not optional_omen_limitation(role.key, agent_coverage_projection):
+            return "blocked_with_typed_limitation"
     if materiality_projection.get("coverage_state") == "typed_limitation":
         return "blocked_with_typed_limitation"
     if not active:
@@ -801,7 +803,7 @@ def materiality_action_text(action: dict[str, Any] | None) -> str:
 
 
 def advisory_static_analysis_state(round_dir: Path) -> dict[str, str]:
-    candidates = ("work/code_quality_omen.json", "work/code_quality_omen.md")
+    candidates = (CODE_QUALITY_OMEN_REL, "work/code_quality_omen.md")
     present = [rel_path for rel_path in candidates if (round_dir / rel_path).is_file()]
     if not present:
         return {
@@ -812,8 +814,10 @@ def advisory_static_analysis_state(round_dir: Path) -> dict[str, str]:
     non_empty = [rel_path for rel_path in present if (round_dir / rel_path).stat().st_size > 0]
     if not non_empty:
         return {"tool": "omen", "state": "available_no_findings", "reason": "Omen output files are empty"}
+    if CODE_QUALITY_OMEN_REL in non_empty:
+        return load_omen_advisory_state(round_dir / CODE_QUALITY_OMEN_REL)
     if any((round_dir / rel_path).suffix == ".json" for rel_path in non_empty):
-        return {"tool": "omen", "state": "available_with_findings", "reason": "Omen JSON output is present"}
+        return {"tool": "omen", "state": "available_with_findings", "reason": "legacy Omen JSON output is present"}
     return {"tool": "omen", "state": "unsupported_or_uninformative", "reason": "only unstructured Omen text is present"}
 
 
@@ -1028,7 +1032,21 @@ def typed_limitation_present(record: dict[str, Any], coverage_projection: dict[s
     limitation = coverage_projection.get("typed_limitation")
     if not isinstance(limitation, dict):
         return False
+    if optional_omen_limitation(str(record.get("role", "")), coverage_projection):
+        return False
     return bool(str(limitation.get("type", "")).strip() and str(limitation.get("description", "")).strip())
+
+
+def optional_omen_limitation(role: str, coverage_projection: dict[str, Any]) -> bool:
+    if role != "code_quality":
+        return False
+    limitation = coverage_projection.get("typed_limitation")
+    if not isinstance(limitation, dict):
+        return False
+    if str(limitation.get("type", "")).strip() != "unavailable_tool":
+        return False
+    tool = str(limitation.get("tool", "")).strip().lower()
+    return tool == "omen"
 
 
 def _validate_role_plan_record(record: object, prefix: str, errors: list[str]) -> None:

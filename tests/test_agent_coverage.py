@@ -104,6 +104,19 @@ def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: P
 
     specs = agent_coverage.inferred_role_specs(round_dir, manifest)
     coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    coverage["roles"].append(
+        {
+            "role": "not_material_side_role",
+            "status": "not_applicable",
+            "coverage_required": False,
+            "fresh_review_required": False,
+            "coverage_satisfied_by": "current_handoff",
+            "trigger": "synthetic trailing not-applicable role",
+            "required_for": [],
+            "output_evidence": [],
+        }
+    )
     errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
 
     assert specs["quantitative_claims"].skill == "thesis-quantitative-claims-review"
@@ -136,6 +149,53 @@ def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: P
     assert human_warnings == []
 
 
+def test_agent_coverage_rejects_omen_unavailable_as_code_quality_role_block(tmp_path: Path) -> None:
+    round_dir = make_final_round(tmp_path)
+    (round_dir / "work" / "code").mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared submitted code root.\n", encoding="utf-8")
+    manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    roles = cast(list[dict[str, object]], coverage["roles"])
+    code_quality = next(item for item in roles if item["role"] == "code_quality")
+    code_quality["status"] = "blocked"
+    code_quality["typed_limitation"] = {
+        "role": "code_quality",
+        "type": "unavailable_tool",
+        "tool": "omen",
+        "trigger": code_quality["trigger"],
+        "required_for": code_quality["required_for"],
+        "description": "Omen was unavailable in the operator environment.",
+    }
+
+    errors, _warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert any("Omen is optional advisory evidence" in error for error in errors)
+
+
+def test_agent_coverage_requires_explicit_omen_tool_for_optional_tool_block(tmp_path: Path) -> None:
+    round_dir = make_final_round(tmp_path)
+    (round_dir / "work" / "code").mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared submitted code root.\n", encoding="utf-8")
+    manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    roles = cast(list[dict[str, object]], coverage["roles"])
+    code_quality = next(item for item in roles if item["role"] == "code_quality")
+    code_quality["status"] = "blocked"
+    code_quality["typed_limitation"] = {
+        "role": "code_quality",
+        "type": "unavailable_tool",
+        "trigger": code_quality["trigger"],
+        "required_for": code_quality["required_for"],
+        "description": "Omen was mentioned in notes, but the blocking evidence is a missing submitted source zip.",
+    }
+
+    errors, _warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert all("Omen is optional advisory evidence" not in error for error in errors)
+
+
 def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_path: Path) -> None:
     round_dir = make_final_round(tmp_path)
     theses_review = round_dir / THESES_SIMILARITY_REVIEW_REL
@@ -162,6 +222,19 @@ def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_
 
     specs = agent_coverage.inferred_role_specs(round_dir, manifest)
     coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    coverage["roles"].append(
+        {
+            "role": "not_material_side_role",
+            "status": "not_applicable",
+            "coverage_required": False,
+            "fresh_review_required": False,
+            "coverage_satisfied_by": "current_handoff",
+            "trigger": "synthetic trailing not-applicable role",
+            "required_for": [],
+            "output_evidence": [],
+        }
+    )
     errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
 
     assert specs["theses_similarity"].skill == "thesis-theses-similarity-review"
@@ -172,6 +245,49 @@ def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_
     assert role["generator_agent"] == "agent-sim"
     assert errors == []
     assert warnings == []
+
+
+def test_agent_coverage_rejects_parent_fallback_for_required_fresh_role(tmp_path: Path) -> None:
+    round_dir = make_final_round(tmp_path)
+    media_input = round_dir / "inputs" / "demo.mp4"
+    figure_review = round_dir / "outputs" / "figure_media_review.md"
+    media_input.parent.mkdir(parents=True)
+    media_input.write_bytes(b"synthetic media\n")
+    figure_review.write_text("# Figure/Media Review\n", encoding="utf-8")
+    figure_hash = agent_coverage.sha256_file(figure_review)
+    manifest = {
+        "inputs": [{"path": "inputs/demo.mp4", "kind": "file"}],
+        "supporting_work_artifacts": [],
+        "artifacts": [
+            reviewed_feedback_artifact(round_dir),
+            {
+                "path": "outputs/figure_media_review.md",
+                "artifact_sha256": figure_hash,
+                "skills": ["thesis-figure-media-review"],
+                "generated_by": [
+                    {
+                        "role": "thesis-figure-media-review",
+                        "agent": "limited_figure_media_parent_review",
+                    }
+                ],
+                "independent_review": {
+                    "status": "not_required",
+                    "covered_by_artifact": "outputs/feedback_student.md",
+                    "used_findings": "Synthetic cautious downstream use.",
+                    "evidence_hash": figure_hash,
+                },
+            },
+        ],
+    }
+
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert warnings == []
+    assert any(
+        "figure_media: required fresh role coverage cannot be satisfied by a parent/fallback/limited generator" in error
+        for error in errors
+    )
 
 
 def test_agent_coverage_tracks_silent_similarity_assessment_as_internal_evidence(tmp_path: Path) -> None:

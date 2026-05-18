@@ -75,7 +75,7 @@ When a round contains code, supervisor feedback, supervisor reports, and opponen
 
 Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
 
-For code quality review, use the Omen MCP server when available as an advisory static-analysis signal for complexity, dead code, churn, and ownership risk. Omen absence or failure must be recorded as a limitation, not treated as an operator-facing workflow blocker; normal supervisor/opponent use must not require Omen.
+For code quality review, Omen may be used as an advisory static-analysis signal for complexity, dead code, churn, and ownership risk on prepared submitted-code roots under the ignored case workspace. This is separate from repo developer hygiene: `pants run :omen` uses `omen.toml` and intentionally ignores `cases/` to avoid scanning private case data. Prefer the Omen MCP server only when it can inspect the actual prepared code root; if MCP returns zero files for a non-empty root, treat that as an MCP/path-handling failure, not as evidence about the code. The Omen CLI may be used from the prepared code root when available. Omen absence or failure must be recorded as a limitation, not treated as an operator-facing workflow blocker; normal supervisor/opponent use must not require Omen.
 
 Keep this `AGENTS.md` short. Put long task procedures into skills or templates.
 When changing workflow docs or skills, scan `WORKFLOW_MEMORY.md` for reusable
@@ -127,6 +127,12 @@ The final output must integrate findings into the requested artifact, not just l
 
 Bound agent concurrency by default: run at most two spawned workflow agents at the same time, and use one on memory-constrained machines. Higher concurrency requires an explicit project config change before the run, not only an ad hoc decision in the prompt. This is scheduling only; it does not reduce required role coverage, evidence artifacts, independent review, manifest hashes, or `scripts/check-agent-coverage`. For larger workflows, run role agents in waves according to `docs/agent-scheduling.md` and let each wave finish before starting the next one.
 
+If a required role agent, helper, or wave fails to produce its expected output,
+do not replace it with a parent-generated limited artifact and continue as if
+coverage passed. Stop before synthesis/closeout, report what failed, record the
+role as blocked with a typed limitation when appropriate, and ask the operator
+whether to rerun/repair the role or explicitly accept a scoped limitation.
+
 When spawning reviewer agents, prefer concise self-contained prompts with exact case/round paths and role-owned outputs. Do not use full-history/forked context by default; use it only when the role genuinely needs the whole conversation. If a spawn invocation fails because full-history/fork options are incompatible with explicit agent type or reasoning effort, retry with the simpler no-fork invocation and carry the needed context in the prompt.
 
 Subagent final responses should optimize for parent synthesis, not raw transcript
@@ -148,6 +154,8 @@ Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_
 
 Keep generated-artifact provenance in the ignored round workspace at `work/review_manifest.json`. The manifest records contributing inputs, checks, skills, generator/reviewer roles, review scope, limitations, and the reviewed artifact hash so material edits after review are visible as stale. Required multi-agent role coverage is generated into `work/agent_coverage.json` from the manifest and validated by `scripts/check-agent-coverage <case-id> [round-id]`; missing required roles must be fixed in the manifest or recorded as typed limitations before closeout.
 
+Keep a lightweight append-only operation trail in `work/operation_log.jsonl` for non-trivial case work: role-agent failures, skipped or blocked pipeline parts, manual fallback decisions, post-review corrections, user calibration decisions, and closeout/audit findings. Use `scripts/record-workflow-operation <case-id> [round-id] ...` to record what happened and which artifacts/checks were involved. The operation log is for reconstruction and is intentionally separate from manifest hash gating.
+
 ## Output Conventions
 
 Default outputs go into the active round:
@@ -165,6 +173,7 @@ Default outputs go into the active round:
 - code consistency check: `outputs/code_consistency.md`
 - code quality/design review: `outputs/code_quality_review.md`
 - literature/citation review: `outputs/literature_citation_review.md`
+- targeted literature source-acquisition handoff: `work/literature/source_acquisition.json`
 - figure/media review: `outputs/figure_media_review.md`
 - typography/formal review: `outputs/typography_formal_review.md`
 - Theses.cz similarity-report intake: `work/theses_similarity/intake.json`
@@ -175,6 +184,7 @@ Default outputs go into the active round:
 - reusable visual inventory: `work/figure_media/visual_inventory.jsonl`
 - review evidence/provenance manifest: `work/review_manifest.json`
 - agent role coverage manifest: `work/agent_coverage.json`
+- workflow operation log: `work/operation_log.jsonl`
 - quantitative/result-claims handoff: `work/quantitative_claims.json`
 - opponent materials: `outputs/oponent_podklady.md`
 - reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
@@ -188,4 +198,4 @@ Standalone GitHub intake, code consistency, code quality, literature/citation, f
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 `Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. For larger repo-tooling edits, consider the dev-only hygiene targets in `docs/dev-hygiene.md`; they must not become thesis case pipeline gates. When changing deterministic checkers, run their smoke scripts too. After generating or revising round outputs, update and validate provenance with `scripts/init-review-manifest --run-checks <case-id> [round-id]`, `scripts/check-agent-coverage <case-id> [round-id]` when role coverage is required, and `scripts/check-review-manifest --require-complete <case-id> [round-id]`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on Theses.cz similarity-report evidence, run `scripts/check-theses-similarity-report <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`. Before using an opponent-report draft, run `scripts/check-opponent-report <case-id> [round-id]`.
+Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. For larger repo-tooling edits, consider the dev-only hygiene targets in `docs/dev-hygiene.md`; they must not become thesis case pipeline gates. When changing deterministic checkers, run their smoke scripts too. After generating or revising round outputs, update and validate provenance with `scripts/init-review-manifest --run-checks <case-id> [round-id]`, `scripts/check-agent-coverage <case-id> [round-id]` when role coverage is required, and `scripts/check-review-manifest --require-complete <case-id> [round-id]`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on literature/citation evidence, run `scripts/check-literature-citation-review <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on Theses.cz similarity-report evidence, run `scripts/check-theses-similarity-report <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`. Before using an opponent-report draft, run `scripts/check-opponent-report <case-id> [round-id]`.

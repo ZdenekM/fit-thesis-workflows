@@ -26,7 +26,9 @@ pants run :omen
 
 Omen konfigurace je v `omen.toml`. Záměrně ignoruje `cases/`, `dist/`, cache a
 lokální virtuální prostředí, aby vývojářská analýza nikdy nelezla do soukromých
-case dat ani generovaných výstupů.
+case dat ani generovaných výstupů. Toto pravidlo platí pro repo-dev target
+`pants run :omen`; neznamená, že code-quality role nesmí cíleně spustit Omen
+nad připraveným studentským kódem uvnitř ignorovaného case workspace.
 
 ## Kdy spouštět
 

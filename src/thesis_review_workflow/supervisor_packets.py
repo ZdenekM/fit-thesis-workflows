@@ -131,7 +131,9 @@ PACKET_ROLES = (
         ),
         constraints=(
             "Separate implementation quality from thesis text-code mismatch.",
-            "Use Omen MCP as advisory static-analysis evidence when available, never as an operator prerequisite.",
+            "Use Omen advisory static-analysis evidence over prepared submitted-code roots when available; "
+            "treat MCP zero-file results on non-empty roots as a tool/path limitation, never as an "
+            "operator prerequisite.",
         ),
         activation="code",
     ),

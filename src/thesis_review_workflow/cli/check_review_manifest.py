@@ -28,6 +28,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_approvals import (
@@ -293,6 +294,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return {COVERAGE_REL.as_posix()}
     if name == "check-evaluation-claims":
         return {"work/quantitative_claims.json"}
+    if name == "check-literature-citation-review":
+        return {"outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL}
     if name == "check-opponent-report":
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
@@ -447,6 +450,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report"})
     if "outputs/figure_media_review.md" in paths:
         required.add("check-figure-media-review")
+    if "outputs/literature_citation_review.md" in paths:
+        required.add("check-literature-citation-review")
     if "outputs/typography_formal_review.md" in paths:
         required.add("check-typography-formal")
     if theses_similarity_evidence_present(round_dir):

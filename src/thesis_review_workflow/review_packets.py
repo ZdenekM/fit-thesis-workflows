@@ -825,11 +825,13 @@ def omen_advisory_section(round_dir: Path) -> str:
         [
             "## Omen Advisory Static Analysis",
             "",
-            "Omen MCP is useful for code-quality reviewer confidence but is not an operator prerequisite or a "
-            "standalone verdict.",
+            "Omen advisory analysis can support code-quality reviewer confidence over prepared submitted-code roots, "
+            "but it is not an operator prerequisite or a standalone verdict. Repo `pants run :omen` deliberately "
+            "ignores `cases/`; that privacy boundary does not forbid targeted case-local Omen CLI/MCP use.",
             status_list(round_dir, paths),
-            "If Omen was run, map its signals back to concrete code evidence and thesis defensibility before using "
-            "them.",
+            "If Omen MCP returns zero files for a non-empty prepared code root, treat it as a tool/path limitation. "
+            "If Omen was run, map its signals back to concrete code evidence and thesis defensibility before "
+            "using them.",
             "",
         ]
     )

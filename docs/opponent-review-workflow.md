@@ -117,6 +117,7 @@ Pro jádrové code/revision artefakty existují strukturální validátory:
 scripts/check-revision-diff <case-id> [round-id]
 scripts/check-code-consistency <case-id> [round-id]
 scripts/check-code-quality-review <case-id> [round-id]
+scripts/check-literature-citation-review <case-id> [round-id]
 scripts/check-evaluation-claims <case-id> [round-id]
 scripts/check-theses-similarity-report <case-id> [round-id]
 ```

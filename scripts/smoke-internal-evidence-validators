@@ -184,6 +184,142 @@ Reviewed by downstream synthesis for the findings used in opponent materials.
 - Confirm the exact metric source in the rendered PDF.
 EOF
 
+mkdir -p "$round_dir/extracted" "$round_dir/work/source" "$round_dir/work/literature"
+printf 'Claim [1] and background [2].\n' >"$round_dir/extracted/thesis.txt"
+printf '@article{source1}\n@article{source2}\n' >"$round_dir/work/source/refs.bib"
+printf 'Full text extract for selected source.\n' >"$round_dir/work/literature/source-1.txt"
+
+cat >"$round_dir/work/literature/source_acquisition.json" <<'EOF'
+{
+  "schema_version": "literature-source-acquisition-v1",
+  "case_id": "__CASE_ID__",
+  "round_id": "round-a",
+  "generated_at": "2026-05-18T12:00:00Z",
+  "producer_type": "agent",
+  "producer_role": "thesis_literature_citation_reviewer",
+  "producer_agent": "literature-smoke-agent",
+  "source_resolution_policy": "legal_public_sources_only",
+  "target_selection_policy": {
+    "selected_when": [
+      "central to a material claim",
+      "metadata mismatch or suspicious claim-source alignment"
+    ]
+  },
+  "source_refs": ["extracted/thesis.txt", "work/source/refs.bib"],
+  "citations": [
+    {
+      "citation_id": "ref-1",
+      "citation_label": "[1]",
+      "title_or_source": "Selected full-text source",
+      "selection_status": "selected",
+      "selection_reasons": ["central material claim"],
+      "thesis_refs": ["extracted/thesis.txt"],
+      "acquisition_status": "full_text_read",
+      "attempts": [
+        {
+          "source_type": "open_repository_pdf",
+          "locator": "https://example.test/source-1.pdf",
+          "status": "full_text_read"
+        }
+      ],
+      "local_source_refs": ["work/literature/source-1.txt"],
+      "source_evidence_refs": ["work/literature/source-1.txt"],
+      "claim_support_checked": [
+        {
+          "claim_ref": "extracted/thesis.txt",
+          "verdict": "supports"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "citation_id": "ref-2",
+      "citation_label": "[2]",
+      "title_or_source": "Background source",
+      "selection_status": "not_selected",
+      "selection_reasons": ["not material to contested or central claims"],
+      "thesis_refs": ["extracted/thesis.txt"],
+      "acquisition_status": "not_attempted_not_material",
+      "attempts": [],
+      "local_source_refs": [],
+      "source_evidence_refs": [],
+      "claim_support_checked": [],
+      "limitations": []
+    }
+  ],
+  "limitations": []
+}
+EOF
+python3 - "$round_dir" "$round_dir/work/literature/source_acquisition.json" "$case_id" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+round_dir = Path(sys.argv[1])
+path = Path(sys.argv[2])
+case_id = sys.argv[3]
+loaded = json.loads(path.read_text(encoding="utf-8").replace("__CASE_ID__", case_id))
+loaded["source_sha256"] = {
+    ref: hashlib.sha256((round_dir / ref).read_bytes()).hexdigest()
+    for ref in loaded["source_refs"]
+}
+path.write_text(json.dumps(loaded, indent=2) + "\n", encoding="utf-8")
+PY
+
+cat >"$round_dir/outputs/literature_citation_review.md" <<'EOF'
+# Literature And Citation Review
+
+## Review Scope
+
+Reviewed `extracted/thesis.txt`, `work/source/refs.bib`, and `work/literature/source_acquisition.json`. One citation was selected for targeted source lookup and one background citation was not selected as material.
+
+## Bibliography Source Map
+
+| Citation | Thesis location / claim supported | Source status | Notes |
+|---|---|---|---|
+| [1] | `extracted/thesis.txt` | full text read via `work/literature/source-1.txt` | Relevant source for material claim. |
+| [2] | `extracted/thesis.txt` | triaged, not selected for external lookup | Background only. |
+
+## Relevant And Well Used Sources
+
+- [FAKT] [1] supports the material claim checked against `work/literature/source-1.txt`.
+
+## Underused Or Weakly Connected Sources
+
+| Priority | Citation | Thesis claim or section | Evidence | Recommendation |
+|---|---|---|---|---|
+| P2 | [2] | background | `extracted/thesis.txt` | No reportable action. |
+
+## Missing Or Inaccessible Sources
+
+| Citation / area | Status | What is needed | Impact |
+|---|---|---|---|
+| none selected | no selected source was inaccessible | no action | low |
+
+## Candidate Literature Improvements
+
+Opponent mode: no new literature coaching is needed.
+
+## Synthesis Handoff
+
+- Workflow/audience: opponent_materials internal evidence.
+- Use in synthesis: cite `work/literature/source_acquisition.json` for targeted source acquisition.
+- Do not overstate: do not claim every bibliography item was full-text checked.
+- P0/P1 anchors: `work/literature/source-1.txt` and `extracted/thesis.txt`.
+- Limitations/manual checks: only selected key/suspicious citations were checked; verify more sources manually if a new contested claim appears.
+- Calibration: final internal evidence with targeted source acquisition, not exhaustive literature audit.
+- Supervisor action / opponent impact: no major literature action from this smoke fixture.
+
+## Review Status
+
+Reviewed by downstream synthesis for the findings used in opponent materials.
+
+## Manual Checks
+
+- None for this smoke fixture.
+EOF
+
 expect_success "code consistency validator" "$repo_root/scripts/check-code-consistency" "$case_id"
 expect_success "code consistency synthesis handoff validator" \
   "$repo_root/scripts/check-code-consistency" --require-synthesis-handoff "$case_id"
@@ -193,6 +329,9 @@ expect_success "code quality synthesis handoff validator" \
 expect_success "revision diff validator" "$repo_root/scripts/check-revision-diff" "$case_id"
 expect_success "revision diff synthesis handoff validator" \
   "$repo_root/scripts/check-revision-diff" --require-synthesis-handoff "$case_id"
+expect_success "literature citation validator" "$repo_root/scripts/check-literature-citation-review" "$case_id"
+expect_success "literature citation synthesis handoff validator" \
+  "$repo_root/scripts/check-literature-citation-review" --require-synthesis-handoff "$case_id"
 
 cat >"$round_dir/outputs/code_quality_review.md" <<'EOF'
 # Internal Code Quality Review

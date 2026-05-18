@@ -73,6 +73,11 @@ cases/<case-id>/rounds/<round-id>/
    - likely strengths,
    - risks that may affect grading.
 11. Run `thesis-figure-media-review` when thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds materially affect the opponent assessment. Leave reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; summarize only relevant findings and limitations in the materials.
+    If the role agent or helper fails to produce its expected output, stop the
+    opponent-materials pipeline before synthesis, report the failed role and
+    expected paths, and ask the operator whether to rerun/repair the role or
+    accept a blocked typed limitation. Do not silently replace the missing role
+    with a parent-generated limited substitute.
 12. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
     In code-backed opponent materials, also assess whether the implementation
     explanation is understandable without reading the source code line by line:
@@ -83,7 +88,18 @@ cases/<case-id>/rounds/<round-id>/
 13. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
 14. Run `thesis-typography-formal-review` when the thesis is in final submission state or formal presentation may affect report quality. Use it as pattern evidence; do not turn it into a long typo inventory.
 15. Run `thesis-theses-similarity-review` when an imported Theses.cz report is present. Keep no-concern or resolved matches internal; surface only reviewed unresolved/material concerns or manual checks, and do not expose raw report URLs/source internals.
-16. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care.
+16. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care. Distinguish an unsupported or overstated thesis claim from a serious defect in the work itself:
+   - if a claimed runtime path is implemented and has a plausible alternate
+     scene/profile/configuration, but the submitted default/build artifacts do
+     not prove it was used, present it as an evidence or reproducibility
+     uncertainty and a defense question, not as proof that the path was absent;
+   - if a broad phrase such as "large scale", "modular", "easily extensible",
+     "guaranteed", or "fully supported" is stronger than the evidence, surface
+     the wording overclaim only at the severity justified by its practical
+     impact;
+   - keep minor overclaims as presentation/claim-calibration notes unless they
+     affect assignment fulfillment, experimental conclusions, or a central
+     implementation promise.
 17. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
 18. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,

@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.agent_coverage import COVERAGE_REL, label_indicates_unsatisfied_role
 from thesis_review_workflow.markdown_utils import extract_table, section_body, section_text
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -664,6 +665,45 @@ def check_hygiene(text: str, errors: list[str]) -> None:
             errors.append("leftover angle-bracket placeholder/template text")
 
 
+def check_structured_pipeline_state(round_dir: Path, errors: list[str]) -> None:
+    coverage_path = round_dir / COVERAGE_REL
+    if not coverage_path.is_file():
+        return
+    try:
+        loaded = json.loads(coverage_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"{COVERAGE_REL.as_posix()}: invalid JSON: {exc.msg}")
+        return
+    if not isinstance(loaded, dict):
+        errors.append(f"{COVERAGE_REL.as_posix()}: must be a JSON object")
+        return
+    roles = loaded.get("roles")
+    if not isinstance(roles, list):
+        return
+    for role in roles:
+        if not isinstance(role, dict) or role.get("role") != "figure_media":
+            continue
+        status = str(role.get("status", "")).strip()
+        if status == "blocked":
+            errors.append(
+                "agent coverage records figure_media as blocked; rerun the role or keep it as a typed limitation "
+                "before relying on figure/media evidence"
+            )
+            return
+        labels = [
+            str(role.get("generator_role", "")),
+            str(role.get("generator_agent", "")),
+            str(role.get("reviewer_role", "")),
+            str(role.get("reviewer_agent", "")),
+        ]
+        if any(label_indicates_unsatisfied_role(label) for label in labels):
+            errors.append(
+                "agent coverage records a parent/fallback/limited figure_media generator or reviewer; "
+                "rerun the role or record a blocked typed limitation before relying on this evidence"
+            )
+        return
+
+
 def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[1] in {"-h", "--help"}:
         print(usage())
@@ -709,6 +749,7 @@ def main(argv: list[str]) -> int:
     check_previous_round_comparison(lines, case_dir, round_id, warnings)
     check_manual_checks(lines, warnings)
     check_hygiene(text, errors)
+    check_structured_pipeline_state(round_dir, errors)
 
     for warning in warnings:
         print(f"WARNING: {warning}", file=sys.stderr)

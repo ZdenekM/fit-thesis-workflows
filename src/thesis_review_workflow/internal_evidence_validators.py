@@ -210,9 +210,37 @@ REVISION_DIFF_PROFILE = ArtifactProfile(
     ),
 )
 
+LITERATURE_CITATION_PROFILE = ArtifactProfile(
+    key="literature_citation",
+    display_name="literature/citation review",
+    relative_path=Path("outputs/literature_citation_review.md"),
+    title_aliases=("Literature And Citation Review", "Literature Citation Review"),
+    required_sections=(
+        RequiredSection("review scope", ("Review Scope", "Rozsah kontroly"), require_anchor=True),
+        RequiredSection("bibliography source map", ("Bibliography Source Map", "Mapa zdroju")),
+        RequiredSection(
+            "relevant and well used sources",
+            ("Relevant And Well Used Sources", "Relevantni a dobre pouzite zdroje"),
+        ),
+        RequiredSection(
+            "underused or weakly connected sources",
+            ("Underused Or Weakly Connected Sources", "Slabe nebo malo vyuzite zdroje"),
+            require_anchor=True,
+        ),
+        RequiredSection(
+            "missing or inaccessible sources",
+            ("Missing Or Inaccessible Sources", "Chybejici nebo nedostupne zdroje"),
+        ),
+        RequiredSection("candidate literature improvements", ("Candidate Literature Improvements",)),
+        RequiredSection("review status", ("Review Status", "Stav revize"), require_status=True),
+        RequiredSection("manual checks", ("Manual Checks", "Rucni kontroly")),
+    ),
+)
+
 PROFILES = {
     CODE_CONSISTENCY_PROFILE.key: CODE_CONSISTENCY_PROFILE,
     CODE_QUALITY_PROFILE.key: CODE_QUALITY_PROFILE,
+    LITERATURE_CITATION_PROFILE.key: LITERATURE_CITATION_PROFILE,
     REVISION_DIFF_PROFILE.key: REVISION_DIFF_PROFILE,
 }
 

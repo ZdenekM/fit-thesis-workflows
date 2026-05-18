@@ -260,6 +260,8 @@ Nejběžnější výstupy jsou:
 - `outputs/github_code_intake.md` - interní evidence GitHub repo/PR importu,
 - `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
 - `outputs/code_quality_review.md` - interní code-quality/design review,
+- `work/literature/source_acquisition.json` - hashovaná cílená triáž a legální
+  dohledání klíčových/podezřelých citačních zdrojů,
 - `outputs/literature_citation_review.md` - interní kontrola literatury a citací,
 - `outputs/figure_media_review.md` - interní kontrola obrázků, tabulek,
   screenshotů, výsledkových grafů a jejich změn mezi revizemi,
@@ -293,6 +295,9 @@ Nejběžnější výstupy jsou:
   finálního review s hashem revidovaného artefaktu a review basis,
 - `work/review_run_trace.json` - case-private stopa round-start, role-plan,
   role-wave, synthesis, independent-review, operator-delta a closeout fází,
+- `work/operation_log.jsonl` - append-only provozní log nestandardních kroků,
+  blokovaných/selhaných rolí, ručních fallbacků, korekcí a kalibračních
+  rozhodnutí; slouží k rekonstrukci průběhu a není součástí manifest hash gate,
 - `work/review_role_plan.json` - plán povinných rolí, role states, packet refs,
   reuse projekcí, typed limitations a bounded wave schedule před spawnutím
   agentů,
@@ -531,6 +536,13 @@ limitation pro takovou akci patří do
 `trigger: materiality_next_action`, `scope`, `type`, `required_for`,
 `description`, `impact`, `status` a `accepted_by` nebo `reviewer_role`.
 
+`scripts/record-workflow-operation <case-id> [round-id] --operation ... --status ...`
+zapisuje stručnou událost do `work/operation_log.jsonl`. Používejte ho, když
+část pipeline selže, je přeskočena, je nahrazena ručním/fallback krokem, nebo
+když operátor kalibruje výklad nálezu. Log je záměrně oddělený od
+`work/review_manifest.json`, aby další diagnostický zápis nerozbíjel hashově
+uzavřený manifest. `case-doctor` ukazuje poslední události logu.
+
 `scripts/write-review-approval` zapisuje pouze pass/approved záznam po skutečné
 nezávislé kontrole. Pro kanonické profily vyplní správnou dvojici
 reviewed-artifact/review-basis a hash binding; neřeší obsahovou kontrolu místo
@@ -557,6 +569,7 @@ scripts/check-opponent-report <case-id>
 scripts/opponent-closeout <case-id>
 scripts/check-code-consistency <case-id>
 scripts/check-code-quality-review <case-id>
+scripts/check-literature-citation-review <case-id>
 scripts/check-revision-diff <case-id>
 scripts/check-typography-formal <case-id>
 scripts/check-theses-similarity-report <case-id>
@@ -620,6 +633,15 @@ Pro netriviální práci s kódem používejte Serena MCP jako výchozí symbolo
 navigaci, zejména u Pythonu. Pro jiné jazyky ji použijte tehdy, když má Serena
 dostupný language server pro konkrétní bezpečně scopovaný root. Podrobnosti jsou
 v `docs/serena-code-navigation.md`.
+
+Omen má dvě oddělené role. Repo target `pants run :omen` je vývojářská hygiena
+tohoto workflow repozitáře a záměrně neprochází `cases/`. Code-quality reviewer
+ale může použít Omen jako volitelný case-local advisory signál nad připraveným
+studentským rootem v `work/code/`. Pokud Omen MCP nad neprázdným rootem vrátí
+nula souborů/funkcí, zapište to jako MCP/path limitation, ne jako signál o
+kvalitě kódu. Když je dostupné CLI, preferujte spuštění z konkrétního
+připraveného rootu a výsledek uložte do `work/code_quality_omen.json` nebo
+`work/code_quality_omen.md`.
 
 `scripts/check-tooling <case-id> [round-id]` je read-only preflight pro lokální
 nástroje a konektory. Tvrdě selže jen na blokerech v aktuálním kontextu, např.

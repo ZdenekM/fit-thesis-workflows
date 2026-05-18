@@ -14,6 +14,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     ROUND_START_NEXT_COMMAND,
     ReviewRunTraceEvent,
     RoundMaterialDescriptor,
+    advisory_static_analysis_state,
     artifact_next_action_state,
     build_review_role_plan_payload,
     build_review_run_trace_payload,
@@ -805,7 +806,7 @@ def test_review_role_plan_does_not_skip_from_reuse_index_without_agent_coverage(
     assert "code_consistency" in scheduled_roles
 
 
-def test_review_role_plan_projects_existing_agent_coverage_block_without_scheduling(tmp_path: Path) -> None:
+def test_review_role_plan_does_not_treat_omen_unavailable_as_code_quality_role_block(tmp_path: Path) -> None:
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work").mkdir(parents=True)
     (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
@@ -826,7 +827,54 @@ def test_review_role_plan_projects_existing_agent_coverage_block_without_schedul
                         "typed_limitation": {
                             "role": "code_quality",
                             "type": "unavailable_tool",
+                            "tool": "omen",
                             "description": "Omen was unavailable in the operator environment.",
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["code_quality"]["state"] == "required_fresh"
+    scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
+    assert "code_quality" in scheduled_roles
+    assert payload["code_bearing_contract"]["status"] == "satisfied"
+
+
+def test_review_role_plan_requires_explicit_omen_tool_for_optional_tool_block(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (round_dir / "work" / "agent_coverage.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "updated_at": "2026-05-15T12:00:00Z",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "code_quality",
+                        "status": "blocked",
+                        "coverage_satisfied_by": "typed_limitation",
+                        "fresh_review_required": False,
+                        "typed_limitation": {
+                            "role": "code_quality",
+                            "type": "unavailable_tool",
+                            "description": "Omen appears in notes, but the blocker is missing submitted code evidence.",
                         },
                     }
                 ],
@@ -848,7 +896,55 @@ def test_review_role_plan_projects_existing_agent_coverage_block_without_schedul
     assert roles["code_quality"]["state"] == "blocked_with_typed_limitation"
     scheduled_roles = {role for wave in payload["wave_schedule"] for role in wave["roles"]}
     assert "code_quality" not in scheduled_roles
-    assert payload["code_bearing_contract"]["status"] == "satisfied"
+
+
+def test_advisory_static_analysis_state_reports_mcp_path_failure(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work" / "code").mkdir(parents=True)
+    (round_dir / "work" / "code_quality_omen.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "code-quality-omen-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-18T12:00:00Z",
+                "tool": "omen",
+                "status": "mcp_path_failure",
+                "reason": "MCP returned zero files for a non-empty prepared code root.",
+                "invocation": {
+                    "surface": "mcp",
+                    "command": ["mcp", "omen", "complexity", "work/code"],
+                    "analyzed_root": "work/code",
+                },
+                "summary": {"total_files": 0, "total_functions": 0},
+                "source_refs": ["work/code"],
+                "non_empty_root_evidence": ["work/code"],
+                "limitations": ["MCP path handling failed; use CLI or rerun from the prepared root."],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert advisory_static_analysis_state(round_dir) == {
+        "tool": "omen",
+        "state": "mcp_path_failure",
+        "reason": "MCP returned zero files for a non-empty prepared code root.",
+    }
+
+
+def test_advisory_static_analysis_state_accepts_legacy_cli_json(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "work" / "code_quality_omen.json").write_text(
+        json.dumps({"files": [{"path": "app.py"}], "summary": {"total_files": 1, "total_functions": 2}}) + "\n",
+        encoding="utf-8",
+    )
+
+    state = advisory_static_analysis_state(round_dir)
+
+    assert state["state"] == "available_with_findings"
+    assert "legacy Omen JSON" in state["reason"]
 
 
 def test_review_role_plan_blocks_code_archive_without_prepared_code_workspace(tmp_path: Path) -> None:

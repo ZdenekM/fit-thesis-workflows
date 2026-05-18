@@ -32,6 +32,7 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
     (round_dir / "extracted").mkdir(parents=True)
     (round_dir / "extracted" / "thesis.txt").write_text("Thesis text.\n", encoding="utf-8")
+    (round_dir / "work" / "code").mkdir(parents=True)
     write_json(
         round_dir / "work" / "assignment_coverage_agent.json",
         {
@@ -83,6 +84,27 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
             "matched_passages": [],
         },
     )
+    write_json(
+        round_dir / "work" / "code_quality_omen.json",
+        {
+            "schema_version": "code-quality-omen-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-18T12:00:00Z",
+            "tool": "omen",
+            "status": "available_with_findings",
+            "reason": "Synthetic Omen advisory evidence.",
+            "invocation": {
+                "surface": "cli",
+                "command": ["omen", "-p", ".", "-f", "json", "complexity"],
+                "analyzed_root": "work/code",
+            },
+            "summary": {"total_files": 1, "total_functions": 1},
+            "source_refs": ["work/code"],
+            "non_empty_root_evidence": ["work/code"],
+            "limitations": [],
+        },
+    )
     packet = round_dir / "work" / "opponent_packets" / "synthesis.md"
     packet.parent.mkdir(parents=True, exist_ok=True)
     packet.write_text("# Packet\n", encoding="utf-8")
@@ -102,6 +124,7 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     assert by_path["work/assignment_coverage_agent.json"]["artifact_sha256"]
     assert by_path["work/theses_similarity/intake.json"]["schema_version"] == "theses-similarity-intake-v1"
     assert by_path["work/theses_similarity/intake.json"]["producer_role"] == "import-theses-report"
+    assert by_path["work/code_quality_omen.json"]["kind"] == "structured_data"
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
     assert by_path["work/supervisor_report_packets/trace.md"]["kind"] == "text"

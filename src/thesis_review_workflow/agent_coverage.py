@@ -47,6 +47,15 @@ LIMITATION_TYPES = {
     "upstream_or_external_scope",
 }
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+UNSATISFIED_ROLE_LABEL_TOKENS = (
+    "parent",
+    "fallback",
+    "limited",
+    "failed",
+    "failure",
+    "nooutput",
+    "missingoutput",
+)
 
 FINAL_OUTPUTS = final_output_paths()
 OPPONENT_FINAL_OUTPUTS = opponent_final_output_paths()
@@ -68,6 +77,17 @@ MEDIA_SUFFIXES = {
     ".key",
     ".ipynb",
 }
+
+
+def is_optional_omen_limitation(role: str, limitation: dict[str, Any]) -> bool:
+    if role != "code_quality":
+        return False
+    if str(limitation.get("type", "")).strip() != "unavailable_tool":
+        return False
+    tool = str(limitation.get("tool", "")).strip().lower()
+    return tool == "omen"
+
+
 ARCHIVE_SUFFIXES = {
     ".zip",
     ".tar",
@@ -634,6 +654,11 @@ def role_label_matches(value: str, spec: RoleSpec) -> bool:
     return any(candidate and candidate in normalized for candidate in candidates)
 
 
+def label_indicates_unsatisfied_role(value: str) -> bool:
+    normalized = normalized_token(value)
+    return any(token in normalized for token in UNSATISFIED_ROLE_LABEL_TOKENS)
+
+
 def review_fields(
     artifact: dict[str, Any] | None,
     artifacts: dict[str, dict[str, Any]],
@@ -1020,6 +1045,11 @@ def validate_coverage(
                 limitation_type = str(limitation.get("type", "")).strip()
                 if limitation_type not in LIMITATION_TYPES:
                     errors.append(f"{role}: typed_limitation.type must be one of {', '.join(sorted(LIMITATION_TYPES))}")
+                if is_optional_omen_limitation(role, limitation):
+                    errors.append(
+                        f"{role}: Omen is optional advisory evidence and cannot be the typed limitation "
+                        "that blocks the code-quality role"
+                    )
                 if not str(limitation.get("description", "")).strip():
                     errors.append(f"{role}: blocked role requires typed_limitation.description")
                 if limitation.get("role") not in {"", None, role}:
@@ -1065,6 +1095,13 @@ def validate_coverage(
         if not artifact:
             errors.append(f"{role}: evidence artifact is not recorded in review manifest: {spec.evidence_path}")
             continue
+        record_coverage_mode: CoverageSatisfiedBy | None = None
+        record_coverage_value = record.get("coverage_satisfied_by")
+        if isinstance(record_coverage_value, str):
+            try:
+                record_coverage_mode = CoverageSatisfiedBy(record_coverage_value)
+            except ValueError:
+                record_coverage_mode = None
         skills = artifact.get("skills")
         if isinstance(skills, list) and spec.skill not in skills:
             errors.append(f"{role}: manifest artifact {spec.evidence_path} does not record skill {spec.skill}")
@@ -1077,6 +1114,16 @@ def validate_coverage(
         if spec.coverage_kind == "generator" and generator_role not in {"", "not_recorded"}:
             if not role_label_matches(generator_role, spec):
                 errors.append(f"{role}: generator_role does not match expected role/skill {spec.skill}")
+        if (
+            status == "required"
+            and record_coverage_mode == CoverageSatisfiedBy.FRESH_ROLE_REVIEW
+            and spec.coverage_kind == "generator"
+            and (label_indicates_unsatisfied_role(generator_role) or label_indicates_unsatisfied_role(generator_agent))
+        ):
+            errors.append(
+                f"{role}: required fresh role coverage cannot be satisfied by a parent/fallback/limited "
+                "generator; rerun the role or mark it blocked with a typed limitation before synthesis"
+            )
 
         current_hash = artifact.get("artifact_sha256")
         evidence_file = round_dir / spec.evidence_path
@@ -1108,6 +1155,13 @@ def validate_coverage(
                 errors.append(f"{role}: review role must record reviewed_hash")
             if reviewer_role not in {"", "not_recorded"} and not role_label_matches(reviewer_role, spec):
                 errors.append(f"{role}: reviewer_role does not match expected role/skill {spec.skill}")
+            if record_coverage_mode == CoverageSatisfiedBy.FRESH_ROLE_REVIEW and (
+                label_indicates_unsatisfied_role(reviewer_role) or label_indicates_unsatisfied_role(reviewer_agent)
+            ):
+                errors.append(
+                    f"{role}: required review coverage cannot be satisfied by a parent/fallback/limited "
+                    "reviewer; rerun the review role or mark it blocked with a typed limitation before closeout"
+                )
 
     for role in sorted(set(records) - set(specs)):
         status = records[role].get("status")

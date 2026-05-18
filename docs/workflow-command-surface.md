@@ -75,6 +75,13 @@ refreshes the manifest again so the trace hash is not stale. For
 command delegates profile-specific checks to `supervisor-report-closeout` or
 `opponent-closeout` while preserving the shared role-plan and trace boundary.
 
+`record-workflow-operation` is the lightweight reconstruction surface for case
+work. It appends JSONL events to `work/operation_log.jsonl` when a role fails,
+is blocked, is skipped, gets a manual fallback, or receives an operator
+calibration decision. This log is deliberately separate from
+`work/review_manifest.json` hash gating so diagnostic notes do not make a closed
+manifest stale.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a
@@ -131,7 +138,9 @@ Windows runtime proof.
 `pants run :vulture`, `pants run :jscpd`, and `pants run :omen` are developer
 hygiene signals. They help maintain the repository as it grows, but they are not
 case-pipeline gates and must not be required for normal supervisor or opponent
-workflow execution.
+workflow execution. The repo Omen target intentionally ignores `cases/`; a
+code-quality reviewer may still run targeted Omen advisory analysis inside an
+ignored prepared case workspace and record it as case-local evidence.
 
 ## Windows Evidence Boundary
 

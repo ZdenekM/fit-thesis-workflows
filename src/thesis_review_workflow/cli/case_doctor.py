@@ -48,6 +48,7 @@ from thesis_review_workflow.commands import command_display, repo_command_enviro
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.ids import validate_id as validate_id_core
 from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -581,6 +582,22 @@ def main(argv: list[str]) -> int:
         gates.append(
             run_gate(root, "opponent report trace/draft", ["scripts/check-opponent-report", args.case_id, round_id])
         )
+    if (round_dir / "outputs" / "code_consistency.md").is_file():
+        gates.append(run_gate(root, "code consistency", ["scripts/check-code-consistency", args.case_id, round_id]))
+    if (round_dir / "outputs" / "code_quality_review.md").is_file():
+        gates.append(
+            run_gate(root, "code quality review", ["scripts/check-code-quality-review", args.case_id, round_id])
+        )
+    if (round_dir / "work" / "quantitative_claims.json").is_file():
+        gates.append(run_gate(root, "quantitative claims", ["scripts/check-evaluation-claims", args.case_id, round_id]))
+    if (round_dir / "outputs" / "literature_citation_review.md").is_file():
+        gates.append(
+            run_gate(
+                root,
+                "literature/citation review",
+                ["scripts/check-literature-citation-review", args.case_id, round_id],
+            )
+        )
     if (round_dir / "outputs" / "figure_media_review.md").is_file():
         gates.append(
             run_gate(root, "figure/media review", ["scripts/check-figure-media-review", args.case_id, round_id])
@@ -708,6 +725,11 @@ def main(argv: list[str]) -> int:
     output_section("Generated Outputs", output_lines + manifest_lines)
 
     output_section("Agent Role Coverage", agent_coverage_summary(round_dir, issues))
+
+    output_section(
+        "Operation Log",
+        operation_log_summary_lines(round_dir, case_id=args.case_id, round_id=round_id),
+    )
 
     issue_lines = [f"- {issue.severity}: {issue.message}" for issue in issues]
     output_section(

@@ -42,25 +42,28 @@ for example `work/literature/`.
 
 1. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
 2. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, or a standalone operator check. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]` unless fresh output from that command is already in context. For opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
-3. Start from role packets, current-evidence snapshots, reuse-index decisions, and existing literature/citation evidence when present. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Open full source PDFs or broad thesis/source files only for cited claims, missing anchors, contradictions, source-support checks, or reviewer challenges. Keep a source map from citation key or title to thesis locations and claims it appears to support.
-4. Resolve sources using legal/public metadata and PDFs where available. Prefer DOI, arXiv, publisher pages, project pages, open repositories, and user-provided PDFs. Do not bypass paywalls or imply access to unavailable sources.
-5. For PDFs, use `pdftotext` extracts as the default evidence. Use `pdf-reader-mcp` only for targeted metadata, page ranges, page counts, figures/tables, equations, or layout-sensitive checks; if unavailable, record the limitation.
-6. Classify each important citation:
+3. Start from role packets, current-evidence snapshots, reuse-index decisions, and existing literature/citation evidence when present. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Keep a source map from citation key or title to thesis locations and claims it appears to support.
+4. Triage citations before external lookup. Select only key or suspicious items: sources central to the assignment, thesis method, thesis conclusions, or report-grade claims; citations with metadata/title-claim mismatch; sources used for contested quantitative or state-of-the-art claims; and thin or inaccessible entries that materially affect a finding. Do not attempt to download every bibliography item by default.
+5. For the selected items, resolve sources using legal/public metadata and PDFs where available. Use available web/search/download tooling for this step when the environment permits it; if network or tooling is unavailable, record that as a blocked acquisition limitation for the selected citation. Prefer DOI, arXiv, publisher pages, project pages, open repositories, and user-provided PDFs. Do not bypass paywalls or imply access to unavailable sources.
+6. Record the triage and source-resolution evidence in `work/literature/source_acquisition.json` using schema version `literature-source-acquisition-v1`. The artifact must include `source_refs` and matching `source_sha256` hashes for the thesis/bibliography inputs used for triage. Each citation record must state whether it was selected, why, thesis refs, source attempts, acquisition status, cached local refs under `work/literature/` when a PDF/full text was read, and what claim support was checked. If no citation is selected, record `no_selected_sources_rationale`; a blanket "no local PDFs were available" limitation is not enough.
+7. For PDFs, use `pdftotext` extracts as the default evidence. Use `pdf-reader-mcp` only for targeted metadata, page ranges, page counts, figures/tables, equations, or layout-sensitive checks; if unavailable, record the limitation.
+8. Classify each important citation:
    - relevant and used appropriately,
    - relevant but underused or weakly connected to the thesis claim,
    - only partially relevant,
    - bibliographic/metadata issue,
    - inaccessible or not verifiable from current inputs,
    - potentially missing literature area.
-7. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
-8. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
-9. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
+9. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
+10. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
+11. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
 
 ## Evidence Rules
 
 - Important negative claims must cite thesis location plus source evidence or missing-source evidence.
 - Do not claim to have read a source when only metadata or an abstract was available.
 - Do not equate inaccessible with irrelevant.
+- Do not leave source acquisition as manual work for selected key/suspicious citations unless access is blocked, the operator disables external lookup, or the limitation is explicitly recorded in `work/literature/source_acquisition.json`.
 - Do not treat literature freshness as a problem unless the field, assignment, or thesis claim makes it material.
 - When recommending new literature in supervisor mode, explain the thesis gap it would address.
 - When summarizing into student-facing feedback, include only phase-appropriate action items and avoid exposing internal download/cache paths.
@@ -77,6 +80,7 @@ source refs, checks, limitations, and downstream synthesis use. Then run
 `scripts/init-review-manifest --run-checks <case-id> [round-id]` and record
 whether the artifact is standalone final evidence or only covered by a
 downstream synthesis review. Before relying on it, run
+`scripts/check-literature-citation-review <case-id> [round-id]` and
 `scripts/check-review-manifest --require-complete <case-id> [round-id]`.
 
 ## Agent Final Response Contract
@@ -115,6 +119,10 @@ Write `outputs/literature_citation_review.md`:
 # Literature And Citation Review
 
 ## Review Scope
+
+Mention `work/literature/source_acquisition.json`, including how many
+citations were selected for targeted lookup and whether any selected source was
+blocked by paywall, absence, or operator-disabled external lookup.
 
 ## Bibliography Source Map
 

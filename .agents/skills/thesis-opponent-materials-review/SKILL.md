@@ -38,6 +38,12 @@ If both draft and output files exist, review the draft unless the user explicitl
 5. Re-check all P0/P1 risks and grade-impacting statements through `work/context/claim_review_basis.json`, the draft review basis, role handoffs, and current standalone evidence first. Open thesis, submitted PDF text, code, README, results, assignment, or notes only when the basis is missing, stale, contradicted, grade-impacting, challenged, or not specific enough to support the materials. Treat the submitted PDF as the rendered-text evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them during review unless the user explicitly asked for build diagnostics. Treat page/layout and visual-content claims as valid only when a concrete PDF detail, vision, or PDF-linked source-asset check was performed.
 6. Ensure confidence labels are accurate: `[FAKT]`, `[INTERPRETACE]`, `[ODHAD]`, `[NEOVERENO]`, `[K RUCNI KONTROLE]`.
 7. Remove or soften unsupported claims, especially around functionality, novelty, plagiarism, and grade impact.
+   When reviewing softened claims, preserve the distinction between "not
+   directly evidenced by the submitted default artifact" and "contradicted or
+   non-functional." If an alternate submitted configuration plausibly supports
+   the claim, keep the issue as a manual-check/reproducibility uncertainty.
+   Likewise, calibrate broad-wording overclaims by practical impact instead of
+   automatically promoting them to major findings.
 8. Verify that assignment fulfillment is assessed point by point.
 9. Use `docs/fit-is-rubric.md` and distinguish thesis quality, report quality, realization quality, reproducibility, and unverifiability.
 10. Check that code-quality/design findings are separated from text-code mismatch findings and cite concrete implementation evidence.

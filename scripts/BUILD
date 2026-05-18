@@ -14,6 +14,7 @@ shell_sources(
         "check-feedback-language",
         "check-feedback-output",
         "check-figure-media-review",
+        "check-literature-citation-review",
         "check-opponent-calibration-case",
         "check-opponent-calibration-profile",
         "check-opponent-materials",
@@ -53,6 +54,7 @@ shell_sources(
         "record-report-amendment",
         "record-review-delta",
         "record-submitted-supervisor-report",
+        "record-workflow-operation",
         "register-review-artifact",
         "review-round-closeout",
         "review-round-start",
@@ -136,6 +138,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_feedback_language",
     "src/thesis_review_workflow/cli:check_feedback_output",
     "src/thesis_review_workflow/cli:check_figure_media_review",
+    "src/thesis_review_workflow/cli:check_literature_citation_review",
     "src/thesis_review_workflow/cli:check_opponent_calibration_case",
     "src/thesis_review_workflow/cli:check_opponent_calibration_profile",
     "src/thesis_review_workflow/cli:check_opponent_materials",
@@ -174,6 +177,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_report_amendment",
     "src/thesis_review_workflow/cli:record_review_delta",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
+    "src/thesis_review_workflow/cli:record_workflow_operation",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:review_round_closeout",
     "src/thesis_review_workflow/cli:review_round_start",
@@ -311,6 +315,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-figure-media-review",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_literature_citation_review_tool",
+    entry_point="thesis_review_workflow.cli.check_literature_citation_review:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-literature-citation-review",
     tags=["workflow-tool"],
 )
 
@@ -691,6 +705,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/record-submitted-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_workflow_operation_tool",
+    entry_point="thesis_review_workflow.cli.record_workflow_operation:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-workflow-operation",
     tags=["workflow-tool"],
 )
 

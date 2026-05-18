@@ -60,6 +60,17 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 - Cite thesis location and code path together for mismatches.
 - Do not claim page/layout evidence unless `pdf-reader-mcp` or another concrete PDF-detail check was used; otherwise cite text-extract evidence.
 - Do not treat "not checked" as "not working".
+- When the submitted artifacts contain both a default/build configuration and
+  another plausible configuration that enables a claimed behavior, distinguish
+  them explicitly. Treat the claim as a reproducibility/configuration
+  uncertainty unless the text specifically claims the submitted default build
+  used that path or the alternate configuration is impossible.
+- Calibrate broad thesis words such as "large scale", "modular", "easily
+  extensible", "guaranteed", or "fully supported" against the practical claim
+  they affect. If the implementation partially supports the idea but not the
+  strongest wording, classify it as an overclaim or wording-precision issue
+  rather than a major implementation defect unless it materially changes
+  assignment fulfillment, experimental conclusions, or runtime evidence.
 - Do not focus on style or broad design quality unless it affects reproducibility, licensing, or alignment with an explicit thesis claim. Route broader implementation-quality findings to `thesis-code-quality-review`.
 - If dependencies or data are missing, state that limitation and perform static review.
 - If GitHub PR comments, reviews, CI, head/base refs, or checkout evidence are unavailable, state the limitation instead of inferring contribution quality.
