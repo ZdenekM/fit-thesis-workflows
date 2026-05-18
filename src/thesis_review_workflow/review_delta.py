@@ -335,7 +335,15 @@ def review_delta_closeout_errors(
     profile_id: str,
 ) -> list[str]:
     errors: list[str] = []
-    for rel_path, payload in load_review_delta_records(round_dir):
+    records = load_review_delta_records(round_dir)
+    errors.extend(
+        missing_post_review_delta_errors(
+            round_dir,
+            profile_id=profile_id,
+            records=[payload for _, payload in records],
+        )
+    )
+    for rel_path, payload in records:
         if isinstance(payload.get("profile_id"), str) and payload.get("profile_id") != profile_id:
             continue
         record_errors = validate_review_delta_record(
@@ -352,6 +360,46 @@ def review_delta_closeout_errors(
         if payload.get("independent_review_reopened") is True and not current_approval_after_delta(round_dir, payload):
             errors.append(f"{rel_path}: {payload.get('next_action')}")
     return errors
+
+
+def missing_post_review_delta_errors(
+    round_dir: Path,
+    *,
+    profile_id: str,
+    records: list[dict[str, Any]],
+) -> list[str]:
+    try:
+        profile = get_workflow_review_profile(profile_id)
+    except ValueError:
+        return []
+    final_path = round_dir / profile.final_artifact
+    approval_path = round_dir / profile.approval_record
+    if not final_path.is_file() or not approval_path.is_file():
+        return []
+    try:
+        approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(approval, dict):
+        return []
+    current_hash = sha256_file(final_path)
+    if approval.get("reviewed_artifact_path") != profile.final_artifact:
+        return []
+    if approval.get("reviewed_artifact_sha256") == current_hash:
+        return []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("profile_id") != profile.profile_id:
+            continue
+        if record.get("current_artifact_path") != profile.final_artifact:
+            continue
+        if record.get("current_artifact_sha256") == current_hash:
+            return []
+    return [
+        f"{profile.final_artifact}: post-review artifact hash differs from {profile.approval_record}; "
+        f"record the edit with `record-review-delta --profile {profile.profile_id}` or rerun the independent review"
+    ]
 
 
 def load_review_delta_records(round_dir: Path) -> list[tuple[str, dict[str, Any]]]:

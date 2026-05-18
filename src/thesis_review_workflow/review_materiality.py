@@ -132,6 +132,7 @@ SYNTHESIS_ARTIFACT_BY_WORKFLOW = {
     "opponent_review": "outputs/oponent_podklady_revidovane.md",
 }
 REVIEWED_MANIFEST_STATUSES = {"reviewed", "reviewed_with_notes"}
+SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS = {"supervisor_report", "opponent_review"}
 
 ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:")
 
@@ -765,7 +766,7 @@ def _theses_similarity_resolution_errors(round_dir: Path, *, workflow_profile: s
             ]
         return [
             f"{THESES_SIMILARITY_ASSESSMENT_REL} records no material concern but is not covered by "
-            "the current reviewed supervisor-report synthesis with the silent internal-evidence marker."
+            "the current reviewed synthesis with the silent internal-evidence marker."
         ]
     return [
         f"missing {THESES_SIMILARITY_ASSESSMENT_REL} or {THESES_SIMILARITY_REVIEW_REL} for imported "
@@ -1146,7 +1147,7 @@ def _theses_similarity_assessment_is_silent_no_concern(payload: dict[str, Any]) 
 
 
 def _theses_similarity_silent_internal_evidence_satisfied(round_dir: Path, *, workflow_profile: str) -> bool:
-    if workflow_profile != "supervisor_report":
+    if workflow_profile not in SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS:
         return False
     assessment, errors = _load_current_theses_similarity_assessment(round_dir)
     if assessment is None or errors:

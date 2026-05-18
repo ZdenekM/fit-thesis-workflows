@@ -21,6 +21,9 @@ REVIEW_APPROVAL_SCHEMA = "review-approval-v1"
 APPROVED_VERDICTS = {"approved", "pass"}
 REVIEW_APPROVAL_GLOB = "work/reviews/*_review.json"
 FINAL_REVIEW_SCOPES = {"sendable_final", "standalone_final"}
+OBSERVED_ONLY_REQUIRED_CHECKS = {
+    "check-review-wave.opponent-report.draft",
+}
 
 
 @dataclass(frozen=True)
@@ -74,7 +77,11 @@ APPROVAL_PROFILES = {
             "work/muj_posudek_draft.md",
         ),
         reviewer_role="thesis-opponent-report-review",
-        required_checks=("check-opponent-report:canonical", "check-opponent-report:clean"),
+        required_checks=(
+            "check-opponent-report:canonical",
+            "check-opponent-report:clean",
+            "check-review-wave.opponent-report.draft",
+        ),
     ),
     "theses-similarity-review": ReviewApprovalProfile(
         profile="theses-similarity-review",
@@ -143,7 +150,8 @@ def validate_required_checks(
     missing = sorted(set(required_checks) - set(checks_observed))
     for check in missing:
         errors.append(f"{rel_path}: missing required observed check: {check}")
-    if required_checks and not manifest:
+    helper_required_checks = tuple(check for check in required_checks if check not in OBSERVED_ONLY_REQUIRED_CHECKS)
+    if helper_required_checks and not manifest:
         errors.append(f"{rel_path}: review manifest is required to verify required observed checks")
         return errors
     if manifest is None:
@@ -155,7 +163,7 @@ def validate_required_checks(
         if not isinstance(item, dict):
             continue
         name = item.get("check")
-        if name not in required_checks:
+        if name not in helper_required_checks:
             continue
         if item.get("status") != "passed":
             errors.append(f"{rel_path}: helper check {name} must be passed before approval")
@@ -188,7 +196,7 @@ def validate_required_checks(
                 elif recorded != sha256_file(target_file):
                     errors.append(f"{rel_path}: helper check {name} target hash is stale for {target_path}")
     seen = {item.get("check") for item in helper_checks if isinstance(item, dict)}
-    for check in sorted(set(required_checks) - {item for item in seen if isinstance(item, str)}):
+    for check in sorted(set(helper_required_checks) - {item for item in seen if isinstance(item, str)}):
         errors.append(f"{rel_path}: missing manifest helper check record: {check}")
     return errors
 
@@ -234,6 +242,9 @@ def reviewer_matches_generator(
             return False
         for record in generated:
             if not isinstance(record, dict):
+                continue
+            contribution = str(record.get("contribution", "")).strip().lower()
+            if contribution not in {"", "generation", "draft_generation", "initial_synthesis"}:
                 continue
             generator_agent = str(record.get("agent", "")).strip()
             if (

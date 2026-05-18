@@ -642,4 +642,8 @@ def materiality_profile_for_wave(spec: WaveSpec) -> str | None:
         return "supervisor_report"
     if workflow == "opponent_materials" and wave in {"draft", "reviewed"}:
         return "opponent_review"
+    if workflow == "opponent_report" and wave == "draft":
+        return "opponent_review"
+    if workflow == "opponent_report_review" and wave == "final":
+        return "opponent_review"
     return None

@@ -98,7 +98,10 @@ role needs from chat. Role states mean:
 workflow-profile commands. They use values such as `supervisor_feedback`,
 `supervisor_report`, `opponent_materials`, and `opponent_report_review`; those
 are not Codex agent profiles from `.codex/agents/` or
-`docs/agent-profile-matrix.md`.
+`docs/agent-profile-matrix.md`. Closeout is profile-bound: if trace or role-plan
+state was produced for an earlier profile, rerun `review-round-start --profile
+...` and `prepare-review-round --profile ...` for the current profile before
+trying to close the round.
 
 The main session should inventory available `inputs/`, `extracted/`, `notes/`,
 `work/`, and `outputs/` paths, but should not treat that inventory as permission

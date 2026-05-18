@@ -397,20 +397,32 @@ The intended final path for an opponent report is:
 
 ### Slice 3 - Manifest, Coverage, And Approval Closeout Plumbing
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `fix(workflow): close out clean opponent report reviews`
 - Expected paths:
+  - `.agents/skills/thesis-opponent-report-review/SKILL.md`
+  - `docs/agent-profile-matrix.md`
+  - `docs/agent-scheduling.md`
+  - `docs/opponent-review-workflow.md`
+  - `docs/workflow-command-surface.md`
+  - `scripts/smoke-agent-coverage`
+  - `scripts/smoke-review-manifest`
+  - `scripts/smoke-review-round-closeout`
   - `src/thesis_review_workflow/cli/init_review_manifest.py`
-  - `src/thesis_review_workflow/cli/check_review_manifest.py`
+  - `src/thesis_review_workflow/cli/prepare_review_round.py`
+  - `src/thesis_review_workflow/cli/review_round_closeout.py`
+  - `src/thesis_review_workflow/review_approvals.py`
+  - `src/thesis_review_workflow/review_delta.py`
   - `src/thesis_review_workflow/review_manifest.py`
-  - `src/thesis_review_workflow/agent_coverage.py`
-  - `src/thesis_review_workflow/opponent_calibration.py`
-  - `src/thesis_review_workflow/review_profiles.py`
+  - `src/thesis_review_workflow/review_materiality.py`
+  - `src/thesis_review_workflow/review_pipeline_orchestration.py`
   - `src/thesis_review_workflow/review_wave_gate.py`
-  - `src/thesis_review_workflow/artifact_registry.py`
+  - `tests/test_review_approvals.py`
+  - `tests/test_review_delta.py`
   - `tests/test_review_manifest_helpers.py`
-  - `tests/test_agent_coverage.py`
-  - `tests/test_opponent_calibration.py`
+  - `tests/test_review_materiality.py`
+  - `tests/test_review_pipeline_orchestration.py`
+  - `tests/test_review_round_closeout.py`
   - `tests/test_review_wave_gate.py`
 - Tasks:
   - Record `outputs/oponent_posudek_navrh.md` as a draft/review-basis artifact
@@ -457,7 +469,11 @@ The intended final path for an opponent report is:
   - `pants fmt src/thesis_review_workflow:: tests::`
   - `pants lint src/thesis_review_workflow:: tests::`
   - `pants check src/thesis_review_workflow:: tests::`
-  - `pants test tests/test_review_manifest_helpers.py tests/test_agent_coverage.py tests/test_opponent_calibration.py tests/test_review_wave_gate.py`
+  - `pants test tests/test_review_manifest_helpers.py tests/test_agent_coverage.py tests/test_opponent_calibration.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py tests/test_review_approvals.py tests/test_review_delta.py tests/test_review_round_closeout.py tests/test_review_materiality.py tests/test_workflow_python_contracts.py`
+  - `scripts/smoke-review-manifest`
+  - `scripts/smoke-agent-coverage`
+  - `scripts/smoke-review-wave`
+  - `scripts/smoke-review-round-closeout`
   - `scripts/check-scripts`
   - `scripts/check-private`
   - `git diff --check`
@@ -741,6 +757,28 @@ The intended final path for an opponent report is:
   `scripts/check-scripts`, `git diff --check`, and `pants run :omen`. Omen CLI
   reported grade A / overall score 91.02; remaining hotspot output is treated
   as advisory repo-baseline signal, not a Slice 2 blocker.
+- 2026-05-18: Slice 3 intake started from clean commit `244939e`; current
+  search shows Slice 1 already introduced first-class
+  `outputs/oponent_posudek_navrh.md`, mode-specific helper-check names, and
+  clean proposal review-basis candidates across artifact registry, review
+  approvals, review profiles, wave gate, manifest, and smoke fixtures. Slice 3
+  will verify which closeout/recovery/stale-reference items remain before
+  patching.
+- 2026-05-18: Slice 3 implementation patched opponent-report-review approval
+  import metadata, profile-transition preflight, stale supporting-work and
+  handoff pruning, not-material packet statuses, materiality mapping for
+  opponent report waves, post-review delta stale-approval detection, and
+  docs/skill guidance for recording the draft-wave check. Two post-change
+  reviewer agents found circular final-wave approval recording and silent
+  Theses.cz opponent-review gaps; both were fixed before final hygiene.
+- 2026-05-18: Slice 3 verification passed: `pants fmt`, `pants lint`, `pants
+  check`, targeted Pants tests for manifest/coverage/calibration/wave/profile
+  orchestration/approvals/deltas/materiality/workflow contracts,
+  `scripts/smoke-review-manifest`, `scripts/smoke-agent-coverage`,
+  `scripts/smoke-review-wave`, `scripts/smoke-review-round-closeout`,
+  `scripts/check-scripts`, `scripts/check-private`, `git diff --check`, and
+  `pants run :omen`. Omen CLI reported grade A / overall score 90.60; hotspot
+  output remains advisory repo-baseline signal, not a Slice 3 blocker.
 
 ## Decision Log
 

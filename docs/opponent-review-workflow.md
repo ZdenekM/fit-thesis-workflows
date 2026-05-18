@@ -158,6 +158,12 @@ artefaktu, hash review basis, pozorované kontroly a omezení. `init-review-mani
 ho automaticky sesbírá jako supporting work artefakt a propíše aktuální review
 metadata do manifestu; pozdější úprava revidovaného artefaktu nebo review basis
 pak spadne jako stale hash.
+Pro `opponent_report_review` musí observed checks obsahovat
+`check-opponent-report:canonical`, `check-opponent-report:clean` a
+`check-review-wave.opponent-report.draft`; finální
+`check-review-wave --workflow opponent_report_review --wave final` běží až nad
+hotovým approval recordem, takže se do approval recordu nezapisuje jako jeho
+vstupní podmínka.
 
 Approval record se neuzavírá ruční opravou hashe. Po materiální úpravě znovu
 spusťte review nebo zapište explicitní typovanou výjimku a omezení.
@@ -223,13 +229,23 @@ agenti mají číst clean návrh jako primární text.
 Finální oponentský gate:
 
 ```bash
+scripts/review-round-start --profile opponent_report_review <case-id> [round-id]
+scripts/prepare-review-round --profile opponent_report_review <case-id> [round-id]
+scripts/check-review-wave --workflow opponent_report --wave draft <case-id> [round-id]
+scripts/check-review-wave --workflow opponent_report_review --wave final <case-id> [round-id]
+scripts/review-round-closeout --profile opponent_report_review <case-id> [round-id]
+
 scripts/review-round-closeout --profile opponent_materials <case-id> [round-id]
 scripts/opponent-closeout <case-id> [round-id]
 ```
 
 `review-round-closeout` je shared closeout: ověří role plan, manifest, coverage,
-approval records, unresolved `work/review_deltas/*.json` a profile gate. Pro
-oponentské materiály potom deleguje profilové kontroly do `opponent-closeout`,
+approval records, unresolved `work/review_deltas/*.json` a profile gate. Před
+změnou manifestu kontroluje, že `work/review_run_trace.json` a
+`work/review_role_plan.json` patří ke stejnému profilu; při přechodu z
+`opponent_materials` na `opponent_report_review` je proto potřeba spustit
+profilový start a prepare krok znovu. Pro oponentské materiály potom deleguje
+profilové kontroly do `opponent-closeout`,
 který znovu projde revidované podklady, report trace, případný report draft,
 manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
 

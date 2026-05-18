@@ -99,7 +99,10 @@ def infer_profile_from_trace(round_dir: Path) -> str | None:
 def packet_command_args(args: argparse.Namespace, *, profile_id: str, case_id: str, round_id: str) -> list[str]:
     _, _, command = packet_contract_for_profile(profile_id)
     command_args = [command, case_id, round_id]
-    if args.skip_ready_check:
+    skip_legacy_ready_check = args.skip_ready_check or (
+        profile_id == "opponent_report_review" and command == "prepare-opponent-packets"
+    )
+    if skip_legacy_ready_check:
         command_args.append("--skip-ready-check")
     if command == "prepare-supervisor-report-packets":
         if args.skip_materiality_check:

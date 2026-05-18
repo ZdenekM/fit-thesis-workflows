@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 from pathlib import Path
 
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
-from thesis_review_workflow.cli import review_round_start
+from thesis_review_workflow.cli import prepare_review_round, review_round_start
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_ROLE_PLAN_SCHEMA,
@@ -79,6 +80,24 @@ def test_workflow_profiles_align_with_approval_wave_and_materiality_registries()
         wave_spec = review_wave_gate.builtin_wave_spec(wave_profile, wave)
         assert wave_spec.outputs[0].approval_record is not None
         assert wave_spec.outputs[0].approval_record.path == profile.approval_record
+
+
+def test_prepare_review_round_skips_legacy_round_ready_for_opponent_report_review() -> None:
+    args = argparse.Namespace(
+        skip_ready_check=False,
+        skip_materiality_check=False,
+        agents_authorized=False,
+        authorization_note="authorized",
+    )
+
+    command = prepare_review_round.packet_command_args(
+        args,
+        profile_id="opponent_report_review",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert command == ["prepare-opponent-packets", "case-a", "round-a", "--skip-ready-check"]
 
 
 def test_trace_payload_is_profile_bound_and_path_oriented() -> None:
@@ -364,6 +383,7 @@ def test_review_role_plan_projects_packet_activation_and_code_contract(tmp_path:
     assert roles["code_consistency"]["state"] == "required_fresh"
     assert roles["code_quality"]["state"] == "required_fresh"
     assert roles["figure_media"]["state"] == "not_material"
+    assert roles["figure_media"]["packet_status"] == "not_generated_not_material"
     assert payload["code_bearing_contract"]["status"] == "satisfied"
     assert payload["code_bearing_contract"]["required_roles"] == ["code_consistency", "code_quality"]
     assert all(len(wave["roles"]) <= 2 for wave in payload["wave_schedule"])

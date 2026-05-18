@@ -67,10 +67,14 @@ reuse projection, and code-bearing role coverage. It prepares files for the
 parent agent to spawn authorized role agents; it does not spawn agents itself.
 
 `review-round-closeout` is the shared final closeout surface for optimized
-rounds. It refreshes the manifest, validates `work/review_role_plan.json`
-against current role outputs, runs the profile final-wave gate, refreshes
-coverage and manifest completeness, records a closeout trace event, and then
-refreshes the manifest again so the trace hash is not stale. For
+rounds. It first requires `work/review_run_trace.json` and
+`work/review_role_plan.json` to match the requested profile, so profile changes
+are repaired by rerunning `review-round-start --profile ...` and
+`prepare-review-round --profile ...` before manifest state is mutated. It then
+refreshes the manifest, validates `work/review_role_plan.json` against current
+role outputs, runs the profile final-wave gate, refreshes coverage and manifest
+completeness, records a closeout trace event, and then refreshes the manifest
+again so the trace hash is not stale. For
 `supervisor_report`, `opponent_review`, and `opponent_materials`, the generic
 command delegates profile-specific checks to `supervisor-report-closeout` or
 `opponent-closeout` while preserving the shared role-plan and trace boundary.

@@ -1442,6 +1442,38 @@ def test_merge_supporting_work_artifacts_preserves_registered_metadata(tmp_path:
     assert merged[0]["source_sha256"] == {"inputs/source.pdf": "0" * 64}
 
 
+def test_merge_supporting_work_artifacts_prunes_missing_registered_artifacts_when_round_known(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    existing_note = round_dir / "work" / "custom_reviewer_note.md"
+    existing_note.parent.mkdir(parents=True)
+    existing_note.write_text("# Current note\n", encoding="utf-8")
+    previous = [
+        {
+            "path": "work/custom_reviewer_note.md",
+            "kind": "text",
+            "artifact_sha256": "old",
+            "role": "custom-reviewer",
+            "handoff_refs": ["work/common_briefing.json", "work/missing_packet.md"],
+        },
+        {
+            "path": "work/missing_reviewer_note.md",
+            "kind": "text",
+            "artifact_sha256": "old",
+            "role": "stale-reviewer",
+        },
+    ]
+    common = round_dir / "work" / "common_briefing.json"
+    common.write_text("{}\n", encoding="utf-8")
+
+    merged = merge_supporting_work_artifacts(previous, [], round_dir=round_dir)
+
+    assert [item["path"] for item in merged] == ["work/custom_reviewer_note.md"]
+    assert merged[0]["artifact_sha256"] == sha256_file(existing_note)
+    assert merged[0]["handoff_refs"] == ["work/common_briefing.json"]
+
+
 def test_register_artifact_rejects_paths_outside_round(tmp_path: Path) -> None:
     manifest = ensure_manifest({}, "case-a", "round-a")
 
@@ -1587,6 +1619,125 @@ def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Pa
     assert review["review_basis_path"] == "work/feedback_student_draft.md"
     assert review["approval_record_path"] == "work/reviews/supervisor_feedback_review.json"
     assert manifest["artifacts"][0]["limitations"] == ["Synthetic limitation."]
+
+
+def test_apply_review_approval_records_final_review_generator_when_missing(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    review_output = round_dir / "outputs" / "feedback_k_posudku.md"
+    clean_basis = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    canonical_draft = round_dir / "work" / "oponent_posudek_draft.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    approval = round_dir / "work" / "reviews" / "opponent_report_review.json"
+    for path, text in (
+        (review_output, "# Report review\n"),
+        (clean_basis, "# Clean report proposal\n"),
+        (materials, "# Reviewed materials\n"),
+        (canonical_draft, "# Canonical draft\n"),
+        (trace, "{}\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    approval.parent.mkdir(parents=True, exist_ok=True)
+    approval.write_text(
+        json.dumps(
+            {
+                "workflow_profile": "opponent_report_review",
+                "reviewer_role": "thesis-opponent-report-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/feedback_k_posudku.md",
+                "reviewed_artifact_sha256": sha256_file(review_output),
+                "review_basis_path": "outputs/oponent_posudek_navrh.md",
+                "review_basis_sha256": sha256_file(clean_basis),
+                "checks_observed": [
+                    "check-opponent-report:canonical",
+                    "check-opponent-report:clean",
+                    "check-review-wave.opponent-report.draft",
+                ],
+                "limitations": [],
+                "timestamp": "2026-05-11T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = ensure_manifest({}, "case-a", "round-a")
+    register_artifact(
+        manifest,
+        round_dir,
+        "outputs/feedback_k_posudku.md",
+        role="not_recorded",
+        agent="not_recorded",
+        contribution="generation",
+        review_scope="standalone_final",
+        review_status="not_recorded",
+        reviewer_role="not_recorded",
+        reviewer_agent="not_recorded",
+        reviewed_at="",
+        limitation=[],
+        feeds=[],
+        input_refs=[],
+        evidence_refs=[],
+        check_refs=[],
+        used_findings="",
+        review_basis_path="",
+        notes="",
+    )
+    manifest["helper_checks"] = [
+        {
+            "check": "check-opponent-report:canonical",
+            "command": "scripts/check-opponent-report --mode canonical case-a round-a",
+            "target_artifacts": [
+                "work/opponent_report_trace.json",
+                "outputs/oponent_podklady_revidovane.md",
+                "work/oponent_posudek_draft.md",
+            ],
+            "target_sha256": {
+                "work/opponent_report_trace.json": sha256_file(trace),
+                "outputs/oponent_podklady_revidovane.md": sha256_file(materials),
+                "work/oponent_posudek_draft.md": sha256_file(canonical_draft),
+            },
+            "status": "passed",
+            "checked_at": "2026-05-11T00:00:00Z",
+            "exit_code": 0,
+        },
+        {
+            "check": "check-opponent-report:clean",
+            "command": (
+                "scripts/check-opponent-report --mode clean " "--path outputs/oponent_posudek_navrh.md case-a round-a"
+            ),
+            "target_artifacts": [
+                "work/opponent_report_trace.json",
+                "outputs/oponent_podklady_revidovane.md",
+                "outputs/oponent_posudek_navrh.md",
+            ],
+            "target_sha256": {
+                "work/opponent_report_trace.json": sha256_file(trace),
+                "outputs/oponent_podklady_revidovane.md": sha256_file(materials),
+                "outputs/oponent_posudek_navrh.md": sha256_file(clean_basis),
+            },
+            "status": "passed",
+            "checked_at": "2026-05-11T00:00:00Z",
+            "exit_code": 0,
+        },
+    ]
+
+    apply_review_approval_records(manifest, round_dir)
+
+    generated_by = manifest["artifacts"][0]["generated_by"]
+    assert generated_by == [
+        {
+            "role": "thesis-opponent-report-review",
+            "agent": "review-agent",
+            "contribution": "final_review",
+            "notes": "Imported from structured approval record `work/reviews/opponent_report_review.json`.",
+        }
+    ]
+    assert manifest["artifacts"][0]["independent_review"]["approval_record_path"] == (
+        "work/reviews/opponent_report_review.json"
+    )
 
 
 def test_agent_coverage_built_after_review_approval_uses_review_fields(tmp_path: Path) -> None:
@@ -2393,6 +2544,48 @@ def test_final_artifact_packet_dependencies_are_handoff_refs_not_semantic_source
     assert "work/supervisor_packets/code_quality.md" not in artifact.get("source_sha256", {})
 
 
+def test_opponent_report_review_packet_dependencies_are_handoff_refs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    report_review = round_dir / "outputs" / "feedback_k_posudku.md"
+    packet = round_dir / "work" / "opponent_packets" / "report_review.md"
+    briefing = round_dir / "work" / "common_briefing.json"
+    report_review.parent.mkdir(parents=True)
+    packet.parent.mkdir(parents=True)
+    report_review.write_text("# Report review\n", encoding="utf-8")
+    packet.write_text("# Opponent report-review packet\n", encoding="utf-8")
+    briefing.write_text('{"schema_version":"common-briefing-v1"}\n', encoding="utf-8")
+    manifest = {
+        "supporting_work_artifacts": [
+            {"path": "work/common_briefing.json"},
+            {"path": "work/opponent_packets/report_review.md"},
+        ],
+        "artifacts": [
+            {
+                "path": "outputs/feedback_k_posudku.md",
+                "artifact_type": "opponent_report_review",
+                "artifact_sha256": sha256_file(report_review),
+                "review_scope": "standalone_final",
+                "skills": ["thesis-opponent-report-review"],
+                "generated_by": [],
+                "independent_review": {"status": "not_recorded"},
+                "helper_checks": [],
+                "limitations": [],
+            }
+        ],
+    }
+
+    apply_artifact_dependency_refs(manifest, round_dir)
+
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact = artifacts[0]
+    assert isinstance(artifact, dict)
+    assert "work/common_briefing.json" in artifact["handoff_refs"]
+    assert "work/opponent_packets/report_review.md" in artifact["handoff_refs"]
+    assert "work/opponent_packets/report_review.md" not in artifact["evidence_refs"]
+    assert "work/opponent_packets/report_review.md" not in artifact.get("source_sha256", {})
+
+
 def test_claim_basis_dependency_refs_apply_only_to_matching_final_artifact(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     feedback = round_dir / "outputs" / "feedback_student.md"
@@ -2768,6 +2961,33 @@ def test_merge_supporting_work_artifacts_keeps_registered_only_work_artifact() -
     merged = merge_supporting_work_artifacts(previous, [])
 
     assert merged == previous
+
+
+def test_output_artifacts_prunes_missing_generated_handoff_refs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+    common = round_dir / "work" / "common_briefing.json"
+    common.parent.mkdir()
+    common.write_text("{}\n", encoding="utf-8")
+    existing = {
+        "artifacts": [
+            {
+                "path": "outputs/feedback_student.md",
+                "handoff_refs": ["work/common_briefing.json", "work/stale_packet.md"],
+            }
+        ]
+    }
+
+    artifact = output_artifacts(round_dir, existing)[0]
+
+    assert artifact["handoff_refs"] == ["work/common_briefing.json"]
+
+    common.unlink()
+    artifact = output_artifacts(round_dir, existing)[0]
+
+    assert "handoff_refs" not in artifact
 
 
 def test_register_artifact_rejects_unsafe_refs(tmp_path: Path) -> None:

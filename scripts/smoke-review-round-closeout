@@ -134,6 +134,11 @@ expect_success "current evidence snapshot" "$repo_root/scripts/update-current-ev
   --source-ref outputs/feedback_student.md \
   "$case_id" "$round_id"
 
+expect_success "start review round trace" "$repo_root/scripts/review-round-start" \
+  --profile supervisor_feedback \
+  --dry-run \
+  "$case_id" "$round_id"
+
 expect_success "prepare role plan" "$repo_root/scripts/prepare-review-round" \
   --profile supervisor_feedback \
   --skip-ready-check \

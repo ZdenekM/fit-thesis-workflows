@@ -358,7 +358,14 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
                     entry[field] = previous[field]
             entry["dependency_refs_source"] = "registered"
         if "handoff_refs" in previous:
-            entry["handoff_refs"] = previous["handoff_refs"]
+            previous_handoff_refs = previous["handoff_refs"]
+            handoff_refs = (
+                [ref for ref in previous_handoff_refs if isinstance(ref, str) and (round_dir / ref).is_file()]
+                if isinstance(previous_handoff_refs, list)
+                else []
+            )
+            if handoff_refs:
+                entry["handoff_refs"] = handoff_refs
         if "feeds" in previous:
             entry["feeds"] = previous["feeds"]
         if "check_refs" in previous:
@@ -626,6 +633,7 @@ def refresh_agent_coverage(
     manifest["supporting_work_artifacts"] = merge_supporting_work_artifacts(
         manifest.get("supporting_work_artifacts"),
         collect_work_artifacts(round_dir),
+        round_dir=round_dir,
     )
     return coverage
 
@@ -826,6 +834,7 @@ def main() -> int:
     work_artifacts = merge_supporting_work_artifacts(
         existing.get("supporting_work_artifacts"),
         collect_work_artifacts(round_dir),
+        round_dir=round_dir,
     )
     manifest["supporting_work_artifacts"] = work_artifacts
     apply_artifact_registration_sidecars(manifest, round_dir)

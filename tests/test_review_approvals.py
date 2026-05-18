@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 
 from thesis_review_workflow.cli import write_review_approval
-from thesis_review_workflow.review_approvals import REVIEW_APPROVAL_SCHEMA, sha256_file, validate_required_checks
+from thesis_review_workflow.review_approvals import (
+    REVIEW_APPROVAL_SCHEMA,
+    reviewer_matches_generator,
+    sha256_file,
+    validate_required_checks,
+)
 
 
 def make_case(tmp_path: Path) -> Path:
@@ -232,6 +237,8 @@ def test_write_review_approval_prefers_clean_opponent_report_basis(tmp_path: Pat
             "check-opponent-report:canonical",
             "--check",
             "check-opponent-report:clean",
+            "--check",
+            "check-review-wave.opponent-report.draft",
             "--timestamp",
             "2026-05-11T12:00:00Z",
             "case-a",
@@ -243,7 +250,11 @@ def test_write_review_approval_prefers_clean_opponent_report_basis(tmp_path: Pat
     payload = json.loads((round_dir / "work" / "reviews" / "opponent_report_review.json").read_text())
     assert payload["reviewed_artifact_path"] == "outputs/feedback_k_posudku.md"
     assert payload["review_basis_path"] == "outputs/oponent_posudek_navrh.md"
-    assert payload["checks_observed"] == ["check-opponent-report:canonical", "check-opponent-report:clean"]
+    assert payload["checks_observed"] == [
+        "check-opponent-report:canonical",
+        "check-opponent-report:clean",
+        "check-review-wave.opponent-report.draft",
+    ]
 
 
 def test_review_approval_requires_mode_specific_opponent_report_targets(tmp_path: Path) -> None:
@@ -274,6 +285,45 @@ def test_review_approval_requires_mode_specific_opponent_report_targets(tmp_path
         "work/reviews/opponent_report_review.json: helper check check-opponent-report:clean "
         "missing required target artifact outputs/oponent_podklady_revidovane.md"
     ) in errors
+
+
+def test_review_approval_wave_route_checks_are_observed_only(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+
+    errors = validate_required_checks(
+        required_checks=("check-review-wave.opponent-report.draft",),
+        checks_observed=["check-review-wave.opponent-report.draft"],
+        rel_path="work/reviews/opponent_report_review.json",
+        round_dir=round_dir,
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        manifest=None,
+    )
+
+    assert errors == []
+
+
+def test_reviewer_match_ignores_imported_final_review_metadata() -> None:
+    manifest = {
+        "artifacts": [
+            {
+                "path": "outputs/feedback_k_posudku.md",
+                "review_scope": "standalone_final",
+                "generated_by": [
+                    {
+                        "role": "thesis-opponent-report-review",
+                        "agent": "review-agent",
+                        "contribution": "final_review",
+                    }
+                ],
+            }
+        ]
+    }
+
+    assert not reviewer_matches_generator(
+        manifest,
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        reviewer_agent="review-agent",
+    )
 
 
 def test_write_review_approval_rejects_generator_as_reviewer(tmp_path: Path, monkeypatch) -> None:

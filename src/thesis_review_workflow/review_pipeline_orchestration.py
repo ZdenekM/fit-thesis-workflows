@@ -375,6 +375,10 @@ def role_plan_record(
         materiality_projection=materiality_projection,
     )
     packet_path = f"{packet_dir}/{role.key}.md"
+    packet_present = (round_dir / packet_path).is_file()
+    packet_status = "present" if packet_present else "missing"
+    if state == "not_material" and not packet_present:
+        packet_status = "not_generated_not_material"
     record: dict[str, Any] = {
         "role": role.key,
         "coverage_role": coverage_role,
@@ -385,7 +389,7 @@ def role_plan_record(
         "expected_output": role.expected_output,
         "registration_preset": registration_preset_for_role(role),
         "packet_path": packet_path,
-        "packet_status": "present" if (round_dir / packet_path).is_file() else "missing",
+        "packet_status": packet_status,
         "output_status": output_status(round_dir, role.expected_output, case_id=case_id, round_id=round_id),
         "role_inputs": [
             role_input_record(round_dir, rel_path, case_id=case_id, round_id=round_id) for rel_path in role.role_inputs

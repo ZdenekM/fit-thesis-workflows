@@ -407,6 +407,7 @@ def packet_dependency_refs(round_dir: Path, artifact_type: str) -> list[str]:
         "supervisor_feedback": "work/supervisor_packets",
         "supervisor_report_reviewed": "work/supervisor_report_packets",
         "opponent_materials_reviewed": "work/opponent_packets",
+        "opponent_report_review": "work/opponent_packets",
     }
     refs: list[str] = []
     if (round_dir / COMMON_BRIEFING_REL).is_file():
@@ -825,6 +826,26 @@ def apply_review_approval_records(manifest: dict[str, Any], round_dir: Path) -> 
         if approval is None:
             continue
         approval_rel_path, payload = approval
+        generated_by = artifact.get("generated_by")
+        has_recorded_generator = False
+        if isinstance(generated_by, list):
+            for item in generated_by:
+                if not isinstance(item, dict):
+                    continue
+                role = str(item.get("role") or "").strip()
+                agent = str(item.get("agent") or "").strip()
+                if role and role != "not_recorded" and agent and agent != "not_recorded":
+                    has_recorded_generator = True
+                    break
+        if not has_recorded_generator:
+            artifact["generated_by"] = [
+                {
+                    "role": str(payload.get("reviewer_role") or "not_recorded"),
+                    "agent": str(payload.get("reviewer_agent") or "manual"),
+                    "contribution": "final_review",
+                    "notes": f"Imported from structured approval record `{approval_rel_path}`.",
+                }
+            ]
         artifact["independent_review"] = review_record_from_approval(payload, approval_rel_path)
         limitations = artifact.get("limitations")
         existing_limitations = (
@@ -836,6 +857,8 @@ def apply_review_approval_records(manifest: dict[str, Any], round_dir: Path) -> 
 def merge_supporting_work_artifacts(
     existing_records: Any,
     generated_records: list[dict[str, str]],
+    *,
+    round_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     existing_by_path = (
         {
@@ -870,11 +893,38 @@ def merge_supporting_work_artifacts(
             ):
                 if key in previous and key not in generated:
                     preserved[key] = previous[key]
+            if round_dir is not None and isinstance(preserved.get("handoff_refs"), list):
+                preserved["handoff_refs"] = existing_round_refs(round_dir, preserved["handoff_refs"])
             merged.append(preserved)
         else:
             merged.append(generated)
         merged_paths.add(generated["path"])
     for path, previous in sorted(existing_by_path.items()):
+        if not isinstance(path, str):
+            continue
         if path not in merged_paths:
+            if round_dir is not None:
+                if not is_safe_round_relative_path(path):
+                    continue
+                previous_path = round_dir / path
+                if not previous_path.is_file():
+                    continue
+                previous = {
+                    **previous,
+                    "kind": artifact_kind(previous_path),
+                    "artifact_sha256": sha256_file(previous_path),
+                }
+                if isinstance(previous.get("handoff_refs"), list):
+                    previous["handoff_refs"] = existing_round_refs(round_dir, previous["handoff_refs"])
             merged.append(previous)
     return merged
+
+
+def existing_round_refs(round_dir: Path, refs: Any) -> list[str]:
+    if not isinstance(refs, list):
+        return []
+    existing: list[str] = []
+    for ref in refs:
+        if isinstance(ref, str) and is_safe_round_relative_path(ref) and (round_dir / ref).is_file():
+            existing.append(ref)
+    return existing

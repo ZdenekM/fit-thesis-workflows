@@ -79,6 +79,25 @@ def test_material_delta_reopens_review_and_blocks_closeout_until_new_approval(tm
     ]
 
 
+def test_stale_approval_without_delta_blocks_closeout_with_delta_instruction(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_approval(round_dir, timestamp="2026-05-15T10:00:00Z")
+    (round_dir / "outputs" / "feedback_student.md").write_text("# Feedback\n\nEdited after review.\n", encoding="utf-8")
+
+    errors = review_delta_closeout_errors(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert errors == [
+        "outputs/feedback_student.md: post-review artifact hash differs from "
+        "work/reviews/supervisor_feedback_review.json; record the edit with "
+        "`record-review-delta --profile supervisor_feedback` or rerun the independent review"
+    ]
+
+
 def test_non_material_delta_requires_current_approval_or_typed_exception(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
 

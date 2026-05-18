@@ -134,6 +134,59 @@ def write_reviewed_supervisor_report_manifest(
     )
 
 
+def write_reviewed_opponent_materials_manifest(
+    round_dir: Path,
+    *,
+    supporting_path: str,
+    supporting_hash: str,
+    used_findings: str,
+) -> None:
+    final = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final.parent.mkdir(parents=True, exist_ok=True)
+    final.write_text("# Reviewed Opponent Materials\n", encoding="utf-8")
+    final_hash = sha256_file(final)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "inputs": [],
+            "supporting_work_artifacts": [
+                {
+                    "path": supporting_path,
+                    "kind": "structured_data",
+                    "artifact_sha256": supporting_hash,
+                    "skills": ["thesis-theses-similarity-review"],
+                    "producer_role": "thesis-theses-similarity-review",
+                    "producer_agent": "agent-a",
+                    "review_scope": "covered_by_synthesis",
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                        "used_findings": used_findings,
+                        "evidence_hash": supporting_hash,
+                    },
+                }
+            ],
+            "artifacts": [
+                {
+                    "path": "outputs/oponent_podklady_revidovane.md",
+                    "artifact_sha256": final_hash,
+                    "skills": ["thesis-opponent-materials-review"],
+                    "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewer_role": "thesis-opponent-materials-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+
 def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
     for rel_path, content in (
         (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
@@ -690,6 +743,63 @@ def test_final_supervisor_report_silent_similarity_assessment_needs_synthesis_ma
     unresolved, errors = unresolved_required_next_actions(
         round_dir,
         workflow_profile="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert errors == []
+    assert unresolved == []
+
+
+def test_final_opponent_review_silent_similarity_assessment_needs_synthesis_marker(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_silent_theses_similarity_assessment(round_dir)
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    index_path = round_dir / "work" / "review_materiality" / "opponent_review" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert [item["role"] for item in index["next_actions"]] == ["theses_similarity"]
+
+    assessment_path = round_dir / THESES_SIMILARITY_ASSESSMENT_REL
+    write_reviewed_opponent_materials_manifest(
+        round_dir,
+        supporting_path=THESES_SIMILARITY_ASSESSMENT_REL,
+        supporting_hash=sha256_file(assessment_path),
+        used_findings=THESES_SIMILARITY_SILENT_USED_FINDINGS,
+    )
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase=phase,
+        generated_at="2026-05-12T00:01:00Z",
+    )
+
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+    assert theses["coverage_satisfied_by"] == "silent_internal_evidence"
+    assert theses["coverage_state"] == "silent_internal_evidence"
+    assert index["next_actions"] == []
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="opponent_review",
         case_id="case-a",
         round_id="round-a",
     )

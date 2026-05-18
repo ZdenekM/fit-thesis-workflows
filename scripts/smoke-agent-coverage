@@ -146,7 +146,11 @@ def required_observed_checks(rel_path):
     if rel_path == "outputs/oponent_podklady_revidovane.md":
         return ["check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"]
     if rel_path == "outputs/feedback_k_posudku.md":
-        return ["check-opponent-report:canonical", "check-opponent-report:clean"]
+        return [
+            "check-opponent-report:canonical",
+            "check-opponent-report:clean",
+            "check-review-wave.opponent-report.draft",
+        ]
     if rel_path == "outputs/vedouci_posudek_revidovany.md":
         return ["check-supervisor-report-ready", "check-supervisor-report"]
     return ["smoke-review"]

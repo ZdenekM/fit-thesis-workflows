@@ -27,6 +27,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     ReviewRunTraceEvent,
     closeout_wave_for_profile,
     load_review_role_plan,
+    validate_review_role_plan_payload,
     validate_review_run_trace_payload,
     validate_role_plan_for_closeout,
 )
@@ -136,6 +137,50 @@ def review_delta_step(round_dir: Path, *, case_id: str, round_id: str, profile_i
         command=None,
         returncode=0,
         output="No unresolved review deltas block closeout.",
+    )
+
+
+def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
+    errors: list[str] = []
+    for rel_path in (REVIEW_RUN_TRACE_REL, REVIEW_ROLE_PLAN_REL):
+        path = round_dir / rel_path
+        if not path.is_file():
+            errors.append(f"{rel_path} is missing")
+            continue
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{rel_path} is invalid JSON: {exc.msg}")
+            continue
+        if not isinstance(loaded, dict):
+            errors.append(f"{rel_path} must contain a JSON object")
+            continue
+        if rel_path == REVIEW_RUN_TRACE_REL:
+            errors.extend(f"{rel_path}: {error}" for error in validate_review_run_trace_payload(loaded))
+        elif rel_path == REVIEW_ROLE_PLAN_REL:
+            errors.extend(
+                f"{rel_path}: {error}" for error in validate_review_role_plan_payload(loaded, round_dir=round_dir)
+            )
+        for field, expected in (("case_id", case_id), ("round_id", round_id), ("profile_id", profile_id)):
+            if loaded.get(field) != expected:
+                errors.append(f"{rel_path} records {field}={loaded.get(field)!r}, expected {expected!r}")
+    if errors:
+        recovery = [
+            "Regenerate the profile transition artifacts before closeout mutates manifest state:",
+            f"scripts/review-round-start --profile {profile_id} {case_id} {round_id}",
+            f"scripts/prepare-review-round --profile {profile_id} {case_id} {round_id}",
+        ]
+        return Step(
+            label="Review profile transition preflight",
+            command=None,
+            returncode=1,
+            output="\n".join([*(f"- {error}" for error in errors), "", *recovery]),
+        )
+    return Step(
+        label="Review profile transition preflight",
+        command=None,
+        returncode=0,
+        output=f"{REVIEW_RUN_TRACE_REL} and {REVIEW_ROLE_PLAN_REL} match this closeout profile.",
     )
 
 
@@ -346,6 +391,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Case: cases/{args.case_id}")
     print(f"Round: cases/{args.case_id}/rounds/{round_id}")
     print(f"Profile: {profile.profile_id} ({profile.workflow_profile})")
+
+    preflight = profile_transition_step(
+        round_dir,
+        case_id=args.case_id,
+        round_id=round_id,
+        profile_id=profile.profile_id,
+    )
+    if not preflight.ok:
+        print_step(preflight, output_limit=args.output_limit)
+        print_summary(round_dir, profile_id=profile.profile_id, steps=[preflight])
+        return preflight.returncode
 
     steps = generic_closeout_steps(root, case_id=args.case_id, round_id=round_id, profile_id=profile.profile_id)
     if not args.skip_repo_hygiene:

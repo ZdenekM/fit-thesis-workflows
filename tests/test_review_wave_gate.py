@@ -5,7 +5,12 @@ from pathlib import Path
 from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.review_approvals import sha256_file
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
-from thesis_review_workflow.review_wave_gate import builtin_wave_spec, load_wave_spec, validate_wave
+from thesis_review_workflow.review_wave_gate import (
+    builtin_wave_spec,
+    load_wave_spec,
+    materiality_profile_for_wave,
+    validate_wave,
+)
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL
 
 
@@ -287,8 +292,10 @@ def test_builtin_profiles_keep_draft_and_post_review_gates_separate() -> None:
 
     opponent_report_draft = builtin_wave_spec("opponent-report", "draft")
     assert opponent_report_draft.outputs[0].checks[0].args == ("check-opponent-report", "--mode", "canonical")
+    assert materiality_profile_for_wave(opponent_report_draft) == "opponent_review"
 
     opponent_report_review = builtin_wave_spec("opponent-report-review", "final")
+    assert materiality_profile_for_wave(opponent_report_review) == "opponent_review"
     assert opponent_report_review.outputs[0].checks[0].args == ("check-opponent-report", "--mode", "canonical")
     assert opponent_report_review.outputs[0].checks[1].args == (
         "check-opponent-report",
