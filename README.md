@@ -314,7 +314,8 @@ Nejběžnější výstupy jsou:
 - `work/opponent_report_trace.json` - strukturovaný, revidovaný trace z
   oponentských podkladů do položek FIT IS, otázek a ručních kontrol,
 - `work/oponent_posudek_draft.md` - pracovní draft oponentského posudku podle
-  položek FIT IS,
+  položek FIT IS, včetně strukturovaných výběrů/bodů pro formulář a
+  samostatného neveřejného komentáře pro studenta,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
 
 Studentský feedback, formální posudek vedoucího a oponentské materiály nejsou
@@ -329,13 +330,16 @@ trace i zdrojových podkladů a nechává body/známku otevřené;
 `scripts/check-opponent-report` projde až po lidské kalibraci konkrétních bodů a
 známky a po ověření, že draft odpovídá aktuálnímu trace i
 `outputs/oponent_podklady_revidovane.md`.
+Součástí kalibrace je i sekce `## IS formulář (výběry a body)`: výběr
+náročnosti zadání, rozsahu splnění zadání, rozsahu zprávy a bodů pro
+prezentační úroveň, formální úpravu, práci s literaturou a realizační výstup.
 
 `scripts/opponent-closeout <case-id> [round-id]` je finální oponentský gate
 pro aktuální stav roundu. Zavře revidované podklady, report trace, manifest,
 agent coverage a repo hygienu. Gate vždy vyžaduje validní
 `work/opponent_report_trace.json`; pokud už existuje
 `work/oponent_posudek_draft.md`, musí být nejdřív lidsky zkalibrovaný v bodech,
-známce a formulacích.
+známce, výběrech/bodech IS formuláře a formulacích.
 Pokud existují interní evidence `outputs/code_consistency.md`,
 `outputs/code_quality_review.md` nebo `outputs/revision_diff.md`, manifest a
 oponentní closeout vyžadují i jejich strukturální validátory.

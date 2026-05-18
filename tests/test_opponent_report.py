@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.cli.check_opponent_report import (
     DEFAULT_DRAFT,
+    check_text,
     strip_metadata_comments,
     validate_trace_metadata,
 )
@@ -69,6 +70,8 @@ def test_build_report_uses_structured_trace_without_fallback_prose() -> None:
 
     assert "<!-- source_trace_path: work/opponent_report_trace.json -->" in report
     assert "<!-- source_trace_sha256: " + "a" * 64 + " -->" in report
+    assert "## IS formulář (výběry a body)" in report
+    assert "Náročnost zadání: k ručnímu výběru z nabídky IS" in report
     assert "Formulation for assignment_difficulty." in report
     assert "- Prepared defense question?" in report
     assert "- Manual point and grade calibration." in report
@@ -120,3 +123,118 @@ def test_strip_metadata_comments_removes_trace_and_materials_paths() -> None:
     assert "work/" not in stripped
     assert "outputs/" not in stripped
     assert stripped.startswith("# Návrh")
+
+
+def calibrated_report_text() -> str:
+    return """# Návrh oponentského posudku
+
+## IS formulář (výběry a body)
+
+Náročnost zadání: obtížnější zadání
+Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami
+Rozsah technické zprávy: přesahuje obvyklé rozmezí
+Prezentační úroveň technické zprávy: 72 bodů
+Formální úprava technické zprávy: 75 bodů
+Práce s literaturou: 75 bodů
+Realizační výstup: 85 bodů
+
+## 1. Náročnost zadání
+
+Text.
+
+## 2. Rozsah splnění požadavků zadání
+
+Text.
+
+## 3. Rozsah technické zprávy
+
+Text.
+
+## 4. Prezentační úroveň technické zprávy
+
+Text.
+
+## 5. Formální úprava technické zprávy
+
+Text.
+
+## 6. Práce s literaturou
+
+Text.
+
+## 7. Realizační výstup
+
+Text.
+
+## 8. Využitelnost výsledku
+
+Text.
+
+## 9. Celkové hodnocení
+
+Text.
+
+## 10. Otázky k obhajobě
+
+1. Otázka?
+
+## 11. Body a známka
+
+Bodové hodnocení: 75 bodů
+
+Navržená známka: C
+
+## Komentář pro studenta (neveřejná část)
+
+Děkuji za práci na prototypu a za dotažení hlavní implementace.
+K obhajobě si připravte stručné vysvětlení testování, limitů a dalšího možného vývoje.
+
+## 12. Před odevzdáním
+
+Text.
+"""
+
+
+def test_check_text_accepts_structured_is_form_fields() -> None:
+    errors: list[str] = []
+
+    check_text(calibrated_report_text(), calibrated_report_text(), errors)
+
+    assert errors == []
+
+
+def test_check_text_requires_valid_is_form_fields() -> None:
+    text = calibrated_report_text().replace("obtížnější zadání", "hodně těžké zadání")
+    text = text.replace("Realizační výstup: 85 bodů", "Realizační výstup: výborný")
+    errors: list[str] = []
+
+    check_text(text, text, errors)
+
+    assert "invalid IS form selection for Náročnost zadání: hodně těžké zadání" in errors
+    assert "invalid IS form point value for Realizační výstup: výborný" in errors
+
+
+def test_check_text_rejects_private_comment_placeholder() -> None:
+    text = calibrated_report_text().replace(
+        "Děkuji za práci na prototypu a za dotažení hlavní implementace.\n"
+        "K obhajobě si připravte stručné vysvětlení testování, limitů a dalšího možného vývoje.",
+        "Text.",
+    )
+    errors: list[str] = []
+
+    check_text(text, text, errors)
+
+    assert any("private student comment is too short" in error for error in errors)
+
+
+def test_check_text_rejects_duplicate_is_form_fields() -> None:
+    text = calibrated_report_text().replace(
+        "Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami",
+        "Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami\n"
+        "Rozsah splnění požadavků zadání: zadání splněno",
+    )
+    errors: list[str] = []
+
+    check_text(text, text, errors)
+
+    assert "duplicate IS form field: Rozsah splnění požadavků zadání" in errors

@@ -46,6 +46,17 @@ IS_SECTIONS = (
     ("overall_assessment", "Celkové hodnocení"),
 )
 
+IS_FORM_SECTION_HEADING = "## IS formulář (výběry a body)"
+IS_FORM_PLACEHOLDERS = (
+    "Náročnost zadání: k ručnímu výběru z nabídky IS",
+    "Rozsah splnění požadavků zadání: k ručnímu výběru z nabídky IS",
+    "Rozsah technické zprávy: k ručnímu výběru z nabídky IS",
+    "Prezentační úroveň technické zprávy: k ručnímu zadání bodů 0-100",
+    "Formální úprava technické zprávy: k ručnímu zadání bodů 0-100",
+    "Práce s literaturou: k ručnímu zadání bodů 0-100",
+    "Realizační výstup: k ručnímu zadání bodů 0-100",
+)
+
 
 def run_required(root: Path, command: list[str]) -> None:
     result = subprocess.run(
@@ -239,6 +250,10 @@ def build_report(
         f"Datum přípravy draftu: {created}",
         "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace.",
         "",
+        IS_FORM_SECTION_HEADING,
+        "",
+        *IS_FORM_PLACEHOLDERS,
+        "",
     ]
     for index, (item_id, title) in enumerate(IS_SECTIONS, start=1):
         trace_item = items[item_id]
@@ -260,6 +275,14 @@ def build_report(
             "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, "
             "ověřitelnosti výsledků a rizik níže.",
             "Navržená známka: k ruční kalibraci ve stejné interpretaci jako bodové hodnocení.",
+            "",
+            "## Komentář pro studenta (neveřejná část)",
+            "",
+            "Děkuji za zpracovanou práci. Veřejné hodnocení výše shrnuje hlavní důvody bodového "
+            "hodnocení a známky. Pro neveřejný komentář studentovi zde stručně vysvětlete, co se "
+            "podle vás povedlo, proč hodnocení není vyšší, co si má student připravit k obhajobě "
+            "a jaké konkrétní kroky by mu pomohly při dalším rozvoji práce. Neuvádějte interní "
+            "cesty, hash hodnoty ani auditní detaily; pište věcně, přímo a podpůrně.",
             "",
             "## 12. Před odevzdáním",
             "",

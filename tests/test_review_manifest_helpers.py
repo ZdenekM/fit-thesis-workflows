@@ -342,6 +342,29 @@ def test_init_manifest_required_checks_use_logical_commands(tmp_path: Path) -> N
     assert all(not command.startswith("scripts/") for command in commands.values())
 
 
+def test_init_manifest_opponent_report_check_does_not_target_review_output(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/oponent_podklady_revidovane.md", "outputs/feedback_k_posudku.md"},
+        round_dir,
+        {},
+    )
+
+    opponent_report = next(item for item in checks if item["check"] == "check-opponent-report")
+
+    assert opponent_report["target_artifacts"] == [
+        "work/opponent_report_trace.json",
+        "outputs/oponent_podklady_revidovane.md",
+        "work/oponent_posudek_draft.md",
+    ]
+
+
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"

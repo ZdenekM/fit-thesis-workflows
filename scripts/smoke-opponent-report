@@ -201,8 +201,16 @@ PY
 calibrate_draft() {
   local draft="$1"
   replace_text "$draft" "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace." "Stav: připraveno pro nezávislou kontrolu oponentem."
+  replace_text "$draft" "Náročnost zadání: k ručnímu výběru z nabídky IS" "Náročnost zadání: obtížnější zadání"
+  replace_text "$draft" "Rozsah splnění požadavků zadání: k ručnímu výběru z nabídky IS" "Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami"
+  replace_text "$draft" "Rozsah technické zprávy: k ručnímu výběru z nabídky IS" "Rozsah technické zprávy: je v obvyklém rozmezí"
+  replace_text "$draft" "Prezentační úroveň technické zprávy: k ručnímu zadání bodů 0-100" "Prezentační úroveň technické zprávy: 80 bodů"
+  replace_text "$draft" "Formální úprava technické zprávy: k ručnímu zadání bodů 0-100" "Formální úprava technické zprávy: 80 bodů"
+  replace_text "$draft" "Práce s literaturou: k ručnímu zadání bodů 0-100" "Práce s literaturou: 80 bodů"
+  replace_text "$draft" "Realizační výstup: k ručnímu zadání bodů 0-100" "Realizační výstup: 80 bodů"
   replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 80"
   replace_text "$draft" "Navržená známka: k ruční kalibraci ve stejné interpretaci jako bodové hodnocení." "Známka: B"
+  replace_text "$draft" "Děkuji za zpracovanou práci. Veřejné hodnocení výše shrnuje hlavní důvody bodového hodnocení a známky. Pro neveřejný komentář studentovi zde stručně vysvětlete, co se podle vás povedlo, proč hodnocení není vyšší, co si má student připravit k obhajobě a jaké konkrétní kroky by mu pomohly při dalším rozvoji práce. Neuvádějte interní cesty, hash hodnoty ani auditní detaily; pište věcně, přímo a podpůrně." "Děkuji za zpracovanou práci. Silnou stránkou je funkční prototyp a přiměřené pokrytí zadání. Hodnocení není vyšší hlavně kvůli slabší reprodukovatelnosti experimentů a méně přesnému textu. K obhajobě doporučuji připravit konkrétní metodiku testování, stručnou ukázku výsledků a jasné oddělení vlastního přínosu od použitých knihoven."
 }
 
 complete_manifest_for_smoke() {
@@ -251,7 +259,7 @@ for artifact in manifest["artifacts"]:
             "reviewed_artifact_sha256": artifact["artifact_sha256"],
             "review_basis_path": basis_path,
             "review_basis_sha256": sha256_file(basis),
-            "checks_observed": ["check-opponent-materials"],
+            "checks_observed": ["check-round-ready", "check-opponent-materials", "check-opponent-report"],
             "limitations": ["None."],
             "timestamp": "2026-05-04T00:01:00Z",
         }
@@ -329,6 +337,10 @@ coverage_hash = hashlib.sha256(coverage_path.read_bytes()).hexdigest()
 for item in manifest.get("supporting_work_artifacts", []):
     if item.get("path") == "work/agent_coverage.json":
         item["artifact_sha256"] = coverage_hash
+for check in manifest.get("helper_checks", []):
+    if check.get("check") == "check-agent-coverage":
+        target_sha256 = check.setdefault("target_sha256", {})
+        target_sha256["work/agent_coverage.json"] = coverage_hash
 manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 }

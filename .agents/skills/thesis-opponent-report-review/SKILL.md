@@ -57,8 +57,16 @@ Review the report as a report, not as the student's thesis. Check:
 5. Whether comments match points and the proposed grade.
 6. Whether strong parts of the work are included where supported.
 7. Whether defense questions are fair, answerable, and focused.
-8. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
-9. Whether report-facing prose leaks internal packet paths, manifest hashes,
+8. Whether the private student comment is present, useful, and clearly separated
+   from the public report text. It should explain the grade, suggest defense
+   preparation, and include practical future-work advice without adding new
+   unsupported criticism or internal workflow details.
+9. Whether the `## IS formulář (výběry a body)` section is present and matches
+   the prose: assignment difficulty selection, assignment-fulfillment selection,
+   technical-report-scope selection, and point values for presentation, formal
+   quality, literature work, and implementation output.
+10. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
+11. Whether report-facing prose leaks internal packet paths, manifest hashes,
    private URLs, raw PR metadata, review-thread details, local workspace paths,
    or generated-draft state. Remove those classes of internal evidence from the
    report text and convert them into evidence-backed conclusions, limitations,
@@ -173,6 +181,8 @@ IS items to check:
 - Vyuzitelnost vysledku
 - Celkove hodnoceni
 - Otazky k obhajobe
+- IS formular vybery a body
+- Neverejny komentar pro studenta
 
 Verdict categories:
 
