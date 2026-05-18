@@ -64,6 +64,8 @@ WORKFLOW_COMMAND_MODULES = {
     "prepare-code-workspace": "thesis_review_workflow.cli.prepare_code_workspace",
     "record-report-amendment": "thesis_review_workflow.cli.record_report_amendment",
     "record-review-delta": "thesis_review_workflow.cli.record_review_delta",
+    "record-submitted-opponent-report": "thesis_review_workflow.cli.record_submitted_opponent_report",
+    "record-submitted-report-delta": "thesis_review_workflow.cli.record_submitted_report_delta",
     "record-submitted-supervisor-report": "thesis_review_workflow.cli.record_submitted_supervisor_report",
     "record-workflow-operation": "thesis_review_workflow.cli.record_workflow_operation",
     "refresh-round-hashes": "thesis_review_workflow.cli.refresh_round_hashes",

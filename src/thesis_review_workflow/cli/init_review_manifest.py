@@ -109,13 +109,14 @@ def hash_tree(label_prefix: str, base: Path) -> dict[str, str]:
 
 
 def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]:
+    base_check_name = check_name.split(":", 1)[0]
     case_dir = case_dir_from_round(round_dir)
     root = repo_root_from_round(round_dir)
     paths = [
         ("case:case.md", case_dir / "case.md"),
         ("case:current-round.txt", case_dir / "current-round.txt"),
     ]
-    if check_name in {
+    if base_check_name in {
         "check-supervisor-ready",
         "check-round-ready",
         "check-supervisor-report-ready",
@@ -133,20 +134,23 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
                 ("repo:profiles/local/default.md", root / "profiles" / "local" / "default.md"),
             ]
         )
-    if check_name in {"check-feedback-language", "check-feedback-output"}:
+    if base_check_name in {"check-feedback-language", "check-feedback-output"}:
         paths.append(("round:notes/assignment.md", round_dir / "notes" / "assignment.md"))
-    if check_name == "check-supervisor-report":
+    if base_check_name == "check-supervisor-report":
         paths.append(
             ("round:work/supervisor_report_confirmation.json", round_dir / "work/supervisor_report_confirmation.json")
         )
-    if check_name == "check-agent-coverage":
+    if base_check_name == "check-agent-coverage":
         paths.append(("round:work/reuse/reuse_index.json", round_dir / "work" / "reuse" / "reuse_index.json"))
     hashes = hash_existing_paths(paths)
-    if check_name in {"check-round-ready", "check-supervisor-ready"}:
+    if base_check_name in {"check-round-ready", "check-supervisor-ready"}:
         hashes.update(hash_tree("round:inputs", round_dir / "inputs"))
         hashes.update(hash_tree("round:extracted", round_dir / "extracted"))
-    if check_name == "check-supervisor-report":
+    if base_check_name in {"check-opponent-report", "check-supervisor-report"}:
         hashes.update(hash_tree("round:work/submitted_reports", round_dir / "work" / "submitted_reports"))
+    if base_check_name == "check-opponent-report":
+        hashes.update(hash_tree("round:extracted/submitted_reports", round_dir / "extracted" / "submitted_reports"))
+    if base_check_name == "check-supervisor-report":
         hashes.update(hash_tree("round:work/review_deltas", round_dir / "work" / "review_deltas"))
     return hashes
 

@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__submitted_opponent_report_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+tmp_dir="$(mktemp -d)"
+out_file="/tmp/submitted-opponent-report-smoke.$$.out"
+
+cleanup() {
+  rm -rf "$repo_root/cases/$case_id" "$tmp_dir" "$out_file"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/outputs" "$round_dir/work/reviews"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" python3 - "$round_dir" "$tmp_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+from thesis_review_workflow.submitted_reports import opponent_public_report_text
+
+round_dir = pathlib.Path(sys.argv[1])
+tmp_dir = pathlib.Path(sys.argv[2])
+case_id = round_dir.parents[1].name
+clean_rel = "outputs/oponent_posudek_navrh.md"
+review_rel = "outputs/feedback_k_posudku.md"
+approval_rel = "work/reviews/opponent_report_review.json"
+clean = round_dir / clean_rel
+review = round_dir / review_rel
+clean.write_text(
+    """# Návrh oponentského posudku
+
+## IS formulář (výběry a body)
+
+Náročnost zadání: obtížnější zadání
+Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami
+Rozsah technické zprávy: je v obvyklém rozmezí
+Prezentační úroveň technické zprávy: 80 bodů
+Formální úprava technické zprávy: 80 bodů
+Práce s literaturou: 80 bodů
+Realizační výstup: 80 bodů
+
+## 1. Náročnost zadání
+
+Zadání bylo obtížnější a vyžadovalo samostatnou implementaci.
+
+## 2. Rozsah splnění požadavků zadání
+
+Zadání je splněno s drobnými výhradami.
+
+## 3. Rozsah technické zprávy
+
+Technická zpráva je v obvyklém rozmezí.
+
+## 4. Prezentační úroveň technické zprávy
+
+Text je srozumitelný a má drobné rezervy.
+
+## 5. Formální úprava technické zprávy
+
+Formální úprava je přijatelná.
+
+## 6. Práce s literaturou
+
+Literatura je využita adekvátně.
+
+## 7. Realizační výstup
+
+Realizační výstup odpovídá cílům práce.
+
+## 8. Využitelnost výsledku
+
+Výsledek je použitelný jako základ další práce.
+
+## 9. Celkové hodnocení
+
+Práci doporučuji k obhajobě.
+
+## 10. Otázky k obhajobě
+
+- Jak byste ověřil robustnost řešení na větším vzorku dat?
+- Kterou část implementace byste přepracoval jako první?
+
+## 11. Body a známka
+
+Známka: B
+Body: 80
+
+## Komentář pro studenta (neveřejná část)
+
+Tento neveřejný komentář stručně shrnuje kalibraci pro studenta a zachovává samostatnou privátní část mimo veřejný PDF export.
+""",
+    encoding="utf-8",
+)
+review.write_text("# Review\n\nNo blockers.\n", encoding="utf-8")
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+approval = {
+    "schema_version": "review-approval-v1",
+    "case_id": case_id,
+    "round_id": "round-a",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "producer_type": "human",
+    "producer_role": "thesis_opponent_report_reviewer",
+    "producer_agent": None,
+    "human_reviewer_note": "Approved.",
+    "source_refs": [review_rel, clean_rel],
+    "limitations": [],
+    "workflow_profile": "opponent_report_review",
+    "verdict": "approved",
+    "blocking_findings_count": 0,
+    "reviewed_artifact_path": review_rel,
+    "reviewed_artifact_sha256": sha(review),
+    "review_basis_path": clean_rel,
+    "review_basis_sha256": sha(clean),
+    "observed_checks": ["check-opponent-report:clean"],
+    "approved_by": "reviewer",
+    "approved_at": "2026-05-18T00:00:00Z",
+}
+(round_dir / approval_rel).write_text(json.dumps(approval, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+public = opponent_public_report_text(clean.read_text(encoding="utf-8")).replace(
+    "Práci doporučuji k obhajobě.",
+    "Práci doporučuji k obhajobě. IS export obsahuje drobnou jazykovou úpravu.",
+)
+(tmp_dir / "submitted.pdf").write_bytes(b"%PDF-1.4\n% synthetic submitted opponent report\n")
+(tmp_dir / "submitted_public.txt").write_text(public, encoding="utf-8")
+PY
+
+"$repo_root/scripts/record-submitted-opponent-report" \
+  --pdf "$tmp_dir/submitted.pdf" \
+  --public-text-file "$tmp_dir/submitted_public.txt" \
+  --recorded-by smoke-operator \
+  --submitted-at 2026-05-18T00:00:00Z \
+  "$case_id" "$round_id" >"$out_file"
+
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+from thesis_review_workflow.submitted_reports import (
+    OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+    validate_submitted_opponent_report_record,
+)
+
+round_dir = pathlib.Path(sys.argv[1])
+payload = json.loads((round_dir / OPPONENT_REPORT_SUBMITTED_RECORD_REL).read_text(encoding="utf-8"))
+assert payload["schema_version"] == "submitted-report-v1"
+assert payload["report_kind"] == "opponent_report"
+assert payload["recorded_by"] == "smoke-operator"
+assert payload["ready_for_archive"] is False
+assert payload["public_text_normalized_match"] is False
+assert payload["field_values_match"] is True
+assert payload["public_text_section_diffs"][0]["section"] == "## 9. Celkové hodnocení"
+errors = validate_submitted_opponent_report_record(payload, round_dir=round_dir, case_id=round_dir.parents[1].name, round_id="round-a")
+assert any("submitted public text does not match reviewed public report projection" in error for error in errors)
+PY
+
+"$repo_root/scripts/record-submitted-report-delta" \
+  --section "## 9. Celkové hodnocení" \
+  --classification operator_wording_non_material \
+  --rationale "Non-material wording correction made while entering the IS form." \
+  --recorded-by smoke-operator \
+  --recorded-at 2026-05-18T00:01:00Z \
+  "$case_id" "$round_id" >>"$out_file"
+
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+from thesis_review_workflow.submitted_report_deltas import (
+    OPPONENT_REPORT_DELTAS_REL,
+    validate_opponent_submitted_report_deltas,
+)
+from thesis_review_workflow.submitted_reports import (
+    OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+    validate_submitted_opponent_report_record,
+)
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = round_dir.parents[1].name
+record = json.loads((round_dir / OPPONENT_REPORT_SUBMITTED_RECORD_REL).read_text(encoding="utf-8"))
+deltas = json.loads((round_dir / OPPONENT_REPORT_DELTAS_REL).read_text(encoding="utf-8"))
+assert deltas["schema_version"] == "submitted-report-deltas-v1"
+assert deltas["ready_for_archive_with_deltas"] is True
+assert deltas["all_current_public_text_diffs_classified"] is True
+assert validate_opponent_submitted_report_deltas(deltas, round_dir=round_dir, case_id=case_id, round_id="round-a") == []
+assert validate_submitted_opponent_report_record(record, round_dir=round_dir, case_id=case_id, round_id="round-a") == []
+operation_log = (round_dir / "work/operation_log.jsonl").read_text(encoding="utf-8")
+assert "submitted-opponent-report-capture" in operation_log
+assert "submitted-report-delta-acceptance" in operation_log
+PY
+
+echo "Submitted opponent report smoke passed"

@@ -585,6 +585,8 @@ scripts/check-opponent-materials <case-id>
 scripts/check-opponent-report --mode canonical <case-id>
 scripts/export-opponent-report <case-id>
 scripts/check-opponent-report --mode clean <case-id>
+scripts/record-submitted-opponent-report --pdf /path/to/is-export.pdf --public-text-file /path/to/public-transcript.md --recorded-by <name> <case-id>
+scripts/record-submitted-report-delta --section "## 9. Celkové hodnocení" --classification operator_wording_non_material --rationale "bounded IS-entry wording edit" --recorded-by <name> <case-id>
 scripts/opponent-closeout <case-id>
 scripts/check-code-consistency <case-id>
 scripts/check-code-quality-review <case-id>
@@ -603,6 +605,14 @@ nezávislé review, nebo pro post-review opravu zapište strukturovanou deltu p�
 `record-review-delta` s affected sections, evidence anchors, typovanou výjimkou
 nebo reopening next action. U odesílatelných a standalone finálních artefaktů
 musí approval record odpovídat aktuálnímu souboru, jinak je review neplatné.
+Po skutečném vložení oponentského posudku do IS zaznamenejte veřejný PDF export
+přes `record-submitted-opponent-report`. Když se veřejný text liší od
+revidovaného clean návrhu jen nemateriálně, klasifikujte rozdíl přes
+`record-submitted-report-delta`; změna bodů, známky, selectboxů nebo otázek
+otevírá report review znovu místo archivace jako přijatý drift.
+`--public-text-file` má být veřejná transkripce ve stejných Markdown sekcích
+jako clean návrh; bez něj se helper pokusí o raw `pdftotext -layout`, ale
+nepředstírá podporu každé změny IS PDF layoutu.
 
 Zakládací/importní helpery, pokud je nechcete nechat na agentovi:
 
@@ -688,6 +698,8 @@ dist/workflow-tools/bin/prepare-supervisor-report-packets --agents-authorized <c
 dist/workflow-tools/bin/init-review-manifest --run-checks <case-id> [round-id]
 dist/workflow-tools/bin/review-round-closeout --profile supervisor_feedback <case-id> [round-id]
 dist/workflow-tools/bin/record-review-delta --profile supervisor_feedback --type style_only --previous-artifact /path/to/reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
+dist/workflow-tools/bin/record-submitted-opponent-report --pdf /path/to/is-export.pdf --public-text-file /path/to/public-transcript.md --recorded-by <name> <case-id> [round-id]
+dist/workflow-tools/bin/record-submitted-report-delta --section "## 9. Celkové hodnocení" --classification operator_wording_non_material --rationale "bounded IS-entry wording edit" --recorded-by <name> <case-id> [round-id]
 dist/workflow-tools/bin/supervisor-report-closeout <case-id> [round-id]
 ```
 
@@ -707,6 +719,8 @@ dist\workflow-tools\bin\check-agent-coverage.cmd <case-id> [round-id]
 dist\workflow-tools\bin\check-review-manifest.cmd --require-complete <case-id> [round-id]
 dist\workflow-tools\bin\review-round-closeout.cmd --profile supervisor_feedback <case-id> [round-id]
 dist\workflow-tools\bin\record-review-delta.cmd --profile supervisor_feedback --type style_only --previous-artifact C:\path\to\reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
+dist\workflow-tools\bin\record-submitted-opponent-report.cmd --pdf C:\path\to\is-export.pdf --public-text-file C:\path\to\public-transcript.md --recorded-by <name> <case-id> [round-id]
+dist\workflow-tools\bin\record-submitted-report-delta.cmd --section "## 9. Celkové hodnocení" --classification operator_wording_non_material --rationale "bounded IS-entry wording edit" --recorded-by <name> <case-id> [round-id]
 dist\workflow-tools\bin\supervisor-report-closeout.cmd <case-id> [round-id]
 ```
 
@@ -724,6 +738,8 @@ dist\workflow-tools\bin\supervisor-report-closeout.cmd <case-id> [round-id]
 .\dist\workflow-tools\bin\check-review-manifest.ps1 --require-complete <case-id> [round-id]
 .\dist\workflow-tools\bin\review-round-closeout.ps1 --profile supervisor_feedback <case-id> [round-id]
 .\dist\workflow-tools\bin\record-review-delta.ps1 --profile supervisor_feedback --type style_only --previous-artifact C:\path\to\reviewed-before.md --affected-section feedback.body --rationale "bounded wording correction" <case-id> [round-id]
+.\dist\workflow-tools\bin\record-submitted-opponent-report.ps1 --pdf C:\path\to\is-export.pdf --public-text-file C:\path\to\public-transcript.md --recorded-by <name> <case-id> [round-id]
+.\dist\workflow-tools\bin\record-submitted-report-delta.ps1 --section "## 9. Celkové hodnocení" --classification operator_wording_non_material --rationale "bounded IS-entry wording edit" --recorded-by <name> <case-id> [round-id]
 .\dist\workflow-tools\bin\supervisor-report-closeout.ps1 <case-id> [round-id]
 ```
 

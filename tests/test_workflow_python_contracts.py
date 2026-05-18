@@ -589,10 +589,19 @@ def test_supervisor_report_submission_helpers_are_packaged_and_smoked() -> None:
     cli_sources = cli_python_sources()
     runtime_deps = workflow_runtime_deps()
 
-    for tool_name in ("record-submitted-supervisor-report", "record-report-amendment"):
+    for tool_name in (
+        "record-submitted-opponent-report",
+        "record-submitted-report-delta",
+        "record-submitted-supervisor-report",
+        "record-report-amendment",
+    ):
         module = WORKFLOW_COMMAND_MODULES[tool_name]
         module_name = module.rsplit(".", 1)[-1]
-        smoke_name = f"smoke-{tool_name}"
+        smoke_name = (
+            "smoke-record-submitted-opponent-report"
+            if tool_name in {"record-submitted-opponent-report", "record-submitted-report-delta"}
+            else f"smoke-{tool_name}"
+        )
         smoke_text = (REPO_ROOT / "scripts" / smoke_name).read_text(encoding="utf-8")
 
         assert cli_sources[module_name] == f"{module_name}.py"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -20,6 +21,10 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.markdown_utils import section_text as markdown_section_text
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
+from thesis_review_workflow.submitted_reports import (
+    OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+    validate_submitted_opponent_report_record,
+)
 
 DEFAULT_DRAFT = Path("work/oponent_posudek_draft.md")
 CLEAN_PROPOSAL = Path("outputs/oponent_posudek_navrh.md")
@@ -399,6 +404,34 @@ def main(argv: list[str]) -> int:
             validate_source_metadata(text, materials_path, path_arg, errors)
             public_text = strip_metadata_comments(text)
         check_text(text, public_text, errors, mode=args.mode)
+
+    submitted_record_path = round_dir / OPPONENT_REPORT_SUBMITTED_RECORD_REL
+    if submitted_record_path.is_file():
+        try:
+            submitted_record = json.loads(submitted_record_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{OPPONENT_REPORT_SUBMITTED_RECORD_REL}: invalid JSON: {exc.msg}")
+        else:
+            errors.extend(
+                validate_submitted_opponent_report_record(
+                    submitted_record,
+                    round_dir=round_dir,
+                    case_id=args.case_id,
+                    round_id=round_id,
+                    rel_path=OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+                )
+            )
+    else:
+        submitted_dir = round_dir / "work" / "submitted_reports"
+        submitted_text_dir = round_dir / "extracted" / "submitted_reports"
+        if (
+            submitted_dir.is_dir()
+            and any(path.name.startswith("opponent_report") for path in submitted_dir.iterdir() if path.is_file())
+        ) or (
+            submitted_text_dir.is_dir()
+            and any(path.name.startswith("opponent_report") for path in submitted_text_dir.iterdir() if path.is_file())
+        ):
+            errors.append(f"submitted opponent report files require {OPPONENT_REPORT_SUBMITTED_RECORD_REL}")
 
     if errors:
         for error in errors:

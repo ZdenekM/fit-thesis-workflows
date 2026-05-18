@@ -36,6 +36,23 @@ from thesis_review_workflow.work_artifacts import (
 )
 
 
+def test_helper_dependency_hashes_normalize_opponent_report_modes_for_submitted_artifacts(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    submitted_record = round_dir / "work" / "submitted_reports" / "opponent_report.json"
+    submitted_text = round_dir / "extracted" / "submitted_reports" / "opponent_report.txt"
+    submitted_record.parent.mkdir(parents=True)
+    submitted_text.parent.mkdir(parents=True)
+    submitted_record.write_text("{}\n", encoding="utf-8")
+    submitted_text.write_text("public text\n", encoding="utf-8")
+
+    clean_hashes = helper_dependency_hashes(round_dir, "check-opponent-report:clean")
+    canonical_hashes = helper_dependency_hashes(round_dir, "check-opponent-report:canonical")
+
+    for hashes in (clean_hashes, canonical_hashes):
+        assert "round:work/submitted_reports:opponent_report.json" in hashes
+        assert "round:extracted/submitted_reports:opponent_report.txt" in hashes
+
+
 def write_claim_review_basis(round_dir: Path, *, draft_ref: str = "work/feedback_student_draft.md") -> None:
     draft = round_dir / draft_ref
     evidence = round_dir / "extracted" / "thesis.txt"

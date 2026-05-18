@@ -56,6 +56,8 @@ python_source(name="prepare_supervisor_report_packets", source="prepare_supervis
 python_source(name="prepare_supervisor_packets", source="prepare_supervisor_packets.py")
 python_source(name="record_report_amendment", source="record_report_amendment.py")
 python_source(name="record_review_delta", source="record_review_delta.py")
+python_source(name="record_submitted_opponent_report", source="record_submitted_opponent_report.py")
+python_source(name="record_submitted_report_delta", source="record_submitted_report_delta.py")
 python_source(name="record_submitted_supervisor_report", source="record_submitted_supervisor_report.py")
 python_source(name="record_workflow_operation", source="record_workflow_operation.py")
 python_source(name="refresh_round_hashes", source="refresh_round_hashes.py")

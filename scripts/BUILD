@@ -54,6 +54,8 @@ shell_sources(
         "prepare-supervisor-packets",
         "record-report-amendment",
         "record-review-delta",
+        "record-submitted-opponent-report",
+        "record-submitted-report-delta",
         "record-submitted-supervisor-report",
         "record-workflow-operation",
         "refresh-round-hashes",
@@ -89,6 +91,7 @@ shell_sources(
         "smoke-prepare-review-round",
         "smoke-record-report-amendment",
         "smoke-record-review-delta",
+        "smoke-record-submitted-opponent-report",
         "smoke-record-submitted-supervisor-report",
         "smoke-refresh-round-hashes",
         "smoke-supervisor-report-calibration-profile",
@@ -121,6 +124,7 @@ files(
         "smoke-package-workflow-tools",
         "smoke-record-report-amendment",
         "smoke-record-review-delta",
+        "smoke-record-submitted-opponent-report",
         "smoke-record-submitted-supervisor-report",
         "smoke-export-opponent-report",
         "smoke-prepare-review-round",
@@ -184,6 +188,8 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_report_amendment",
     "src/thesis_review_workflow/cli:record_review_delta",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
+    "src/thesis_review_workflow/cli:record_submitted_opponent_report",
+    "src/thesis_review_workflow/cli:record_submitted_report_delta",
     "src/thesis_review_workflow/cli:record_workflow_operation",
     "src/thesis_review_workflow/cli:refresh_round_hashes",
     "src/thesis_review_workflow/cli:register_review_artifact",
@@ -713,6 +719,26 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/record-review-delta",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_submitted_opponent_report_tool",
+    entry_point="thesis_review_workflow.cli.record_submitted_opponent_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-submitted-opponent-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_submitted_report_delta_tool",
+    entry_point="thesis_review_workflow.cli.record_submitted_report_delta:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-submitted-report-delta",
     tags=["workflow-tool"],
 )
 

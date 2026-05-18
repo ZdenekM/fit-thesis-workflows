@@ -49,6 +49,11 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     validate_review_run_trace_payload,
 )
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
+from thesis_review_workflow.submitted_report_deltas import (
+    is_submitted_report_delta_artifact,
+    validate_opponent_submitted_report_deltas,
+)
+from thesis_review_workflow.submitted_reports import is_submitted_report_artifact, validate_submitted_report_record
 from thesis_review_workflow.supervisor_report_calibration import (
     is_supervisor_report_calibration_artifact,
     validate_supervisor_report_calibration_artifact,
@@ -171,6 +176,7 @@ WORK_ARTIFACT_GLOBS = (
     "work/review_deltas/*.json",
     "work/review_deltas/*-before.*",
     "work/reviews/*.json",
+    "work/submitted_reports/*.json",
     "work/opponent_report_revision_sources/*",
     "work/opponent_calibration_refresh_sources/*",
     "work/calibration/*.json",
@@ -352,6 +358,36 @@ def validate_supporting_work_artifacts(
             else:
                 errors.extend(
                     validate_review_delta_record(
+                        loaded,
+                        round_dir=round_dir,
+                        case_id=case_id,
+                        round_id=round_id,
+                        rel_path=rel_path,
+                    )
+                )
+        elif is_submitted_report_artifact(rel_path):
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"{rel_path}: invalid JSON: {exc.msg}")
+            else:
+                errors.extend(
+                    validate_submitted_report_record(
+                        loaded,
+                        round_dir=round_dir,
+                        case_id=case_id,
+                        round_id=round_id,
+                        rel_path=rel_path,
+                    )
+                )
+        elif is_submitted_report_delta_artifact(rel_path):
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"{rel_path}: invalid JSON: {exc.msg}")
+            else:
+                errors.extend(
+                    validate_opponent_submitted_report_deltas(
                         loaded,
                         round_dir=round_dir,
                         case_id=case_id,

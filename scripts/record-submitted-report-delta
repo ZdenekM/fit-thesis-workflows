@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m thesis_review_workflow.cli.record_submitted_report_delta "$@"

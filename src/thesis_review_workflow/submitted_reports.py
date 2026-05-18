@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import re
 import shutil
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.artifact_validation import sha256_file
+from thesis_review_workflow.markdown_utils import section_text
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.supervisor_report import (
     SUPERVISOR_REPORT_CONFIRMATION_REL,
@@ -25,7 +27,90 @@ from thesis_review_workflow.supervisor_report import (
 
 SUBMITTED_REPORT_SCHEMA = "submitted-report-v1"
 REPORT_KIND_SUPERVISOR = "supervisor_report"
-SUPPORTED_REPORT_KINDS = {REPORT_KIND_SUPERVISOR}
+REPORT_KIND_OPPONENT = "opponent_report"
+SUPPORTED_REPORT_KINDS = {REPORT_KIND_SUPERVISOR, REPORT_KIND_OPPONENT}
+
+OPPONENT_REPORT_CLEAN_REL = "outputs/oponent_posudek_navrh.md"
+OPPONENT_REPORT_REVIEW_REL = "outputs/feedback_k_posudku.md"
+OPPONENT_REPORT_APPROVAL_REL = "work/reviews/opponent_report_review.json"
+OPPONENT_REPORT_SUBMITTED_RECORD_REL = "work/submitted_reports/opponent_report.json"
+OPPONENT_REPORT_SUBMITTED_PDF_REL = "work/submitted_reports/opponent_report.pdf"
+OPPONENT_REPORT_SUBMITTED_TEXT_REL = "extracted/submitted_reports/opponent_report.txt"
+OPPONENT_REPORT_DELTAS_REL = "work/submitted_reports/opponent_report_deltas.json"
+OPPONENT_REPORT_PRIVATE_HEADING = "## Komentář pro studenta (neveřejná část)"
+OPPONENT_REPORT_IS_FORM_HEADING = "## IS formulář (výběry a body)"
+OPPONENT_REPORT_QUESTIONS_HEADING = "## 10. Otázky k obhajobě"
+OPPONENT_REPORT_POINTS_HEADING = "## 11. Body a známka"
+OPPONENT_REPORT_PRIVATE_MIN_NONSPACE_CHARS = 80
+OPPONENT_SELECT_FIELDS = {
+    "Náročnost zadání": {
+        "jednoduché zadání",
+        "méně obtížné zadání",
+        "průměrně obtížné zadání",
+        "obtížnější zadání",
+        "značně obtížné zadání",
+    },
+    "Rozsah splnění požadavků zadání": {
+        "zadání nesplněno",
+        "zadání splněno pouze částečně",
+        "zadání splněno pouze částečně s drobnými výhradami",
+        "zadání splněno pouze částečně s vážnějšími výhradami",
+        "zadání téměř splněno",
+        "zadání téměř splněno s drobnými výhradami",
+        "zadání téměř splněno s vážnějšími výhradami",
+        "student se odůvodněně odchýlil od zadání",
+        "student se odůvodněně odchýlil od zadání s drobnými výhradami",
+        "student se odůvodněně odchýlil od zadání s vážnějšími výhradami",
+        "zadání splněno",
+        "zadání splněno s drobnými výhradami",
+        "zadání splněno s vážnějšími výhradami",
+        "zadání splněno a práce obsahuje podstatná rozšíření",
+    },
+    "Rozsah technické zprávy": {
+        "nesplňuje minimální požadavky",
+        "téměř splňuje minimální požadavky",
+        "splňuje pouze minimální požadavky",
+        "je v obvyklém rozmezí",
+        "přesahuje obvyklé rozmezí",
+    },
+}
+OPPONENT_POINT_FIELDS = (
+    "Prezentační úroveň technické zprávy",
+    "Formální úprava technické zprávy",
+    "Práce s literaturou",
+    "Realizační výstup",
+)
+OPPONENT_POINT_RE = re.compile(r"\b(?:Body|Bodové hodnocení|Bodove hodnoceni)\s*:\s*(\d{1,3})\b", re.IGNORECASE)
+OPPONENT_GRADE_RE = re.compile(r"\b(?:Známka|Znamka|Navržená známka|Navrzena znamka)\s*:\s*([A-F])\b", re.IGNORECASE)
+OPPONENT_PUBLIC_FORBIDDEN_PATTERNS = (
+    r"(?<!\w)/(?:home|Users|tmp|var|workspace|mnt)/[^\s)\"']*",
+    r"\bcases/",
+    r"\brounds/",
+    r"\bwork/",
+    r"\bnotes/",
+    r"\bprofiles/",
+    r"\boutputs/",
+    r"\binputs/",
+    r"\bextracted/",
+    r"\boponent_posudek_navrh\.md\b",
+    r"\bfeedback_k_posudku\.md\b",
+    r"\breview_manifest\.json\b",
+    r"\bagent_coverage\.json\b",
+    r"\boponent_podklady(?:_revidovane|_draft)?\.md\b",
+    r"\boponent_posudek_draft\.md\b",
+    r"\bgithub_code_intake\.md\b",
+    r"\brevision_diff\.md\b",
+    r"\breference_report_comparison\.md\b",
+    r"\bopponent_reading_packet\.md\b",
+    r"\bpr_contribution_review\.md\b",
+    r"\bdemo_artifacts_review\.md\b",
+    r"\bcode_consistency\.md\b",
+    r"\bcode_quality_review\.md\b",
+    r"\bfigure_media_review\.md\b",
+    r"\btypography_formal_review\.md\b",
+    r"\b[0-9a-f]{64}\b",
+    r"\b(?:approval record|helper[- ]check|workflow profile|review basis|review manifest|agent coverage)\b",
+)
 
 
 def sha256_text(text: str) -> str:
@@ -48,20 +133,24 @@ def load_json_object(path: Path, label: str) -> dict[str, Any]:
     return loaded
 
 
-def copy_submitted_pdf(source: Path, round_dir: Path, *, force: bool = False) -> str:
+def copy_submitted_pdf(
+    source: Path,
+    round_dir: Path,
+    *,
+    force: bool = False,
+    target_rel: str = SUPERVISOR_REPORT_SUBMITTED_PDF_REL,
+) -> str:
     if not source.is_file():
         raise ValueError(f"submitted PDF path is not a file: {source}")
     if source.suffix.casefold() != ".pdf":
         raise ValueError("--pdf must point to a .pdf file")
-    target = round_dir / SUPERVISOR_REPORT_SUBMITTED_PDF_REL
+    target = round_dir / target_rel
     if target.exists() and not force:
-        raise ValueError(
-            f"refusing to overwrite existing submitted PDF without --force: {SUPERVISOR_REPORT_SUBMITTED_PDF_REL}"
-        )
+        raise ValueError(f"refusing to overwrite existing submitted PDF without --force: {target_rel}")
     target.parent.mkdir(parents=True, exist_ok=True)
     if source.resolve() != target.resolve():
         shutil.copy2(source, target)
-    return SUPERVISOR_REPORT_SUBMITTED_PDF_REL
+    return target_rel
 
 
 def copy_or_extract_public_text(
@@ -71,19 +160,17 @@ def copy_or_extract_public_text(
     public_text_file: Path | None,
     force: bool = False,
     pdftotext_command: str = "pdftotext",
+    target_rel: str = SUPERVISOR_REPORT_SUBMITTED_TEXT_REL,
 ) -> str:
-    target = round_dir / SUPERVISOR_REPORT_SUBMITTED_TEXT_REL
+    target = round_dir / target_rel
     if target.exists() and not force:
-        raise ValueError(
-            f"refusing to overwrite existing submitted public text without --force: "
-            f"{SUPERVISOR_REPORT_SUBMITTED_TEXT_REL}"
-        )
+        raise ValueError(f"refusing to overwrite existing submitted public text without --force: {target_rel}")
     target.parent.mkdir(parents=True, exist_ok=True)
     if public_text_file is not None:
         if not public_text_file.is_file():
             raise ValueError(f"submitted public text path is not a file: {public_text_file}")
         shutil.copy2(public_text_file, target)
-        return SUPERVISOR_REPORT_SUBMITTED_TEXT_REL
+        return target_rel
     completed = subprocess.run(
         [pdftotext_command, "-layout", str(pdf_path), str(target)],
         text=True,
@@ -99,7 +186,7 @@ def copy_or_extract_public_text(
         raise ValueError(
             "could not extract submitted PDF text; install pdftotext or pass --public-text-file. " f"Details: {detail}"
         )
-    return SUPERVISOR_REPORT_SUBMITTED_TEXT_REL
+    return target_rel
 
 
 def build_supervisor_submitted_report_payload(
@@ -181,6 +268,277 @@ def build_supervisor_submitted_report_payload(
     }
 
 
+def parse_colon_fields(text: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or ":" not in stripped:
+            continue
+        key, value = stripped.split(":", 1)
+        key = key.strip("- \t")
+        value = value.strip()
+        if key and value:
+            fields[key] = value
+    return fields
+
+
+def parse_opponent_point_value(value: str) -> int | None:
+    match = re.fullmatch(r"(\d{1,3})(?:\s*(?:bod[uůy]?|b\.?))?", value.strip(), re.IGNORECASE)
+    if not match:
+        return None
+    parsed = int(match.group(1))
+    return parsed if 0 <= parsed <= 100 else None
+
+
+def opponent_public_report_text(text: str) -> str:
+    lines = text.splitlines()
+    result: list[str] = []
+    in_private = False
+    for line in lines:
+        if line.strip() == OPPONENT_REPORT_PRIVATE_HEADING:
+            in_private = True
+            continue
+        if in_private and line.startswith("## "):
+            in_private = False
+        if not in_private:
+            result.append(line)
+    while result and not result[-1].strip():
+        result.pop()
+    return "\n".join(result).strip() + "\n"
+
+
+def opponent_report_values(text: str, *, require_private_comment: bool = True) -> tuple[dict[str, Any], list[str]]:
+    lines = text.splitlines()
+    errors: list[str] = []
+    is_form = section_text(lines, OPPONENT_REPORT_IS_FORM_HEADING, stop_pattern=r"^##\s+")
+    fields = parse_colon_fields(is_form)
+    select_values: dict[str, str] = {}
+    point_values: dict[str, int] = {}
+    for field, allowed in OPPONENT_SELECT_FIELDS.items():
+        value = fields.get(field, "")
+        if not value:
+            errors.append(f"missing IS select field: {field}")
+        elif value not in allowed:
+            errors.append(f"invalid IS select field {field}: {value}")
+        else:
+            select_values[field] = value
+    for field in OPPONENT_POINT_FIELDS:
+        value = fields.get(field, "")
+        parsed = parse_opponent_point_value(value)
+        if parsed is None:
+            errors.append(f"missing or invalid IS point field: {field}")
+        else:
+            point_values[field] = parsed
+
+    points_section = section_text(lines, OPPONENT_REPORT_POINTS_HEADING, stop_pattern=r"^##\s+")
+    points_match = OPPONENT_POINT_RE.search(points_section)
+    grade_match = OPPONENT_GRADE_RE.search(points_section)
+    overall_points = int(points_match.group(1)) if points_match else None
+    grade = grade_match.group(1).upper() if grade_match else None
+    if overall_points is None or not 0 <= overall_points <= 100:
+        errors.append("missing or invalid overall point value")
+    if grade is None:
+        errors.append("missing grade value")
+
+    questions_section = section_text(lines, OPPONENT_REPORT_QUESTIONS_HEADING, stop_pattern=r"^##\s+")
+    questions = [
+        re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip() for line in questions_section.splitlines() if "?" in line
+    ]
+    if not questions:
+        errors.append("missing submitted defense questions")
+    questions_text = normalize_report_text(questions_section)
+
+    private_comment = section_text(lines, OPPONENT_REPORT_PRIVATE_HEADING, stop_pattern=r"^##\s+")
+    if (
+        require_private_comment
+        and len(re.sub(r"\s+", "", private_comment)) < OPPONENT_REPORT_PRIVATE_MIN_NONSPACE_CHARS
+    ):
+        errors.append("missing or too-short private student comment")
+
+    return (
+        {
+            "select_fields": select_values,
+            "point_fields": point_values,
+            "overall_points": overall_points,
+            "grade": grade,
+            "defense_questions": questions,
+            "defense_questions_text": questions_text,
+            "private_student_comment": private_comment.strip(),
+        },
+        errors,
+    )
+
+
+def public_text_safety_errors(text: str, rel_path: str) -> list[str]:
+    errors: list[str] = []
+    for pattern in OPPONENT_PUBLIC_FORBIDDEN_PATTERNS:
+        if re.search(pattern, text):
+            errors.append(f"{rel_path}: submitted public text contains internal/workflow pattern {pattern}")
+    return errors
+
+
+def public_report_sections(text: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    current = "__document__"
+    buffer: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            sections[current] = "\n".join(buffer).strip()
+            current = line.strip()
+            buffer = []
+        else:
+            buffer.append(line)
+    sections[current] = "\n".join(buffer).strip()
+    return {key: value for key, value in sections.items() if value.strip()}
+
+
+def opponent_public_section_diffs(reviewed_public_text: str, submitted_public_text: str) -> list[dict[str, str]]:
+    if normalize_report_text(reviewed_public_text) == normalize_report_text(submitted_public_text):
+        return []
+    before_sections = public_report_sections(reviewed_public_text)
+    after_sections = public_report_sections(submitted_public_text)
+    ordered_sections = list(before_sections)
+    ordered_sections.extend(section for section in after_sections if section not in before_sections)
+    diffs: list[dict[str, str]] = []
+    for section in ordered_sections:
+        before = normalize_report_text(before_sections.get(section, ""))
+        after = normalize_report_text(after_sections.get(section, ""))
+        if before == after:
+            continue
+        diffs.append(
+            {
+                "section": section,
+                "normalized_before": before,
+                "normalized_after": after,
+                "before_sha256": sha256_text(before),
+                "after_sha256": sha256_text(after),
+            }
+        )
+    return diffs
+
+
+def is_submitted_report_artifact(rel_path: str) -> bool:
+    return rel_path in {SUPERVISOR_REPORT_SUBMITTED_RECORD_REL, OPPONENT_REPORT_SUBMITTED_RECORD_REL}
+
+
+def load_opponent_approval(round_dir: Path) -> dict[str, Any]:
+    approval = load_json_object(round_dir / OPPONENT_REPORT_APPROVAL_REL, OPPONENT_REPORT_APPROVAL_REL)
+    if approval.get("workflow_profile") != "opponent_report_review":
+        raise ValueError(f"{OPPONENT_REPORT_APPROVAL_REL}: workflow_profile must be opponent_report_review")
+    if approval.get("reviewed_artifact_path") != OPPONENT_REPORT_REVIEW_REL:
+        raise ValueError(f"{OPPONENT_REPORT_APPROVAL_REL}: reviewed_artifact_path must be {OPPONENT_REPORT_REVIEW_REL}")
+    if approval.get("review_basis_path") != OPPONENT_REPORT_CLEAN_REL:
+        raise ValueError(f"{OPPONENT_REPORT_APPROVAL_REL}: review_basis_path must be {OPPONENT_REPORT_CLEAN_REL}")
+    if approval.get("reviewed_artifact_sha256") != sha256_file(round_dir / OPPONENT_REPORT_REVIEW_REL):
+        raise ValueError(f"{OPPONENT_REPORT_APPROVAL_REL}: reviewed_artifact_sha256 is stale")
+    if approval.get("review_basis_sha256") != sha256_file(round_dir / OPPONENT_REPORT_CLEAN_REL):
+        raise ValueError(f"{OPPONENT_REPORT_APPROVAL_REL}: review_basis_sha256 is stale")
+    return approval
+
+
+def build_opponent_submitted_report_payload(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    submitted_at: str,
+    recorded_by: str,
+    pdf_rel: str = OPPONENT_REPORT_SUBMITTED_PDF_REL,
+    public_text_rel: str = OPPONENT_REPORT_SUBMITTED_TEXT_REL,
+) -> dict[str, Any]:
+    if not recorded_by.strip():
+        raise ValueError("--recorded-by is required for submitted report records")
+    clean_path = round_dir / OPPONENT_REPORT_CLEAN_REL
+    review_path = round_dir / OPPONENT_REPORT_REVIEW_REL
+    pdf_path = round_dir / pdf_rel
+    public_text_path = round_dir / public_text_rel
+    for label, path in (
+        (OPPONENT_REPORT_CLEAN_REL, clean_path),
+        (OPPONENT_REPORT_REVIEW_REL, review_path),
+        (pdf_rel, pdf_path),
+        (public_text_rel, public_text_path),
+    ):
+        if not path.is_file():
+            raise ValueError(f"missing required artifact: {label}")
+    approval = load_opponent_approval(round_dir)
+    clean_text = clean_path.read_text(encoding="utf-8")
+    submitted_text = public_text_path.read_text(encoding="utf-8")
+    public_projection = opponent_public_report_text(clean_text)
+    clean_values, clean_errors = opponent_report_values(clean_text, require_private_comment=True)
+    submitted_values, submitted_errors = opponent_report_values(submitted_text, require_private_comment=False)
+    if clean_errors:
+        raise ValueError("; ".join(f"{OPPONENT_REPORT_CLEAN_REL}: {error}" for error in clean_errors))
+    if submitted_errors:
+        raise ValueError("; ".join(f"{public_text_rel}: {error}" for error in submitted_errors))
+    normalized_projection = normalize_report_text(public_projection)
+    normalized_submitted = normalize_report_text(submitted_text)
+    compared_fields = (
+        clean_values["select_fields"] == submitted_values["select_fields"]
+        and clean_values["point_fields"] == submitted_values["point_fields"]
+        and clean_values["overall_points"] == submitted_values["overall_points"]
+        and clean_values["grade"] == submitted_values["grade"]
+        and clean_values["defense_questions"] == submitted_values["defense_questions"]
+        and clean_values["defense_questions_text"] == submitted_values["defense_questions_text"]
+    )
+    public_match = normalized_projection == normalized_submitted
+    return {
+        "schema_version": SUBMITTED_REPORT_SCHEMA,
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": submitted_at,
+        "producer_type": "human",
+        "producer_role": "record-submitted-opponent-report",
+        "producer_agent": None,
+        "recorded_by": recorded_by.strip(),
+        "human_reviewer_note": "Operator recorded the submitted opponent report PDF and public text.",
+        "report_kind": REPORT_KIND_OPPONENT,
+        "supported_report_kinds": sorted(SUPPORTED_REPORT_KINDS),
+        "source_refs": [
+            OPPONENT_REPORT_CLEAN_REL,
+            OPPONENT_REPORT_REVIEW_REL,
+            OPPONENT_REPORT_APPROVAL_REL,
+            pdf_rel,
+            public_text_rel,
+        ],
+        "limitations": [],
+        "submitted_pdf_path": pdf_rel,
+        "submitted_pdf_sha256": sha256_file(pdf_path),
+        "submitted_public_text_path": public_text_rel,
+        "submitted_public_text_sha256": sha256_file(public_text_path),
+        "submitted_public_text_normalized_sha256": sha256_text(normalized_submitted),
+        "reviewed_report_path": OPPONENT_REPORT_CLEAN_REL,
+        "reviewed_report_sha256": sha256_file(clean_path),
+        "reviewed_public_text_sha256": sha256_text(public_projection),
+        "reviewed_public_text_normalized_sha256": sha256_text(normalized_projection),
+        "review_output_path": OPPONENT_REPORT_REVIEW_REL,
+        "review_output_sha256": sha256_file(review_path),
+        "approval_record_path": OPPONENT_REPORT_APPROVAL_REL,
+        "approval_record_sha256": sha256_file(round_dir / OPPONENT_REPORT_APPROVAL_REL),
+        "approval_reviewed_artifact_sha256": approval["reviewed_artifact_sha256"],
+        "approval_review_basis_sha256": approval["review_basis_sha256"],
+        "grade": submitted_values["grade"],
+        "points": submitted_values["overall_points"],
+        "reviewed_grade": clean_values["grade"],
+        "reviewed_points": clean_values["overall_points"],
+        "is_select_fields": submitted_values["select_fields"],
+        "reviewed_is_select_fields": clean_values["select_fields"],
+        "category_points": submitted_values["point_fields"],
+        "reviewed_category_points": clean_values["point_fields"],
+        "defense_questions": submitted_values["defense_questions"],
+        "reviewed_defense_questions": clean_values["defense_questions"],
+        "defense_questions_text": submitted_values["defense_questions_text"],
+        "reviewed_defense_questions_text": clean_values["defense_questions_text"],
+        "private_student_comment_path": OPPONENT_REPORT_CLEAN_REL,
+        "private_student_comment_sha256": sha256_text(clean_values["private_student_comment"]),
+        "public_text_projection_kind": "opponent-clean-markdown-public-v1",
+        "public_text_section_diffs": opponent_public_section_diffs(public_projection, submitted_text),
+        "submitted_report_deltas_path": OPPONENT_REPORT_DELTAS_REL,
+        "public_text_normalized_match": public_match,
+        "field_values_match": compared_fields,
+        "ready_for_archive": public_match and compared_fields,
+    }
+
+
 def validate_submitted_report_record(
     loaded: Any,
     *,
@@ -189,6 +547,14 @@ def validate_submitted_report_record(
     round_id: str | None = None,
     rel_path: str = SUPERVISOR_REPORT_SUBMITTED_RECORD_REL,
 ) -> list[str]:
+    if isinstance(loaded, dict) and loaded.get("report_kind") == REPORT_KIND_OPPONENT:
+        return validate_submitted_opponent_report_record(
+            loaded,
+            round_dir=round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            rel_path=rel_path,
+        )
     errors: list[str] = []
     if not isinstance(loaded, dict):
         return [f"{rel_path}: submitted report record must be an object"]
@@ -238,6 +604,123 @@ def validate_submitted_report_record(
     if loaded.get("points") != loaded.get("reviewed_points") or loaded.get("points") != loaded.get("confirmed_points"):
         errors.append(f"{rel_path}: submitted, reviewed, and confirmed points must match")
     return errors
+
+
+def validate_submitted_opponent_report_record(
+    loaded: Any,
+    *,
+    round_dir: Path,
+    case_id: str | None = None,
+    round_id: str | None = None,
+    rel_path: str = OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+    require_archive_ready: bool = True,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(loaded, dict):
+        return [f"{rel_path}: submitted opponent report record must be an object"]
+    if loaded.get("schema_version") != SUBMITTED_REPORT_SCHEMA:
+        errors.append(f"{rel_path}: schema_version must be {SUBMITTED_REPORT_SCHEMA}")
+    if case_id is not None and loaded.get("case_id") != case_id:
+        errors.append(f"{rel_path}: case_id does not match requested case")
+    if round_id is not None and loaded.get("round_id") != round_id:
+        errors.append(f"{rel_path}: round_id does not match requested round")
+    if loaded.get("report_kind") != REPORT_KIND_OPPONENT:
+        errors.append(f"{rel_path}: report_kind must be {REPORT_KIND_OPPONENT}")
+    submitted_pdf_path = _validate_hash_bound_path(
+        loaded, rel_path, round_dir, "submitted_pdf_path", "submitted_pdf_sha256", errors
+    )
+    submitted_text_path = _validate_hash_bound_path(
+        loaded, rel_path, round_dir, "submitted_public_text_path", "submitted_public_text_sha256", errors
+    )
+    reviewed_path = _validate_hash_bound_path(
+        loaded, rel_path, round_dir, "reviewed_report_path", "reviewed_report_sha256", errors
+    )
+    review_output_path = _validate_hash_bound_path(
+        loaded, rel_path, round_dir, "review_output_path", "review_output_sha256", errors
+    )
+    approval_path = _validate_hash_bound_path(
+        loaded, rel_path, round_dir, "approval_record_path", "approval_record_sha256", errors
+    )
+    if submitted_pdf_path is not None and submitted_pdf_path.suffix.casefold() != ".pdf":
+        errors.append(f"{rel_path}: submitted_pdf_path must point to a PDF")
+    if loaded.get("reviewed_report_path") != OPPONENT_REPORT_CLEAN_REL:
+        errors.append(f"{rel_path}: reviewed_report_path must be {OPPONENT_REPORT_CLEAN_REL}")
+    if loaded.get("review_output_path") != OPPONENT_REPORT_REVIEW_REL:
+        errors.append(f"{rel_path}: review_output_path must be {OPPONENT_REPORT_REVIEW_REL}")
+    if loaded.get("approval_record_path") != OPPONENT_REPORT_APPROVAL_REL:
+        errors.append(f"{rel_path}: approval_record_path must be {OPPONENT_REPORT_APPROVAL_REL}")
+    if not isinstance(loaded.get("recorded_by"), str) or not str(loaded.get("recorded_by")).strip():
+        errors.append(f"{rel_path}: recorded_by must be a non-empty string")
+    if submitted_text_path is not None:
+        errors.extend(public_text_safety_errors(submitted_text_path.read_text(encoding="utf-8"), rel_path))
+    if (
+        submitted_text_path is not None
+        and reviewed_path is not None
+        and review_output_path is not None
+        and approval_path
+    ):
+        _validate_recomputed_submitted_opponent_report_state(
+            loaded,
+            rel_path,
+            round_dir=round_dir,
+            submitted_text_path=submitted_text_path,
+            reviewed_path=reviewed_path,
+            review_output_path=review_output_path,
+            approval_path=approval_path,
+            errors=errors,
+        )
+    archive_ready_with_deltas = False
+    if require_archive_ready and loaded.get("public_text_normalized_match") is not True:
+        archive_ready_with_deltas = _accepted_opponent_delta_ready(
+            round_dir,
+            rel_path=rel_path,
+            case_id=case_id,
+            round_id=round_id,
+            errors=errors,
+            submitted_record=loaded,
+        )
+    if (
+        require_archive_ready
+        and loaded.get("public_text_normalized_match") is not True
+        and not archive_ready_with_deltas
+    ):
+        errors.append(f"{rel_path}: submitted public text does not match reviewed public report projection")
+    if require_archive_ready and loaded.get("field_values_match") is not True:
+        errors.append(f"{rel_path}: submitted public text field values do not match reviewed report basis")
+    if require_archive_ready and loaded.get("ready_for_archive") is not True and not archive_ready_with_deltas:
+        errors.append(f"{rel_path}: ready_for_archive must be true")
+    if require_archive_ready and loaded.get("grade") != loaded.get("reviewed_grade"):
+        errors.append(f"{rel_path}: submitted and reviewed grades must match")
+    if require_archive_ready and loaded.get("points") != loaded.get("reviewed_points"):
+        errors.append(f"{rel_path}: submitted and reviewed points must match")
+    return errors
+
+
+def _accepted_opponent_delta_ready(
+    round_dir: Path,
+    *,
+    rel_path: str,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+    submitted_record: dict[str, Any],
+) -> bool:
+    delta_module = importlib.import_module("thesis_review_workflow.submitted_report_deltas")
+
+    try:
+        deltas = delta_module.load_opponent_submitted_report_deltas(round_dir)
+    except ValueError as exc:
+        errors.append(f"{rel_path}: {exc}")
+        return False
+    delta_errors = delta_module.validate_opponent_submitted_report_deltas(
+        deltas,
+        round_dir=round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        submitted_record=submitted_record,
+    )
+    errors.extend(f"{rel_path}: {error}" for error in delta_errors)
+    return not delta_errors and deltas.get("ready_for_archive_with_deltas") is True
 
 
 def _validate_hash_bound_path(
@@ -312,3 +795,77 @@ def _validate_recomputed_submitted_report_state(
     ):
         if loaded.get(field) != expected:
             errors.append(f"{rel_path}: {field} is stale")
+
+
+def _validate_recomputed_submitted_opponent_report_state(
+    loaded: dict[str, Any],
+    rel_path: str,
+    *,
+    round_dir: Path,
+    submitted_text_path: Path,
+    reviewed_path: Path,
+    review_output_path: Path,
+    approval_path: Path,
+    errors: list[str],
+) -> None:
+    submitted_text = submitted_text_path.read_text(encoding="utf-8")
+    reviewed_text = reviewed_path.read_text(encoding="utf-8")
+    public_projection = opponent_public_report_text(reviewed_text)
+    clean_values, clean_errors = opponent_report_values(reviewed_text, require_private_comment=True)
+    submitted_values, submitted_errors = opponent_report_values(submitted_text, require_private_comment=False)
+    errors.extend(f"{rel_path}: reviewed report {error}" for error in clean_errors)
+    errors.extend(f"{rel_path}: submitted public text {error}" for error in submitted_errors)
+    if clean_errors or submitted_errors:
+        return
+    try:
+        approval = load_opponent_approval(round_dir)
+    except ValueError as exc:
+        errors.append(f"{rel_path}: {exc}")
+        return
+    normalized_submitted = normalize_report_text(submitted_text)
+    normalized_projection = normalize_report_text(public_projection)
+    field_values_match = (
+        clean_values["select_fields"] == submitted_values["select_fields"]
+        and clean_values["point_fields"] == submitted_values["point_fields"]
+        and clean_values["overall_points"] == submitted_values["overall_points"]
+        and clean_values["grade"] == submitted_values["grade"]
+        and clean_values["defense_questions"] == submitted_values["defense_questions"]
+        and clean_values["defense_questions_text"] == submitted_values["defense_questions_text"]
+    )
+    if loaded.get("submitted_public_text_normalized_sha256") != sha256_text(normalized_submitted):
+        errors.append(f"{rel_path}: submitted_public_text_normalized_sha256 is stale")
+    if loaded.get("reviewed_public_text_normalized_sha256") != sha256_text(normalized_projection):
+        errors.append(f"{rel_path}: reviewed_public_text_normalized_sha256 is stale")
+    if loaded.get("reviewed_public_text_sha256") != sha256_text(public_projection):
+        errors.append(f"{rel_path}: reviewed_public_text_sha256 is stale")
+    if loaded.get("public_text_normalized_match") != (normalized_submitted == normalized_projection):
+        errors.append(f"{rel_path}: public_text_normalized_match is stale")
+    if loaded.get("field_values_match") != field_values_match:
+        errors.append(f"{rel_path}: field_values_match is stale")
+    if loaded.get("ready_for_archive") != (normalized_submitted == normalized_projection and field_values_match):
+        errors.append(f"{rel_path}: ready_for_archive is stale")
+    expected_fields = {
+        "grade": submitted_values["grade"],
+        "points": submitted_values["overall_points"],
+        "reviewed_grade": clean_values["grade"],
+        "reviewed_points": clean_values["overall_points"],
+        "is_select_fields": submitted_values["select_fields"],
+        "reviewed_is_select_fields": clean_values["select_fields"],
+        "category_points": submitted_values["point_fields"],
+        "reviewed_category_points": clean_values["point_fields"],
+        "defense_questions": submitted_values["defense_questions"],
+        "reviewed_defense_questions": clean_values["defense_questions"],
+        "defense_questions_text": submitted_values["defense_questions_text"],
+        "reviewed_defense_questions_text": clean_values["defense_questions_text"],
+        "private_student_comment_sha256": sha256_text(clean_values["private_student_comment"]),
+        "public_text_section_diffs": opponent_public_section_diffs(public_projection, submitted_text),
+        "approval_reviewed_artifact_sha256": approval["reviewed_artifact_sha256"],
+        "approval_review_basis_sha256": approval["review_basis_sha256"],
+    }
+    for field, expected in expected_fields.items():
+        if loaded.get(field) != expected:
+            errors.append(f"{rel_path}: {field} is stale")
+    if loaded.get("review_output_sha256") != sha256_file(review_output_path):
+        errors.append(f"{rel_path}: review_output_sha256 is stale")
+    if loaded.get("approval_record_sha256") != sha256_file(approval_path):
+        errors.append(f"{rel_path}: approval_record_sha256 is stale")

@@ -1,6 +1,6 @@
 # Opponent Report Clean Export And Closeout Plan
 
-Status: active
+Status: done
 Created: 2026-05-18
 
 ## Goal
@@ -600,7 +600,7 @@ The intended final path for an opponent report is:
 
 ### Slice 6 - Submitted Opponent Report Capture And Archive Closeout
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `feat(workflow): record submitted opponent reports`
 - Expected paths:
   - `src/thesis_review_workflow/submitted_reports.py`
@@ -813,6 +813,22 @@ The intended final path for an opponent report is:
   `scripts/check-private`, `git diff --check`, and `pants run :omen`. Omen CLI
   reported grade A / overall score 90.59; hotspot output remains advisory
   repo-baseline signal, not a Slice 5 blocker.
+- 2026-05-18: Slice 6 implemented submitted opponent-report capture,
+  public/private split validation, section-level public projection diffs, typed
+  submitted-form deltas, archive-readiness gating, operation-log events,
+  manifest supporting-work inclusion, command/PEX registration, wrapper
+  scripts, smoke coverage, README/operator docs, and opponent-report-review
+  skill guidance. Two read-only reviewer agents found missing hash binding
+  between deltas and submitted records, stale helper dependency hashing for
+  `check-opponent-report:*`, weaker submitted-text privacy checks, defense
+  question comparison gaps, unreachable `material_change` evidence, and
+  overoptimistic PDF-only documentation. These were fixed; a post-fix reviewer
+  then found one remaining bare-artifact-name privacy gap, also fixed and
+  covered by regression tests. Serena symbol/diagnostic tools were used; Serena
+  onboarding failed because the installed package was missing its memory
+  maintenance template, so onboarding itself is a tooling limitation. Omen MCP
+  path discovery remained unusable from earlier attempts, so `pants run :omen`
+  is the recorded Omen signal.
 
 ## Decision Log
 
@@ -870,22 +886,35 @@ The intended final path for an opponent report is:
 
 ## Final Audit
 
-2026-05-18 slice closeout: Slices 1 through 5 are completed and committed. The
-pre-submission opponent-report-review workflow now has first-class canonical and
-clean artifacts, clean export, approval/manifest/coverage closeout plumbing,
-deterministic hash refresh for common briefing maintenance, and end-to-end smoke
-coverage through opponent-report-review pre-submission closeout.
+2026-05-18 final closeout: All six slices are completed. The workflow now has
+first-class canonical and clean opponent-report artifacts, clean IS-entry
+export, approval/manifest/coverage closeout plumbing, deterministic hash refresh
+for common briefing maintenance, submitted opponent-report PDF/text capture,
+typed submitted-form delta acceptance, and archive-readiness checks that keep
+material submitted differences from being silently archived.
 
-This plan remains active because Slice 6, submitted opponent-report capture and
-archive closeout, is intentionally still planned. Do not archive the plan until
-submitted PDF capture, public/private report comparison, typed submitted-form
-delta classification, and archive-readiness checks are implemented or explicitly
-deferred to `TODO.md`.
+Final verification passed on 2026-05-18:
 
-Final verification for the completed pre-submission scope passed on
-2026-05-18: `pants fmt ::`, `pants lint ::`, `pants check ::`,
-`pants test tests::`, `scripts/smoke-opponent-report`,
-`scripts/smoke-export-opponent-report`, `scripts/smoke-review-wave`,
-`scripts/smoke-review-manifest`, `scripts/smoke-agent-coverage`,
-`scripts/smoke-package-workflow-tools`, `scripts/check-scripts`,
-`scripts/check-private`, `git diff --check`, and `pants run :omen`.
+- `pants fmt src/thesis_review_workflow:: tests::`
+- `pants lint src/thesis_review_workflow:: tests::`
+- `pants check src/thesis_review_workflow:: tests::`
+- `pants test tests/test_submitted_reports.py tests/test_submitted_report_deltas.py tests/test_workflow_python_contracts.py tests/test_opponent_report.py tests/test_review_manifest_helpers.py`
+- `scripts/smoke-record-submitted-opponent-report`
+- `scripts/smoke-opponent-report`
+- `scripts/smoke-review-manifest`
+- `scripts/smoke-agent-coverage`
+- `scripts/smoke-package-workflow-tools`
+- `scripts/check-scripts`
+- `scripts/check-private`
+- `git diff --check`
+- `pants run :omen`
+
+Omen CLI reported grade A / overall score 90.43 after Slice 6. Omen hotspot
+output remains advisory repo-baseline signal; it did not identify a Slice 6
+blocker. Serena diagnostics were clean for the touched submitted-report modules
+after the final import refactor. Serena onboarding itself failed on a missing
+installed memory template, so no Serena project memory was created during this
+run.
+
+Archive decision: no residual Slice 6 work is left in `TODO.md`; move this plan
+to `plans/archive/` with the final commit.

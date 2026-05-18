@@ -253,6 +253,19 @@ profilové kontroly do `opponent-closeout`,
 který znovu projde revidované podklady, report trace, případný report draft,
 manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
 
+Po skutečném vložení posudku do IS uložte veřejný PDF export přes
+`scripts/record-submitted-opponent-report --pdf <pdf> --public-text-file
+<public-transcript.md> --recorded-by <name> <case-id> [round-id]`. Záznam se
+váže na `outputs/oponent_posudek_navrh.md`,
+`outputs/feedback_k_posudku.md` a `work/reviews/opponent_report_review.json`.
+Veřejná transkripce má zachovat clean-report Markdown sekce; bez ní helper jen
+zkusí raw `pdftotext -layout` a nebere změnu IS PDF layoutu jako ověřený
+archive-ready stav.
+Pokud se veřejný PDF text liší od clean návrhu jen nemateriálně, každou
+změněnou veřejnou sekci klasifikujte přes `scripts/record-submitted-report-delta`;
+materiální změny nebo změny selectboxů, bodů, známky a otázek vracejí posudek
+do review místo archivace jako přijatý rozdíl.
+
 ## Opponent-Facing Boundary
 
 Oponentské podklady a posudek nesmí do prose pro oponenta nebo IS propouštět
