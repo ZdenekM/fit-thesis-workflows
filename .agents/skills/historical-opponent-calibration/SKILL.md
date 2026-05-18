@@ -82,10 +82,12 @@ exist, use the private profile only through the current-case contract:
    `work/opponent_report_revision_request.json`.
 10. Regenerate `work/oponent_posudek_draft.md` with
     `scripts/draft-opponent-report --force <case-id> [round-id]`, then run
-    `scripts/check-opponent-report <case-id> [round-id]`.
+    `scripts/check-opponent-report --mode canonical <case-id> [round-id]` and
+    `scripts/export-opponent-report <case-id> [round-id]` after human
+    calibration.
 11. Refresh `work/review_manifest.json`, run required coverage/manifest checks,
-    and run an independent opponent-report review before treating the revised
-    draft as sendable.
+    and run an independent opponent-report review before treating the clean
+    proposal as sendable.
 12. After the report is human-finalized and independently reviewed, the operator
     may mark it for a future calibration refresh by writing
     `work/opponent_calibration_refresh_eligibility.json`. The marker binds the

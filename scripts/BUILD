@@ -37,6 +37,7 @@ shell_sources(
         "confirm-supervisor-report",
         "draft-opponent-report",
         "draft-supervisor-report",
+        "export-opponent-report",
         "extract-pdf-text",
         "import-github-code",
         "import-round",
@@ -68,6 +69,7 @@ shell_sources(
         "smoke-current-evidence-snapshot",
         "smoke-evidence-presence",
         "smoke-evaluation-claims",
+        "smoke-export-opponent-report",
         "smoke-feedback-language",
         "smoke-feedback-output",
         "smoke-figure-media-review",
@@ -118,6 +120,7 @@ files(
         "smoke-record-report-amendment",
         "smoke-record-review-delta",
         "smoke-record-submitted-supervisor-report",
+        "smoke-export-opponent-report",
         "smoke-prepare-review-round",
         "smoke-review-round-closeout",
         "smoke-review-round-start",
@@ -161,6 +164,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:confirm_supervisor_report",
     "src/thesis_review_workflow/cli:draft_opponent_report",
     "src/thesis_review_workflow/cli:draft_supervisor_report",
+    "src/thesis_review_workflow/cli:export_opponent_report",
     "src/thesis_review_workflow/cli:extract_pdf_text",
     "src/thesis_review_workflow/cli:import_github_code",
     "src/thesis_review_workflow/cli:import_round",
@@ -545,6 +549,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/draft-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="export_opponent_report_tool",
+    entry_point="thesis_review_workflow.cli.export_opponent_report:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/export-opponent-report",
     tags=["workflow-tool"],
 )
 

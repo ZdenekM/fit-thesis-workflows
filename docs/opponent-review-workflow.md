@@ -186,10 +186,11 @@ Když se připomínky použijí, agent nebo člověk upraví
 `work/opponent_report_trace.json` a zapíše do něj `calibration_context`.
 Ten hashem váže přesné vstupní kalibrační a revizní artefakty, které vedly k
 úpravě trace. Potom se draft znovu vygeneruje přes
-`scripts/draft-opponent-report --force <case-id> [round-id]` a ověří přes
-`scripts/check-opponent-report <case-id> [round-id]`. Před považováním
-revidovaného draftu za sendable obnovte manifest, spusťte coverage/manifest
-kontroly a nezávislé review oponentského posudku.
+`scripts/draft-opponent-report --force <case-id> [round-id]`, ověří přes
+`scripts/check-opponent-report --mode canonical <case-id> [round-id]` a
+vyexportuje přes `scripts/export-opponent-report <case-id> [round-id]`.
+Před považováním clean návrhu za sendable obnovte manifest, spusťte
+coverage/manifest kontroly a nezávislé review oponentského posudku.
 
 Po lidském dofinalizování a nezávislém review posudku může oponent případ
 označit jako kandidáta pro budoucí rozšíření soukromé kalibrace pomocí
@@ -208,12 +209,16 @@ oponenta. Než z nich vznikne draft posudku, autorizovaný agent nebo člověk m
 připravit `work/opponent_report_trace.json`: strukturované mapování položek FIT
 IS, otázek k obhajobě, ručních kontrol a nejistot na aktuální revidované
 podklady. `scripts/draft-opponent-report` pak z tohoto trace vytvoří
-`work/oponent_posudek_draft.md`, ale tento draft není finální posudek.
+trace-bound `work/oponent_posudek_draft.md`, ale tento draft není finální
+posudek.
 
-`scripts/check-opponent-report` projde až po lidské kalibraci bodů, známky a
-formulací. Ověřuje strukturální tvar draftu, hash trace, hash revidovaných
-podkladů a bezpečnost veřejného textu; neporovnává volný text materiálů a
-posudku tokenově.
+`scripts/check-opponent-report --mode canonical` projde až po lidské kalibraci
+bodů, známky a formulací. Ověřuje strukturální tvar draftu, hash trace, hash
+revidovaných podkladů a bezpečnost veřejného textu; neporovnává volný text
+materiálů a posudku tokenově. `scripts/export-opponent-report` potom vytvoří
+`outputs/oponent_posudek_navrh.md`, odstraní pouze source metadata, úvodní
+statusové řádky a privátní checklist a spustí i clean kontrolu. Report-review
+agenti mají číst clean návrh jako primární text.
 
 Finální oponentský gate:
 

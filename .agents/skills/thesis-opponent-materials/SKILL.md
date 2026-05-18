@@ -108,7 +108,7 @@ cases/<case-id>/rounds/<round-id>/
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
 19. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
-20. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout.
+20. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout. If the operator proceeds to a report from the reviewed trace, the normal route is `scripts/draft-opponent-report <case-id> [round-id]`, human calibration of `work/oponent_posudek_draft.md`, `scripts/check-opponent-report --mode canonical <case-id> [round-id]`, and `scripts/export-opponent-report <case-id> [round-id]` to create `outputs/oponent_posudek_navrh.md` for report review.
 21. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is

@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__export_opponent_report_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/export-opponent-report-smoke.$$.out"
+err_file="/tmp/export-opponent-report-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/inputs" "$round_dir/notes" "$round_dir/outputs" "$round_dir/work"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$repo_root/cases/$case_id/case.md"
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment Context
+
+## Formal Assignment Artifacts
+
+- Synthetic assignment artifact is available.
+
+## Formal Assignment Text Or Summary
+
+Synthetic assignment text.
+
+## Private Assignment Notes For Student
+
+Synthetic private notes.
+EOF
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_file_absent() {
+  local needle="$1"
+  local file="$2"
+  if grep -Fq "$needle" "$file"; then
+    echo "Expected file not to contain: $needle" >&2
+    cat "$file" >&2
+    exit 1
+  fi
+}
+
+replace_text() {
+  local file="$1"
+  local old="$2"
+  local new="$3"
+  python3 - "$file" "$old" "$new" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+old = sys.argv[2]
+new = sys.argv[3]
+text = path.read_text(encoding="utf-8")
+if old not in text:
+    raise SystemExit(f"Missing expected text: {old}")
+path.write_text(text.replace(old, new, 1), encoding="utf-8")
+PY
+}
+
+write_valid_materials() {
+  cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+
+Kontrola zahrnula renderovane PDF, extrahovany text, assignment summary, README,
+zdrojovy kod v `src/main.py`, vysledkovou tabulku a interni evidence review.
+Kod nebyl spusten nad plnymi daty; to je hlavni omezeni kontroly.
+
+## 2. Strucna mapa prace
+
+Prace navrhuje a implementuje prototyp pro zpracovani obrazovych dat.
+
+## 3. Splneni zadani
+
+| Bod zadani | Stav | Evidence | Kalibrace |
+|---|---|---|---|
+| 1. Study relevant methods | Splneno | Kapitola 2 a bibliography prace. | Bez zasadni vyhrady. |
+| 2. Implement prototype | Splneno s vyhradou | README, `main.py` a zadani bod 2. | Dulezite pro realizacni vystup. |
+| 3. Evaluate solution | Castecne splneno | Kapitola 5, tabulka 2 a vysledky experimentu. | Slabsi reprodukovatelnost. |
+
+## 4. Technicke jadro prace vysvetlene oponentovi
+
+Technicke jadro tvori klasicka pipeline s vlastni orchestrace zpracovani dat.
+
+## 5. Mapa textu, kodu a artefaktu
+
+| Oblast | Evidence | Stav |
+|---|---|---|
+| Text prace | `extracted/thesis.txt` a kapitola 2 | Dostupne. |
+| Kod | `src/main.py` a README | Inspektovatelne. |
+
+## 6. Evidence ledger: hlavni tvrzeni a opora
+
+| Tvrzeni | Znacka jistoty | Opora | Dopad na posudek | Pouzit do posudku? |
+|---|---|---|---|---|
+| Student implementoval vlastni prototyp. | [FAKT] | README, `main.py` a kapitola 4. | Pozitivni realizacni bod. | Ano. |
+| Vyhodnoceni je vecne relevantni, ale omezeně reprodukovatelne. | [INTERPRETACE] | Kapitola 5, tabulka 2 a chybejici metricke skripty. | Stredni vyhrada. | Ano. |
+| Plny runtime nebyl overen. | [NEOVERENO] | Scope section a chybejici smoke dataset. | Nutna opatrnost ve formulaci. | Ano. |
+
+## 7. Silne stranky
+
+- Prace ma konkretni implementacni vystup dolozeny README a zdrojovym kodem.
+- Text obsahuje smysluplnou strukturu od metod po vysledky.
+
+## 8. Hlavni rizika a nedostatky
+
+| Priorita | Tvrzeni | Evidence | Dopad | Mozna formulace do posudku |
+|---|---|---|---|---|
+| P1 | Reprodukovatelnost vysledku neni primo pripravena. | README, kapitola 5 a chybejici metricke skripty. | Snizuje overitelnost. | "Vysledky nejsou z dodanych zdroju snadno reprodukovatelne." |
+
+## 9. Pokryti polozek IS a navrhy formulaci
+
+| Polozka IS | Stav | Evidence | Dopad | Mozna formulace |
+|---|---|---|---|---|
+| Narocnost zadani | Stredni | Zadani a technicke metody. | Korekcni faktor. | "Zadani hodnotim jako stredne narocne." |
+| Rozsah splneni zadani | Splneno s vyhradou | Zadani bod 2 a kapitola 4. | Vyssi. | "Zadani bylo naplneno s vyhradami." |
+| Rozsah technicke zpravy | Dostatecny | Kapitoly 2 az 5. | Stredni. | "Zprava pokryva hlavni principy." |
+| Prezentacni uroven | Dobra | Struktura textu a tabulka 2. | Stredni. | "Text je prevazne citelny." |
+| Formalni uprava | Bez zasadniho nalezu | PDF a tabulky. | Nizky. | "Formalni stranka neni hlavni slabina." |
+| Prace s literaturou | Relevantni s rezervou | Bibliography a kapitola 2. | Stredni. | "Literatura je relevantni, ale mohla byt vice vyuzita." |
+| Realizacni vystup | Funkcni prototyp | README, `main.py` a vysledky. | Vyssi. | "Realizace je funkcni prototyp." |
+| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |
+| Celkove hodnoceni | Dobre az velmi dobre | Kombinace zadani, kodu a vysledku. | Synteticke. | "Celkove jde o obhajitelny BP vystup." |
+
+## 10. Technicka spravnost a realizacni vystup
+
+Text-code consistency je v zakladnich tvrzenich dobra.
+
+## 11. Experimenty, vysledky a reprodukovatelnost
+
+Experimenty jsou tematicky vhodne a maji konkretni tabulkove vysledky.
+
+## 12. Text, struktura, formalni stranka a literatura
+
+Text je strukturovany a obhajitelny.
+
+## 13. Orientacni kalibrace hodnoceni
+
+- Konzervativni interval: 70-76 bodu, pokud bude hlavni vaha na reprodukovatelnosti.
+- Standardni interval: 76-82 bodu, pokud se oceni funkcni prototyp a priznana omezeni.
+- Mirnejsi interval: 82-86 bodu, pokud se prototypova omezeni budou brat jako BP uroven.
+
+Nejlepe obhajitelny interval je 76-82 bodu.
+
+## 14. Navrhy otazek k obhajobe
+
+1. Jak presne lze reprodukovat vysledky z tabulky 2?
+2. Co by bylo potreba doplnit, aby byl prototyp robustnejsi?
+3. Ktere casti reseni jsou vase vlastni a ktere primo zavisi na knihovnich metodach?
+
+## 15. Rucni kontroly pred napsanim posudku
+
+- Spustit maly smoke test nad pripravenym datasetem a zaznamenat vysledek.
+- Otevrit vysledkove obrazky a porovnat je s tabulkou 2.
+EOF
+}
+
+write_trace() {
+  python3 - "$round_dir/work/opponent_report_trace.json" "$case_id" "$round_id" "$round_dir/outputs/oponent_podklady_revidovane.md" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+materials_path = pathlib.Path(sys.argv[4])
+materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+formulations = {
+    "assignment_difficulty": ("Náročnost zadání", "Zadani hodnotim jako stredne narocne."),
+    "assignment_fulfillment": ("Rozsah splnění požadavků zadání", "Zadani bylo naplneno s vyhradami."),
+    "technical_report_scope": ("Rozsah technické zprávy", "Zprava pokryva hlavni principy."),
+    "technical_report_presentation": ("Prezentační úroveň technické zprávy", "Text je prevazne citelny."),
+    "technical_report_formal_level": ("Formální úprava technické zprávy", "Formalni stranka neni hlavni slabina."),
+    "literature_work": ("Práce s literaturou", "Literatura je relevantni, ale mohla byt vice vyuzita."),
+    "implementation_output": ("Realizační výstup", "Realizace je funkcni prototyp."),
+    "result_usability": ("Využitelnost výsledku", "Vysledek je vyuzitelny hlavne jako prototyp."),
+    "overall_assessment": ("Celkové hodnocení", "Celkove jde o obhajitelny BP vystup."),
+}
+payload = {
+    "schema_version": "opponent-report-trace-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-18T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "opponent-report-trace-reviewer",
+    "producer_agent": "smoke-trace-agent",
+    "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
+    "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": materials_hash,
+    "trace_review_status": "accepted",
+    "reviewer_role": "independent-opponent-report-trace-reviewer",
+    "reviewed_at": "2026-05-18T00:00:01Z",
+    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+    "is_items": [
+        {
+            "item_id": item_id,
+            "title": title,
+            "formulation": formulation,
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+        for item_id, (title, formulation) in formulations.items()
+    ],
+    "defense_questions": [
+        {
+            "question_id": "D1",
+            "question": "Jak presne lze reprodukovat vysledky z tabulky 2?",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+    ],
+    "pre_submission_checks": [
+        {
+            "check_id": "C1",
+            "instruction": "Zkontrolovat, ze slovni hodnoceni odpovida bodum a znamce.",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        }
+    ],
+    "uncertainty_items": [],
+    "limitations": [],
+}
+path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+calibrate_draft() {
+  local draft="$1"
+  replace_text "$draft" "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace." "Stav: připraveno pro nezávislou kontrolu oponentem."
+  replace_text "$draft" "Náročnost zadání: k ručnímu výběru z nabídky IS" "Náročnost zadání: obtížnější zadání"
+  replace_text "$draft" "Rozsah splnění požadavků zadání: k ručnímu výběru z nabídky IS" "Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami"
+  replace_text "$draft" "Rozsah technické zprávy: k ručnímu výběru z nabídky IS" "Rozsah technické zprávy: je v obvyklém rozmezí"
+  replace_text "$draft" "Prezentační úroveň technické zprávy: k ručnímu zadání bodů 0-100" "Prezentační úroveň technické zprávy: 80 bodů"
+  replace_text "$draft" "Formální úprava technické zprávy: k ručnímu zadání bodů 0-100" "Formální úprava technické zprávy: 80 bodů"
+  replace_text "$draft" "Práce s literaturou: k ručnímu zadání bodů 0-100" "Práce s literaturou: 80 bodů"
+  replace_text "$draft" "Realizační výstup: k ručnímu zadání bodů 0-100" "Realizační výstup: 80 bodů"
+  replace_text "$draft" "Bodové hodnocení: k ruční kalibraci podle splnění zadání, technické kvality, ověřitelnosti výsledků a rizik níže." "Body: 80"
+  replace_text "$draft" "Navržená známka: k ruční kalibraci ve stejné interpretaci jako bodové hodnocení." "Známka: B"
+  replace_text "$draft" "Děkuji za zpracovanou práci. Veřejné hodnocení výše shrnuje hlavní důvody bodového hodnocení a známky. Pro neveřejný komentář studentovi zde stručně vysvětlete, co se podle vás povedlo, proč hodnocení není vyšší, co si má student připravit k obhajobě a jaké konkrétní kroky by mu pomohly při dalším rozvoji práce. Neuvádějte interní cesty, hash hodnoty ani auditní detaily; pište věcně, přímo a podpůrně." "Děkuji za zpracovanou práci. Silnou stránkou je funkční prototyp a přiměřené pokrytí zadání. Hodnocení není vyšší hlavně kvůli slabší reprodukovatelnosti experimentů a méně přesnému textu. K obhajobě doporučuji připravit konkrétní metodiku testování, stručnou ukázku výsledků a jasné oddělení vlastního přínosu od použitých knihoven."
+}
+
+write_valid_materials
+expect_success "reviewed materials are valid" "$repo_root/scripts/check-opponent-materials" "$case_id" "$round_id"
+write_trace
+expect_success "draft helper writes canonical report draft" "$repo_root/scripts/draft-opponent-report" "$case_id" "$round_id"
+draft="$round_dir/work/oponent_posudek_draft.md"
+calibrate_draft "$draft"
+expect_success "export helper writes clean proposal" "$repo_root/scripts/export-opponent-report" "$case_id" "$round_id"
+proposal="$round_dir/outputs/oponent_posudek_navrh.md"
+test -f "$proposal"
+expect_file_absent "source_trace_path" "$proposal"
+expect_file_absent "Datum přípravy draftu:" "$proposal"
+expect_file_absent "Stav: připraveno" "$proposal"
+expect_file_absent "## 12. Před odevzdáním" "$proposal"
+grep -Fq "## IS formulář (výběry a body)" "$proposal"
+grep -Fq "## Komentář pro studenta (neveřejná část)" "$proposal"
+expect_success "canonical source still passes after export" "$repo_root/scripts/check-opponent-report" --mode canonical "$case_id" "$round_id"
+expect_success "clean proposal passes clean mode" "$repo_root/scripts/check-opponent-report" --mode clean "$case_id" "$round_id"
+
+printf '\nmanual edit\n' >>"$proposal"
+expect_failure "export refuses changed clean proposal without force" "$repo_root/scripts/export-opponent-report" "$case_id" "$round_id"
+expect_output "Refusing to overwrite"
+expect_success "export overwrites changed clean proposal with force" "$repo_root/scripts/export-opponent-report" --force "$case_id" "$round_id"
+expect_success "clean proposal still passes after force export" "$repo_root/scripts/check-opponent-report" --mode clean "$case_id" "$round_id"
+
+expect_success "regenerate uncalibrated canonical draft" "$repo_root/scripts/draft-opponent-report" --force "$case_id" "$round_id"
+expect_failure "export refuses uncalibrated canonical draft" "$repo_root/scripts/export-opponent-report" --force "$case_id" "$round_id"
+expect_output "open calibration"
+
+echo "Export opponent report smoke passed"

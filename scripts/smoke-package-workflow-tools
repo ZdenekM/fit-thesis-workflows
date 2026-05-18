@@ -233,6 +233,267 @@ expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/opponent-closeou
 expect_no_missing_cli_module "$tmp_repo/dist/workflow-tools/bin/review-round-closeout" \
   --profile supervisor_feedback "${case_prefix}_sourceless"
 
+export_case="${case_prefix}_export"
+export_round="round-a"
+export_case_dir="$tmp_repo/cases/$export_case"
+export_round_dir="$export_case_dir/rounds/$export_round"
+mkdir -p "$export_round_dir/notes" "$export_round_dir/outputs" "$export_round_dir/work"
+{
+  echo "Work type: BP"
+  echo "Academic year: 2025/2026"
+  echo "Reviewer profile: default"
+} >"$export_case_dir/case.md"
+echo "$export_round" >"$export_case_dir/current-round.txt"
+cat >"$export_round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+## Formal Assignment Artifacts
+
+- present
+
+## Formal Assignment Text Or Summary
+
+- synthetic assignment summary present
+
+## Private Assignment Notes For Student
+
+- None
+EOF
+python3 - "$export_round_dir" "$export_case" "$export_round" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+case_id = sys.argv[2]
+round_id = sys.argv[3]
+
+materials = """# Revidovane podklady pro oponentsky posudek
+
+## 1. Rozsah kontroly
+
+Kontrola zahrnula renderovane PDF, extrahovany text, assignment summary, README,
+zdrojovy kod v `src/main.py`, vysledkovou tabulku a interni evidence review.
+Kod nebyl spusten nad plnymi daty; to je hlavni omezeni kontroly.
+
+## 2. Strucna mapa prace
+
+Prace navrhuje a implementuje prototyp pro zpracovani obrazovych dat.
+
+## 3. Splneni zadani
+
+| Bod zadani | Stav | Evidence | Kalibrace |
+|---|---|---|---|
+| 1. Study relevant methods | Splneno | Kapitola 2 a bibliography prace. | Bez zasadni vyhrady. |
+| 2. Implement prototype | Splneno s vyhradou | README, `main.py` a zadani bod 2. | Dulezite pro realizacni vystup. |
+| 3. Evaluate solution | Castecne splneno | Kapitola 5, tabulka 2 a vysledky experimentu. | Slabsi reprodukovatelnost. |
+
+## 4. Technicke jadro prace vysvetlene oponentovi
+
+Technicke jadro tvori klasicka pipeline s vlastni orchestrace zpracovani dat.
+
+## 5. Mapa textu, kodu a artefaktu
+
+| Oblast | Evidence | Stav |
+|---|---|---|
+| Text prace | `extracted/thesis.txt` a kapitola 2 | Dostupne. |
+| Kod | `src/main.py` a README | Inspektovatelne. |
+
+## 6. Evidence ledger: hlavni tvrzeni a opora
+
+| Tvrzeni | Znacka jistoty | Opora | Dopad na posudek | Pouzit do posudku? |
+|---|---|---|---|---|
+| Student implementoval vlastni prototyp. | [FAKT] | README, `main.py` a kapitola 4. | Pozitivni realizacni bod. | Ano. |
+| Vyhodnoceni je vecne relevantni, ale omezeně reprodukovatelne. | [INTERPRETACE] | Kapitola 5, tabulka 2 a chybejici metricke skripty. | Stredni vyhrada. | Ano. |
+| Plny runtime nebyl overen. | [NEOVERENO] | Scope section a chybejici smoke dataset. | Nutna opatrnost ve formulaci. | Ano. |
+
+## 7. Silne stranky
+
+- Prace ma konkretni implementacni vystup dolozeny README a zdrojovym kodem.
+- Text obsahuje smysluplnou strukturu od metod po vysledky.
+
+## 8. Hlavni rizika a nedostatky
+
+| Priorita | Tvrzeni | Evidence | Dopad | Mozna formulace do posudku |
+|---|---|---|---|---|
+| P1 | Reprodukovatelnost vysledku neni primo pripravena. | README, kapitola 5 a chybejici metricke skripty. | Snizuje overitelnost. | "Vysledky nejsou z dodanych zdroju snadno reprodukovatelne." |
+
+## 9. Pokryti polozek IS a navrhy formulaci
+
+| Polozka IS | Stav | Evidence | Dopad | Mozna formulace |
+|---|---|---|---|---|
+| Narocnost zadani | Stredni | Zadani a technicke metody. | Korekcni faktor. | "Zadani hodnotim jako stredne narocne." |
+| Rozsah splneni zadani | Splneno s vyhradou | Zadani bod 2 a kapitola 4. | Vyssi. | "Zadani bylo naplneno s vyhradami." |
+| Rozsah technicke zpravy | Dostatecny | Kapitoly 2 az 5. | Stredni. | "Zprava pokryva hlavni principy." |
+| Prezentacni uroven | Dobra | Struktura textu a tabulka 2. | Stredni. | "Text je prevazne citelny." |
+| Formalni uprava | Bez zasadniho nalezu | PDF a tabulky. | Nizky. | "Formalni stranka neni hlavni slabina." |
+| Prace s literaturou | Relevantni s rezervou | Bibliography a kapitola 2. | Stredni. | "Literatura je relevantni, ale mohla byt vice vyuzita." |
+| Realizacni vystup | Funkcni prototyp | README, `main.py` a vysledky. | Vyssi. | "Realizace je funkcni prototyp." |
+| Vyuzitelnost vysledku | Orientacni prototyp | Zaver a vysledkova kapitola. | Stredni. | "Vysledek je vyuzitelny hlavne jako prototyp." |
+| Celkove hodnoceni | Dobre az velmi dobre | Kombinace zadani, kodu a vysledku. | Synteticke. | "Celkove jde o obhajitelny BP vystup." |
+
+## 10. Technicka spravnost a realizacni vystup
+
+Text-code consistency je v zakladnich tvrzenich dobra.
+
+## 11. Experimenty, vysledky a reprodukovatelnost
+
+Experimenty jsou tematicky vhodne a maji konkretni tabulkove vysledky.
+
+## 12. Text, struktura, formalni stranka a literatura
+
+Text je strukturovany a obhajitelny.
+
+## 13. Orientacni kalibrace hodnoceni
+
+- Konzervativni interval: 70-76 bodu, pokud bude hlavni vaha na reprodukovatelnosti.
+- Standardni interval: 76-82 bodu, pokud se oceni funkcni prototyp a priznana omezeni.
+
+Nejlepe obhajitelny interval je 76-82 bodu.
+
+## 14. Navrhy otazek k obhajobe
+
+1. Jak presne lze reprodukovat vysledky z tabulky 2?
+2. Co by bylo potreba doplnit, aby byl prototyp robustnejsi?
+3. Ktere casti reseni jsou vase vlastni a ktere primo zavisi na knihovnich metodach?
+
+## 15. Rucni kontroly pred napsanim posudku
+
+- Spustit maly smoke test nad pripravenym datasetem a zaznamenat vysledek.
+- Otevrit vysledkove obrazky a porovnat je s tabulkou 2.
+"""
+materials_path = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+materials_path.write_text(materials, encoding="utf-8")
+materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+
+trace = {
+    "schema_version": "opponent-report-trace-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-18T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "opponent-report-trace-reviewer",
+    "producer_agent": "package-smoke-trace-agent",
+    "authorization_note": "Package smoke uses a synthetic agent-authored fixture.",
+    "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+    "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+    "source_materials_sha256": materials_hash,
+    "trace_review_status": "accepted",
+    "reviewer_role": "independent-opponent-report-trace-reviewer",
+    "reviewed_at": "2026-05-18T00:00:01Z",
+    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+    "is_items": [
+        {"item_id": item_id, "title": title, "formulation": "Text.", "evidence_refs": ["outputs/oponent_podklady_revidovane.md"]}
+        for item_id, title in [
+            ("assignment_difficulty", "Náročnost zadání"),
+            ("assignment_fulfillment", "Rozsah splnění požadavků zadání"),
+            ("technical_report_scope", "Rozsah technické zprávy"),
+            ("technical_report_presentation", "Prezentační úroveň technické zprávy"),
+            ("technical_report_formal_level", "Formální úprava technické zprávy"),
+            ("literature_work", "Práce s literaturou"),
+            ("implementation_output", "Realizační výstup"),
+            ("result_usability", "Využitelnost výsledku"),
+            ("overall_assessment", "Celkové hodnocení"),
+        ]
+    ],
+    "defense_questions": [
+        {"question_id": "D1", "question": "Jak lze vysledky reprodukovat?", "evidence_refs": ["outputs/oponent_podklady_revidovane.md"]}
+    ],
+    "pre_submission_checks": [
+        {"check_id": "C1", "instruction": "Zkontrolovat body a znamku.", "evidence_refs": ["outputs/oponent_podklady_revidovane.md"]}
+    ],
+    "uncertainty_items": [],
+    "limitations": [],
+}
+trace_path = round_dir / "work" / "opponent_report_trace.json"
+trace_path.write_text(json.dumps(trace, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+trace_hash = hashlib.sha256(trace_path.read_bytes()).hexdigest()
+
+draft = f"""<!-- source_trace_path: work/opponent_report_trace.json -->
+<!-- source_trace_sha256: {trace_hash} -->
+<!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->
+<!-- source_materials_sha256: {materials_hash} -->
+# Návrh oponentského posudku
+
+Datum přípravy draftu: 2026-05-18T00:00:00Z
+Stav: připraveno pro nezávislou kontrolu oponentem.
+
+## IS formulář (výběry a body)
+
+Náročnost zadání: obtížnější zadání
+Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami
+Rozsah technické zprávy: je v obvyklém rozmezí
+Prezentační úroveň technické zprávy: 80 bodů
+Formální úprava technické zprávy: 80 bodů
+Práce s literaturou: 80 bodů
+Realizační výstup: 80 bodů
+
+## 1. Náročnost zadání
+
+Text.
+
+## 2. Rozsah splnění požadavků zadání
+
+Text.
+
+## 3. Rozsah technické zprávy
+
+Text.
+
+## 4. Prezentační úroveň technické zprávy
+
+Text.
+
+## 5. Formální úprava technické zprávy
+
+Text.
+
+## 6. Práce s literaturou
+
+Text.
+
+## 7. Realizační výstup
+
+Text.
+
+## 8. Využitelnost výsledku
+
+Text.
+
+## 9. Celkové hodnocení
+
+Text.
+
+## 10. Otázky k obhajobě
+
+- Jak lze vysledky reprodukovat?
+
+## 11. Body a známka
+
+Body: 80
+Známka: B
+
+## Komentář pro studenta (neveřejná část)
+
+Děkuji za zpracovanou práci. Silnou stránkou je funkční prototyp a přiměřené pokrytí zadání.
+K obhajobě doporučuji připravit konkrétní metodiku testování, stručnou ukázku výsledků
+a jasné oddělení vlastního přínosu od použitých knihoven.
+
+## 12. Před odevzdáním
+
+- Zkontrolovat, ze slovni hodnoceni odpovida bodum a znamce.
+"""
+(round_dir / "work" / "oponent_posudek_draft.md").write_text(draft, encoding="utf-8")
+PY
+"$tmp_repo/dist/workflow-tools/bin/export-opponent-report" "$export_case" "$export_round" >/dev/null
+test -f "$export_round_dir/outputs/oponent_posudek_navrh.md"
+grep -Fq "## IS formulář (výběry a body)" "$export_round_dir/outputs/oponent_posudek_navrh.md"
+if grep -Fq "source_trace_path" "$export_round_dir/outputs/oponent_posudek_navrh.md"; then
+  echo "Packaged export leaked source metadata" >&2
+  exit 1
+fi
+
 if WORKFLOW_TOOLS_PYTHON=/bin/false "$repo_root/dist/workflow-tools/bin/check-tooling" --help >"$tmp_output" 2>&1; then
   echo "Python version guard unexpectedly passed with WORKFLOW_TOOLS_PYTHON=/bin/false" >&2
   exit 1

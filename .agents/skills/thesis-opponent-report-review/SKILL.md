@@ -13,7 +13,8 @@ not run or click extensionless `scripts/<tool>` files.
 Use this skill after the user has drafted their own opponent report, or after
 `scripts/draft-opponent-report` has produced an internal bridge draft from
 reviewed opponent materials, `work/opponent_report_trace.json`, and a human has
-calibrated it.
+calibrated it, then `scripts/export-opponent-report` has produced the clean
+IS-entry proposal.
 
 ## Inputs
 
@@ -22,21 +23,31 @@ Expected files in the active round:
 ```text
 outputs/oponent_podklady.md
 outputs/oponent_podklady_revidovane.md
+outputs/oponent_posudek_navrh.md
 notes/opponent-report-review-intake.md
 work/oponent_posudek_draft.md
 work/opponent_report_trace.json
 work/muj_posudek_draft.md
 ```
 
-If `work/oponent_posudek_draft.md` exists, treat it as the generated report draft
-to review unless the user provides a newer human draft elsewhere. A generated
-draft is not sendable by itself: it must contain concrete points and grade, must
-match the current `work/opponent_report_trace.json` and
-`outputs/oponent_podklady_revidovane.md` hashes, and must pass
-`scripts/check-opponent-report <case-id> [round-id]`. If the draft is elsewhere,
-`scripts/check-opponent-report --path <round-relative-path> <case-id> [round-id]`
-is an ad hoc draft-shape check only; opponent closeout and manifest helper
-provenance track the canonical generated draft path `work/oponent_posudek_draft.md`.
+If `outputs/oponent_posudek_navrh.md` exists, treat it as the primary report
+text to review. The only exception is an externally supplied human report that
+the user explicitly identifies as the current report text; record that exact
+round-relative path as the review basis and do not imply that the clean-proposal
+route was validated. When revising an exported proposal, write findings or a
+revision request first; a parent agent or human must update the trace/canonical
+draft, rerun canonical validation, export a new clean proposal, rerun clean
+validation, and then reopen independent report review. `work/oponent_posudek_draft.md`
+is the trace-bound canonical source: it must contain concrete points and grade, must match the current
+`work/opponent_report_trace.json` and `outputs/oponent_podklady_revidovane.md`
+hashes, and must pass `scripts/check-opponent-report --mode canonical <case-id>
+[round-id]`. The clean proposal must be produced by
+`scripts/export-opponent-report <case-id> [round-id]` and pass
+`scripts/check-opponent-report --mode clean <case-id> [round-id]`. If the draft
+is elsewhere, `scripts/check-opponent-report --mode canonical --path
+<round-relative-path> <case-id> [round-id]` is an ad hoc draft-shape check only;
+opponent closeout and manifest helper provenance track the canonical generated
+draft path plus the clean proposal path.
 
 ## Process
 
@@ -74,10 +85,12 @@ Review the report as a report, not as the student's thesis. Check:
 
 Do not soften the report automatically. The goal is accuracy, fairness, evidence, and consistency.
 
-When reviewing `work/oponent_posudek_draft.md`, first run
-`scripts/check-opponent-report <case-id> [round-id]`. Treat failures as draft
-issues to fix or explicitly return to the user before IS submission. Do not
-review an uncalibrated helper draft as if it were a final human report.
+Before reviewing the report, first run `scripts/check-opponent-report --mode
+canonical <case-id> [round-id]`, then `scripts/export-opponent-report <case-id>
+[round-id]`, then `scripts/check-opponent-report --mode clean <case-id>
+[round-id]`. Treat failures as draft/export issues to fix or explicitly return
+to the user before IS submission. Do not review an uncalibrated helper draft as
+if it were a final human report.
 
 When evidence artifacts include `## Synthesis Handoff`, use that handoff as the
 first entrypoint for report risk, suggested rewrite, confidence/limitation, and
@@ -86,9 +99,9 @@ verification, contradiction checks, or contested report wording.
 
 ## Review Loop
 
-This skill is the independent review pass for a human-drafted opponent report. If agent authorization is missing, ask before writing final sendable review feedback or rewriting the report. If an agent later rewrites the report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
+This skill is the independent review pass for a human-drafted or exported opponent report. If agent authorization is missing, ask before writing final sendable review feedback. Reviewer agents should not directly edit `outputs/oponent_posudek_navrh.md` unless the parent explicitly assigns a rewrite artifact; the normal correction path is feedback or revision-request evidence, followed by parent/human updates to the canonical draft, re-export, and a fresh independent review. If an agent does rewrite report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
-After writing or revising `outputs/feedback_k_posudku.md`, write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report draft reviewed: normally `work/oponent_posudek_draft.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
+After writing or revising `outputs/feedback_k_posudku.md`, write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Include both `check-opponent-report:canonical` and `check-opponent-report:clean` in observed checks when the clean proposal comes from the canonical draft. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
 
 Use `scripts/check-review-wave --workflow opponent_report --wave draft` for the
 generated report draft, and `scripts/check-review-wave --workflow
@@ -99,9 +112,11 @@ treating the report review as usable.
 
 ## Agent Final Response Contract
 
-When acting as a workflow agent, write full review feedback or report rewrites
-to the owned round files and keep the chat final response compact. Do not paste
-full Markdown artifacts that are already on disk.
+When acting as a workflow agent, write full review feedback to the owned round
+files and keep the chat final response compact. Do not paste full Markdown
+artifacts that are already on disk. Do not invent a side path for report
+rewrites; use the canonical/export route above unless the parent explicitly
+assigns a bounded rewrite artifact.
 
 Return only:
 

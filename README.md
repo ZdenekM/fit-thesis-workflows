@@ -144,8 +144,8 @@ zpětné vazby bylo vyřešeno, co zůstává a co je nové riziko. Použij agen
 ```text
 Tady je můj draft oponentského posudku. Zkontroluj férovost, oporu v důkazech,
 tón, konzistenci bodů/známky, pokrytí zadání a otázky k obhajobě. Použij
-agenty. Nálezy rovnou promítni do revidované verze nebo mi vrať blokující
-připomínky.
+agenty. Nálezy promítni přes canonical/export route, nebo mi vrať blokující
+připomínky, pokud by přepsání obešlo trace-bound draft.
 ```
 
 ### Samostatná kontrola kódu
@@ -316,23 +316,36 @@ Nejběžnější výstupy jsou:
 - `work/oponent_posudek_draft.md` - pracovní draft oponentského posudku podle
   položek FIT IS, včetně strukturovaných výběrů/bodů pro formulář a
   samostatného neveřejného komentáře pro studenta,
+- `outputs/oponent_posudek_navrh.md` - čistý návrh pro vložení do IS; vzniká
+  deterministickým exportem z kalibrovaného canonical draftu a neobsahuje
+  interní source metadata ani privátní checklist před odevzdáním,
 - `outputs/feedback_k_posudku.md` - review návrhu posudku.
 
-Studentský feedback, formální posudek vedoucího a oponentské materiály nejsou
-hotové jen proto, že vznikly. Musí projít nezávislou review smyčkou jiným
-autorizovaným agentem. Po větší úpravě se výstup znovu bere jako draft.
+Studentský feedback, formální posudek vedoucího, oponentské materiály a
+oponentský report proposal nejsou hotové jen proto, že vznikly nebo prošly
+deterministickým exportem. Musí projít nezávislou review smyčkou jiným
+autorizovaným agentem; u oponentského posudku je report-facing basis normálně
+`outputs/oponent_posudek_navrh.md` a review výstup je
+`outputs/feedback_k_posudku.md`. Po větší úpravě se výstup znovu bere jako
+draft.
 U posudku vedoucího je navíc před vložením do IS potřeba výslovné potvrzení
 známky, bodů, oficiálního textu i neveřejného komentáře pro studenta.
 
 `work/oponent_posudek_draft.md` je jen most ze strukturovaného
 `work/opponent_report_trace.json` do struktury IS. Helper do něj zapisuje hash
 trace i zdrojových podkladů a nechává body/známku otevřené;
-`scripts/check-opponent-report` projde až po lidské kalibraci konkrétních bodů a
-známky a po ověření, že draft odpovídá aktuálnímu trace i
+`scripts/check-opponent-report --mode canonical` projde až po lidské kalibraci
+konkrétních bodů a známky a po ověření, že draft odpovídá aktuálnímu trace i
 `outputs/oponent_podklady_revidovane.md`.
 Součástí kalibrace je i sekce `## IS formulář (výběry a body)`: výběr
 náročnosti zadání, rozsahu splnění zadání, rozsahu zprávy a bodů pro
 prezentační úroveň, formální úpravu, práci s literaturou a realizační výstup.
+Po úspěšné canonical kontrole spusťte `scripts/export-opponent-report <case-id>
+[round-id]`. Export zapíše `outputs/oponent_posudek_navrh.md`, odstraní jen
+source metadata, úvodní statusové řádky a privátní `## 12. Před odevzdáním`,
+pak znovu ověří canonical draft i clean návrh. Agentní review posudku má jako
+primární text číst tento clean návrh; canonical draft zůstává podkladem pro
+hash vazbu na trace a revidované podklady.
 
 `scripts/opponent-closeout <case-id> [round-id]` je finální oponentský gate
 pro aktuální stav roundu. Zavře revidované podklady, report trace, manifest,
@@ -569,7 +582,9 @@ scripts/check-tooling <case-id>
 scripts/check-feedback-language <case-id>
 scripts/check-feedback-output <case-id>
 scripts/check-opponent-materials <case-id>
-scripts/check-opponent-report <case-id>
+scripts/check-opponent-report --mode canonical <case-id>
+scripts/export-opponent-report <case-id>
+scripts/check-opponent-report --mode clean <case-id>
 scripts/opponent-closeout <case-id>
 scripts/check-code-consistency <case-id>
 scripts/check-code-quality-review <case-id>
@@ -599,6 +614,7 @@ scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
 scripts/prepare-code-workspace <case-id>
 scripts/draft-opponent-report <case-id>   # až po vytvoření work/opponent_report_trace.json
+scripts/export-opponent-report <case-id>  # až po lidské kalibraci canonical draftu
 scripts/import-github-code <case-id> --pr-url https://github.com/owner/project/pull/123 --student-login <login>
 scripts/import-github-code <case-id> --discover-prs owner/project --author <login>
 scripts/import-theses-report <case-id> /path/to/theses-report.pdf

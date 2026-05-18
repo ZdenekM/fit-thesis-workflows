@@ -1,5 +1,9 @@
 # Opponent Intake
 
+This is a tracked template. Do not fill private case notes here; copy it into
+`cases/<case-id>/rounds/<round-id>/notes/opponent-intake.md` and fill that
+ignored case-local file.
+
 Most fields are optional. Formal assignment context is required in `notes/assignment.md`
 before generating opponent materials.
 
@@ -23,6 +27,8 @@ Orientacni body IS - prezentacni uroven:
 Orientacni body IS - formalni uprava:
 Orientacni body IS - prace s literaturou:
 Orientacni body IS - realizacni vystup:
+Co ma byt hlavni verejne hodnoceni v posudku:
+Co ma zustat jen v neverejnem komentari pro studenta:
 Co nechci zbytecne precenovat:
 Co nechci zbytecne trestat:
 Co chci rict studentovi v neverejnem komentari:

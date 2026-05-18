@@ -48,6 +48,7 @@ WORKFLOW_COMMAND_MODULES = {
     "confirm-supervisor-report": "thesis_review_workflow.cli.confirm_supervisor_report",
     "draft-opponent-report": "thesis_review_workflow.cli.draft_opponent_report",
     "draft-supervisor-report": "thesis_review_workflow.cli.draft_supervisor_report",
+    "export-opponent-report": "thesis_review_workflow.cli.export_opponent_report",
     "extract-pdf-text": "thesis_review_workflow.cli.extract_pdf_text",
     "import-github-code": "thesis_review_workflow.cli.import_github_code",
     "import-round": "thesis_review_workflow.cli.import_round",

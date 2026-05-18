@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "$script_dir/.." && pwd -P)"
+export THESIS_REVIEW_CALLER_CWD="${THESIS_REVIEW_CALLER_CWD:-$PWD}"
+export PYTHONPATH="$repo_root/src"
+cd "$repo_root"
+exec python3 -m thesis_review_workflow.cli.export_opponent_report "$@"

@@ -344,7 +344,7 @@ The intended final path for an opponent report is:
 
 ### Slice 2 - Export Command And Docs
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `feat(workflow): export clean opponent reports`
 - Expected paths:
   - `scripts/export-opponent-report`
@@ -717,6 +717,30 @@ The intended final path for an opponent report is:
   verified Slice 1 with Pants fmt/lint/check/test, opponent/report review
   smokes, check-scripts, check-private, git diff --check, and `pants run :omen`
   (grade A; remaining hotspot output is repo-baseline advisory evidence).
+- 2026-05-18: Slice 2 implementation started from a clean worktree. Added
+  `scripts/export-opponent-report`, the `export_opponent_report` CLI module,
+  command/PEX registration, focused unit tests, and
+  `scripts/smoke-export-opponent-report`. The export path validates the
+  canonical draft before writing, strips only source metadata comments, intro
+  status lines, and `## 12. Před odevzdáním`, then re-runs canonical and clean
+  report checks. Initial focused `pants test tests/test_export_opponent_report.py`
+  and `scripts/smoke-export-opponent-report` passed before docs/skill updates.
+- 2026-05-18: Slice 2 post-change agent review found no blockers and surfaced
+  five docs/route gaps plus three CLI/package hardening gaps. Fixed the normal
+  rewrite route so report reviewers do not bypass the canonical/export path,
+  made README state that clean export is not independent review, documented the
+  external-human-draft exception, added a tracked-template privacy warning,
+  changed export to validate through a round-local temp file before replacing
+  `outputs/oponent_posudek_navrh.md`, restricted normal `--output` use to the
+  first-class clean artifact, and added packaged functional export coverage to
+  `scripts/smoke-package-workflow-tools`.
+- 2026-05-18: Slice 2 verification after review fixes passed: `pants fmt`,
+  `pants lint`, `pants check`, targeted Pants tests for export/opponent-report
+  checker/workflow command contracts, `scripts/smoke-export-opponent-report`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, and `pants run :omen`. Omen CLI
+  reported grade A / overall score 91.02; remaining hotspot output is treated
+  as advisory repo-baseline signal, not a Slice 2 blocker.
 
 ## Decision Log
 

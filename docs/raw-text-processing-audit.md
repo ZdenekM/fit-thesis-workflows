@@ -120,7 +120,8 @@ artifacts in the ignored round workspace:
   `scripts/check-assignment-coverage`.
 - `work/opponent_report_trace.json`: structured IS-item fields, defense
   questions, pre-submission checks, and uncertainty ledger consumed by
-  `scripts/draft-opponent-report` and `scripts/check-opponent-report`.
+  `scripts/draft-opponent-report`, `scripts/export-opponent-report`, and
+  `scripts/check-opponent-report`.
 
 The deterministic code checks these artifacts for schema, safe refs, hashes,
 review status, and completeness. It does not derive review conclusions from raw
