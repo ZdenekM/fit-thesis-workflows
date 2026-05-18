@@ -19,7 +19,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import Step, print_step, run_step
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
-from thesis_review_workflow.review_packets import sha256_file
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_RUN_TRACE_REL,
@@ -139,6 +139,24 @@ def review_delta_step(round_dir: Path, *, case_id: str, round_id: str, profile_i
     )
 
 
+def common_briefing_refresh_step(round_dir: Path, *, case_id: str, round_id: str) -> Step:
+    try:
+        write_common_briefing(case_id, round_id, now_utc(), round_dir)
+    except (OSError, ValueError) as exc:
+        return Step(
+            label="Common briefing refresh after materiality",
+            command=None,
+            returncode=1,
+            output=str(exc),
+        )
+    return Step(
+        label="Common briefing refresh after materiality",
+        command=None,
+        returncode=0,
+        output=f"Refreshed {COMMON_BRIEFING_REL} after materiality decisions.",
+    )
+
+
 def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_id: str) -> list[Step]:
     profile = get_workflow_review_profile(profile_id)
     workflow, wave = closeout_wave_for_profile(profile_id)
@@ -165,6 +183,8 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
             )
         )
     round_dir = root / "cases" / case_id / "rounds" / round_id
+    if profile.effective_materiality_profile:
+        steps.append(common_briefing_refresh_step(round_dir, case_id=case_id, round_id=round_id))
     steps.append(role_plan_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
     steps.append(review_delta_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
 

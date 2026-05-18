@@ -160,6 +160,8 @@ expect_success "review-round closeout" "$repo_root/scripts/review-round-closeout
   --skip-repo-hygiene \
   "$case_id" "$round_id"
 
+grep -Fq "Common briefing refresh after materiality: PASS" "$out_file"
+
 python3 - "$round_dir/work/review_run_trace.json" "$round_dir/work/review_role_plan.json" <<'PY'
 import json
 import pathlib

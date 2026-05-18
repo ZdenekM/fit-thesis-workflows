@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
     build_materiality_decisions,
+    load_review_materiality_index,
     sha256_file,
     unresolved_required_next_actions,
     validate_materiality_workflow_limitations,
@@ -213,6 +214,106 @@ def test_text_only_supervisor_non_final_writes_only_index(tmp_path: Path) -> Non
     assert all(item["fresh_review_required"] is False for item in index["decisions"])
     assert {item["coverage_satisfied_by"] for item in index["decisions"]} == {"typed_no_material_issue"}
     assert not (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "figure_media.json").exists()
+
+
+def test_materiality_writer_keeps_hash_stable_for_timestamp_only_change(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="final",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    typography_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "typography_formal.json"
+    before = {path: sha256_file(path) for path in (index_path, typography_path)}
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:05:00Z",
+    )
+
+    assert {path: sha256_file(path) for path in (index_path, typography_path)} == before
+
+
+def test_materiality_writer_repairs_invalid_generated_at_metadata(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="final",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    typography_rel = "work/review_materiality/supervisor_feedback/typography_formal.json"
+    typography_path = round_dir / typography_rel
+    index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+    index_payload["generated_at"] = ""
+    index_payload["decisions"][0]["generated_at"] = ""
+    write_json(index_path, index_payload)
+    typography_payload = json.loads(typography_path.read_text(encoding="utf-8"))
+    typography_payload["generated_at"] = ""
+    write_json(typography_path, typography_payload)
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:05:00Z",
+    )
+
+    repaired_index = json.loads(index_path.read_text(encoding="utf-8"))
+    repaired_typography = json.loads(typography_path.read_text(encoding="utf-8"))
+    assert repaired_index["generated_at"] == "2026-05-11T00:05:00Z"
+    assert repaired_index["decisions"][0]["generated_at"] == "2026-05-11T00:05:00Z"
+    assert repaired_typography["generated_at"] == "2026-05-11T00:05:00Z"
+    _, index_errors = load_review_materiality_index(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert index_errors == []
+    assert (
+        validate_review_materiality_artifact(
+            round_dir,
+            typography_rel,
+            case_id="case-a",
+            round_id="round-a",
+        )
+        == []
+    )
 
 
 def test_final_supervisor_phase_marks_typography_material(tmp_path: Path) -> None:

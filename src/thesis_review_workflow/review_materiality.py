@@ -1274,6 +1274,52 @@ def next_action_payload(action: MaterialityNextAction) -> dict[str, Any]:
     return payload
 
 
+def _without_materiality_timestamps(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    normalized.pop("generated_at", None)
+    decisions = normalized.get("decisions")
+    if isinstance(decisions, list):
+        normalized["decisions"] = [
+            (
+                {key: item for key, item in decision.items() if key != "generated_at"}
+                if isinstance(decision, dict)
+                else decision
+            )
+            for decision in decisions
+        ]
+    return normalized
+
+
+def _has_valid_materiality_timestamps(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if not isinstance(value.get("generated_at"), str) or not value["generated_at"]:
+        return False
+    decisions = value.get("decisions")
+    if isinstance(decisions, list):
+        for decision in decisions:
+            if not isinstance(decision, dict):
+                return False
+            if not isinstance(decision.get("generated_at"), str) or not decision["generated_at"]:
+                return False
+    return True
+
+
+def _write_json_if_materially_changed(path: Path, payload: dict[str, Any]) -> None:
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = None
+        if _has_valid_materiality_timestamps(existing) and (
+            _without_materiality_timestamps(existing) == _without_materiality_timestamps(payload)
+        ):
+            return
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def source_hashes_for_refs(round_dir: Path, refs: tuple[str, ...] | list[str]) -> dict[str, str]:
     return {
         ref: sha256_file(round_dir / ref)
@@ -1325,7 +1371,7 @@ def write_materiality_decisions(
         "next_actions": [next_action_payload(action) for action in next_actions],
     }
     index_path = round_dir / profile_index_rel(workflow_profile)
-    index_path.write_text(json.dumps(index_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_json_if_materially_changed(index_path, index_payload)
     written.append(index_path)
 
     material_roles = {decision.role for decision in decisions if decision.material}
@@ -1348,7 +1394,7 @@ def write_materiality_decisions(
             generated_at=generated_at,
             producer_role=producer_role,
         )
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        _write_json_if_materially_changed(path, payload)
         written.append(path)
     return written
 
