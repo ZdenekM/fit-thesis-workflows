@@ -435,7 +435,7 @@ PACKET_ROLES = (
         title="Opponent Report Review",
         skill="thesis-opponent-report-review",
         expected_output="outputs/feedback_k_posudku.md",
-        mission="Review a calibrated human opponent-report draft before IS submission.",
+        mission="Review the clean IS-entry opponent-report proposal before IS submission.",
         focus=(
             "point/comment consistency",
             "evidence and tone defensibility",
@@ -443,11 +443,14 @@ PACKET_ROLES = (
             "report rewrite suggestions only when needed",
         ),
         role_inputs=(
+            "outputs/oponent_posudek_navrh.md",
             "work/oponent_posudek_draft.md",
             "work/opponent_report_trace.json",
             "work/reviews/opponent_report_review.json",
         ),
         constraints=(
+            "Use `outputs/oponent_posudek_navrh.md` as the normal report-review basis; open the canonical "
+            "draft only for trace/provenance checks.",
             "Do not review an uncalibrated helper draft as final human report text.",
             "If an agent rewrites report prose, run a fresh independent report review.",
         ),

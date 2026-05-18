@@ -198,6 +198,20 @@ path.write_text(text.replace(old, new, 1), encoding="utf-8")
 PY
 }
 
+file_digest() {
+  python3 - "$1" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+if not path.is_file():
+    print("missing")
+else:
+    print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+}
+
 calibrate_draft() {
   local draft="$1"
   replace_text "$draft" "Stav: pracovní draft pro kontrolu oponentem; před vložením do IS ověřte bodové hodnocení a formulace." "Stav: připraveno pro nezávislou kontrolu oponentem."
@@ -342,6 +356,172 @@ for check in manifest.get("helper_checks", []):
         target_sha256 = check.setdefault("target_sha256", {})
         target_sha256["work/agent_coverage.json"] = coverage_hash
 manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+write_report_review_feedback() {
+  local target="$1"
+  cat >"$target" <<'EOF'
+# Review oponentského posudku
+
+## Verdikt
+
+Posudek je po nezávislé kontrole připraven k pre-submission closeoutu.
+
+## Kontroly
+
+- Clean návrh odpovídá veřejným IS položkám a obsahuje neveřejný komentář pro studenta.
+- Body, známka a slovní hodnocení jsou ve vzájemně obhajitelném vztahu.
+- Obranné otázky jsou věcně navázané na reviewed materials a trace.
+
+## Limitace
+
+Smoke fixture používá syntetická data a neověřuje reálné PDF.
+EOF
+}
+
+register_report_review_role_outputs() {
+  local case_id="$1"
+  local round_id="$2"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+
+  mkdir -p "$round_dir/work/opponent_packets"
+  cat >"$round_dir/work/opponent_packets/text_structure_assignment_findings.md" <<'EOF'
+# Text Structure And Assignment Findings
+
+## Synthesis Handoff
+
+- Synthetic smoke confirms that assignment/report structure was inspected before report review closeout.
+EOF
+
+  expect_success "register text structure role output" \
+    "$repo_root/scripts/register-review-artifact" "$case_id" "$round_id" \
+    work/opponent_packets/text_structure_assignment_findings.md \
+    --preset none \
+    --role thesis-opponent-materials \
+    --agent smoke-text-structure-agent \
+    --review-scope internal_only \
+    --review-status not_required
+
+  expect_success "register current evidence snapshot role output" \
+    "$repo_root/scripts/register-review-artifact" "$case_id" "$round_id" \
+    work/current_evidence_snapshot.json \
+    --preset none \
+    --role mechanical-validator-backed-helper \
+    --agent smoke-current-evidence-helper \
+    --review-scope internal_only \
+    --review-status not_required
+
+  expect_success "register opponent report trace role output" \
+    "$repo_root/scripts/register-review-artifact" "$case_id" "$round_id" \
+    work/opponent_report_trace.json \
+    --preset none \
+    --role mechanical-validator-backed-helper \
+    --agent smoke-report-trace-helper \
+    --review-scope internal_only \
+    --review-status not_required
+
+  expect_success "register opponent report review output" \
+    "$repo_root/scripts/register-review-artifact" "$case_id" "$round_id" \
+    outputs/feedback_k_posudku.md \
+    --role thesis-opponent-report-review \
+    --agent smoke-report-review-output \
+    --contribution final_review \
+    --review-status reviewed \
+    --reviewer-role thesis-opponent-report-review \
+    --reviewer-agent smoke-report-reviewer \
+    --reviewed-at 2026-05-18T12:04:00Z \
+    --review-basis-path outputs/oponent_posudek_navrh.md
+}
+
+mark_optional_evidence_limitations_for_report_review() {
+  local round_dir="$1"
+  python3 - "$round_dir/work/review_manifest.json" "$round_dir/work/agent_coverage.json" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+coverage_path = pathlib.Path(sys.argv[2])
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+blocked_roles = {
+    "literature_citation": "Synthetic smoke case has no standalone literature/citation evidence artifact.",
+    "typography_formal": "Synthetic smoke case has no standalone typography/formal review artifact.",
+}
+for role in coverage.get("roles", []):
+    role_name = role.get("role")
+    if role_name not in blocked_roles:
+        continue
+    role["status"] = "blocked"
+    role["output_evidence"] = []
+    role["typed_limitation"] = {
+        "type": "manual_review_required",
+        "role": role_name,
+        "trigger": role.get("trigger", ""),
+        "required_for": role.get("required_for", []),
+        "description": blocked_roles[role_name],
+    }
+    role["notes"] = "Blocked intentionally in smoke data."
+missing = sorted(set(blocked_roles) - {role.get("role") for role in coverage.get("roles", [])})
+if missing:
+    raise SystemExit(f"Missing expected coverage roles: {', '.join(missing)}")
+coverage_path.write_text(json.dumps(coverage, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+coverage_hash = hashlib.sha256(coverage_path.read_bytes()).hexdigest()
+for item in manifest.get("supporting_work_artifacts", []):
+    if item.get("path") == "work/agent_coverage.json":
+        item["artifact_sha256"] = coverage_hash
+for check in manifest.get("helper_checks", []):
+    if check.get("check") == "check-agent-coverage":
+        target_sha256 = check.setdefault("target_sha256", {})
+        target_sha256["work/agent_coverage.json"] = coverage_hash
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
+assert_report_review_closeout_manifest() {
+  local round_dir="$1"
+  python3 - "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(round_dir.parents[3] / "src"))
+
+from thesis_review_workflow.review_packets import validate_common_briefing_artifact
+
+case_id = round_dir.parents[1].name
+round_id = round_dir.name
+manifest = json.loads((round_dir / "work/review_manifest.json").read_text(encoding="utf-8"))
+approval = json.loads((round_dir / "work/reviews/opponent_report_review.json").read_text(encoding="utf-8"))
+
+assert approval["review_basis_path"] == "outputs/oponent_posudek_navrh.md", approval
+artifacts = {item["path"]: item for item in manifest["artifacts"]}
+report_review = artifacts["outputs/feedback_k_posudku.md"]["independent_review"]
+assert report_review["review_basis_path"] == "outputs/oponent_posudek_navrh.md", report_review
+assert report_review["approval_record_path"] == "work/reviews/opponent_report_review.json", report_review
+checks = {item["check"]: item for item in manifest["helper_checks"]}
+for name in (
+    "check-opponent-report:canonical",
+    "check-opponent-report:clean",
+    "check-agent-coverage",
+):
+    assert checks[name]["status"] == "passed", checks[name]
+assert checks["check-review-manifest"]["status"] == "not_applicable", checks["check-review-manifest"]
+briefing_hash = (round_dir / "work/common_briefing.json").read_bytes()
+import hashlib
+
+current_common_hash = hashlib.sha256(briefing_hash).hexdigest()
+for item in manifest.get("supporting_work_artifacts", []):
+    rel_path = item.get("path")
+    if isinstance(rel_path, str) and rel_path.startswith("work/opponent_packets/"):
+        assert (round_dir / rel_path).is_file(), rel_path
+packet = (round_dir / "work/opponent_packets/report_review.md").read_text(encoding="utf-8")
+assert "outputs/oponent_posudek_navrh.md" in packet, packet
+assert f"Common briefing sha256: `{current_common_hash}`" in packet, packet
+assert validate_common_briefing_artifact(round_dir, case_id=case_id, round_id=round_id) == []
 PY
 }
 
@@ -654,6 +834,79 @@ complete_manifest_for_smoke "$case_id" round-a
 expect_success "case doctor includes calibrated report draft" "$repo_root/scripts/case-doctor" "$case_id" round-a
 expect_output "opponent report draft"
 expect_success "manifest validates with final closeout" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+
+expect_success "export clean proposal for report review closeout" \
+  "$repo_root/scripts/export-opponent-report" --force "$case_id" round-a
+expect_success "clean proposal passes before report review closeout" \
+  "$repo_root/scripts/check-opponent-report" --mode clean --path outputs/oponent_posudek_navrh.md "$case_id" round-a
+write_report_review_feedback "$round_dir/outputs/feedback_k_posudku.md"
+expect_success "opponent materials round start writes old profile trace" \
+  "$repo_root/scripts/review-round-start" --profile opponent_materials "$case_id" round-a
+expect_success "opponent materials role plan writes old profile plan" \
+  "$repo_root/scripts/prepare-review-round" --profile opponent_materials "$case_id" round-a
+manifest_before_stale_preflight="$(file_digest "$round_dir/work/review_manifest.json")"
+coverage_before_stale_preflight="$(file_digest "$round_dir/work/agent_coverage.json")"
+briefing_before_stale_preflight="$(file_digest "$round_dir/work/common_briefing.json")"
+expect_failure "opponent report closeout refuses stale materials profile state" \
+  "$repo_root/scripts/review-round-closeout" --profile opponent_report_review --skip-repo-hygiene "$case_id" round-a
+expect_output "work/review_run_trace.json records profile_id='opponent_materials', expected 'opponent_report_review'"
+expect_output "work/review_role_plan.json records profile_id='opponent_materials', expected 'opponent_report_review'"
+expect_output "scripts/review-round-start --profile opponent_report_review"
+test "$(file_digest "$round_dir/work/review_manifest.json")" = "$manifest_before_stale_preflight"
+test "$(file_digest "$round_dir/work/agent_coverage.json")" = "$coverage_before_stale_preflight"
+test "$(file_digest "$round_dir/work/common_briefing.json")" = "$briefing_before_stale_preflight"
+
+expect_success "opponent report review round start" \
+  "$repo_root/scripts/review-round-start" --profile opponent_report_review "$case_id" round-a
+expect_success "opponent review materiality is ready before report review packets" \
+  "$repo_root/scripts/check-review-materiality" --workflow opponent_review --phase final "$case_id" round-a
+expect_success "opponent report review role plan" \
+  "$repo_root/scripts/prepare-review-round" --profile opponent_report_review "$case_id" round-a
+grep -Fq "outputs/oponent_posudek_navrh.md" "$round_dir/work/opponent_packets/report_review.md"
+expect_success "generated report draft wave passes before final review" \
+  "$repo_root/scripts/check-review-wave" --workflow opponent_report --wave draft "$case_id" round-a
+register_report_review_role_outputs "$case_id" round-a
+expect_success "init manifest before report review approval" "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" round-a
+mark_optional_evidence_limitations_for_report_review "$round_dir"
+expect_success "agent coverage accepts current report-review limitations" \
+  "$repo_root/scripts/check-agent-coverage" "$case_id" round-a
+expect_success "write opponent report review approval" \
+  "$repo_root/scripts/write-review-approval" "$case_id" round-a \
+  --profile opponent-report-review \
+  --reviewer-agent smoke-report-reviewer \
+  --check check-opponent-report:canonical \
+  --check check-opponent-report:clean \
+  --check check-review-wave.opponent-report.draft \
+  --limitation "Synthetic smoke review only." \
+  --notes "Synthetic independent report-review approval." \
+  --timestamp 2026-05-18T12:05:00Z
+python3 - "$round_dir/work/reviews/opponent_report_review.json" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload["review_basis_path"] == "outputs/oponent_posudek_navrh.md", payload
+PY
+expect_success "refresh common briefing after report approval" \
+  "$repo_root/scripts/refresh-round-hashes" --generated-at 2026-05-18T12:06:00Z "$case_id" round-a
+expect_success "refresh report review packets after approval briefing refresh" \
+  "$repo_root/scripts/prepare-review-round" --profile opponent_report_review "$case_id" round-a
+expect_success "opponent report final wave passes" \
+  "$repo_root/scripts/check-review-wave" --workflow opponent_report_review --wave final "$case_id" round-a
+expect_success "opponent report review closeout passes" \
+  "$repo_root/scripts/review-round-closeout" --profile opponent_report_review --skip-repo-hygiene "$case_id" round-a
+assert_report_review_closeout_manifest "$round_dir"
+
+printf '\nmanual clean proposal edit after approval\n' >>"$round_dir/outputs/oponent_posudek_navrh.md"
+expect_failure "manifest closeout fails after clean proposal edit" \
+  "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a
+expect_output "review_basis_sha256 does not match current review basis file"
+
+expect_success "restore clean proposal after stale clean basis test" \
+  "$repo_root/scripts/export-opponent-report" --force "$case_id" round-a
+expect_success "refresh report review manifest after clean basis restore" \
+  "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" round-a
 
 replace_text "$draft" "Zadani hodnotim jako stredne narocne." "Zadani hodnotim jako stredne narocne po pozdejsi uprave."
 expect_failure "manifest closeout fails after report draft edit" "$repo_root/scripts/check-review-manifest" --require-complete "$case_id" round-a

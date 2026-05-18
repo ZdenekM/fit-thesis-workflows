@@ -178,7 +178,7 @@ def final_review_paths(artifact):
     if rel_path == "outputs/oponent_podklady_revidovane.md":
         return "opponent_review", "work/oponent_podklady_draft.md", "work/reviews/opponent_materials_review.json"
     if rel_path == "outputs/feedback_k_posudku.md":
-        return "opponent_report_review", "work/oponent_posudek_draft.md", "work/reviews/opponent_report_review.json"
+        return "opponent_report_review", "outputs/oponent_posudek_navrh.md", "work/reviews/opponent_report_review.json"
     safe_name = artifact_type.replace("/", "_").replace(" ", "_")
     return artifact_type, f"work/reviews/{safe_name}_basis.md", f"work/reviews/{safe_name}_review.json"
 
@@ -315,7 +315,7 @@ def final_review_paths(artifact):
     if rel_path == "outputs/oponent_podklady_revidovane.md":
         return "opponent_review", "work/oponent_podklady_draft.md", "work/reviews/opponent_materials_review.json"
     if rel_path == "outputs/feedback_k_posudku.md":
-        return "opponent_report_review", "work/oponent_posudek_draft.md", "work/reviews/opponent_report_review.json"
+        return "opponent_report_review", "outputs/oponent_posudek_navrh.md", "work/reviews/opponent_report_review.json"
     safe_name = artifact_type.replace("/", "_").replace(" ", "_")
     return artifact_type, f"work/reviews/{safe_name}_basis.md", f"work/reviews/{safe_name}_review.json"
 

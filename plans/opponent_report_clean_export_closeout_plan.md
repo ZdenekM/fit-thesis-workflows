@@ -540,7 +540,7 @@ The intended final path for an opponent report is:
 
 ### Slice 5 - Pre-Submission Smokes And Report-Review Closeout
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `test(workflow): cover clean opponent report review`
 - Expected paths:
   - `src/thesis_review_workflow/cli/review_round_start.py`
@@ -795,6 +795,24 @@ The intended final path for an opponent report is:
   `pants run :omen`. Omen CLI reported grade A / overall score 90.60; MCP Omen
   path handling was not used as evidence because earlier discovery returned no
   files for this repo.
+- 2026-05-18: Slice 5 extended pre-submission smoke coverage so
+  `scripts/smoke-opponent-report` now exercises the opponent-report-review
+  profile transition, stale opponent-materials profile preflight failure before
+  manifest mutation, clean IS-entry proposal review basis, generated-draft wave,
+  final approval, final wave, role coverage, complete manifest closeout, stale
+  clean-basis detection, and current common-briefing hashes in regenerated
+  packets. Reviewer agents found missing clean-basis packet routing, stale
+  packet-hash assertions, incomplete stale-role-plan assertions, missing
+  clean-proposal stale-hash coverage, and no-op limitation risk; all were fixed
+  before closeout.
+- 2026-05-18: Slice 5 verification passed: `pants fmt ::`, `pants lint ::`,
+  `pants check ::`, `pants test tests::`, `scripts/smoke-opponent-report`,
+  `scripts/smoke-export-opponent-report`, `scripts/smoke-review-wave`,
+  `scripts/smoke-review-manifest`, `scripts/smoke-agent-coverage`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-scripts`,
+  `scripts/check-private`, `git diff --check`, and `pants run :omen`. Omen CLI
+  reported grade A / overall score 90.59; hotspot output remains advisory
+  repo-baseline signal, not a Slice 5 blocker.
 
 ## Decision Log
 
