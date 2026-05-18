@@ -22,13 +22,14 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
 DEFAULT_DRAFT = Path("work/oponent_posudek_draft.md")
+CLEAN_PROPOSAL = Path("outputs/oponent_posudek_navrh.md")
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
 TRACE_REL = Path("work/opponent_report_trace.json")
 IS_FORM_SECTION_HEADING = "## IS formulář (výběry a body)"
 PRIVATE_COMMENT_HEADING = "## Komentář pro studenta (neveřejná část)"
 PRIVATE_COMMENT_MIN_NONSPACE_CHARS = 80
 
-REQUIRED_HEADINGS = (
+COMMON_REQUIRED_HEADINGS = (
     "# Návrh oponentského posudku",
     IS_FORM_SECTION_HEADING,
     "## 1. Náročnost zadání",
@@ -43,8 +44,13 @@ REQUIRED_HEADINGS = (
     "## 10. Otázky k obhajobě",
     "## 11. Body a známka",
     PRIVATE_COMMENT_HEADING,
+)
+CANONICAL_REQUIRED_HEADINGS = (
+    *COMMON_REQUIRED_HEADINGS,
     "## 12. Před odevzdáním",
 )
+CLEAN_FORBIDDEN_HEADINGS = ("## 12. Před odevzdáním",)
+REQUIRED_HEADINGS = CANONICAL_REQUIRED_HEADINGS
 
 PLACEHOLDER_PATTERNS = (
     r"\bTBD\b",
@@ -69,6 +75,7 @@ INTERNAL_PATTERNS = (
     r"\bagent_coverage\.json\b",
     r"\boponent_podklady(?:_revidovane|_draft)?\.md\b",
     r"\boponent_posudek_draft\.md\b",
+    r"\boponent_posudek_navrh\.md\b",
     r"\bfeedback_k_posudku\.md\b",
     r"\bgithub_code_intake\.md\b",
     r"\brevision_diff\.md\b",
@@ -80,6 +87,8 @@ INTERNAL_PATTERNS = (
     r"\bcode_quality_review\.md\b",
     r"\bfigure_media_review\.md\b",
     r"\btypography_formal_review\.md\b",
+    r"\b[0-9a-f]{64}\b",
+    r"\b(?:approval record|helper[- ]check|workflow profile|review basis|review manifest|agent coverage)\b",
 )
 
 CONFIDENCE_LABEL_RE = re.compile(r"\[(?:FAKT|INTERPRETACE|ODHAD|NEOV[EĚ]R[EŘ]NO|K RU[CČ]N[IÍ] KONTROLE)\]")
@@ -89,6 +98,7 @@ SOURCE_PATH_RE = re.compile(r"<!--\s*source_materials_path:\s*([^>]+?)\s*-->")
 SOURCE_SHA_RE = re.compile(r"<!--\s*source_materials_sha256:\s*([0-9a-f]{64})\s*-->")
 TRACE_PATH_RE = re.compile(r"<!--\s*source_trace_path:\s*([^>]+?)\s*-->")
 TRACE_SHA_RE = re.compile(r"<!--\s*source_trace_sha256:\s*([0-9a-f]{64})\s*-->")
+SOURCE_METADATA_COMMENT_RE = re.compile(r"^<!--\s*source_(?:materials|trace)_(?:path|sha256):.*?-->\s*$", re.MULTILINE)
 OPEN_CALIBRATION_PATTERNS = (
     r"\bpracovn[ií]\s+draft\b",
     r"\bk\s+ru[cč]n[ií]\s+kalibraci\b",
@@ -257,13 +267,21 @@ def run_opponent_materials_check(root: Path, case_id: str, round_id: str, errors
         errors.append("reviewed opponent materials check failed" + (f":\n{detail}" if detail else ""))
 
 
-def check_text(text: str, public_text: str, errors: list[str]) -> None:
+def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "canonical") -> None:
     lines = text.splitlines()
-    for heading in REQUIRED_HEADINGS:
+    required_headings = CANONICAL_REQUIRED_HEADINGS if mode == "canonical" else COMMON_REQUIRED_HEADINGS
+    for heading in required_headings:
         if heading not in lines:
             errors.append(f"missing required heading: {heading}")
         elif heading.startswith("## ") and not nonempty_body(lines, heading):
             errors.append(f"empty report section: {heading}")
+
+    if mode == "clean":
+        if SOURCE_METADATA_COMMENT_RE.search(text):
+            errors.append("clean opponent report proposal must not contain source metadata comments")
+        for heading in CLEAN_FORBIDDEN_HEADINGS:
+            if heading in lines:
+                errors.append(f"clean opponent report proposal must not contain private checklist heading: {heading}")
 
     for pattern in PLACEHOLDER_PATTERNS:
         if re.search(pattern, public_text, re.IGNORECASE | re.MULTILINE):
@@ -328,11 +346,13 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("case_id")
     parser.add_argument("round_id", nargs="?")
-    parser.add_argument("--path", default=DEFAULT_DRAFT.as_posix(), help="round-relative report draft path")
+    parser.add_argument("--mode", choices=("canonical", "clean"), default="canonical")
+    parser.add_argument("--path", help="round-relative report draft path")
     args = parser.parse_args(argv[1:])
 
     validate_id("CASE_ID", args.case_id)
-    if not is_safe_relative(args.path):
+    path_arg = args.path or (CLEAN_PROPOSAL if args.mode == "clean" else DEFAULT_DRAFT).as_posix()
+    if not is_safe_relative(path_arg):
         print("ERROR: --path must be relative inside the round", file=sys.stderr)
         return 2
 
@@ -357,10 +377,15 @@ def main(argv: list[str]) -> int:
     )
     errors.extend(trace_errors)
 
-    draft_path = round_dir / args.path
+    draft_path = round_dir / path_arg
     draft_exists = draft_path.is_file()
-    if not draft_exists and args.path != DEFAULT_DRAFT.as_posix():
-        errors.append(f"missing opponent report draft: {args.path}")
+    canonical_draft_required = args.mode == "canonical" and (
+        path_arg != DEFAULT_DRAFT.as_posix()
+        or (round_dir / CLEAN_PROPOSAL).is_file()
+        or (round_dir / "outputs" / "feedback_k_posudku.md").is_file()
+    )
+    if not draft_exists and canonical_draft_required:
+        errors.append(f"missing opponent report draft: {path_arg}")
     materials_path = round_dir / MATERIALS_REL
     if not materials_path.is_file():
         errors.append(f"missing reviewed opponent materials: {MATERIALS_REL.as_posix()}")
@@ -368,15 +393,18 @@ def main(argv: list[str]) -> int:
 
     if draft_exists:
         text = draft_path.read_text(encoding="utf-8")
-        validate_trace_metadata(text, trace_path, args.path, errors)
-        validate_source_metadata(text, materials_path, args.path, errors)
-        check_text(text, strip_metadata_comments(text), errors)
+        public_text = text
+        if args.mode == "canonical":
+            validate_trace_metadata(text, trace_path, path_arg, errors)
+            validate_source_metadata(text, materials_path, path_arg, errors)
+            public_text = strip_metadata_comments(text)
+        check_text(text, public_text, errors, mode=args.mode)
 
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print("Opponent report trace/draft check passed")
+    print(f"Opponent report {args.mode} check passed")
     return 0
 
 

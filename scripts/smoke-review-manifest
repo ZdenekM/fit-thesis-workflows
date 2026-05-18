@@ -186,9 +186,9 @@ def required_observed_checks(rel_path):
     if rel_path == "outputs/feedback_student.md":
         return ["check-supervisor-ready", "check-feedback-language", "check-feedback-output"]
     if rel_path == "outputs/oponent_podklady_revidovane.md":
-        return ["check-round-ready", "check-opponent-materials", "check-opponent-report"]
+        return ["check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"]
     if rel_path == "outputs/feedback_k_posudku.md":
-        return ["check-opponent-report"]
+        return ["check-opponent-report:canonical", "check-opponent-report:clean"]
     if rel_path == "outputs/vedouci_posudek_revidovany.md":
         return ["check-supervisor-report-ready", "check-supervisor-report"]
     return ["smoke-review"]
@@ -319,9 +319,9 @@ def required_observed_checks(rel_path):
     if rel_path == "outputs/feedback_student.md":
         return ["check-supervisor-ready", "check-feedback-language", "check-feedback-output"]
     if rel_path == "outputs/oponent_podklady_revidovane.md":
-        return ["check-round-ready", "check-opponent-materials", "check-opponent-report"]
+        return ["check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"]
     if rel_path == "outputs/feedback_k_posudku.md":
-        return ["check-opponent-report"]
+        return ["check-opponent-report:canonical", "check-opponent-report:clean"]
     if rel_path == "outputs/vedouci_posudek_revidovany.md":
         return ["check-supervisor-report-ready", "check-supervisor-report"]
     return ["smoke-review"]

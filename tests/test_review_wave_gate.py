@@ -285,6 +285,21 @@ def test_builtin_profiles_keep_draft_and_post_review_gates_separate() -> None:
     opponent_reviewed = builtin_wave_spec("opponent-materials", "reviewed")
     assert opponent_reviewed.outputs[0].checks[0].args == ("check-opponent-materials",)
 
+    opponent_report_draft = builtin_wave_spec("opponent-report", "draft")
+    assert opponent_report_draft.outputs[0].checks[0].args == ("check-opponent-report", "--mode", "canonical")
+
+    opponent_report_review = builtin_wave_spec("opponent-report-review", "final")
+    assert opponent_report_review.outputs[0].checks[0].args == ("check-opponent-report", "--mode", "canonical")
+    assert opponent_report_review.outputs[0].checks[1].args == (
+        "check-opponent-report",
+        "--mode",
+        "clean",
+        "--path",
+        "outputs/oponent_posudek_navrh.md",
+    )
+    assert opponent_report_review.outputs[0].approval_record is not None
+    assert opponent_report_review.outputs[0].approval_record.path == "work/reviews/opponent_report_review.json"
+
     report_trace = builtin_wave_spec("supervisor-report", "trace")
     assert report_trace.outputs[0].paths == ("work/supervisor_report_trace.json",)
     assert report_trace.outputs[0].checks[0].args == ("check-supervisor-report",)

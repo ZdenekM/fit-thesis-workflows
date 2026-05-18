@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 
+from thesis_review_workflow.cli import check_opponent_report as checker
 from thesis_review_workflow.cli.check_opponent_report import (
     DEFAULT_DRAFT,
     check_text,
@@ -195,12 +196,82 @@ Text.
 """
 
 
+def clean_report_text() -> str:
+    return calibrated_report_text().split("## 12. Před odevzdáním", 1)[0].rstrip() + "\n"
+
+
 def test_check_text_accepts_structured_is_form_fields() -> None:
     errors: list[str] = []
 
     check_text(calibrated_report_text(), calibrated_report_text(), errors)
 
     assert errors == []
+
+
+def test_check_text_clean_mode_accepts_is_entry_proposal_without_private_checklist() -> None:
+    text = clean_report_text()
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert errors == []
+
+
+def test_check_text_clean_mode_rejects_internal_metadata_and_private_checklist() -> None:
+    text = (
+        "<!-- source_trace_path: work/opponent_report_trace.json -->\n"
+        "<!-- source_trace_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n"
+        + calibrated_report_text()
+    )
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert "clean opponent report proposal must not contain source metadata comments" in errors
+    assert "clean opponent report proposal must not contain private checklist heading: ## 12. Před odevzdáním" in errors
+
+
+def test_check_text_clean_mode_rejects_hashes_and_workflow_mechanics() -> None:
+    text = (
+        clean_report_text()
+        + "\n64d6f3b4c7e834e6ab6bcbd219222d9c84f05a9f568e8b965dd2209f73a4da8e\n"
+        + "approval record for outputs/oponent_posudek_navrh.md\n"
+    )
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert any("oponent_posudek_navrh" in error for error in errors)
+    assert any("0-9a-f" in error for error in errors)
+    assert any("approval record" in error for error in errors)
+
+
+def test_check_text_canonical_mode_requires_private_checklist() -> None:
+    errors: list[str] = []
+
+    check_text(clean_report_text(), clean_report_text(), errors)
+
+    assert "missing required heading: ## 12. Před odevzdáním" in errors
+
+
+def test_canonical_mode_requires_default_draft_when_clean_proposal_exists(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.joinpath("outputs").mkdir(parents=True)
+    round_dir.joinpath("work").mkdir()
+    (root / "cases" / "case-a" / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (root / "cases" / "case-a" / "current-round.txt").write_text("round-a\n", encoding="utf-8")
+    (round_dir / "outputs" / "oponent_podklady_revidovane.md").write_text("# Materials\n", encoding="utf-8")
+    (round_dir / "outputs" / "oponent_posudek_navrh.md").write_text("# Clean\n", encoding="utf-8")
+    (round_dir / "work" / "opponent_report_trace.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "repo_root", lambda: root)
+    monkeypatch.setattr(checker, "run_round_ready", lambda root, case_id, round_id, errors: None)
+    monkeypatch.setattr(checker, "run_opponent_materials_check", lambda root, case_id, round_id, errors: None)
+    monkeypatch.setattr(checker, "validate_structured_evidence_artifact", lambda *args, **kwargs: [])
+
+    result = checker.main(["check-opponent-report", "--mode", "canonical", "case-a", "round-a"])
+
+    assert result == 1
 
 
 def test_check_text_requires_valid_is_form_fields() -> None:

@@ -356,13 +356,14 @@ def test_init_manifest_opponent_report_check_does_not_target_review_output(tmp_p
         {},
     )
 
-    opponent_report = next(item for item in checks if item["check"] == "check-opponent-report")
+    opponent_report = next(item for item in checks if item["check"] == "check-opponent-report:canonical")
 
     assert opponent_report["target_artifacts"] == [
         "work/opponent_report_trace.json",
         "outputs/oponent_podklady_revidovane.md",
         "work/oponent_posudek_draft.md",
     ]
+    assert opponent_report["command"] == "check-opponent-report --mode canonical case-a round-a"
 
 
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
@@ -413,8 +414,8 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
     check_helper_checks(
         [
             {
-                "check": "check-opponent-report",
-                "command": "scripts/check-opponent-report case-a round-a",
+                "check": "check-opponent-report:canonical",
+                "command": "check-opponent-report --mode canonical case-a round-a",
                 "target_artifacts": ["outputs/oponent_podklady_revidovane.md"],
                 "target_sha256": {"outputs/oponent_podklady_revidovane.md": "0" * 64},
                 "status": "passed",
@@ -422,7 +423,7 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
                 "exit_code": 0,
             }
         ],
-        {"check-opponent-report"},
+        {"check-opponent-report:canonical"},
         round_dir,
         True,
         errors,
@@ -430,8 +431,49 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
     )
 
     assert (
-        "helper_checks check-opponent-report: missing required target artifact work/opponent_report_trace.json"
+        "helper_checks check-opponent-report:canonical: missing required target artifact "
+        "work/opponent_report_trace.json" in errors
+    )
+
+
+def test_review_manifest_requires_clean_opponent_report_target(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    proposal = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    materials.parent.mkdir(parents=True)
+    trace.parent.mkdir(parents=True)
+    materials.write_text("# Reviewed materials\n", encoding="utf-8")
+    trace.write_text("{}\n", encoding="utf-8")
+    proposal.write_text("# Clean report proposal\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-report:clean",
+                "command": "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md case-a round-a",
+                "target_artifacts": ["outputs/oponent_posudek_navrh.md"],
+                "target_sha256": {"outputs/oponent_posudek_navrh.md": sha256_file(proposal)},
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-report:clean"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-opponent-report:clean: missing required target artifact work/opponent_report_trace.json"
         in errors
+    )
+    assert (
+        "helper_checks check-opponent-report:clean: missing required target artifact "
+        "outputs/oponent_podklady_revidovane.md" in errors
     )
 
 

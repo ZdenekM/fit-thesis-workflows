@@ -442,9 +442,28 @@ def required_checks(
             ["outputs/oponent_podklady_revidovane.md"],
         )
         targets = ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"]
-        if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        if (
+            (round_dir / "work" / "oponent_posudek_draft.md").is_file()
+            or "outputs/oponent_posudek_navrh.md" in artifact_paths
+            or "outputs/feedback_k_posudku.md" in artifact_paths
+        ):
             targets.append("work/oponent_posudek_draft.md")
-        add("check-opponent-report", f"check-opponent-report {case_id} {round_id}", targets)
+        add(
+            "check-opponent-report:canonical",
+            f"check-opponent-report --mode canonical {case_id} {round_id}",
+            targets,
+        )
+    if "outputs/oponent_posudek_navrh.md" in artifact_paths:
+        targets = [
+            "work/opponent_report_trace.json",
+            "outputs/oponent_podklady_revidovane.md",
+            "outputs/oponent_posudek_navrh.md",
+        ]
+        add(
+            "check-opponent-report:clean",
+            f"check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md {case_id} {round_id}",
+            targets,
+        )
     if "outputs/figure_media_review.md" in artifact_paths:
         add(
             "check-figure-media-review",

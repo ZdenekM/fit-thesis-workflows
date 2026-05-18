@@ -265,7 +265,7 @@ def builtin_wave_spec(workflow: str, wave: str) -> WaveSpec:
                 ExpectedOutput(
                     role="opponent_report_trace",
                     paths=("work/opponent_report_trace.json",),
-                    checks=(_check("check-opponent-report"),),
+                    checks=(_check("check-opponent-report", "--mode", "canonical"),),
                 ),
             ),
         ),
@@ -279,7 +279,7 @@ def builtin_wave_spec(workflow: str, wave: str) -> WaveSpec:
                 ExpectedOutput(
                     role="opponent_report_draft",
                     paths=("work/oponent_posudek_draft.md",),
-                    checks=(_check("check-opponent-report"),),
+                    checks=(_check("check-opponent-report", "--mode", "canonical"),),
                 ),
             ),
         ),
@@ -293,6 +293,12 @@ def builtin_wave_spec(workflow: str, wave: str) -> WaveSpec:
                 ExpectedOutput(
                     role="opponent_report_review",
                     paths=("outputs/feedback_k_posudku.md",),
+                    checks=(
+                        _check("check-opponent-report", "--mode", "canonical"),
+                        _check(
+                            "check-opponent-report", "--mode", "clean", "--path", "outputs/oponent_posudek_navrh.md"
+                        ),
+                    ),
                     approval_record=ApprovalRecordExpectation(
                         "work/reviews/opponent_report_review.json",
                         reviewed_artifact_path="outputs/feedback_k_posudku.md",

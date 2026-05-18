@@ -133,7 +133,18 @@ OUTPUT_ARTIFACTS: dict[str, OutputArtifactSpec] = {
         review_scope="standalone_final",
         label="opponent report review",
         final_output=True,
-        review_basis_candidates=("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
+        review_basis_candidates=(
+            "outputs/oponent_posudek_navrh.md",
+            "work/oponent_posudek_draft.md",
+            "work/muj_posudek_draft.md",
+        ),
+    ),
+    "oponent_posudek_navrh.md": OutputArtifactSpec(
+        filename="oponent_posudek_navrh.md",
+        artifact_type="opponent_report_is_entry_proposal",
+        skills=("thesis-opponent-report-review",),
+        review_scope="draft_only",
+        label="opponent report IS-entry proposal",
     ),
     "reference_report_comparison.md": OutputArtifactSpec(
         filename="reference_report_comparison.md",

@@ -852,7 +852,7 @@ def _validate_refresh_manifest_snapshot(
     )
     _validate_manifest_helper_check(
         manifest,
-        "check-opponent-report",
+        "check-opponent-report:canonical",
         {
             OPPONENT_MATERIALS_REVIEWED_REL: loaded.get("source_materials_sha256"),
             OPPONENT_REPORT_TRACE_REL: loaded.get("opponent_report_trace_sha256"),

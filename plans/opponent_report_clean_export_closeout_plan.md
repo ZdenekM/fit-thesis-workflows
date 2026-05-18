@@ -1,6 +1,6 @@
 # Opponent Report Clean Export And Closeout Plan
 
-Status: planned
+Status: active
 Created: 2026-05-18
 
 ## Goal
@@ -290,7 +290,7 @@ The intended final path for an opponent report is:
 
 ### Slice 1 - Clean Artifact Contract And Checker Modes
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `feat(workflow): split opponent report draft checks`
 - Expected paths:
   - `src/thesis_review_workflow/cli/check_opponent_report.py`
@@ -700,6 +700,23 @@ The intended final path for an opponent report is:
   private-comment placeholder rejection, and removed the misleading manifest
   target that made `check-opponent-report` appear to validate
   `outputs/feedback_k_posudku.md`.
+- 2026-05-18: Slice 1 implementation started from a clean tracked baseline
+  despite the older progress note about candidate edits. Added explicit
+  canonical/clean opponent-report checker modes, first-class
+  `outputs/oponent_posudek_navrh.md` artifact registration, clean proposal
+  review-basis routing, and separate manifest helper identities
+  `check-opponent-report:canonical` / `check-opponent-report:clean`. Targeted
+  Pants fmt/lint/check/test passed for the touched Slice 1 modules and tests.
+  Omen MCP was attempted on the touched Python paths but returned zero files,
+  so it is recorded as an MCP/path limitation rather than a code-quality signal.
+- 2026-05-18: Slice 1 post-change agent review found three contract gaps:
+  opponent-materials approvals still using the old generic helper-check name,
+  approval validation not proving mode-specific helper targets, and
+  `review-round-start` dropping option-bearing readiness gate arguments. Fixed
+  those gaps, tightened clean-mode privacy checks, updated smoke fixtures, and
+  verified Slice 1 with Pants fmt/lint/check/test, opponent/report review
+  smokes, check-scripts, check-private, git diff --check, and `pants run :omen`
+  (grade A; remaining hotspot output is repo-baseline advisory evidence).
 
 ## Decision Log
 

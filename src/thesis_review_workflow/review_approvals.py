@@ -61,16 +61,20 @@ APPROVAL_PROFILES = {
         reviewed_artifact_path="outputs/oponent_podklady_revidovane.md",
         review_basis_candidates=("work/oponent_podklady_draft.md",),
         reviewer_role="thesis-opponent-materials-review",
-        required_checks=("check-round-ready", "check-opponent-materials", "check-opponent-report"),
+        required_checks=("check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"),
     ),
     "opponent-report-review": ReviewApprovalProfile(
         profile="opponent-report-review",
         workflow_profile="opponent_report_review",
         approval_path="work/reviews/opponent_report_review.json",
         reviewed_artifact_path="outputs/feedback_k_posudku.md",
-        review_basis_candidates=("work/oponent_posudek_draft.md", "work/muj_posudek_draft.md"),
+        review_basis_candidates=(
+            "outputs/oponent_posudek_navrh.md",
+            "work/oponent_posudek_draft.md",
+            "work/muj_posudek_draft.md",
+        ),
         reviewer_role="thesis-opponent-report-review",
-        required_checks=("check-opponent-report",),
+        required_checks=("check-opponent-report:canonical", "check-opponent-report:clean"),
     ),
     "theses-similarity-review": ReviewApprovalProfile(
         profile="theses-similarity-review",
@@ -160,23 +164,53 @@ def validate_required_checks(
         if not str(item.get("checked_at", "")).strip():
             errors.append(f"{rel_path}: helper check {name} must record checked_at")
         targets = item.get("target_artifacts")
-        if not isinstance(targets, list) or reviewed_artifact_path not in targets:
-            errors.append(f"{rel_path}: helper check {name} must target {reviewed_artifact_path}")
+        if not isinstance(targets, list) or not targets:
+            errors.append(f"{rel_path}: helper check {name} must record target_artifacts")
             continue
+        target_set = {target for target in targets if isinstance(target, str)}
+        required_targets = required_helper_targets_for_approval(name, round_dir, rel_path)
+        for missing_target in sorted(required_targets - target_set):
+            errors.append(f"{rel_path}: helper check {name} missing required target artifact {missing_target}")
         recorded_hashes = item.get("target_sha256")
-        target = round_dir / reviewed_artifact_path
         if not isinstance(recorded_hashes, dict):
             errors.append(f"{rel_path}: helper check {name} must record target_sha256")
         else:
-            recorded = recorded_hashes.get(reviewed_artifact_path)
-            if not isinstance(recorded, str) or not recorded:
-                errors.append(f"{rel_path}: helper check {name} missing target hash for {reviewed_artifact_path}")
-            elif target.is_file() and recorded != sha256_file(target):
-                errors.append(f"{rel_path}: helper check {name} target hash is stale for {reviewed_artifact_path}")
+            for target_path in targets:
+                if not isinstance(target_path, str):
+                    errors.append(f"{rel_path}: helper check {name} target_artifacts items must be strings")
+                    continue
+                target_file = round_dir / target_path
+                if not target_file.is_file():
+                    continue
+                recorded = recorded_hashes.get(target_path)
+                if not isinstance(recorded, str) or not recorded:
+                    errors.append(f"{rel_path}: helper check {name} missing target hash for {target_path}")
+                elif recorded != sha256_file(target_file):
+                    errors.append(f"{rel_path}: helper check {name} target hash is stale for {target_path}")
     seen = {item.get("check") for item in helper_checks if isinstance(item, dict)}
     for check in sorted(set(required_checks) - {item for item in seen if isinstance(item, str)}):
         errors.append(f"{rel_path}: missing manifest helper check record: {check}")
     return errors
+
+
+def required_helper_targets_for_approval(name: str, round_dir: Path, approval_path: str) -> set[str]:
+    if name in {"check-opponent-report", "check-opponent-report:canonical"}:
+        targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
+        if (
+            approval_path == "work/reviews/opponent_report_review.json"
+            or (round_dir / "work" / "oponent_posudek_draft.md").is_file()
+            or (round_dir / "outputs" / "oponent_posudek_navrh.md").is_file()
+            or (round_dir / "outputs" / "feedback_k_posudku.md").is_file()
+        ):
+            targets.add("work/oponent_posudek_draft.md")
+        return targets
+    if name == "check-opponent-report:clean":
+        return {
+            "work/opponent_report_trace.json",
+            "outputs/oponent_podklady_revidovane.md",
+            "outputs/oponent_posudek_navrh.md",
+        }
+    return set()
 
 
 def reviewer_matches_generator(

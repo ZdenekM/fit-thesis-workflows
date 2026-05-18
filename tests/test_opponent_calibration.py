@@ -461,8 +461,8 @@ def calibration_refresh_eligibility_payload(round_dir: Path) -> dict[str, object
                 "exit_code": 0,
             },
             {
-                "check": "check-opponent-report",
-                "command": "scripts/check-opponent-report calibration-case round-a",
+                "check": "check-opponent-report:canonical",
+                "command": "scripts/check-opponent-report --mode canonical calibration-case round-a",
                 "target_artifacts": [
                     "work/opponent_report_trace.json",
                     "outputs/oponent_podklady_revidovane.md",
@@ -1910,7 +1910,7 @@ def test_validate_calibration_refresh_eligibility_requires_manifest_review_and_h
         artifact for artifact in manifest["artifacts"] if artifact["path"] != "outputs/feedback_k_posudku.md"
     ]
     for check in manifest["helper_checks"]:
-        if check["check"] == "check-opponent-report":
+        if check["check"] == "check-opponent-report:canonical":
             check["status"] = "failed"
             check["exit_code"] = 1
     write_json(manifest_path, manifest)
@@ -1927,8 +1927,8 @@ def test_validate_calibration_refresh_eligibility_requires_manifest_review_and_h
     )
 
     assert any("artifacts must include outputs/feedback_k_posudku.md" in error for error in errors)
-    assert any("helper_checks check-opponent-report: status must be passed" in error for error in errors)
-    assert any("helper_checks check-opponent-report: exit_code must be 0" in error for error in errors)
+    assert any("helper_checks check-opponent-report:canonical: status must be passed" in error for error in errors)
+    assert any("helper_checks check-opponent-report:canonical: exit_code must be 0" in error for error in errors)
 
 
 def test_validate_calibration_refresh_eligibility_rejects_stale_manifest_check_target(
@@ -1939,7 +1939,7 @@ def test_validate_calibration_refresh_eligibility_rejects_stale_manifest_check_t
     manifest_path = round_dir / "work/opponent_calibration_refresh_sources/review_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     for check in manifest["helper_checks"]:
-        if check["check"] == "check-opponent-report":
+        if check["check"] == "check-opponent-report:canonical":
             check["target_sha256"]["work/oponent_posudek_draft.md"] = "0" * 64
     write_json(manifest_path, manifest)
     manifest_hash = sha256_file(manifest_path)
@@ -1955,7 +1955,7 @@ def test_validate_calibration_refresh_eligibility_rejects_stale_manifest_check_t
     )
 
     assert any(
-        "helper_checks check-opponent-report: target hash is stale for work/oponent_posudek_draft.md" in error
+        "helper_checks check-opponent-report:canonical: target hash is stale for work/oponent_posudek_draft.md" in error
         for error in errors
     )
 

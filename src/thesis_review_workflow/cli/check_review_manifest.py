@@ -296,11 +296,21 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return {"work/quantitative_claims.json"}
     if name == "check-literature-citation-review":
         return {"outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL}
-    if name == "check-opponent-report":
+    if name in {"check-opponent-report", "check-opponent-report:canonical"}:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
-        if (round_dir / "work" / "oponent_posudek_draft.md").is_file():
+        if (
+            (round_dir / "work" / "oponent_posudek_draft.md").is_file()
+            or (round_dir / "outputs" / "oponent_posudek_navrh.md").is_file()
+            or (round_dir / "outputs" / "feedback_k_posudku.md").is_file()
+        ):
             targets.add("work/oponent_posudek_draft.md")
         return targets
+    if name == "check-opponent-report:clean":
+        return {
+            "work/opponent_report_trace.json",
+            "outputs/oponent_podklady_revidovane.md",
+            "outputs/oponent_posudek_navrh.md",
+        }
     if name == "check-supervisor-report":
         targets = {"work/supervisor_report_trace.json", "outputs/vedouci_posudek_revidovany.md"}
         if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():
@@ -447,7 +457,9 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
     if "outputs/vedouci_posudek_revidovany.md" in paths:
         required.update({"check-supervisor-report-ready", "check-supervisor-report"})
     if "outputs/oponent_podklady_revidovane.md" in paths:
-        required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report"})
+        required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"})
+    if "outputs/oponent_posudek_navrh.md" in paths or "outputs/feedback_k_posudku.md" in paths:
+        required.update({"check-opponent-report:canonical", "check-opponent-report:clean"})
     if "outputs/figure_media_review.md" in paths:
         required.add("check-figure-media-review")
     if "outputs/literature_citation_review.md" in paths:

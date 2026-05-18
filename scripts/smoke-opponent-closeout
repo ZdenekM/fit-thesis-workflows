@@ -201,8 +201,36 @@ import pathlib
 import sys
 
 path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+replacements = {
+    "Náročnost zadání: k ručnímu výběru z nabídky IS": "Náročnost zadání: obtížnější zadání",
+    "Rozsah splnění požadavků zadání: k ručnímu výběru z nabídky IS": (
+        "Rozsah splnění požadavků zadání: zadání splněno s drobnými výhradami"
+    ),
+    "Rozsah technické zprávy: k ručnímu výběru z nabídky IS": "Rozsah technické zprávy: je v obvyklém rozmezí",
+    "Prezentační úroveň technické zprávy: k ručnímu zadání bodů 0-100": (
+        "Prezentační úroveň technické zprávy: 80 bodů"
+    ),
+    "Formální úprava technické zprávy: k ručnímu zadání bodů 0-100": "Formální úprava technické zprávy: 80 bodů",
+    "Práce s literaturou: k ručnímu zadání bodů 0-100": "Práce s literaturou: 80 bodů",
+    "Realizační výstup: k ručnímu zadání bodů 0-100": "Realizační výstup: 80 bodů",
+    (
+        "Děkuji za zpracovanou práci. Veřejné hodnocení výše shrnuje hlavní důvody bodového hodnocení a "
+        "známky. Pro neveřejný komentář studentovi zde stručně vysvětlete, co se podle vás povedlo, proč "
+        "hodnocení není vyšší, co si má student připravit k obhajobě a jaké konkrétní kroky by mu pomohly "
+        "při dalším rozvoji práce. Neuvádějte interní cesty, hash hodnoty ani auditní detaily; pište věcně, "
+        "přímo a podpůrně."
+    ): (
+        "Děkuji za zpracovanou práci. Silnou stránkou je funkční prototyp a přiměřené pokrytí zadání. "
+        "Hodnocení není vyšší hlavně kvůli slabší reprodukovatelnosti experimentů a méně přesnému textu. "
+        "K obhajobě doporučuji připravit konkrétní metodiku testování a jasné oddělení vlastního přínosu "
+        "od použitých knihoven."
+    ),
+}
+for old, new in replacements.items():
+    text = text.replace(old, new)
 lines = []
-for line in path.read_text(encoding="utf-8").splitlines():
+for line in text.splitlines():
     if line.startswith("Stav:"):
         lines.append("Stav: pripraveno pro nezavislou kontrolu oponentem.")
     elif line.startswith("Bodov"):
@@ -387,7 +415,7 @@ prepare_reviewed_case() {
     --reviewer-agent reviewer-agent \
     --check check-round-ready \
     --check check-opponent-materials \
-    --check check-opponent-report \
+    --check check-opponent-report:canonical \
     --used-findings "Synthetic reviewed opponent materials smoke." >/dev/null
   "$repo_root/scripts/init-review-manifest" --run-checks "$case_id" "$round_id" >/dev/null
   block_typography_role "$round_dir"

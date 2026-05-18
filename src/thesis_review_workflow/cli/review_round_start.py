@@ -366,8 +366,8 @@ def execute_action(
     if action.action_id == "update_reuse_index":
         return run_workflow_step(root, "Round reuse index", ["update-round-reuse-index", case_id, round_id])
     if action.action_id == "run_readiness_gate":
-        gate = action.command.split()[0]
-        return run_workflow_step(root, f"Readiness gate: {gate}", [gate, case_id, round_id])
+        command = shlex.split(substitute_placeholders(action.command, case_id=case_id, round_id=round_id))
+        return run_workflow_step(root, f"Readiness gate: {command[0]}", command)
     if action.action_id == "prepare_role_plan":
         return ExecutedAction(
             "planned",

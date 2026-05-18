@@ -259,7 +259,7 @@ for artifact in manifest["artifacts"]:
             "reviewed_artifact_sha256": artifact["artifact_sha256"],
             "review_basis_path": basis_path,
             "review_basis_sha256": sha256_file(basis),
-            "checks_observed": ["check-round-ready", "check-opponent-materials", "check-opponent-report"],
+            "checks_observed": ["check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"],
             "limitations": ["None."],
             "timestamp": "2026-05-04T00:01:00Z",
         }
@@ -646,7 +646,7 @@ import sys
 
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 checks = {check["check"]: check for check in manifest["helper_checks"]}
-assert checks["check-opponent-report"]["status"] == "passed", checks["check-opponent-report"]
+assert checks["check-opponent-report:canonical"]["status"] == "passed", checks["check-opponent-report:canonical"]
 support = {item["path"] for item in manifest["supporting_work_artifacts"]}
 assert "work/oponent_posudek_draft.md" in support, support
 PY

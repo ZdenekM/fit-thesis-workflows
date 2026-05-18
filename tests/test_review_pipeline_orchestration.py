@@ -14,6 +14,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     ROUND_START_NEXT_COMMAND,
     ReviewRunTraceEvent,
     RoundMaterialDescriptor,
+    RoundStartAction,
     advisory_static_analysis_state,
     artifact_next_action_state,
     build_review_role_plan_payload,
@@ -219,7 +220,10 @@ def test_round_start_profile_gate_selection_is_profile_specific() -> None:
         "supervisor_report": ("check-supervisor-report-ready",),
         "opponent_review": ("check-round-ready",),
         "opponent_materials": ("check-round-ready",),
-        "opponent_report_review": ("check-opponent-report",),
+        "opponent_report_review": (
+            "check-opponent-report --mode canonical",
+            "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md",
+        ),
     }
 
     for profile_id, gates in expected.items():
@@ -233,6 +237,48 @@ def test_round_start_profile_gate_selection_is_profile_specific() -> None:
         assert [action.command for action in plan.actions if action.action_id == "run_readiness_gate"] == [
             f"{gate} <case-id> <round-id>" for gate in gates
         ]
+
+
+def test_review_round_start_executes_option_bearing_readiness_gate(monkeypatch, tmp_path: Path) -> None:
+    calls: list[tuple[str, list[str]]] = []
+
+    def fake_run_workflow_step(root: Path, label: str, args: list[str]) -> review_round_start.ExecutedAction:
+        calls.append((label, args))
+        return review_round_start.ExecutedAction("passed", " ".join(args), ())
+
+    monkeypatch.setattr(review_round_start, "run_workflow_step", fake_run_workflow_step)
+    action = RoundStartAction(
+        "run_readiness_gate",
+        "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md <case-id> <round-id>",
+        "profile readiness must pass before role-plan preparation",
+        (),
+        (),
+    )
+
+    result = review_round_start.execute_action(
+        root=tmp_path,
+        round_dir=tmp_path / "cases" / "case-a" / "rounds" / "round-a",
+        case_id="case-a",
+        round_id="round-a",
+        action=action,
+        materials=(),
+    )
+
+    assert result.status == "passed"
+    assert calls == [
+        (
+            "Readiness gate: check-opponent-report",
+            [
+                "check-opponent-report",
+                "--mode",
+                "clean",
+                "--path",
+                "outputs/oponent_posudek_navrh.md",
+                "case-a",
+                "round-a",
+            ],
+        )
+    ]
 
 
 def test_round_start_planner_adds_supervisor_report_required_note_action() -> None:

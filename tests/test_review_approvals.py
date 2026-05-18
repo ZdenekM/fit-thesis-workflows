@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from thesis_review_workflow.cli import write_review_approval
-from thesis_review_workflow.review_approvals import REVIEW_APPROVAL_SCHEMA, sha256_file
+from thesis_review_workflow.review_approvals import REVIEW_APPROVAL_SCHEMA, sha256_file, validate_required_checks
 
 
 def make_case(tmp_path: Path) -> Path:
@@ -28,6 +28,17 @@ def helper_check(name: str, output: Path, rel_output: str) -> dict[str, object]:
         "checked_at": "2026-05-11T12:00:00Z",
         "target_artifacts": [rel_output],
         "target_sha256": {rel_output: sha256_file(output)},
+    }
+
+
+def helper_check_record(name: str, round_dir: Path, targets: list[str]) -> dict[str, object]:
+    return {
+        "check": name,
+        "status": "passed",
+        "exit_code": 0,
+        "checked_at": "2026-05-11T12:00:00Z",
+        "target_artifacts": targets,
+        "target_sha256": {target: sha256_file(round_dir / target) for target in targets},
     }
 
 
@@ -157,6 +168,112 @@ def test_write_review_approval_creates_theses_similarity_record(tmp_path: Path, 
     assert payload["review_basis_path"] == "work/theses_similarity/review_draft.md"
     assert payload["review_basis_sha256"] == sha256_file(draft)
     assert payload["reviewer_role"] == "evidence-calibration-reviewer"
+
+
+def test_write_review_approval_prefers_clean_opponent_report_basis(tmp_path: Path, monkeypatch) -> None:
+    round_dir = make_case(tmp_path)
+    root = round_dir.parents[3]
+    monkeypatch.setattr(write_review_approval, "repo_root", lambda: root)
+    review_output = round_dir / "outputs" / "feedback_k_posudku.md"
+    clean_basis = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    canonical_draft = round_dir / "work" / "oponent_posudek_draft.md"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    review_output.parent.mkdir(parents=True)
+    canonical_draft.parent.mkdir(parents=True)
+    review_output.write_text("# Report review\n", encoding="utf-8")
+    clean_basis.write_text("# Clean report proposal\n", encoding="utf-8")
+    canonical_draft.write_text("# Canonical draft\n", encoding="utf-8")
+    materials.write_text("# Reviewed materials\n", encoding="utf-8")
+    trace.write_text("{}\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "artifacts": [
+                {
+                    "path": "outputs/feedback_k_posudku.md",
+                    "review_scope": "standalone_final",
+                    "generated_by": [{"role": "thesis-opponent-report-review", "agent": "generator-agent"}],
+                }
+            ],
+            "helper_checks": [
+                helper_check_record(
+                    "check-opponent-report:canonical",
+                    round_dir,
+                    [
+                        "work/opponent_report_trace.json",
+                        "outputs/oponent_podklady_revidovane.md",
+                        "work/oponent_posudek_draft.md",
+                    ],
+                ),
+                helper_check_record(
+                    "check-opponent-report:clean",
+                    round_dir,
+                    [
+                        "work/opponent_report_trace.json",
+                        "outputs/oponent_podklady_revidovane.md",
+                        "outputs/oponent_posudek_navrh.md",
+                    ],
+                ),
+            ],
+        },
+    )
+
+    result = write_review_approval.main(
+        [
+            "--profile",
+            "opponent-report-review",
+            "--reviewer-agent",
+            "review-agent",
+            "--check",
+            "check-opponent-report:canonical",
+            "--check",
+            "check-opponent-report:clean",
+            "--timestamp",
+            "2026-05-11T12:00:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    payload = json.loads((round_dir / "work" / "reviews" / "opponent_report_review.json").read_text())
+    assert payload["reviewed_artifact_path"] == "outputs/feedback_k_posudku.md"
+    assert payload["review_basis_path"] == "outputs/oponent_posudek_navrh.md"
+    assert payload["checks_observed"] == ["check-opponent-report:canonical", "check-opponent-report:clean"]
+
+
+def test_review_approval_requires_mode_specific_opponent_report_targets(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+    clean_basis = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    clean_basis.parent.mkdir(parents=True)
+    clean_basis.write_text("# Clean report proposal\n", encoding="utf-8")
+    manifest = {
+        "helper_checks": [
+            helper_check_record("check-opponent-report:clean", round_dir, ["outputs/oponent_posudek_navrh.md"])
+        ]
+    }
+
+    errors = validate_required_checks(
+        required_checks=("check-opponent-report:clean",),
+        checks_observed=["check-opponent-report:clean"],
+        rel_path="work/reviews/opponent_report_review.json",
+        round_dir=round_dir,
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        manifest=manifest,
+    )
+
+    assert (
+        "work/reviews/opponent_report_review.json: helper check check-opponent-report:clean "
+        "missing required target artifact work/opponent_report_trace.json"
+    ) in errors
+    assert (
+        "work/reviews/opponent_report_review.json: helper check check-opponent-report:clean "
+        "missing required target artifact outputs/oponent_podklady_revidovane.md"
+    ) in errors
 
 
 def test_write_review_approval_rejects_generator_as_reviewer(tmp_path: Path, monkeypatch) -> None:
