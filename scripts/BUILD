@@ -56,6 +56,7 @@ shell_sources(
         "record-review-delta",
         "record-submitted-supervisor-report",
         "record-workflow-operation",
+        "refresh-round-hashes",
         "register-review-artifact",
         "review-round-closeout",
         "review-round-start",
@@ -89,6 +90,7 @@ shell_sources(
         "smoke-record-report-amendment",
         "smoke-record-review-delta",
         "smoke-record-submitted-supervisor-report",
+        "smoke-refresh-round-hashes",
         "smoke-supervisor-report-calibration-profile",
         "smoke-supervisor-report-packets",
         "smoke-supervisor-packets",
@@ -122,6 +124,7 @@ files(
         "smoke-record-submitted-supervisor-report",
         "smoke-export-opponent-report",
         "smoke-prepare-review-round",
+        "smoke-refresh-round-hashes",
         "smoke-review-round-closeout",
         "smoke-review-round-start",
     ],
@@ -182,6 +185,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_review_delta",
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:record_workflow_operation",
+    "src/thesis_review_workflow/cli:refresh_round_hashes",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:review_round_closeout",
     "src/thesis_review_workflow/cli:review_round_start",
@@ -729,6 +733,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/record-workflow-operation",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="refresh_round_hashes_tool",
+    entry_point="thesis_review_workflow.cli.refresh_round_hashes:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/refresh-round-hashes",
     tags=["workflow-tool"],
 )
 

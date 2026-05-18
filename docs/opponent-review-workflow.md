@@ -167,6 +167,10 @@ vstupní podmínka.
 
 Approval record se neuzavírá ruční opravou hashe. Po materiální úpravě znovu
 spusťte review nebo zapište explicitní typovanou výjimku a omezení.
+Když se změní jen operator notes nebo approval record a common briefing hlásí
+stale hash, spusťte `scripts/refresh-round-hashes <case-id> [round-id]`.
+Tento helper obnovuje jen deterministické hash-bound pomocné artefakty a nesmí
+nahrazovat review deltu ani novou nezávislou kontrolu.
 
 Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`,
 `outputs/revision_diff.md` nebo manifestem registrované

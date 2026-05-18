@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime, timezone
 from typing import Any
 
+from thesis_review_workflow.cli.check_review_manifest import KNOWN_REVIEW_SCOPES, KNOWN_REVIEW_STATUSES
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -61,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def valid_choices(values: set[str]) -> str:
+    return ", ".join(sorted(values))
+
+
 def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | None, list[str]]:
     errors: list[str] = []
     auto_input_refs, auto_evidence_refs, auto_handoff_refs, unknown_refs = classify_dependency_refs(args.ref)
@@ -111,6 +116,13 @@ def registration_options(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
         role = args.role or "not_recorded"
         review_scope = args.review_scope
         review_status = args.review_status or "not_recorded"
+
+    if review_scope is not None and review_scope not in KNOWN_REVIEW_SCOPES:
+        errors.append(f"--review-scope must be one of: {valid_choices(KNOWN_REVIEW_SCOPES)}")
+    if review_status not in KNOWN_REVIEW_STATUSES:
+        errors.append(f"--review-status must be one of: {valid_choices(KNOWN_REVIEW_STATUSES)}")
+    if errors:
+        return None, errors
 
     return (
         {

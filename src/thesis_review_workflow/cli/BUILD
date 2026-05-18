@@ -58,6 +58,7 @@ python_source(name="record_report_amendment", source="record_report_amendment.py
 python_source(name="record_review_delta", source="record_review_delta.py")
 python_source(name="record_submitted_supervisor_report", source="record_submitted_supervisor_report.py")
 python_source(name="record_workflow_operation", source="record_workflow_operation.py")
+python_source(name="refresh_round_hashes", source="refresh_round_hashes.py")
 python_source(name="register_review_artifact", source="register_review_artifact.py")
 python_source(name="review_round_closeout", source="review_round_closeout.py")
 python_source(name="review_round_start", source="review_round_start.py")

@@ -480,7 +480,7 @@ The intended final path for an opponent report is:
 
 ### Slice 4 - Registration Enums And Hash Refresh
 
-- Status: planned
+- Status: completed
 - Proposed commit message: `fix(workflow): validate review registration metadata`
 - Expected paths:
   - `src/thesis_review_workflow/cli/write_review_approval.py`
@@ -530,7 +530,7 @@ The intended final path for an opponent report is:
   - `pants fmt src/thesis_review_workflow:: tests::`
   - `pants lint src/thesis_review_workflow:: tests::`
   - `pants check src/thesis_review_workflow:: tests::`
-  - `pants test tests/test_review_manifest_helpers.py tests/test_refresh_round_hashes.py`
+  - `pants test tests/test_review_manifest_helpers.py tests/test_refresh_round_hashes.py tests/test_review_approvals.py tests/test_workflow_python_contracts.py`
   - `scripts/smoke-register-review-artifact`
   - `scripts/smoke-refresh-round-hashes`
   - `scripts/smoke-package-workflow-tools`
@@ -779,6 +779,22 @@ The intended final path for an opponent report is:
   `scripts/check-scripts`, `scripts/check-private`, `git diff --check`, and
   `pants run :omen`. Omen CLI reported grade A / overall score 90.60; hotspot
   output remains advisory repo-baseline signal, not a Slice 3 blocker.
+- 2026-05-18: Slice 4 implemented registration-time manifest enum validation,
+  validator-backed opponent-report-review approval guidance, rejection of
+  structured `checks_observed` items, and a packaged `refresh-round-hashes`
+  command for deterministic `work/common_briefing.json` refreshes after
+  operator-note or approval-record edits. Reviewer follow-up found that the
+  initial refresh command could bless changed semantic outputs; it was fixed by
+  refusing non-`notes/*` and non-`work/reviews/*.json` hash changes and adding
+  pytest plus smoke coverage for the refusal path.
+- 2026-05-18: Slice 4 verification passed: `pants fmt`, `pants lint`, `pants
+  check`, targeted Pants tests for refresh/registration/approval/workflow
+  command contracts, `scripts/smoke-register-review-artifact`,
+  `scripts/smoke-refresh-round-hashes`, `scripts/smoke-package-workflow-tools`,
+  `scripts/check-scripts`, `scripts/check-private`, `git diff --check`, and
+  `pants run :omen`. Omen CLI reported grade A / overall score 90.60; MCP Omen
+  path handling was not used as evidence because earlier discovery returned no
+  files for this repo.
 
 ## Decision Log
 

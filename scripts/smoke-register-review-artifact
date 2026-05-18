@@ -25,6 +25,17 @@ expect_success() {
   fi
 }
 
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but succeeded: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
 mkdir -p "$round_dir/outputs" "$round_dir/work/opponent_packets"
 cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
 Work type: BP
@@ -52,6 +63,12 @@ EOF
 cat >"$round_dir/work/opponent_packets/code_quality_findings.md" <<'EOF'
 # Code Quality Findings
 EOF
+
+expect_failure "invalid review status fails early" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" "outputs/oponent_podklady_revidovane.md" \
+  --review-scope standalone_final \
+  --review-status covered_by_downstream_synthesis
+grep -Fq -- "--review-status must be one of:" "$out_file"
 
 expect_success "register final reviewed artifact" "$repo_root/scripts/register-review-artifact" \
   "$case_id" "$round_id" "outputs/oponent_podklady_revidovane.md" \

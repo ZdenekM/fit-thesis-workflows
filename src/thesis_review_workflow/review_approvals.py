@@ -147,7 +147,13 @@ def validate_required_checks(
     manifest: dict[str, Any] | None,
 ) -> list[str]:
     errors: list[str] = []
-    missing = sorted(set(required_checks) - set(checks_observed))
+    observed_names: set[str] = set()
+    for index, item in enumerate(checks_observed, start=1):
+        if isinstance(item, str) and item.strip():
+            observed_names.add(item)
+        else:
+            errors.append(f"{rel_path}: checks_observed item {index} must be a non-empty string")
+    missing = sorted(set(required_checks) - observed_names)
     for check in missing:
         errors.append(f"{rel_path}: missing required observed check: {check}")
     helper_required_checks = tuple(check for check in required_checks if check not in OBSERVED_ONLY_REQUIRED_CHECKS)

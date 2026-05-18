@@ -1542,6 +1542,36 @@ def test_register_final_artifact_records_review_basis(tmp_path: Path) -> None:
     assert review["review_basis_sha256"] == sha256_file(draft)
 
 
+def test_register_review_artifact_rejects_invalid_review_enums(tmp_path: Path, monkeypatch, capsys) -> None:
+    root = tmp_path / "repo"
+    case_dir = root / "cases" / "case-a"
+    round_dir = case_dir / "rounds" / "round-a"
+    output = round_dir / "outputs" / "code_quality_review.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Code quality\n", encoding="utf-8")
+    case_dir.joinpath("case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    case_dir.joinpath("current-round.txt").write_text("round-a\n", encoding="utf-8")
+    monkeypatch.setattr(register_review_artifact, "repo_root", lambda: root)
+
+    result = register_review_artifact.main(
+        [
+            "case-a",
+            "round-a",
+            "outputs/code_quality_review.md",
+            "--review-scope",
+            "internal_only",
+            "--review-status",
+            "covered_by_downstream_synthesis",
+        ]
+    )
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "--review-status must be one of:" in captured.out
+    assert "not_required" in captured.out
+    assert not (round_dir / "work" / "review_manifest.json").exists()
+
+
 def test_apply_review_approval_record_updates_final_review_metadata(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     output = round_dir / "outputs" / "feedback_student.md"

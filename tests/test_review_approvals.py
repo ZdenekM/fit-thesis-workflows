@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from typing import Any
 
 from thesis_review_workflow.cli import write_review_approval
 from thesis_review_workflow.review_approvals import (
     REVIEW_APPROVAL_SCHEMA,
+    build_review_approval_payload,
     reviewer_matches_generator,
     sha256_file,
     validate_required_checks,
@@ -300,6 +302,38 @@ def test_review_approval_wave_route_checks_are_observed_only(tmp_path: Path) -> 
     )
 
     assert errors == []
+
+
+def test_build_review_approval_rejects_structured_check_objects(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+    output = round_dir / "outputs" / "feedback_k_posudku.md"
+    basis = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Report review\n", encoding="utf-8")
+    basis.write_text("# Clean report proposal\n", encoding="utf-8")
+    checks: Any = [{"check": "check-opponent-report:clean", "status": "passed"}]
+
+    try:
+        build_review_approval_payload(
+            round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            workflow_profile="opponent_report_review",
+            reviewer_role="thesis-opponent-report-review",
+            reviewer_agent="review-agent",
+            verdict="approved",
+            blocking_findings_count=0,
+            reviewed_artifact_path="outputs/feedback_k_posudku.md",
+            review_basis_path="outputs/oponent_posudek_navrh.md",
+            checks_observed=checks,
+            limitations=[],
+            timestamp="2026-05-11T00:00:00Z",
+            approval_path="work/reviews/opponent_report_review.json",
+        )
+    except ValueError as exc:
+        assert "checks_observed item 1 must be a non-empty string" in str(exc)
+    else:
+        raise AssertionError("structured check objects must be rejected")
 
 
 def test_reviewer_match_ignores_imported_final_review_metadata() -> None:

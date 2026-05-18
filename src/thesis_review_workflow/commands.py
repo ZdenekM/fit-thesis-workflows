@@ -66,6 +66,7 @@ WORKFLOW_COMMAND_MODULES = {
     "record-review-delta": "thesis_review_workflow.cli.record_review_delta",
     "record-submitted-supervisor-report": "thesis_review_workflow.cli.record_submitted_supervisor_report",
     "record-workflow-operation": "thesis_review_workflow.cli.record_workflow_operation",
+    "refresh-round-hashes": "thesis_review_workflow.cli.refresh_round_hashes",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
     "review-round-closeout": "thesis_review_workflow.cli.review_round_closeout",
     "review-round-start": "thesis_review_workflow.cli.review_round_start",

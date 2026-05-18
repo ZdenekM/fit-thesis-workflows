@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__refresh_round_hashes_smoke_$$"
+round_id="round-a"
+round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+out_file="/tmp/refresh-round-hashes-smoke.$$.out"
+err_file="/tmp/refresh-round-hashes-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$repo_root/cases/$case_id"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but succeeded: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$round_dir/notes"
+cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Reviewer profile: default
+EOF
+echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+Initial note.
+EOF
+
+PYTHONPATH="$repo_root/src" python3 - "$case_id" "$round_id" "$round_dir" <<'PY'
+import pathlib
+import sys
+from thesis_review_workflow.review_packets import write_common_briefing
+
+case_id, round_id, round_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
+write_common_briefing(case_id, round_id, "2026-05-18T10:00:00Z", round_dir)
+PY
+
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+Edited note.
+EOF
+
+PYTHONPATH="$repo_root/src" python3 - "$round_dir" <<'PY'
+import pathlib
+import sys
+from thesis_review_workflow.review_packets import validate_common_briefing_artifact
+
+round_dir = pathlib.Path(sys.argv[1])
+errors = validate_common_briefing_artifact(round_dir, case_id=round_dir.parents[1].name, round_id=round_dir.name)
+assert any("sha256 is stale for notes/assignment.md" in error for error in errors), errors
+PY
+
+expect_success "refresh round hashes" "$repo_root/scripts/refresh-round-hashes" \
+  --generated-at 2026-05-18T10:01:00Z \
+  "$case_id" "$round_id"
+grep -Fq "work/common_briefing.json: refreshed" "$out_file"
+grep -Fq "No approvals, review deltas, report text, grades, verdicts, or semantic findings were modified." "$out_file"
+
+PYTHONPATH="$repo_root/src" python3 - "$round_dir" <<'PY'
+import pathlib
+import sys
+from thesis_review_workflow.review_packets import validate_common_briefing_artifact
+
+round_dir = pathlib.Path(sys.argv[1])
+assert validate_common_briefing_artifact(round_dir, case_id=round_dir.parents[1].name, round_id=round_dir.name) == []
+PY
+
+mkdir -p "$round_dir/outputs"
+cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+# Reviewed materials
+EOF
+
+PYTHONPATH="$repo_root/src" python3 - "$case_id" "$round_id" "$round_dir" <<'PY'
+import pathlib
+import sys
+from thesis_review_workflow.review_packets import write_common_briefing
+
+case_id, round_id, round_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
+write_common_briefing(case_id, round_id, "2026-05-18T10:02:00Z", round_dir)
+PY
+
+cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
+# Edited reviewed materials
+EOF
+
+expect_failure "semantic output refresh is refused" "$repo_root/scripts/refresh-round-hashes" \
+  --generated-at 2026-05-18T10:03:00Z \
+  "$case_id" "$round_id"
+grep -Fq "refusing to refresh hash for outputs/oponent_podklady_revidovane.md" "$out_file"
+grep -Fq "record a review delta or rerun the relevant review/check" "$out_file"
+
+echo "Refresh round hashes smoke passed"

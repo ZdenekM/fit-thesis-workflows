@@ -86,6 +86,13 @@ calibration decision. This log is deliberately separate from
 `work/review_manifest.json` hash gating so diagnostic notes do not make a closed
 manifest stale.
 
+`refresh-round-hashes` is a deterministic maintenance surface for stale helper
+hashes after operator-note or approval-record edits. It currently refreshes
+`work/common_briefing.json` only. It must not change approval records,
+`work/review_deltas/*.json`, report text, grades, verdicts, private comments,
+or semantic findings; material report changes still go through
+`record-review-delta` and the relevant independent review loop.
+
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:
 Windows treats them as files to open, not native commands, and may show a
