@@ -870,6 +870,22 @@ The intended final path for an opponent report is:
 
 ## Final Audit
 
-Not run. This plan is active. Implementation is not complete; reconcile the
-current uncommitted candidate edits with Slice 1 and Slice 3 before executing
-later slices.
+2026-05-18 slice closeout: Slices 1 through 5 are completed and committed. The
+pre-submission opponent-report-review workflow now has first-class canonical and
+clean artifacts, clean export, approval/manifest/coverage closeout plumbing,
+deterministic hash refresh for common briefing maintenance, and end-to-end smoke
+coverage through opponent-report-review pre-submission closeout.
+
+This plan remains active because Slice 6, submitted opponent-report capture and
+archive closeout, is intentionally still planned. Do not archive the plan until
+submitted PDF capture, public/private report comparison, typed submitted-form
+delta classification, and archive-readiness checks are implemented or explicitly
+deferred to `TODO.md`.
+
+Final verification for the completed pre-submission scope passed on
+2026-05-18: `pants fmt ::`, `pants lint ::`, `pants check ::`,
+`pants test tests::`, `scripts/smoke-opponent-report`,
+`scripts/smoke-export-opponent-report`, `scripts/smoke-review-wave`,
+`scripts/smoke-review-manifest`, `scripts/smoke-agent-coverage`,
+`scripts/smoke-package-workflow-tools`, `scripts/check-scripts`,
+`scripts/check-private`, `git diff --check`, and `pants run :omen`.
