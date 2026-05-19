@@ -170,6 +170,22 @@ def test_general_workflow_lesson_requires_durable_promotion_target(tmp_path: Pat
         promotion_target="WORKFLOW_MEMORY.md",
     )
 
+    assert_value_error_contains(
+        "classification_reason is required when governance fields are present",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="general_workflow_lesson",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Promote this review lesson.",
+        affected_sections=["feedback.body"],
+        promotion_target="TODO.md",
+    )
+
     payload = build_review_delta_payload(
         round_dir,
         case_id="case-a",
@@ -182,6 +198,7 @@ def test_general_workflow_lesson_requires_durable_promotion_target(tmp_path: Pat
         rationale="Promote this review lesson.",
         affected_sections=["feedback.body"],
         promotion_target="TODO.md",
+        classification_reason="General workflow lesson belongs in the durable TODO index.",
     )
 
     assert payload["promotion_target"] == "TODO.md"
@@ -241,6 +258,105 @@ def test_evidence_challenge_requires_safe_evidence_anchor(tmp_path: Path) -> Non
 
     assert payload["evidence_refs"] == ["work/evidence/claim.md"]
     assert payload["independent_review_reopened"] is True
+
+
+def test_governance_fields_are_structural_and_hash_bound(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    proposal = round_dir / "work" / "profile_proposals" / "local-default.md"
+    proposal.parent.mkdir(parents=True, exist_ok=True)
+    proposal.write_text("Redacted preference proposal.\n", encoding="utf-8")
+
+    assert_value_error_contains(
+        "promotion_target must be a durable promotion target",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="operator_preference",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator preference should calibrate a private profile.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="operator_explicit_exception",
+        typed_exception_rationale="Operator accepted this bounded preference delta.",
+        approved_by="operator",
+        promotion_target="private-reviewer-profile:../secret",
+        classification_reason="Rejected unsafe private-profile destination.",
+        privacy_review="private_profile_not_copied",
+    )
+
+    assert_value_error_contains(
+        "profile_proposal_ref requires a private-profile privacy_review",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="operator_preference",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator preference should calibrate a private profile.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="operator_explicit_exception",
+        typed_exception_rationale="Operator accepted this bounded preference delta.",
+        approved_by="operator",
+        profile_proposal_ref="work/profile_proposals/local-default.md",
+        classification_reason="Redacted proposal stays in the ignored round workspace.",
+    )
+
+    assert_value_error_contains(
+        "private reviewer profile promotion requires a private-profile privacy_review",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="operator_preference",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator preference should calibrate a private profile.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="operator_explicit_exception",
+        typed_exception_rationale="Operator accepted this bounded preference delta.",
+        approved_by="operator",
+        promotion_target="private-reviewer-profile:local/default",
+        classification_reason="Private profile target cannot be classified as tracked workflow only.",
+        privacy_review="tracked_workflow_only",
+    )
+
+    payload = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="operator_preference",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator preference should calibrate a private profile.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="operator_explicit_exception",
+        typed_exception_rationale="Operator accepted this bounded preference delta.",
+        approved_by="operator",
+        promotion_target="private-reviewer-profile:local/default",
+        classification_reason="Durable personal preference belongs in a private profile, not tracked docs.",
+        rejected_targets=["docs/workflow-command-surface.md"],
+        privacy_review="redacted_promotion_candidate_only",
+        profile_proposal_ref="work/profile_proposals/local-default.md",
+    )
+
+    assert payload["promotion_target"] == "private-reviewer-profile:local/default"
+    assert (
+        payload["classification_reason"]
+        == "Durable personal preference belongs in a private profile, not tracked docs."
+    )
+    assert payload["rejected_targets"] == ["docs/workflow-command-surface.md"]
+    assert payload["privacy_review"] == "redacted_promotion_candidate_only"
+    assert payload["profile_proposal_sha256"] == {"work/profile_proposals/local-default.md": sha256_file(proposal)}
 
 
 def test_review_delta_validates_canonical_closeout_guidance(tmp_path: Path) -> None:

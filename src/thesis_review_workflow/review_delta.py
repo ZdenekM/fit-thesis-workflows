@@ -26,12 +26,20 @@ DELTA_TYPES = {
 MATERIAL_DELTA_TYPES = {"evidence_challenge", "material_claim_delta", "general_workflow_lesson"}
 NON_MATERIAL_DELTA_TYPES = {"style_only", "operator_preference"}
 TYPED_EXCEPTION_TYPES = {"approval_unavailable", "operator_explicit_exception", "style_only_no_visible_change"}
+PRIVACY_REVIEW_STATUSES = {
+    "not_applicable",
+    "private_profile_not_copied",
+    "redacted_promotion_candidate_only",
+    "tracked_workflow_only",
+}
+PRIVATE_PROFILE_PRIVACY_STATUSES = {"private_profile_not_copied", "redacted_promotion_candidate_only"}
 MAX_DIFF_LINES = 160
+PRIVATE_PROFILE_TARGET_PREFIX = "private-reviewer-profile:"
 PROMOTION_TARGET_PREFIXES = (
     ".agents/skills/",
     "docs/",
     "plans/",
-    "private-reviewer-profile:",
+    PRIVATE_PROFILE_TARGET_PREFIX,
 )
 PROMOTION_TARGETS = {"AGENTS.md", "README.md", "TODO.md"}
 
@@ -104,6 +112,15 @@ def hash_refs(round_dir: Path, refs: list[str] | tuple[str, ...]) -> dict[str, s
         if path.is_file():
             hashes[ref] = sha256_file(path)
     return hashes
+
+
+def require_valid_promotion_targets(values: list[str] | tuple[str, ...], *, field: str) -> list[str]:
+    targets: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or not valid_promotion_target(value):
+            raise ValueError(f"{field} must contain only durable promotion targets")
+        targets.append(value)
+    return targets
 
 
 def workflow_wave(profile_id: str) -> tuple[str, str]:
@@ -191,6 +208,10 @@ def build_review_delta_payload(
     typed_exception_rationale: str = "",
     approved_by: str = "",
     promotion_target: str = "",
+    classification_reason: str = "",
+    rejected_targets: list[str] | tuple[str, ...] = (),
+    privacy_review: str = "not_applicable",
+    profile_proposal_ref: str = "",
 ) -> dict[str, Any]:
     if delta_type not in DELTA_TYPES:
         raise ValueError(f"delta_type must be one of {', '.join(sorted(DELTA_TYPES))}")
@@ -211,6 +232,16 @@ def build_review_delta_payload(
     reopened = delta_type in MATERIAL_DELTA_TYPES
     approval = approval_summary(round_dir, approval_record_rel or profile.approval_record, current_artifact_rel)
     exception = typed_exception_payload(typed_exception_type, typed_exception_rationale, approved_by)
+    rejected_target_list = require_valid_promotion_targets(tuple(rejected_targets), field="rejected_targets")
+    privacy_review_status = privacy_review.strip() or "not_applicable"
+    if privacy_review_status not in PRIVACY_REVIEW_STATUSES:
+        raise ValueError(f"privacy_review must be one of {', '.join(sorted(PRIVACY_REVIEW_STATUSES))}")
+    source_refs = [previous_snapshot_rel, current_artifact_rel, *evidence_ref_list]
+    proposal_ref = profile_proposal_ref.strip()
+    if proposal_ref:
+        if not is_safe_round_relative_path(proposal_ref):
+            raise ValueError("profile_proposal_ref must be a safe round-relative path")
+        source_refs.append(proposal_ref)
     payload: dict[str, Any] = {
         "schema_version": REVIEW_DELTA_SCHEMA,
         "case_id": case_id,
@@ -234,10 +265,15 @@ def build_review_delta_payload(
         "evidence_sha256": hash_refs(round_dir, evidence_ref_list),
         "typed_exception": exception,
         "promotion_target": promotion_target.strip(),
+        "classification_reason": classification_reason.strip(),
+        "rejected_targets": rejected_target_list,
+        "privacy_review": privacy_review_status,
+        "profile_proposal_ref": proposal_ref,
+        "profile_proposal_sha256": hash_refs(round_dir, (proposal_ref,)) if proposal_ref else {},
         "closeout_gates_to_rerun": closeout_gates(profile.profile_id, reopened=reopened),
         "next_action": next_action(profile.profile_id, delta_type=delta_type, reopened=reopened),
-        "source_refs": [previous_snapshot_rel, current_artifact_rel, *evidence_ref_list],
-        "source_sha256": hash_refs(round_dir, (previous_snapshot_rel, current_artifact_rel, *evidence_ref_list)),
+        "source_refs": source_refs,
+        "source_sha256": hash_refs(round_dir, tuple(source_refs)),
         "previous_text_sha256": sha256_text(previous_text),
         "current_text_sha256": sha256_text(current_text),
         "compact_diff": diff_lines(previous_text, current_text),
@@ -308,6 +344,7 @@ def validate_review_delta_record(
         errors.append(f"{rel_path}: profile_id must be a known workflow review profile")
     if delta_type == "general_workflow_lesson" and not valid_promotion_target(str(loaded.get("promotion_target", ""))):
         errors.append(f"{rel_path}: general_workflow_lesson requires a durable promotion_target")
+    _validate_governance_fields(loaded, rel_path, round_dir, errors)
     approval_status = loaded.get("approval_status")
     exception = loaded.get("typed_exception")
     has_exception = isinstance(exception, dict) and bool(exception)
@@ -447,7 +484,72 @@ def current_approval_after_delta(round_dir: Path, payload: dict[str, Any]) -> bo
 def valid_promotion_target(value: str) -> bool:
     if value in PROMOTION_TARGETS:
         return True
-    return any(value.startswith(prefix) for prefix in PROMOTION_TARGET_PREFIXES)
+    if value.startswith(PRIVATE_PROFILE_TARGET_PREFIX):
+        return valid_private_profile_target(value)
+    if any(value.startswith(prefix) for prefix in PROMOTION_TARGET_PREFIXES if prefix != PRIVATE_PROFILE_TARGET_PREFIX):
+        return is_safe_round_relative_path(value)
+    return False
+
+
+def valid_private_profile_target(value: str) -> bool:
+    if not value.startswith(PRIVATE_PROFILE_TARGET_PREFIX):
+        return False
+    target = value.removeprefix(PRIVATE_PROFILE_TARGET_PREFIX)
+    return bool(re.fullmatch(r"local/[A-Za-z0-9][A-Za-z0-9_.-]*", target))
+
+
+def _validate_governance_fields(loaded: dict[str, Any], rel_path: str, round_dir: Path, errors: list[str]) -> None:
+    promotion_target = loaded.get("promotion_target", "")
+    if isinstance(promotion_target, str) and promotion_target and not valid_promotion_target(promotion_target):
+        errors.append(f"{rel_path}: promotion_target must be a durable promotion target")
+
+    classification_reason = loaded.get("classification_reason", "")
+    if not isinstance(classification_reason, str):
+        errors.append(f"{rel_path}: classification_reason must be a string")
+        classification_reason = ""
+
+    rejected_targets = loaded.get("rejected_targets", [])
+    if not isinstance(rejected_targets, list):
+        errors.append(f"{rel_path}: rejected_targets must be a list")
+        rejected_targets = []
+    for target in rejected_targets:
+        if not isinstance(target, str) or not valid_promotion_target(target):
+            errors.append(f"{rel_path}: rejected_targets entries must be durable promotion targets")
+
+    privacy_review = loaded.get("privacy_review", "not_applicable")
+    if privacy_review not in PRIVACY_REVIEW_STATUSES:
+        errors.append(f"{rel_path}: privacy_review must be one of {', '.join(sorted(PRIVACY_REVIEW_STATUSES))}")
+
+    proposal_ref = loaded.get("profile_proposal_ref", "")
+    if not isinstance(proposal_ref, str):
+        errors.append(f"{rel_path}: profile_proposal_ref must be a string")
+        proposal_ref = ""
+    if proposal_ref:
+        if not is_safe_round_relative_path(proposal_ref):
+            errors.append(f"{rel_path}: profile_proposal_ref must be a safe round-relative path")
+        else:
+            proposal_path = round_dir / proposal_ref
+            proposal_sha = loaded.get("profile_proposal_sha256")
+            if not isinstance(proposal_sha, dict):
+                errors.append(f"{rel_path}: profile_proposal_sha256 must be an object")
+            elif not proposal_path.is_file():
+                errors.append(f"{rel_path}: profile_proposal_ref points to a missing file: {proposal_ref}")
+            elif proposal_sha.get(proposal_ref) != sha256_file(proposal_path):
+                errors.append(f"{rel_path}: profile_proposal_sha256 is stale for {proposal_ref}")
+
+    governance_present = bool(
+        promotion_target
+        or rejected_targets
+        or proposal_ref
+        or (isinstance(privacy_review, str) and privacy_review != "not_applicable")
+    )
+    if governance_present and not classification_reason.strip():
+        errors.append(f"{rel_path}: classification_reason is required when governance fields are present")
+    if proposal_ref and privacy_review not in PRIVATE_PROFILE_PRIVACY_STATUSES:
+        errors.append(f"{rel_path}: profile_proposal_ref requires a private-profile privacy_review")
+    if isinstance(promotion_target, str) and promotion_target.startswith(PRIVATE_PROFILE_TARGET_PREFIX):
+        if privacy_review not in PRIVATE_PROFILE_PRIVACY_STATUSES:
+            errors.append(f"{rel_path}: private reviewer profile promotion requires a private-profile privacy_review")
 
 
 def _validate_hash_bound_path(

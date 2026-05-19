@@ -18,6 +18,7 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.paths import rel_repo, resolve_caller_path
 from thesis_review_workflow.review_delta import (
     DELTA_TYPES,
+    PRIVACY_REVIEW_STATUSES,
     TYPED_EXCEPTION_TYPES,
     build_review_delta_payload,
     copy_previous_snapshot,
@@ -57,6 +58,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--typed-exception-rationale", default="")
     parser.add_argument("--approved-by", default="")
     parser.add_argument("--promotion-target", default="")
+    parser.add_argument(
+        "--classification-reason",
+        default="",
+        help="why this delta is case-local, profile calibration, tracked workflow guidance, or not promotable",
+    )
+    parser.add_argument(
+        "--rejected-target",
+        action="append",
+        default=[],
+        help="bounded promotion target that was considered and rejected; repeat as needed",
+    )
+    parser.add_argument("--privacy-review", choices=sorted(PRIVACY_REVIEW_STATUSES), default="not_applicable")
+    parser.add_argument(
+        "--profile-proposal-ref",
+        default="",
+        help="safe round-relative path to a redacted private-profile proposal artifact",
+    )
     parser.add_argument("--generated-at", default="", help="ISO timestamp; defaults to current UTC time")
     parser.add_argument("--force", action="store_true", help="overwrite existing delta record/snapshot")
     return parser
@@ -107,6 +125,10 @@ def main(argv: list[str] | None = None) -> int:
             typed_exception_rationale=args.typed_exception_rationale,
             approved_by=args.approved_by,
             promotion_target=args.promotion_target,
+            classification_reason=args.classification_reason,
+            rejected_targets=args.rejected_target,
+            privacy_review=args.privacy_review,
+            profile_proposal_ref=args.profile_proposal_ref,
         )
         record_rel = review_delta_record_rel(generated_at, args.delta_type)
         output = round_dir / record_rel

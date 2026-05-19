@@ -22,6 +22,10 @@ cat >"$round_dir/outputs/feedback_student.md" <<'EOF'
 
 Opravená formulace bez změny věcného obsahu.
 EOF
+mkdir -p "$round_dir/work/profile_proposals"
+cat >"$round_dir/work/profile_proposals/local-default.md" <<'EOF'
+Redacted private-profile proposal.
+EOF
 
 previous="/tmp/review-delta-previous.$$.md"
 cat >"$previous" <<'EOF'
@@ -41,20 +45,35 @@ EOF
   --typed-exception-type style_only_no_visible_change \
   --typed-exception-rationale "Smoke fixture has no independent approval record." \
   --approved-by smoke \
+  --classification-reason "Smoke-only tracked workflow classification." \
+  --rejected-target docs/workflow-command-surface.md \
+  --privacy-review redacted_promotion_candidate_only \
+  --profile-proposal-ref work/profile_proposals/local-default.md \
   --generated-at 2026-05-15T12:00:00Z >"$out_file"
 
 record="$round_dir/work/review_deltas/2026-05-15T12-00-00Z-style_only.json"
 python3 - "$record" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
 
-payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+record = Path(sys.argv[1])
+round_dir = record.parents[2]
+proposal_ref = "work/profile_proposals/local-default.md"
+payload = json.loads(record.read_text(encoding="utf-8"))
 assert payload["schema_version"] == "review-delta-v1"
 assert payload["delta_type"] == "style_only"
 assert payload["independent_review_reopened"] is False
 assert payload["typed_exception"]["type"] == "style_only_no_visible_change"
 assert payload["current_artifact_path"] == "outputs/feedback_student.md"
+assert payload["classification_reason"] == "Smoke-only tracked workflow classification."
+assert payload["rejected_targets"] == ["docs/workflow-command-surface.md"]
+assert payload["privacy_review"] == "redacted_promotion_candidate_only"
+assert payload["profile_proposal_ref"] == proposal_ref
+assert payload["profile_proposal_sha256"] == {
+    proposal_ref: hashlib.sha256((round_dir / proposal_ref).read_bytes()).hexdigest()
+}
 PY
 
 rm -f "$previous"

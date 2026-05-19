@@ -610,6 +610,9 @@ nezávislé review, nebo pro post-review opravu zapište strukturovanou deltu p�
 `record-review-delta` s affected sections, evidence anchors, typovanou výjimkou
 nebo reopening next action. U odesílatelných a standalone finálních artefaktů
 musí approval record odpovídat aktuálnímu souboru, jinak je review neplatné.
+Pokud je korekce zároveň kalibrace stylu, soukromého reviewer profilu nebo
+obecného workflow pravidla, pořád patří do stejné delta cesty; přesný command
+contract a privátní-profile hranice vlastní `docs/workflow-command-surface.md`.
 Po skutečném vložení oponentského posudku do IS zaznamenejte veřejný PDF export
 přes `record-submitted-opponent-report`. Když se veřejný text liší od
 revidovaného clean návrhu jen nemateriálně, klasifikujte rozdíl přes

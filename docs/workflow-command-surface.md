@@ -48,6 +48,12 @@ evidence challenges, material claim changes, and durable workflow lessons.
 around that shared delta record; it does not maintain a separate amendment
 ledger. Material claim and evidence-challenge deltas reopen the relevant
 profile independent review before closeout can pass.
+When a correction raises calibration/profile governance, the same delta record
+can include a `classification_reason`, bounded `rejected_targets`,
+`privacy_review`, and an optional hash-bound `profile_proposal_ref` under the
+ignored round workspace. `private-reviewer-profile:local/<profile-id>` is only a
+destination marker for a private profile proposal; it is not a profile update
+command and it must not copy private profile text into tracked files.
 
 The optimized review pipeline uses shared round-level commands before
 workflow-specific packet generation. `review-round-start` is the deterministic

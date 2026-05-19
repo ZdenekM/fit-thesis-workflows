@@ -151,27 +151,46 @@ manifest = {
 (round_dir / approval_rel).write_text(json.dumps(approval, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 (round_dir / manifest_rel).write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
+mkdir -p "$round_dir/work/profile_proposals"
+cat >"$round_dir/work/profile_proposals/report.md" <<'EOF'
+Redacted report-profile proposal.
+EOF
 
 "$repo_root/scripts/record-report-amendment" \
   --type private_comment_delta \
   --previous-reviewed "$tmp_dir/before.md" \
   --approved-by smoke-supervisor \
   --rationale "Private comment wording cleanup only." \
+  --classification-reason "Private comment smoke classification." \
+  --rejected-target README.md \
+  --privacy-review redacted_promotion_candidate_only \
+  --profile-proposal-ref work/profile_proposals/report.md \
   --amended-at 2026-05-13T00:00:00Z \
   "$case_id" "$round_id" >"$out_file"
 
 python3 - "$round_dir/work/review_deltas/2026-05-13T00-00-00Z-private_comment_delta.json" <<'PY'
+import hashlib
 import json
 import pathlib
 import sys
 
-payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+record = pathlib.Path(sys.argv[1])
+round_dir = record.parents[2]
+proposal_ref = "work/profile_proposals/report.md"
+payload = json.loads(record.read_text(encoding="utf-8"))
 assert payload["schema_version"] == "review-delta-v1"
 assert payload["status"] == "bounded_delta"
 assert payload["approval_status"] == "current"
 assert payload["private_comment_changed"] is True
 assert payload["public_text_changed"] is False
 assert payload["approval_record_path"] == "work/reviews/supervisor_report_review.json"
+assert payload["classification_reason"] == "Private comment smoke classification."
+assert payload["rejected_targets"] == ["README.md"]
+assert payload["privacy_review"] == "redacted_promotion_candidate_only"
+assert payload["profile_proposal_ref"] == proposal_ref
+assert payload["profile_proposal_sha256"] == {
+    proposal_ref: hashlib.sha256((round_dir / proposal_ref).read_bytes()).hexdigest()
+}
 PY
 
 write_report "$tmp_dir/before-grade.md" "Děkuji za práci." B 82

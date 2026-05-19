@@ -169,6 +169,9 @@ def test_private_comment_amendment_records_fresh_approved_hash(tmp_path: Path) -
         amended_at="2026-05-13T00:00:00Z",
         approved_by="supervisor",
         rationale="Private comment wording cleanup only.",
+        classification_reason="Private comment calibration stays case-local.",
+        rejected_targets=["README.md"],
+        privacy_review="tracked_workflow_only",
     )
 
     assert payload["schema_version"] == "review-delta-v1"
@@ -176,6 +179,9 @@ def test_private_comment_amendment_records_fresh_approved_hash(tmp_path: Path) -
     assert payload["approval_status"] == "current"
     assert payload["approval_record_path"] == SUPERVISOR_REPORT_REVIEW_REL
     assert payload["supervisor_confirmation_path"] == SUPERVISOR_REPORT_CONFIRMATION_REL
+    assert payload["classification_reason"] == "Private comment calibration stays case-local."
+    assert payload["rejected_targets"] == ["README.md"]
+    assert payload["privacy_review"] == "tracked_workflow_only"
     assert payload["private_comment_changed"] is True
     assert payload["public_text_changed"] is False
     assert validate_report_amendment_record(payload, round_dir=round_dir, case_id="case-a", round_id="round-a") == []

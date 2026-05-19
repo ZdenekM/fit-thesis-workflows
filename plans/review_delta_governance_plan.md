@@ -170,7 +170,7 @@ scripts/check-scripts
 
 ### Slice 2 - Review-Delta Schema And Promotion Validation
 
-Status: pending - implement
+Status: done
 
 Expected paths if Slice 1 confirms a schema change:
 
@@ -348,6 +348,24 @@ Run focused Pants tests if deterministic privacy behavior changes.
   separate freeze path. Implement Slice 5 as profile/privacy docs and TODO
   reconciliation only; current `check-private` already guards tracked private
   profile paths.
+- 2026-05-19: Slice 2 started. Editing only existing shared delta owners and
+  wrapper coverage: `review_delta.py`, `record_review_delta.py`,
+  `amendments.py`, `record_report_amendment.py`, focused tests, and existing
+  smoke scripts.
+- 2026-05-19: Slice 2 completed. Added governance fields to the existing
+  review-delta payload and both existing delta command surfaces:
+  `classification_reason`, bounded `rejected_targets`, enum-like
+  `privacy_review`, and hash-bound `profile_proposal_ref`. Tightened
+  `private-reviewer-profile:local/<profile-id>` promotion targets and private
+  proposal refs to private-profile privacy statuses. Reviewer findings were
+  fixed by keeping command-surface docs canonical, adding CLI/smoke coverage for
+  `profile_proposal_ref`, and rejecting `tracked_workflow_only` for private
+  profile targets. Checks passed: `pants fmt ...`, `pants test
+  tests/test_review_delta.py tests/test_report_amendments.py
+  tests/test_workflow_python_contracts.py`, targeted `pants lint ...`,
+  targeted `pants check ...`, `scripts/smoke-record-review-delta`,
+  `scripts/smoke-record-report-amendment`, `scripts/smoke-package-workflow-tools`,
+  `git diff --check`, `scripts/check-private`, `scripts/check-scripts`.
 
 ## Decision Log
 

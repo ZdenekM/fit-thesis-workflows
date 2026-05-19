@@ -81,6 +81,11 @@ def build_report_amendment_payload(
     amended_at: str,
     approved_by: str,
     rationale: str,
+    promotion_target: str = "",
+    classification_reason: str = "",
+    rejected_targets: list[str] | tuple[str, ...] = (),
+    privacy_review: str = "not_applicable",
+    profile_proposal_ref: str = "",
 ) -> dict[str, Any]:
     delta_type = report_delta_type(amendment_type)
     if not approved_by.strip():
@@ -102,6 +107,11 @@ def build_report_amendment_payload(
         typed_exception_type="",
         typed_exception_rationale="",
         approved_by=approved_by,
+        promotion_target=promotion_target,
+        classification_reason=classification_reason,
+        rejected_targets=rejected_targets,
+        privacy_review=privacy_review,
+        profile_proposal_ref=profile_proposal_ref,
     )
     payload.update(report_specific_fields(round_dir, payload, amendment_type=amendment_type, approved_by=approved_by))
     errors = validate_report_amendment_record(payload, round_dir=round_dir)

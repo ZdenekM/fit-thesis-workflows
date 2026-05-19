@@ -21,6 +21,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.paths import rel_repo, resolve_caller_path
+from thesis_review_workflow.review_delta import PRIVACY_REVIEW_STATUSES
 from thesis_review_workflow.supervisor_report import SUPERVISOR_REPORT_REVIEWED_REL
 
 
@@ -48,6 +49,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--current-artifact", default=SUPERVISOR_REPORT_REVIEWED_REL)
     parser.add_argument("--approved-by", required=True, help="human or reviewer identity approving the bounded delta")
     parser.add_argument("--rationale", required=True, help="why this delta is bounded, or why review must reopen")
+    parser.add_argument("--promotion-target", default="", help="optional durable promotion target for this amendment")
+    parser.add_argument(
+        "--classification-reason",
+        default="",
+        help="why this amendment is case-local, profile calibration, tracked workflow guidance, or not promotable",
+    )
+    parser.add_argument(
+        "--rejected-target",
+        action="append",
+        default=[],
+        help="bounded promotion target that was considered and rejected; repeat as needed",
+    )
+    parser.add_argument("--privacy-review", choices=sorted(PRIVACY_REVIEW_STATUSES), default="not_applicable")
+    parser.add_argument(
+        "--profile-proposal-ref",
+        default="",
+        help="safe round-relative path to a redacted private-profile proposal artifact",
+    )
     parser.add_argument("--amended-at", default="", help="ISO timestamp; defaults to current UTC time")
     parser.add_argument("--force", action="store_true", help="overwrite existing amendment record/snapshot")
     return parser
@@ -79,6 +98,11 @@ def main(argv: list[str] | None = None) -> int:
             amended_at=amended_at,
             approved_by=args.approved_by,
             rationale=args.rationale,
+            promotion_target=args.promotion_target,
+            classification_reason=args.classification_reason,
+            rejected_targets=args.rejected_target,
+            privacy_review=args.privacy_review,
+            profile_proposal_ref=args.profile_proposal_ref,
         )
         record_rel = amendment_record_rel(amended_at, args.type)
         output = round_dir / record_rel
