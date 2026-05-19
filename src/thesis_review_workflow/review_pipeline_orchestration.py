@@ -637,6 +637,11 @@ def agent_coverage_projection_for_role(round_dir: Path, role: str) -> dict[str, 
                 "fresh_review_required": item.get("fresh_review_required", ""),
                 "reuse_status": str(item.get("reuse_status", "")),
                 "reuse_next_action": str(item.get("reuse_next_action", "")),
+                "generator_role": str(item.get("generator_role", "")),
+                "generator_agent": str(item.get("generator_agent", "")),
+                "reviewer_role": str(item.get("reviewer_role", "")),
+                "reviewer_agent": str(item.get("reviewer_agent", "")),
+                "reviewed_hash": str(item.get("reviewed_hash", "")),
             }
             output_evidence = item.get("output_evidence")
             if isinstance(output_evidence, list):
@@ -997,7 +1002,9 @@ def role_output_ref_registered_current(
 ) -> bool:
     if not is_safe_round_relative_path(rel_path) or not (round_dir / rel_path).is_file():
         return False
-    if rel_path in coverage_projection.get("output_evidence", []):
+    if rel_path in coverage_projection.get("output_evidence", []) and coverage_projection_has_writer(
+        coverage_projection
+    ):
         return True
     record = manifest_record_for_path(manifest, rel_path)
     if record is None:
@@ -1016,6 +1023,23 @@ def role_output_ref_registered_current(
     producer_role = str(record.get("producer_role", "")).strip()
     producer_agent = str(record.get("producer_agent", "")).strip()
     return bool(producer_role and producer_agent)
+
+
+def coverage_projection_has_writer(coverage_projection: dict[str, Any]) -> bool:
+    generator_role = str(coverage_projection.get("generator_role", "")).strip()
+    generator_agent = str(coverage_projection.get("generator_agent", "")).strip()
+    if generator_role and generator_role != "not_recorded" and generator_agent and generator_agent != "not_recorded":
+        return True
+    reviewer_role = str(coverage_projection.get("reviewer_role", "")).strip()
+    reviewer_agent = str(coverage_projection.get("reviewer_agent", "")).strip()
+    reviewed_hash = str(coverage_projection.get("reviewed_hash", "")).strip()
+    return bool(
+        reviewer_role
+        and reviewer_role != "not_recorded"
+        and reviewer_agent
+        and reviewer_agent != "not_recorded"
+        and reviewed_hash
+    )
 
 
 def manifest_record_for_path(manifest: dict[str, Any], rel_path: str) -> dict[str, Any] | None:

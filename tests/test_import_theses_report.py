@@ -67,9 +67,14 @@ def test_import_report_writes_private_targets_and_intake(tmp_path: Path, monkeyp
     assert "Intake written" in capsys.readouterr().out
     copied_pdf = round_dir / "inputs/theses_similarity/report.pdf"
     extracted_text = round_dir / "extracted/theses_similarity/report.txt"
+    extract_sidecar = round_dir / "extracted/theses_similarity/report.txt.pdf-extract.json"
     intake_path = round_dir / "work/theses_similarity/intake.json"
     assert copied_pdf.read_bytes() == report.read_bytes()
     assert extracted_text.read_text(encoding="utf-8") == SYNTHETIC_REPORT
+    assert extract_sidecar.is_file()
+    sidecar = json.loads(extract_sidecar.read_text(encoding="utf-8"))
+    assert sidecar["input_pdf"]["path"] == "inputs/theses_similarity/report.pdf"
+    assert sidecar["output_text"]["path"] == "extracted/theses_similarity/report.txt"
 
     intake = json.loads(intake_path.read_text(encoding="utf-8"))
     assert intake["schema_version"] == "theses-similarity-intake-v1"
@@ -202,6 +207,7 @@ def test_import_report_cleans_temporary_files_on_extraction_failure(tmp_path: Pa
     assert result == 1
     assert not (round_dir / "inputs/theses_similarity/report.pdf").exists()
     assert not (round_dir / "extracted/theses_similarity/report.txt").exists()
+    assert not (round_dir / "extracted/theses_similarity/report.txt.pdf-extract.json").exists()
     assert not (round_dir / "work/theses_similarity/intake.json").exists()
     assert list((round_dir / "inputs/theses_similarity").glob(".*.tmp-*")) == []
 
@@ -228,6 +234,7 @@ def test_import_report_cleans_final_files_on_commit_failure(tmp_path: Path, monk
     assert result == 1
     assert not (round_dir / "inputs/theses_similarity/report.pdf").exists()
     assert not (round_dir / "extracted/theses_similarity/report.txt").exists()
+    assert not (round_dir / "extracted/theses_similarity/report.txt.pdf-extract.json").exists()
     assert not (round_dir / "work/theses_similarity/intake.json").exists()
     assert list((round_dir / "inputs/theses_similarity").glob(".*.tmp-*")) == []
     assert list((round_dir / "extracted/theses_similarity").glob(".*.tmp-*")) == []

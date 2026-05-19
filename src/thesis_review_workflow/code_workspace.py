@@ -17,6 +17,19 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import IO, Iterable
 
+from thesis_review_workflow.artifact_classification import (
+    CODE_ARCHIVE_HINTS,
+    CODE_DEPENDENCY_NAMES,
+    CODE_SUFFIX_LANGUAGES,
+    DEPENDENCY_NAMES,
+    SAFE_SKIP_DIRS,
+    archive_entry_code_like,
+    archive_may_be_code_from_name,
+    archive_suffix,
+    folded,
+    is_supported_archive_file,
+    is_unsupported_archive_file,
+)
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root
 from thesis_review_workflow.cases import resolve_round as resolve_round_core
 from thesis_review_workflow.ids import validate_id as validate_id_core
@@ -33,112 +46,6 @@ MAX_ARCHIVE_BYTES = 500 * 1024 * 1024
 REPORT_REL = Path("work/code_workspace.md")
 SERENA_ROOTS_REL = Path("work/serena_roots.json")
 WORKSPACE_MANIFEST_NAME = ".prepare-code-workspace-manifest.json"
-
-SAFE_SKIP_DIRS = {
-    ".git",
-    ".hg",
-    ".svn",
-    ".cache",
-    ".mypy_cache",
-    ".pytest_cache",
-    "__pycache__",
-    "node_modules",
-    "dist",
-    "build",
-    "target",
-    ".venv",
-    "venv",
-}
-DEPENDENCY_NAMES = {
-    "requirements.txt",
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "pom.xml",
-    "build.gradle",
-    "settings.gradle",
-    "Cargo.toml",
-    "Cargo.lock",
-    "go.mod",
-    "go.sum",
-    "CMakeLists.txt",
-    "Makefile",
-    "Dockerfile",
-    "docker-compose.yml",
-    "compose.yml",
-}
-CODE_DEPENDENCY_NAMES = DEPENDENCY_NAMES - {"Makefile", "CMakeLists.txt"}
-CODE_SUFFIX_LANGUAGES = {
-    ".py": "python",
-    ".ipynb": "python",
-    ".js": "javascript",
-    ".jsx": "javascript",
-    ".ts": "typescript",
-    ".tsx": "typescript",
-    ".java": "java",
-    ".kt": "kotlin",
-    ".cs": "csharp",
-    ".cpp": "cpp",
-    ".cc": "cpp",
-    ".cxx": "cpp",
-    ".c": "cpp",
-    ".h": "cpp",
-    ".hpp": "cpp",
-    ".go": "go",
-    ".rs": "rust",
-    ".rb": "ruby",
-    ".php": "php",
-    ".swift": "swift",
-    ".r": "r",
-    ".R": "r",
-    ".jl": "julia",
-    ".m": "matlab",
-}
-ARCHIVE_SUFFIXES = {
-    ".zip",
-    ".tar",
-    ".tgz",
-    ".tbz",
-    ".tbz2",
-    ".txz",
-    ".tar.gz",
-    ".tar.bz2",
-    ".tar.xz",
-}
-UNSUPPORTED_ARCHIVE_SUFFIXES = {
-    ".7z",
-    ".rar",
-    ".gz",
-    ".bz2",
-    ".xz",
-    ".zst",
-}
-TEXT_ARCHIVE_HINTS = {
-    "thesis",
-    "latex",
-    "overleaf",
-    "zadani",
-    "assignment",
-    "prace",
-    "bakalar",
-    "diplom",
-    "report",
-}
-CODE_ARCHIVE_HINTS = {
-    "code",
-    "src",
-    "source",
-    "repo",
-    "project",
-    "app",
-    "software",
-    "implementation",
-    "submission",
-}
 
 
 @dataclass
@@ -308,53 +215,21 @@ def format_bytes(value: int) -> str:
     return f"{value} B"
 
 
-def folded(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    return "".join(char for char in normalized if not unicodedata.combining(char)).lower()
-
-
 def safe_name(value: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip(".-")
     return safe or "code"
 
 
-def archive_suffix(path: Path) -> str:
-    suffixes = [suffix.lower() for suffix in path.suffixes]
-    if len(suffixes) >= 2 and suffixes[-2:] in (
-        [".tar", ".gz"],
-        [".tar", ".bz2"],
-        [".tar", ".xz"],
-    ):
-        return "".join(suffixes[-2:])
-    return suffixes[-1] if suffixes else ""
-
-
 def is_archive(path: Path) -> bool:
-    return path.is_file() and archive_suffix(path) in ARCHIVE_SUFFIXES
+    return is_supported_archive_file(path)
 
 
 def is_unsupported_archive(path: Path) -> bool:
-    return path.is_file() and archive_suffix(path) in UNSUPPORTED_ARCHIVE_SUFFIXES
+    return is_unsupported_archive_file(path)
 
 
 def archive_name_possible_code(path: Path) -> bool:
-    name = folded(path.name)
-    if any(token in name for token in TEXT_ARCHIVE_HINTS):
-        return False
-    return True
-
-
-def archive_entry_code_like(name: str) -> bool:
-    pure_name = PurePosixPath(name).name
-    lower = name.lower()
-    return (
-        pure_name in CODE_DEPENDENCY_NAMES
-        or PurePosixPath(pure_name).suffix in CODE_SUFFIX_LANGUAGES
-        or "/test/" in lower
-        or "/tests/" in lower
-        or lower.startswith("test/")
-        or lower.startswith("tests/")
-    )
+    return archive_may_be_code_from_name(path)
 
 
 def iter_archive_names(path: Path) -> tuple[list[str], bool, str]:
@@ -724,7 +599,7 @@ def inventory_directory(path: Path) -> DirectoryInventory:
             inventory.files_seen += 1
             rel = file_path.relative_to(path).as_posix()
             lower = rel.lower()
-            suffix = file_path.suffix
+            suffix = file_path.suffix.lower()
             if filename.lower().startswith("readme") and len(inventory.readmes) < MAX_LIST:
                 inventory.readmes.append(rel)
             if filename in DEPENDENCY_NAMES and len(inventory.dependencies) < MAX_LIST:
@@ -760,7 +635,7 @@ def likely_project_roots(workspace: Path) -> list[DirectoryInventory]:
             score += 4
         if any(name.lower().startswith("readme") for name in filenames):
             score += 2
-        if any(Path(name).suffix in CODE_SUFFIX_LANGUAGES for name in filenames):
+        if any(Path(name).suffix.lower() in CODE_SUFFIX_LANGUAGES for name in filenames):
             score += 1
         if score:
             candidates[path] = score

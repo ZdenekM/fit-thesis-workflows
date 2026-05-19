@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from thesis_review_workflow.artifact_classification import classify_path_evidence
 from thesis_review_workflow.case_doctor_summary import (
     GateResult,
     Issue,
@@ -35,6 +36,17 @@ def test_archive_classification_helpers_are_name_and_suffix_based() -> None:
     assert archive_top_entries(["project/a.py", "project/b.py", "README.md"]) == ["project", "README.md"]
 
 
+def test_shared_structural_path_classification_keeps_generated_vendor_and_tests_separate() -> None:
+    assert classify_path_evidence("App/obj/Debug/net8.0/App.dll").artifact_class == "generated_or_vendor"
+    assert classify_path_evidence("Game/Packages/com.vendor.sample/Runtime/Foo.cs").artifact_class == (
+        "generated_or_vendor"
+    )
+    assert classify_path_evidence("Assets/Samples/Demo/Example.cs").artifact_class == "sample_or_vendor"
+    assert classify_path_evidence("src/MyApp.Tests/UnitTest1.cs").artifact_class == "test_evidence"
+    assert classify_path_evidence("README.md").artifact_class == "readme_candidate"
+    assert classify_path_evidence("submission.7z").artifact_class == "unsupported_archive"
+
+
 def test_matching_extract_prefers_exact_assignment_and_single_extract_matches() -> None:
     exact = Path("extracted/thesis.txt")
     assert matching_extract(
@@ -60,6 +72,15 @@ def test_matching_extract_prefers_exact_assignment_and_single_extract_matches() 
         used_extracts=set(),
     ) == (fallback, "single-extract heuristic")
 
+    registered = Path("extracted/theses_similarity/report.txt")
+    assert matching_extract(
+        Path("inputs/theses_similarity/report.pdf"),
+        [registered],
+        pdf_count=2,
+        used_extracts=set(),
+        known_mappings={Path("inputs/theses_similarity/report.pdf"): registered},
+    ) == (registered, "registered mapping")
+
 
 def test_matching_extract_does_not_reuse_or_guess_ambiguous_extracts() -> None:
     exact = Path("extracted/thesis.txt")
@@ -82,6 +103,14 @@ def test_matching_extract_does_not_reuse_or_guess_ambiguous_extracts() -> None:
         [Path("extracted/appendix.txt"), Path("extracted/slides.txt")],
         pdf_count=2,
         used_extracts=set(),
+    ) == (None, "")
+
+    assert matching_extract(
+        Path("inputs/theses_similarity/report.pdf"),
+        [Path("extracted/report.txt")],
+        pdf_count=1,
+        used_extracts=set(),
+        known_mappings={Path("inputs/theses_similarity/report.pdf"): Path("extracted/theses_similarity/report.txt")},
     ) == (None, "")
 
 

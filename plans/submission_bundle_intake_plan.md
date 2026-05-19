@@ -506,6 +506,35 @@ any duplicated active instructions it creates.
   `plans/archive/supervisor_workflow_closeout_plan.md`; it remains superseded by
   the shared review-round lifecycle and is no longer an active-plan-directory
   instruction source.
+- 2026-05-19: Slice 1 started. Scope is existing lifecycle/classification drift:
+  shared artifact/archive classification, specialized PDF extract mapping,
+  materiality refresh before packet planning, and role-plan write-ownership
+  checks. No recursive inventory or materialization helpers are in scope for
+  this slice.
+- 2026-05-19: Slice 1 implemented shared structural classification in
+  `artifact_classification.py` and routed `case-doctor`,
+  `prepare-code-workspace`, and agent-coverage archive/code checks through it;
+  added authoritative specialized PDF extract mapping for Theses.cz reports;
+  made `prepare-review-round` refresh current evidence/materiality before packet
+  generation after validating packet authorization; and tightened role-plan
+  closeout so read-only handoff refs do not count as completed role-owned
+  outputs.
+- 2026-05-19: Slice 1 reviewer findings were fixed before commit: the new
+  classification module is included in the slice, specialized PDF mappings are
+  authoritative instead of heuristic fallbacks, supervisor-report authorization
+  is checked before refresh side effects, and remaining archive/code detection
+  in `agent_coverage.py` uses the shared helper module.
+- 2026-05-19: Slice 1 checks passed: `pants fmt ::`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_agent_coverage.py tests/test_case_doctor_summary.py
+  tests/test_pdf_extracts.py tests/test_import_theses_report.py
+  tests/test_review_pipeline_orchestration.py tests/test_round_reuse_index.py`,
+  `scripts/smoke-import-theses-report`, `scripts/smoke-case-doctor`,
+  `scripts/smoke-prepare-code-workspace`, `scripts/smoke-review-round-start`,
+  `scripts/smoke-prepare-review-round`, `scripts/smoke-round-reuse-index`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 

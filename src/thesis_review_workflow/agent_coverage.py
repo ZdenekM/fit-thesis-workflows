@@ -6,13 +6,19 @@ import hashlib
 import json
 import re
 import tarfile
-import unicodedata
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_classification import (
+    ARCHIVE_SUFFIXES,
+    archive_entry_code_like,
+    archive_may_be_code_from_name,
+    archive_suffix,
+    folded,
+)
 from thesis_review_workflow.artifact_registry import final_output_paths, opponent_final_output_paths
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import (
@@ -88,63 +94,6 @@ def is_optional_omen_limitation(role: str, limitation: dict[str, Any]) -> bool:
     return tool == "omen"
 
 
-ARCHIVE_SUFFIXES = {
-    ".zip",
-    ".tar",
-    ".tgz",
-    ".tbz",
-    ".tbz2",
-    ".txz",
-    ".gz",
-    ".bz2",
-    ".xz",
-    ".7z",
-    ".rar",
-}
-CODE_SUFFIXES = {
-    ".py",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".java",
-    ".kt",
-    ".cs",
-    ".cpp",
-    ".c",
-    ".h",
-    ".hpp",
-    ".go",
-    ".rs",
-    ".rb",
-    ".php",
-    ".swift",
-    ".ipynb",
-    ".sql",
-    ".r",
-    ".m",
-    ".jl",
-}
-CODE_DEPENDENCY_NAMES = {
-    "requirements.txt",
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "pom.xml",
-    "build.gradle",
-    "settings.gradle",
-    "Cargo.toml",
-    "Cargo.lock",
-    "go.mod",
-    "go.sum",
-    "Dockerfile",
-    "docker-compose.yml",
-    "compose.yml",
-}
 GITHUB_MARKERS = (
     "inputs/github/",
     "work/github-intake/",
@@ -286,71 +235,10 @@ def source_like_input_present(round_dir: Path) -> bool:
     return any((round_dir / directory).is_dir() for directory in source_dirs)
 
 
-def folded(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
-    return ascii_text.lower()
-
-
-def archive_suffix(path: Path) -> str:
-    suffixes = [suffix.lower() for suffix in path.suffixes]
-    if len(suffixes) >= 2 and suffixes[-2:] in (
-        [".tar", ".gz"],
-        [".tar", ".bz2"],
-        [".tar", ".xz"],
-    ):
-        return "".join(suffixes[-2:])
-    return suffixes[-1] if suffixes else ""
-
-
 def is_archive_path(path: str) -> bool:
     value = Path(path)
     suffix = archive_suffix(value)
-    return suffix in ARCHIVE_SUFFIXES or any(path.lower().endswith(item) for item in (".tar.gz", ".tar.bz2", ".tar.xz"))
-
-
-def archive_may_be_code_from_name(path: Path) -> bool:
-    name = folded(path.name)
-    source_text_tokens = (
-        "thesis",
-        "latex",
-        "overleaf",
-        "zadani",
-        "assignment",
-        "prace",
-        "bakalar",
-        "diplom",
-        "report",
-    )
-    if any(token in name for token in source_text_tokens):
-        return False
-    code_tokens = (
-        "code",
-        "src",
-        "source",
-        "repo",
-        "project",
-        "app",
-        "software",
-        "implementation",
-        "submission",
-    )
-    if any(token in name for token in code_tokens):
-        return True
-    return True
-
-
-def archive_entry_code_like(name: str) -> bool:
-    pure_name = Path(name).name
-    lower = name.lower()
-    return (
-        pure_name in CODE_DEPENDENCY_NAMES
-        or Path(pure_name).suffix.lower() in CODE_SUFFIXES
-        or "/test/" in lower
-        or "/tests/" in lower
-        or lower.startswith("test/")
-        or lower.startswith("tests/")
-    )
+    return suffix in ARCHIVE_SUFFIXES
 
 
 def archive_contains_code(path: Path, *, max_entries: int = 5000) -> bool:

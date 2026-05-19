@@ -50,6 +50,7 @@ from thesis_review_workflow.ids import validate_id as validate_id_core
 from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
+from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
 
 MANIFEST_REL = Path("work/review_manifest.json")
 LARGE_ARCHIVE_BYTES = 100 * 1024 * 1024
@@ -304,6 +305,11 @@ def output_section(title: str, lines: list[str]) -> None:
 def pdf_extract_status(round_dir: Path, issues: list[Issue]) -> tuple[list[Path], list[Path], list[str]]:
     pdfs = find_files(round_dir / "inputs", lambda path: path.suffix.lower() == ".pdf")
     extracted = find_files(round_dir / "extracted", lambda path: path.suffix.lower() == ".txt")
+    known_mappings = {
+        pdf: expected
+        for pdf in pdfs
+        if (expected := expected_pdf_extract_path(round_dir, pdf)) != round_dir / "extracted" / f"{pdf.stem}.txt"
+    }
     lines: list[str] = []
     used_extracts: set[Path] = set()
     for pdf in pdfs:
@@ -312,6 +318,7 @@ def pdf_extract_status(round_dir: Path, issues: list[Issue]) -> tuple[list[Path]
             extracted,
             pdf_count=len(pdfs),
             used_extracts=used_extracts,
+            known_mappings=known_mappings,
         )
         if extract is None:
             lines.append(f"- {rel_round(round_dir, pdf)} -> missing matching extracted text")

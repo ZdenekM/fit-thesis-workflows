@@ -3,75 +3,51 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.artifact_classification import (
+    CODE_DEPENDENCY_NAMES,
+    CODE_SUFFIXES,
+    archive_entry_code_like,
+    archive_may_be_code_from_name,
+    archive_suffix,
+    archive_top_entries,
+    folded,
+    is_archive,
+)
 from thesis_review_workflow.artifact_registry import final_output_filenames, known_output_labels
 from thesis_review_workflow.paths import rel_round
 
 MAX_LIST = 12
-ARCHIVE_SUFFIXES = {
-    ".zip",
-    ".tar",
-    ".tgz",
-    ".tbz",
-    ".tbz2",
-    ".txz",
-    ".gz",
-    ".bz2",
-    ".xz",
-    ".7z",
-    ".rar",
-}
-CODE_DEPENDENCY_NAMES = {
-    "requirements.txt",
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "pom.xml",
-    "build.gradle",
-    "settings.gradle",
-    "Cargo.toml",
-    "Cargo.lock",
-    "go.mod",
-    "go.sum",
-    "Dockerfile",
-    "docker-compose.yml",
-    "compose.yml",
-}
-CODE_SUFFIXES = {
-    ".py",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".java",
-    ".kt",
-    ".cs",
-    ".cpp",
-    ".c",
-    ".h",
-    ".hpp",
-    ".go",
-    ".rs",
-    ".rb",
-    ".php",
-    ".swift",
-    ".ipynb",
-    ".sql",
-    ".r",
-    ".m",
-    ".jl",
-}
 KNOWN_OUTPUTS = known_output_labels()
 FINAL_OUTPUTS = final_output_filenames()
+__all__ = [
+    "ArchiveInfo",
+    "CODE_SUFFIXES",
+    "DirectoryInventory",
+    "GateResult",
+    "Issue",
+    "add_issue",
+    "agent_coverage_summary_lines",
+    "archive_entry_code_like",
+    "archive_may_be_code_from_name",
+    "archive_suffix",
+    "archive_top_entries",
+    "compact_output",
+    "file_size_label",
+    "folded",
+    "gate_failure_severity",
+    "is_archive",
+    "manifest_summary_lines",
+    "matching_extract",
+    "nonempty_lines",
+    "one_line",
+    "output_expectations",
+    "path_list",
+]
 
 
 @dataclass(frozen=True)
@@ -157,88 +133,6 @@ def compact_output(text: str, *, max_lines: int = 3) -> str:
     return " | ".join(selected)
 
 
-def folded(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    ascii_text = "".join(char for char in normalized if not unicodedata.combining(char))
-    return ascii_text.lower()
-
-
-def archive_may_be_code_from_name(path: Path) -> bool:
-    name = folded(path.name)
-    clear_text_source = (
-        "thesis",
-        "latex",
-        "overleaf",
-        "zadani",
-        "assignment",
-        "prace",
-        "bakalar",
-        "diplom",
-        "report",
-    )
-    if any(token in name for token in clear_text_source):
-        return False
-    code_tokens = (
-        "code",
-        "src",
-        "source",
-        "repo",
-        "project",
-        "app",
-        "software",
-        "implementation",
-        "submission",
-    )
-    if any(token in name for token in code_tokens):
-        return True
-    return True
-
-
-def archive_suffix(path: Path) -> str:
-    suffixes = [suffix.lower() for suffix in path.suffixes]
-    if len(suffixes) >= 2 and suffixes[-2:] in (
-        [".tar", ".gz"],
-        [".tar", ".bz2"],
-        [".tar", ".xz"],
-    ):
-        return "".join(suffixes[-2:])
-    return suffixes[-1] if suffixes else ""
-
-
-def is_archive(path: Path) -> bool:
-    suffix = archive_suffix(path)
-    return suffix in ARCHIVE_SUFFIXES or any(
-        str(path).lower().endswith(item) for item in (".tar.gz", ".tar.bz2", ".tar.xz")
-    )
-
-
-def archive_entry_code_like(name: str) -> bool:
-    pure_name = Path(name).name
-    lower = name.lower()
-    return (
-        pure_name in CODE_DEPENDENCY_NAMES
-        or Path(pure_name).suffix.lower() in CODE_SUFFIXES
-        or "/test/" in lower
-        or "/tests/" in lower
-        or lower.startswith("test/")
-        or lower.startswith("tests/")
-    )
-
-
-def archive_top_entries(names: list[str]) -> list[str]:
-    entries: list[str] = []
-    seen: set[str] = set()
-    for name in names:
-        first = name.split("/", 1)[0].strip()
-        if not first or first in seen:
-            continue
-        seen.add(first)
-        entries.append(first)
-        if len(entries) >= MAX_LIST:
-            break
-    return entries
-
-
 def is_thesis_pdf_name(value: str) -> bool:
     tokens = ("thesis", "prace", "bakalar", "diplom")
     if any(token in value for token in tokens):
@@ -252,7 +146,15 @@ def matching_extract(
     *,
     pdf_count: int,
     used_extracts: set[Path],
+    known_mappings: Mapping[Path, Path] | None = None,
 ) -> tuple[Path | None, str]:
+    if known_mappings:
+        expected = known_mappings.get(pdf)
+        if expected is not None:
+            if expected in extracted and expected not in used_extracts:
+                return expected, "registered mapping"
+            return None, ""
+
     by_stem = {path.stem: path for path in extracted}
     exact = by_stem.get(pdf.stem)
     if exact is not None and exact not in used_extracts:

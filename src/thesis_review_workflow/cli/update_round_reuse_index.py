@@ -16,9 +16,10 @@ from thesis_review_workflow.code_workspace import workspace_source_fingerprints
 from thesis_review_workflow.ids import validate_id
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo
 from thesis_review_workflow.pdf_extracts import (
+    expected_pdf_extract_path,
+    iter_pdf_extract_sidecars,
     load_pdf_extract_manifest,
     pdf_extract_is_current,
-    pdf_extract_sidecar_path,
     pdftotext_version,
     source_fingerprints_from_pdf_extract_manifest,
     write_pdf_extract_manifest,
@@ -171,10 +172,9 @@ def backfill_pdf_extract_sidecars(round_dir: Path) -> list[str]:
         raise SystemExit("Cannot backfill PDF extraction sidecars because pdftotext is unavailable.")
     written: list[str] = []
     inputs_dir = round_dir / "inputs"
-    extracted_dir = round_dir / "extracted"
-    for input_pdf in sorted(inputs_dir.glob("*.pdf")) if inputs_dir.is_dir() else []:
-        output_txt = extracted_dir / f"{input_pdf.stem}.txt"
-        sidecar = pdf_extract_sidecar_path(output_txt)
+    for input_pdf in sorted(inputs_dir.rglob("*.pdf")) if inputs_dir.is_dir() else []:
+        output_txt = expected_pdf_extract_path(round_dir, input_pdf)
+        sidecar = output_txt.with_name(f"{output_txt.name}.pdf-extract.json")
         if sidecar.is_file() or not output_txt.is_file():
             continue
         write_pdf_extract_manifest(round_dir, input_pdf, output_txt, extractor_version=extractor_version)
@@ -187,7 +187,7 @@ def collect_pdf_source_fingerprints(round_dir: Path) -> tuple[list[SourceFingerp
     notes: list[str] = []
     seen: set[tuple[str, SourceClass]] = set()
     extracted_dir = round_dir / "extracted"
-    for sidecar in sorted(extracted_dir.glob("*.pdf-extract.json")) if extracted_dir.is_dir() else []:
+    for sidecar in iter_pdf_extract_sidecars(round_dir):
         manifest = load_pdf_extract_manifest(sidecar)
         if manifest is None:
             notes.append(f"{round_rel(round_dir, sidecar)} is unreadable; PDF sources are not comparable.")
@@ -214,7 +214,7 @@ def collect_pdf_source_fingerprints(round_dir: Path) -> tuple[list[SourceFingerp
                 seen.add(fingerprint.key)
 
     inputs_dir = round_dir / "inputs"
-    for input_pdf in sorted(inputs_dir.glob("*.pdf")) if inputs_dir.is_dir() else []:
+    for input_pdf in sorted(inputs_dir.rglob("*.pdf")) if inputs_dir.is_dir() else []:
         source_ref = safe_round_ref(round_dir, input_pdf)
         if source_ref is None or (source_ref, SourceClass.THESIS_PDF) in seen:
             continue
@@ -222,7 +222,7 @@ def collect_pdf_source_fingerprints(round_dir: Path) -> tuple[list[SourceFingerp
         seen.add((source_ref, SourceClass.THESIS_PDF))
         notes.append(f"{source_ref} has no PDF extraction sidecar; marked not_comparable.")
 
-    for output_txt in sorted(extracted_dir.glob("*.txt")) if extracted_dir.is_dir() else []:
+    for output_txt in sorted(extracted_dir.rglob("*.txt")) if extracted_dir.is_dir() else []:
         source_ref = safe_round_ref(round_dir, output_txt)
         if source_ref is None or (source_ref, SourceClass.THESIS_EXTRACT) in seen:
             continue

@@ -24,7 +24,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     build_review_role_plan_payload,
     packet_contract_for_profile,
 )
-from thesis_review_workflow.review_profiles import profiles_by_id
+from thesis_review_workflow.review_profiles import get_workflow_review_profile, profiles_by_id
 
 
 def utc_now() -> str:
@@ -96,7 +96,49 @@ def infer_profile_from_trace(round_dir: Path) -> str | None:
     return profile_id if isinstance(profile_id, str) and profile_id in profiles_by_id() else None
 
 
-def packet_command_args(args: argparse.Namespace, *, profile_id: str, case_id: str, round_id: str) -> list[str]:
+def refresh_materiality_before_packets(
+    root: Path,
+    *,
+    profile_id: str,
+    case_id: str,
+    round_id: str,
+    skip_materiality_check: bool,
+) -> bool:
+    if skip_materiality_check:
+        return False
+    profile = get_workflow_review_profile(profile_id)
+    materiality_profile = profile.effective_materiality_profile
+    if materiality_profile is None:
+        return False
+    snapshot = run_step(
+        root,
+        "current evidence snapshot",
+        ["update-current-evidence-snapshot", case_id, round_id],
+    )
+    if snapshot.output:
+        print(snapshot.output)
+    if not snapshot.ok:
+        raise RuntimeError(f"current evidence snapshot failed with status {snapshot.returncode}")
+    command = ["check-review-materiality", "--workflow", materiality_profile]
+    if profile_id == "supervisor_report":
+        command.extend(["--phase", "final"])
+    command.extend([case_id, round_id])
+    materiality = run_step(root, "review materiality", command)
+    if materiality.output:
+        print(materiality.output)
+    if not materiality.ok:
+        raise RuntimeError(f"review materiality check failed with status {materiality.returncode}")
+    return True
+
+
+def packet_command_args(
+    args: argparse.Namespace,
+    *,
+    profile_id: str,
+    case_id: str,
+    round_id: str,
+    materiality_refreshed: bool = False,
+) -> list[str]:
     _, _, command = packet_contract_for_profile(profile_id)
     command_args = [command, case_id, round_id]
     skip_legacy_ready_check = args.skip_ready_check or (
@@ -105,7 +147,7 @@ def packet_command_args(args: argparse.Namespace, *, profile_id: str, case_id: s
     if skip_legacy_ready_check:
         command_args.append("--skip-ready-check")
     if command == "prepare-supervisor-report-packets":
-        if args.skip_materiality_check:
+        if args.skip_materiality_check or materiality_refreshed:
             command_args.append("--skip-materiality-check")
         if not args.agents_authorized:
             raise ValueError("supervisor_report packet preparation requires --agents-authorized")
@@ -138,10 +180,27 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        command_args = packet_command_args(args, profile_id=profile_id, case_id=args.case_id, round_id=round_id)
+        packet_command_args(args, profile_id=profile_id, case_id=args.case_id, round_id=round_id)
+        materiality_refreshed = refresh_materiality_before_packets(
+            root,
+            profile_id=profile_id,
+            case_id=args.case_id,
+            round_id=round_id,
+            skip_materiality_check=args.skip_materiality_check,
+        )
+        command_args = packet_command_args(
+            args,
+            profile_id=profile_id,
+            case_id=args.case_id,
+            round_id=round_id,
+            materiality_refreshed=materiality_refreshed,
+        )
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     packets = run_step(root, "Review packet preparation", command_args)
     if packets.output:
         print(packets.output)

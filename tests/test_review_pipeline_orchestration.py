@@ -7,6 +7,7 @@ from pathlib import Path
 
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
 from thesis_review_workflow.cli import prepare_review_round, review_round_start
+from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_ROLE_PLAN_SCHEMA,
@@ -98,6 +99,74 @@ def test_prepare_review_round_skips_legacy_round_ready_for_opponent_report_revie
     )
 
     assert command == ["prepare-opponent-packets", "case-a", "round-a", "--skip-ready-check"]
+
+
+def test_prepare_review_round_refreshes_materiality_before_packet_generation(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_step(root: Path, label: str, args: list[str]) -> Step:
+        calls.append(args)
+        return Step(label=label, command=args, returncode=0, output="")
+
+    monkeypatch.setattr(prepare_review_round, "run_step", fake_run_step)
+
+    refreshed = prepare_review_round.refresh_materiality_before_packets(
+        Path("."),
+        profile_id="opponent_materials",
+        case_id="case-a",
+        round_id="round-a",
+        skip_materiality_check=False,
+    )
+
+    assert refreshed is True
+    assert calls == [
+        ["update-current-evidence-snapshot", "case-a", "round-a"],
+        ["check-review-materiality", "--workflow", "opponent_review", "case-a", "round-a"],
+    ]
+
+    args = argparse.Namespace(
+        skip_ready_check=False,
+        skip_materiality_check=False,
+        agents_authorized=True,
+        authorization_note="authorized",
+    )
+    command = prepare_review_round.packet_command_args(
+        args,
+        profile_id="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+        materiality_refreshed=True,
+    )
+
+    assert "--skip-materiality-check" in command
+
+
+def test_prepare_review_round_validates_packet_options_before_materiality_refresh(monkeypatch) -> None:
+    case_id = "__prepare_review_auth_pytest"
+    round_id = "round-a"
+    case_dir = REPO_ROOT / "cases" / case_id
+    shutil.rmtree(case_dir, ignore_errors=True)
+    monkeypatch.setattr(prepare_review_round, "repo_root", lambda: REPO_ROOT)
+    try:
+        round_dir = case_dir / "rounds" / round_id
+        for child in ("notes", "inputs", "extracted", "work", "outputs"):
+            (round_dir / child).mkdir(parents=True, exist_ok=True)
+        (case_dir / "case.md").write_text("Work type: BP\nReviewer profile: default\n", encoding="utf-8")
+        (case_dir / "current-round.txt").write_text(f"{round_id}\n", encoding="utf-8")
+        calls: list[list[str]] = []
+
+        def fake_run_step(root: Path, label: str, args: list[str]) -> Step:
+            calls.append(args)
+            return Step(label=label, command=args, returncode=0, output="")
+
+        monkeypatch.setattr(prepare_review_round, "run_step", fake_run_step)
+
+        result = prepare_review_round.main([case_id, round_id, "--profile", "supervisor_report"])
+
+        assert result == 2
+        assert calls == []
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
 
 
 def test_trace_payload_is_profile_bound_and_path_oriented() -> None:
@@ -600,6 +669,80 @@ def test_role_plan_closeout_requires_registered_work_role_output(tmp_path: Path)
                     }
                 ],
                 "artifacts": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        validate_role_plan_for_closeout(
+            payload,
+            round_dir=round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="supervisor_feedback",
+        )
+        == []
+    )
+
+
+def test_role_plan_closeout_rejects_read_only_handoff_as_completed_output(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Feedback\n", encoding="utf-8")
+    coverage = round_dir / "work" / "agent_coverage.json"
+    coverage.parent.mkdir(parents=True)
+    coverage.write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "supervisor_feedback_review",
+                        "status": "required",
+                        "output_evidence": ["outputs/feedback_student.md"],
+                        "generator_role": "not_recorded",
+                        "generator_agent": "not_recorded",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert any("final_review: role plan state required_fresh requires current output" in error for error in errors)
+
+    coverage.write_text(
+        json.dumps(
+            {
+                "schema_version": "agent-coverage-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "coverage_path": "work/agent_coverage.json",
+                "roles": [
+                    {
+                        "role": "supervisor_feedback_review",
+                        "status": "required",
+                        "output_evidence": ["outputs/feedback_student.md"],
+                        "generator_role": "thesis-supervisor-feedback-review",
+                        "generator_agent": "reviewer-a",
+                    }
+                ],
             }
         )
         + "\n",

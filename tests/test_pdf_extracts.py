@@ -2,6 +2,9 @@ from pathlib import Path
 
 from thesis_review_workflow.pdf_extracts import (
     PDF_EXTRACT_SCHEMA_VERSION,
+    expected_pdf_extract_path,
+    expected_pdf_extract_ref,
+    iter_pdf_extract_sidecars,
     load_pdf_extract_manifest,
     pdf_extract_is_current,
     pdf_extract_sidecar_path,
@@ -78,3 +81,18 @@ def test_pdf_extract_manifest_exposes_reuse_source_fingerprints(tmp_path: Path) 
         ("extracted/thesis.txt", SourceClass.THESIS_EXTRACT),
     ]
     assert all(item.comparable for item in fingerprints)
+
+
+def test_specialized_pdf_extract_mapping_handles_theses_similarity_report(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    report_pdf = round_dir / "inputs" / "theses_similarity" / "report.pdf"
+    report_txt = round_dir / "extracted" / "theses_similarity" / "report.txt"
+    report_pdf.parent.mkdir(parents=True)
+    report_txt.parent.mkdir(parents=True)
+    report_pdf.write_bytes(b"%PDF synthetic report\n")
+    report_txt.write_text("Similarity report\n", encoding="utf-8")
+    write_pdf_extract_manifest(round_dir, report_pdf, report_txt, extractor_version="pdftotext synthetic")
+
+    assert expected_pdf_extract_ref("inputs/theses_similarity/report.pdf") == "extracted/theses_similarity/report.txt"
+    assert expected_pdf_extract_path(round_dir, report_pdf) == report_txt
+    assert iter_pdf_extract_sidecars(round_dir) == [pdf_extract_sidecar_path(report_txt)]

@@ -19,6 +19,7 @@ from thesis_review_workflow.cases import resolve_round as resolve_round_core
 from thesis_review_workflow.cli.extract_pdf_text import git_ignored, is_allowed_extract_path
 from thesis_review_workflow.ids import validate_id
 from thesis_review_workflow.paths import resolve_caller_path
+from thesis_review_workflow.pdf_extracts import build_pdf_extract_manifest, pdf_extract_sidecar_path, pdftotext_version
 from thesis_review_workflow.theses_similarity import (
     CURRENT_SUBMISSION_LINK_STATUSES,
     THESES_SIMILARITY_INTAKE_REL,
@@ -204,8 +205,9 @@ def import_report(
 ) -> dict[str, Any]:
     report_pdf = round_dir / REPORT_PDF_REL
     report_text = round_dir / REPORT_TEXT_REL
+    report_text_sidecar = pdf_extract_sidecar_path(report_text)
     intake = round_dir / INTAKE_REL
-    targets = [report_pdf, report_text, intake]
+    targets = [report_pdf, report_text, report_text_sidecar, intake]
     ensure_targets_available(root, targets)
 
     for target in targets:
@@ -213,8 +215,9 @@ def import_report(
 
     tmp_pdf = tmp_path_for(report_pdf)
     tmp_text = tmp_path_for(report_text)
+    tmp_sidecar = tmp_path_for(report_text_sidecar)
     tmp_intake = tmp_path_for(intake)
-    tmp_targets = [tmp_pdf, tmp_text, tmp_intake]
+    tmp_targets = [tmp_pdf, tmp_text, tmp_sidecar, tmp_intake]
     for tmp_target in tmp_targets:
         if tmp_target.exists():
             raise RuntimeError(f"Temporary import target already exists: {tmp_target}")
@@ -240,9 +243,21 @@ def import_report(
             limitations=page_limitations,
         )
         write_json(tmp_intake, payload)
-        for tmp_target, target in zip(tmp_targets, targets, strict=True):
-            os.replace(tmp_target, target)
-            committed_targets.append(target)
+        os.replace(tmp_pdf, report_pdf)
+        committed_targets.append(report_pdf)
+        os.replace(tmp_text, report_text)
+        committed_targets.append(report_text)
+        sidecar_payload = build_pdf_extract_manifest(
+            round_dir,
+            report_pdf,
+            report_text,
+            extractor_version=pdftotext_version(),
+        )
+        write_json(tmp_sidecar, sidecar_payload)
+        os.replace(tmp_sidecar, report_text_sidecar)
+        committed_targets.append(report_text_sidecar)
+        os.replace(tmp_intake, intake)
+        committed_targets.append(intake)
         return payload
     except BaseException:
         for tmp_target in tmp_targets:

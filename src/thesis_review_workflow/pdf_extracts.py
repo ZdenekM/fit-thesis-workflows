@@ -18,6 +18,9 @@ PDF_EXTRACT_PRODUCER = "scripts/extract-pdf-text"
 PDF_EXTRACT_COMMAND = "pdftotext"
 PDF_EXTRACT_ARGS = ("-layout",)
 PDF_EXTRACT_SIDECAR_SUFFIX = ".pdf-extract.json"
+SPECIALIZED_PDF_EXTRACT_TARGETS = {
+    "inputs/theses_similarity/report.pdf": "extracted/theses_similarity/report.txt",
+}
 
 
 def now_utc() -> str:
@@ -26,6 +29,28 @@ def now_utc() -> str:
 
 def pdf_extract_sidecar_path(output_txt: Path) -> Path:
     return output_txt.with_name(f"{output_txt.name}{PDF_EXTRACT_SIDECAR_SUFFIX}")
+
+
+def expected_pdf_extract_ref(input_pdf_ref: str) -> str:
+    specialized = SPECIALIZED_PDF_EXTRACT_TARGETS.get(input_pdf_ref)
+    if specialized is not None:
+        return specialized
+    input_path = Path(input_pdf_ref)
+    return f"extracted/{input_path.stem}.txt"
+
+
+def expected_pdf_extract_path(round_dir: Path, input_pdf: Path) -> Path:
+    rel = round_relative_or_none(round_dir, input_pdf)
+    if rel is None:
+        return round_dir / "extracted" / f"{input_pdf.stem}.txt"
+    return round_dir / expected_pdf_extract_ref(rel)
+
+
+def iter_pdf_extract_sidecars(round_dir: Path) -> list[Path]:
+    extracted_dir = round_dir / "extracted"
+    if not extracted_dir.is_dir():
+        return []
+    return sorted(extracted_dir.rglob(f"*{PDF_EXTRACT_SIDECAR_SUFFIX}"))
 
 
 def pdftotext_version() -> str:
