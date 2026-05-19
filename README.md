@@ -843,6 +843,8 @@ profiles/local/<profile-id>.md
 Profily jsou preference, ne tvrdá workflow pravidla. Nemohou přepsat soukromí,
 evidenční požadavky, readiness gate, jazyk výstupu ani povinnost říct, co nebylo
 ověřeno.
+Lokální profile audity jsou soukromé a opt-in; veřejný repozitář může obsahovat
+jen redigovaný odkaz přes review delta, ne obsah soukromého profilu.
 
 ## Soukromí a git
 

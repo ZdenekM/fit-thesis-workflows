@@ -33,6 +33,16 @@ Do not force-add `profiles/local/*` or other personal profile files. Other
 through `Reviewer profile`; use `profiles/local/<profile-id>.md` for selectable
 private profiles.
 
+## Local Profile Audit Boundary
+
+Auditing or updating a local profile is private, opt-in work. Keep local profile
+notes, diffs, and proposals under the ignored case or round workspace. A
+review-delta record may point to a redacted proposal with `profile_proposal_ref`
+and `private-reviewer-profile:local/<profile-id>`, but that pointer is not a
+profile update command and does not copy private profile text into tracked
+files. Local profile checks are never a tracked-plan, case closeout, or CI
+prerequisite.
+
 ## Checking A Case
 
 Validate the selected profile with:

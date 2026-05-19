@@ -291,7 +291,7 @@ from Linux structural checks.
 
 ### Slice 5 - Local Profile Audit Boundary And TODO Reconciliation
 
-Status: pending - implement
+Status: done
 
 Expected paths:
 
@@ -375,6 +375,15 @@ Run focused Pants tests if deterministic privacy behavior changes.
   boundary; `README.md` keeps only a short operator pointer. Slice reviewer
   found no issues. Checks passed: `git diff --check`, `scripts/check-private`,
   `scripts/check-scripts`.
+- 2026-05-19: Slice 5 started. Scope is local profile audit boundary in
+  existing profile/README docs plus TODO reconciliation. No `check-private`
+  change is planned because the current guard already blocks tracked
+  `profiles/local/*` and other private profile files.
+- 2026-05-19: Slice 5 completed. `profiles/README.md` now owns the private,
+  opt-in local profile audit boundary; `README.md` keeps a short summary; the
+  TODO pointer to this active plan was removed while broader calibration TODOs
+  remain. Slice reviewer found no issues. Checks passed: `git diff --check`,
+  `scripts/check-private`, `scripts/check-scripts`.
 
 ## Decision Log
 
