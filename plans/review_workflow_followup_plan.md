@@ -1,6 +1,6 @@
 # Review Workflow Follow-up Plan
 
-Status: planned
+Status: active
 
 ## Goal
 
@@ -19,10 +19,11 @@ or closeout owner.
   evidence rules, output paths, and checker expectations.
 - `AGENTS.md` should remain short and point to these owners instead of carrying
   repeated long-form workflow procedure.
-- `scripts/check-agent-coverage`, `scripts/check-review-wave`,
-  `scripts/init-review-manifest`, and `scripts/review-round-closeout` remain
-  the deterministic closeout and coverage owners. This plan must not create a
-  replacement command.
+- `scripts/check-review-wave` remains the wave-gate owner,
+  `scripts/init-review-manifest` and `scripts/check-review-manifest` remain the
+  manifest/provenance owners, `scripts/check-agent-coverage` remains the
+  coverage owner, and `scripts/review-round-closeout` remains the shared final
+  closeout owner. This plan must not create a replacement command.
 - The implementation must not inspect real `cases/` content. Any examples or
   tests must use tracked anonymized fixtures or synthetic smoke cases only.
 
@@ -75,10 +76,12 @@ or closeout owner.
      as competing active rules in multiple places.
 
 3. Lightweight Recurrence Guard
-   - Add the smallest useful checker or documented maintainer checklist if the
-     audit finds recurrence is likely.
+   - Add the smallest useful checker or owner-doc rule if the audit finds
+     recurrence is likely.
    - Prefer extending `scripts/check-scripts` or an existing doc-check pattern
      over adding a new command.
+   - Do not create a standalone maintainer checklist, shared instruction doc, or
+     parallel review workflow path.
    - Verification: targeted test or smoke covers the guard if code changes are
      made; otherwise record why a manual checklist is enough.
 
@@ -98,6 +101,11 @@ or closeout owner.
   `docs/agent-scheduling.md`, `docs/agent-profile-matrix.md`, repo-local role
   skills, and existing coverage/wave/manifest/closeout commands. No deferred
   implementation was started.
+- 2026-05-19: Pre-implementation agent review completed. No blocker found; plan
+  tightened Slice 3 to existing owners only and split wave, manifest,
+  coverage, and closeout command ownership. Serena preflight succeeded for
+  repo-local Python/Markdown work; scoped use observed
+  `src/thesis_review_workflow/cli/check_scripts.py` owner symbols.
 
 ## Decision Log
 
