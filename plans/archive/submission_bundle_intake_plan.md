@@ -1,6 +1,6 @@
 # Submission Bundle Intake Plan
 
-Status: active
+Status: done
 
 ## Goal
 
@@ -786,4 +786,49 @@ any duplicated active instructions it creates.
 
 ## Final Audit
 
-- Not started.
+- Completed 2026-05-19.
+- Commits:
+  - `96a78c2` `docs(plan): track submission bundle intake plan`
+  - `dfc02ba` `docs(plan): normalize bundle intake plan`
+  - `6b5efc6` `fix(workflow): align bundle intake lifecycle drift`
+  - `38eba81` `feat(workflow): add submission bundle inventory`
+  - `8b384de` `feat(workflow): materialize submission bundle candidates`
+  - `07184b4` `feat(workflow): surface submission bundle visibility`
+  - `c440972` `feat(workflow): bind submission bundle provenance`
+  - `df141d7` `feat(workflow): record bundle media metadata`
+  - `512c488` `fix(workflow): harden review closeout convergence`
+  - `0c5edd9` `docs(plan): extract review workflow follow-up`
+- Final command-surface audit:
+  - No `scripts/refresh-review-round-state` was added.
+  - No operator-note/profile-governance commands such as
+    `record-operator-note`, `process-operator-inbox`,
+    `propose-profile-update`, or `check-calibration-governance` were added.
+  - Submitted-bundle ownership remains in existing owners:
+    `review-round-start`, `prepare-review-round`, `prepare-code-workspace`,
+    `review-round-closeout`, profile closeout, `record-review-delta`, and
+    `record-workflow-operation`.
+- Final instruction audit:
+  - Review-agent instruction consolidation was extracted to
+    `plans/review_workflow_followup_plan.md` and is no longer active
+    bundle-intake work.
+  - Deferred calibration/profile governance, maintainer write-scope reporting,
+    and operator-note batching remain deferred; no implementation was started
+    in this plan.
+- Final checks:
+  - Slice checks are recorded in `Progress`.
+  - Final lightweight closeout checks: `git diff --check`,
+    `scripts/check-private`, and `scripts/check-scripts`.
+  - Targeted duplicate/parallel-path audit used `rg` for the disallowed
+    command names and active extracted follow-up wording.
+- Residual risk:
+  - Native Windows runtime proof for packaged workflow tools remains tracked in
+    `TODO.md`; this plan preserved the Windows command-surface contract but did
+    not add real Windows runtime evidence.
+  - Deeper media/video content inspection remains a separate TODO item; this
+    plan only added deterministic non-semantic metadata and routing.
+- Follow-up:
+  - `plans/review_workflow_followup_plan.md` is the selected next plan for
+    review-agent instruction consolidation.
+- Archive decision:
+  - Completed; move this plan to `plans/archive/` after this final audit is
+    recorded.
