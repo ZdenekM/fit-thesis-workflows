@@ -1,6 +1,6 @@
 # Review Delta Governance Plan
 
-Status: active
+Status: done
 
 ## Goal
 
@@ -436,4 +436,56 @@ Run focused Pants tests if deterministic privacy behavior changes.
 
 ## Final Audit
 
-Not started.
+- 2026-05-19: Completed. Implemented the governance outcome through existing
+  owners only:
+  - `record-review-delta` owns the shared governance fields and validation.
+  - `record-report-amendment` remains a supervisor-report wrapper over the same
+    delta payload.
+  - `record-workflow-operation` remains the operation trail owner; no batching
+    schema or command was added.
+  - `docs/workflow-command-surface.md` owns the command contract and
+    maintainer write-scope boundary.
+  - `profiles/README.md` owns the local profile audit boundary.
+- Implemented parts: Slice 1 owner/field decision, Slice 2 delta schema and
+  promotion validation, Slice 3 maintainer write-scope docs, Slice 5 local
+  profile audit/TODO reconciliation.
+- Skipped by accepted deferral: Slice 4 operator-note batching. Current
+  evidence did not justify staged batching, a new command, a new structural
+  operation-log field, or a separate freeze path.
+- Duplicate/parallel-path audit: `README.md` now keeps only operator summaries
+  and pointers; `docs/workflow-command-surface.md` and `profiles/README.md`
+  own the active details. No new ledger, review mode, instruction layer,
+  closeout/hash authority, profile-update command, local-profile CI gate, or
+  parallel command surface was added.
+- Private-data audit: no `cases/`, `profiles/local/`, private reviewer
+  profiles, real theses, real reports, or generated case outputs were read,
+  copied, staged, or committed. Tests and smokes use synthetic fixtures under
+  temporary/ignored workspaces.
+- Checks run during final/slice closeout:
+  - `pants fmt src/thesis_review_workflow/review_delta.py
+    src/thesis_review_workflow/cli/record_review_delta.py
+    src/thesis_review_workflow/amendments.py
+    src/thesis_review_workflow/cli/record_report_amendment.py
+    tests/test_review_delta.py tests/test_report_amendments.py`
+  - `pants test tests/test_review_delta.py tests/test_report_amendments.py
+    tests/test_workflow_python_contracts.py`
+  - `pants lint src/thesis_review_workflow/review_delta.py
+    src/thesis_review_workflow/cli/record_review_delta.py
+    src/thesis_review_workflow/amendments.py
+    src/thesis_review_workflow/cli/record_report_amendment.py
+    tests/test_review_delta.py tests/test_report_amendments.py`
+  - `pants check src/thesis_review_workflow/review_delta.py
+    src/thesis_review_workflow/cli/record_review_delta.py
+    src/thesis_review_workflow/amendments.py
+    src/thesis_review_workflow/cli/record_report_amendment.py
+    tests/test_review_delta.py tests/test_report_amendments.py`
+  - `scripts/smoke-record-review-delta`
+  - `scripts/smoke-record-report-amendment`
+  - `scripts/smoke-package-workflow-tools`
+  - `git diff --check`
+  - `scripts/check-private`
+  - `scripts/check-scripts`
+- Residual work: broader supervisor/opponent calibration convergence,
+  historical opponent calibration, Windows native runtime proof, and unrelated
+  automation remain in `TODO.md`. No follow-up item is needed for this plan.
+- Archive decision: move this completed plan to `plans/archive/`.
