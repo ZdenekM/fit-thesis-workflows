@@ -1,6 +1,6 @@
 # Submission Bundle Intake Plan
 
-Status: planned
+Status: active
 
 ## Goal
 
@@ -481,6 +481,31 @@ any duplicated active instructions it creates.
 - Added a final planning-only slice to extract the most valuable deferred work
   after bundle intake completes, without making deferred governance/profile/
   operator-note work part of this active implementation scope.
+- 2026-05-19: Plan-only tracking commit created before implementation:
+  `96a78c2 docs(plan): track submission bundle intake plan`.
+- 2026-05-19: Slice 0 started. Re-read `AGENTS.md`, `plans/README.md`,
+  `docs/workflow-command-surface.md`, `docs/agent-scheduling.md`,
+  `docs/agent-profile-matrix.md`, `WORKFLOW_MEMORY.md`, full `TODO.md`, this
+  plan, and the archived review-pipeline optimization plan. Serena preflight
+  succeeded for project `diplomky_v2`; repo Serena config ignores `cases/**`.
+- 2026-05-19: Slice 0 audit found no active parallel bundle-intake owner.
+  `plans/archive/review_pipeline_optimization_plan.md` is `done` and only
+  records the parent-container bundle classification pain that this plan now
+  extends. Active `plans/token_efficiency_reuse_plan.md`,
+  `plans/case_format_migration_contract_plan.md`, and
+  `plans/historical_opponent_calibration_plan.md` remain separate concerns.
+  Deferred calibration/profile/operator-note items stay deferred and must not be
+  implemented before Slice 8 follow-up extraction.
+- 2026-05-19: Slice 0 stale-instruction check kept the existing owner map:
+  bundle intake extends `review-round-start`, `prepare-review-round`,
+  `prepare-code-workspace`, `review-round-closeout`, `record-review-delta`, and
+  `record-workflow-operation`; no new closeout owner, operator-note ledger,
+  review mode, or general instruction layer is introduced.
+- 2026-05-19: Slice 0 reviewer found one stale superseded root-level plan.
+  Moved `plans/supervisor_workflow_closeout_plan.md` to
+  `plans/archive/supervisor_workflow_closeout_plan.md`; it remains superseded by
+  the shared review-round lifecycle and is no longer an active-plan-directory
+  instruction source.
 
 ## Decision Log
 
