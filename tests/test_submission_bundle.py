@@ -6,6 +6,7 @@ from pathlib import Path
 from thesis_review_workflow.submission_bundle import (
     BundleInventoryLimits,
     build_submission_bundle_inventory,
+    materialize_submission_bundle_candidate,
     render_inventory_markdown,
     write_submission_bundle_inventory,
 )
@@ -59,6 +60,7 @@ def test_nextcloud_style_bundle_inventory_discovers_nested_artifacts(tmp_path: P
         round_id="round-a",
         round_dir=round_dir,
         bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
         generated_at="2026-05-19T12:00:00Z",
     )
     rerun = build_submission_bundle_inventory(
@@ -66,6 +68,7 @@ def test_nextcloud_style_bundle_inventory_discovers_nested_artifacts(tmp_path: P
         round_id="round-a",
         round_dir=round_dir,
         bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
         generated_at="2026-05-19T12:00:00Z",
     )
 
@@ -226,6 +229,30 @@ def test_archive_inventory_enforces_total_read_budget(tmp_path: Path) -> None:
     assert any("read_budget_limit_reached" in item["reason_codes"] for item in payload["skipped_entries"])
 
 
+def test_multiple_bundle_inventory_preserves_all_sources_and_cross_bundle_ambiguity(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    for name, text in (("part-a.zip", "# a\n"), ("part-b.zip", "# b\n")):
+        with zipfile.ZipFile(round_dir / "inputs" / name, "w") as handle:
+            handle.writestr("README.md", text)
+
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/part-a.zip", "inputs/part-b.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+
+    assert [item["source_bundle_ref"] for item in payload["source_bundles"]] == [
+        "inputs/part-a.zip",
+        "inputs/part-b.zip",
+    ]
+    readmes = candidate_by_class(payload, "readme_candidate")
+    assert {item["source_bundle_ref"] for item in readmes} == {"inputs/part-a.zip", "inputs/part-b.zip"}
+    assert {item["state"] for item in readmes} == {"needs_operator_selection"}
+
+
 def test_generated_executables_are_not_promoted_to_actionable_leaf_evidence(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     bundle = round_dir / "inputs" / "build-output.zip"
@@ -289,3 +316,244 @@ def test_directory_bundle_inventory_stays_diagnostic_until_manifest_slice(tmp_pa
     assert (round_dir / "work/submission_bundle_inventory.json").is_file()
     assert (round_dir / "work/submission_bundle_inventory.md").is_file()
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+
+def test_materialize_selected_nested_code_archive_records_manifest(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    code_archive = nested_zip({"project/pyproject.toml": "[project]\nname = 'synthetic'\n"})
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("export/code.zip", code_archive)
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+    candidate_id = candidate_by_class(payload, "code_archive_candidate")[0]["candidate_id"]
+
+    result = materialize_submission_bundle_candidate(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        candidate_id=candidate_id,
+        generated_at="2026-05-19T12:01:00Z",
+    )
+
+    assert result.materialized_ref.startswith("inputs/")
+    assert len(result.materialized_ref.split("/")) == 2
+    assert zipfile.is_zipfile(result.materialized_path)
+    updated_inventory = json.loads((round_dir / "work/submission_bundle_inventory.json").read_text(encoding="utf-8"))
+    updated_candidate = candidate_by_class(updated_inventory, "code_archive_candidate")[0]
+    assert updated_candidate["materialized_ref"] == result.materialized_ref
+    manifest = json.loads((round_dir / "work/submission_bundle_materialization.json").read_text(encoding="utf-8"))
+    [record] = manifest["materializations"]
+    assert record["candidate_id"] == candidate_id
+    assert record["source_bundle_ref"] == "inputs/submission.zip"
+    assert record["nested_path_chain"] == ["export/code.zip"]
+    assert record["materialized_ref"] == result.materialized_ref
+    assert record["artifact_class"] == "code_archive_candidate"
+    assert record["action"] == "materialized"
+    assert record["selected_at"] == "2026-05-19T12:01:00Z"
+    assert record["producer"] == "scripts/materialize-submission-bundle-candidate"
+    assert record["state_at_selection"] == "materialize_candidate"
+    assert record["source_inventory_ref"] == "work/submission_bundle_inventory.json"
+    assert record["source_inventory_sha256"]
+    assert record["source_member_sha256"] == record["materialized_sha256"]
+    assert record["size_bytes"] == result.materialized_path.stat().st_size
+    assert isinstance(record["reason_codes"], list)
+
+    reused = materialize_submission_bundle_candidate(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        candidate_id=candidate_id,
+        output_ref=result.materialized_ref,
+        generated_at="2026-05-19T12:02:00Z",
+    )
+    assert reused.action == "reused_existing"
+    manifest = json.loads((round_dir / "work/submission_bundle_materialization.json").read_text(encoding="utf-8"))
+    assert len(manifest["materializations"]) == 1
+
+    collision = "inputs/collision-code.zip"
+    (round_dir / collision).write_text("different\n", encoding="utf-8")
+    try:
+        materialize_submission_bundle_candidate(
+            case_id="case-a",
+            round_id="round-a",
+            round_dir=round_dir,
+            candidate_id=candidate_id,
+            output_ref=collision,
+            generated_at="2026-05-19T12:03:00Z",
+        )
+    except ValueError as exc:
+        assert "different content" in str(exc)
+    else:
+        raise AssertionError("materialization overwrote a different existing output")
+
+
+def test_materialize_rejects_non_portable_explicit_output_names(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("README.md", "# synthetic\n")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+    candidate_id = candidate_by_class(payload, "readme_candidate")[0]["candidate_id"]
+
+    for output_ref in ("inputs/CON.zip", "inputs/bad:name.zip", "inputs/trailingdot."):
+        try:
+            materialize_submission_bundle_candidate(
+                case_id="case-a",
+                round_id="round-a",
+                round_dir=round_dir,
+                candidate_id=candidate_id,
+                output_ref=output_ref,
+                generated_at="2026-05-19T12:01:00Z",
+            )
+        except ValueError as exc:
+            assert "not portable" in str(exc)
+        else:
+            raise AssertionError(f"non-portable output ref was accepted: {output_ref}")
+
+
+def test_directory_materialization_rejects_symlinked_parent_escape(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "README.md").write_text("# outside\n", encoding="utf-8")
+    bundle_dir = round_dir / "inputs" / "bundle-dir"
+    bundle_dir.mkdir()
+    try:
+        (bundle_dir / "linked").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        return
+    payload = {
+        "schema_version": "submission-bundle-inventory-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-19T12:00:00Z",
+        "producer": "scripts/review-round-start",
+        "limits": BundleInventoryLimits().as_record(),
+        "source_bundles": [
+            {
+                "source_bundle_ref": "inputs/bundle-dir",
+                "source_bundle_sha256": "0" * 64,
+                "kind": "directory",
+                "size_bytes": 0,
+            }
+        ],
+        "candidates": [
+            {
+                "candidate_id": "sb-symlink",
+                "source_bundle_ref": "inputs/bundle-dir",
+                "source_bundle_sha256": "0" * 64,
+                "nested_path_chain": ["linked/README.md"],
+                "candidate_ref": "inputs/bundle-dir!linked/README.md",
+                "artifact_class": "readme_candidate",
+                "reason_codes": ["readme_candidate"],
+                "confidence": "high",
+                "state": "materialize_candidate",
+                "materialized_ref": "",
+                "limits": BundleInventoryLimits().as_record(),
+                "next_action": "candidate is visible for the existing review-round intake boundary",
+                "archive_depth": 0,
+            }
+        ],
+        "skipped_entries": [],
+        "summary": {},
+    }
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    try:
+        materialize_submission_bundle_candidate(
+            case_id="case-a",
+            round_id="round-a",
+            round_dir=round_dir,
+            candidate_id="sb-symlink",
+            generated_at="2026-05-19T12:01:00Z",
+        )
+    except ValueError as exc:
+        assert "symlink" in str(exc)
+    else:
+        raise AssertionError("directory symlink parent was materialized")
+
+
+def test_materialization_preserves_ambiguous_candidates_until_explicitly_allowed(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "ambiguous.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("one/README.md", "# one\n")
+        handle.writestr("two/README.md", "# two\n")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/ambiguous.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+    candidate_id = candidate_by_class(payload, "readme_candidate")[0]["candidate_id"]
+
+    try:
+        materialize_submission_bundle_candidate(
+            case_id="case-a",
+            round_id="round-a",
+            round_dir=round_dir,
+            candidate_id=candidate_id,
+            generated_at="2026-05-19T12:01:00Z",
+        )
+    except ValueError as exc:
+        assert "--allow-ambiguous" in str(exc)
+    else:
+        raise AssertionError("ambiguous candidate was materialized without explicit selection")
+
+    result = materialize_submission_bundle_candidate(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        candidate_id=candidate_id,
+        allow_ambiguous=True,
+        generated_at="2026-05-19T12:01:00Z",
+    )
+    assert (round_dir / result.materialized_ref).is_file()
+
+
+def test_materialization_rejects_diagnostic_inventory_owner(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "diagnostic.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("README.md", "# diagnostic\n")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/diagnostic.zip"],
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+    candidate_id = candidate_by_class(payload, "readme_candidate")[0]["candidate_id"]
+
+    try:
+        materialize_submission_bundle_candidate(
+            case_id="case-a",
+            round_id="round-a",
+            round_dir=round_dir,
+            candidate_id=candidate_id,
+            generated_at="2026-05-19T12:01:00Z",
+        )
+    except ValueError as exc:
+        assert "review-round-start" in str(exc)
+    else:
+        raise AssertionError("diagnostic inventory was accepted for materialization")

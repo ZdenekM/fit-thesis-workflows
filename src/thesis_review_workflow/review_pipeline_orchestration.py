@@ -1176,6 +1176,8 @@ def validate_round_material_descriptor(material: RoundMaterialDescriptor) -> lis
         errors.append(f"{material.kind}: path or url is required")
     if material.path and not is_safe_round_relative_path(material.path):
         errors.append(f"{material.path}: path must be a safe round-relative path")
+    if material.kind == "submission_bundle" and material.path and not material.path.startswith("inputs/"):
+        errors.append(f"{material.path}: submission bundle path must be under inputs/")
     for rel_path in material.decomposed_authoritative_refs:
         if not is_safe_round_relative_path(rel_path):
             errors.append(f"{rel_path}: decomposed authoritative ref must be a safe round-relative path")
@@ -1191,6 +1193,9 @@ def round_start_actions(
     materials: tuple[RoundMaterialDescriptor, ...],
 ) -> tuple[RoundStartAction, ...]:
     actions: list[RoundStartAction] = []
+    submission_bundle_refs = tuple(
+        material.ref for material in materials if material.kind == "submission_bundle" and material.path
+    )
     for material in materials:
         if material.is_bundle_container:
             actions.append(
@@ -1202,6 +1207,17 @@ def round_start_actions(
                     material.decomposed_authoritative_refs,
                 )
             )
+    if submission_bundle_refs:
+        actions.append(
+            RoundStartAction(
+                "inventory_submission_bundle",
+                "review-round-start internal submission-bundle inventory",
+                "submitted parent bundles need bounded inventory before nested evidence can be selected",
+                submission_bundle_refs,
+                ("work/submission_bundle_inventory.json", "work/submission_bundle_inventory.md"),
+            )
+        )
+    for material in materials:
         if material.kind == "thesis_pdf" and material.path:
             actions.append(
                 RoundStartAction(

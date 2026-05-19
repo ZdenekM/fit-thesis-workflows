@@ -34,6 +34,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     plan_review_round_start,
 )
 from thesis_review_workflow.review_profiles import profiles_by_id
+from thesis_review_workflow.submission_bundle import build_and_write_submission_bundle_inventory
 
 METADATA_KEY_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -241,6 +242,7 @@ def write_trace(
 def action_phase(action_id: str) -> str:
     return {
         "classify_bundle": "start",
+        "inventory_submission_bundle": "start",
         "extract_pdf_text": "extraction",
         "import_github_snapshot": "import",
         "prepare_code_workspace": "import",
@@ -315,6 +317,20 @@ def execute_action(
             "passed",
             "record container_bundle/reference_bundle classification in review_run_trace",
             ("classified parent bundle from explicit descriptor",),
+        )
+    if action.action_id == "inventory_submission_bundle":
+        bundle_refs = tuple(ref for ref in action.material_refs if ref)
+        build_and_write_submission_bundle_inventory(
+            case_id=case_id,
+            round_id=round_id,
+            round_dir=round_dir,
+            bundle_refs=bundle_refs,
+            producer="scripts/review-round-start",
+        )
+        return ExecutedAction(
+            "passed",
+            "review-round-start internal submission-bundle inventory",
+            (f"inventoried {len(bundle_refs)} submitted bundle(s)",),
         )
     if action.action_id == "ensure_profile_note":
         target = round_dir / "notes" / "supervisor-report-operator-input.md"
@@ -542,7 +558,7 @@ def run_round_start(argv: list[str]) -> int:
                 action=action,
                 materials=materials,
             )
-        except (OSError, RuntimeError, shutil.Error) as exc:
+        except (OSError, RuntimeError, shutil.Error, ValueError) as exc:
             executed = ExecutedAction(
                 "failed", redacted_action_command(action, case_id=args.case_id, round_id=round_id), (str(exc),)
             )

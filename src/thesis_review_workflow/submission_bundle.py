@@ -7,6 +7,7 @@ import io
 import json
 import re
 import tarfile
+import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -26,7 +27,10 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 SUBMISSION_BUNDLE_INVENTORY_SCHEMA = "submission-bundle-inventory-v1"
 SUBMISSION_BUNDLE_INVENTORY_REL = "work/submission_bundle_inventory.json"
 SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL = "work/submission_bundle_inventory.md"
+SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA = "submission-bundle-materialization-v1"
+SUBMISSION_BUNDLE_MATERIALIZATION_REL = "work/submission_bundle_materialization.json"
 SUBMISSION_BUNDLE_PRODUCER = "scripts/inventory-submission-bundle"
+SUBMISSION_BUNDLE_MATERIALIZATION_PRODUCER = "scripts/materialize-submission-bundle-candidate"
 
 ACTIONABLE_CLASSES = {
     "assignment_pdf_candidate",
@@ -84,6 +88,16 @@ class ArchiveMember:
     size_bytes: int
     is_dir: bool
     data: bytes | None
+
+
+@dataclass(frozen=True)
+class MaterializedCandidate:
+    candidate: dict[str, Any]
+    materialized_ref: str
+    materialized_path: Path
+    materialized_sha256: str
+    manifest_path: Path
+    action: str
 
 
 @dataclass
@@ -997,6 +1011,345 @@ def write_submission_bundle_inventory(
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     md_path.write_text(render_inventory_markdown(payload), encoding="utf-8")
     return json_path, md_path
+
+
+def load_submission_bundle_inventory(round_dir: Path) -> dict[str, Any]:
+    path = round_dir / SUBMISSION_BUNDLE_INVENTORY_REL
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Missing bundle inventory: {SUBMISSION_BUNDLE_INVENTORY_REL}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {SUBMISSION_BUNDLE_INVENTORY_REL}: {exc.msg}") from exc
+    if not isinstance(loaded, dict) or loaded.get("schema_version") != SUBMISSION_BUNDLE_INVENTORY_SCHEMA:
+        raise ValueError(f"{SUBMISSION_BUNDLE_INVENTORY_REL}: unsupported schema_version")
+    return loaded
+
+
+def require_round_start_inventory(inventory: dict[str, Any]) -> None:
+    if inventory.get("producer") != "scripts/review-round-start":
+        raise ValueError(
+            f"{SUBMISSION_BUNDLE_INVENTORY_REL}: materialization requires inventory produced by review-round-start"
+        )
+
+
+def find_inventory_candidate(inventory: dict[str, Any], candidate_id: str) -> dict[str, Any]:
+    candidates = inventory.get("candidates")
+    if not isinstance(candidates, list):
+        raise ValueError("submission bundle inventory has no candidates list")
+    matches = [item for item in candidates if isinstance(item, dict) and item.get("candidate_id") == candidate_id]
+    if not matches:
+        raise ValueError(f"Unknown submission bundle candidate id: {candidate_id}")
+    if len(matches) > 1:
+        raise ValueError(f"Duplicate candidate id in submission bundle inventory: {candidate_id}")
+    return matches[0]
+
+
+def portable_filename(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_name = normalized.encode("ascii", errors="ignore").decode("ascii")
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", ascii_name).strip(" .-")
+    if not safe:
+        safe = "artifact"
+    base = safe.split(".", 1)[0].upper()
+    if base in WINDOWS_RESERVED_NAMES:
+        safe = f"artifact-{safe}"
+    return safe
+
+
+def default_materialized_ref(candidate: dict[str, Any]) -> str:
+    candidate_id = str(candidate.get("candidate_id") or "candidate")
+    chain = candidate.get("nested_path_chain")
+    leaf = "artifact"
+    if isinstance(chain, list) and chain:
+        last = chain[-1]
+        if isinstance(last, str):
+            leaf = PurePosixPath(last).name
+    return f"inputs/{candidate_id}-{portable_filename(leaf)}"
+
+
+def validate_materialized_ref(output_ref: str) -> None:
+    if not is_safe_round_relative_path(output_ref):
+        raise ValueError(f"Materialized output ref must be a safe round-relative path: {output_ref}")
+    if not output_ref.startswith("inputs/"):
+        raise ValueError(f"Materialized output ref must stay under inputs/: {output_ref}")
+    if len(PurePosixPath(output_ref).parts) != 2:
+        raise ValueError(f"Materialized output ref must be a direct inputs/ child: {output_ref}")
+    unsafe_reason = unsafe_portable_member_reason(output_ref)
+    if unsafe_reason is not None:
+        raise ValueError(f"Materialized output ref is not portable: {unsafe_reason}")
+
+
+def read_archive_member_bytes(
+    path_or_data: Path | bytes,
+    *,
+    suffix: str,
+    member_name: str,
+    max_bytes: int,
+) -> bytes:
+    unsafe_reason = unsafe_portable_member_reason(member_name)
+    if unsafe_reason is not None:
+        raise ValueError(f"{member_name}: {unsafe_reason}")
+    if suffix == ".zip":
+        try:
+            handle_context = zipfile.ZipFile(
+                path_or_data if isinstance(path_or_data, Path) else io.BytesIO(path_or_data)
+            )
+            with handle_context as handle:
+                for info in handle.infolist():
+                    if normalize_artifact_path(info.filename) != member_name:
+                        continue
+                    if info.is_dir():
+                        raise ValueError(f"{member_name}: archive member is a directory")
+                    if info.file_size > max_bytes:
+                        raise ValueError(f"{member_name}: exceeds materialization limit {format_bytes(max_bytes)}")
+                    return handle.read(info)
+        except (OSError, zipfile.BadZipFile) as exc:
+            raise ValueError(f"Cannot read ZIP member {member_name}: {exc}") from exc
+    elif suffix in {".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".tbz", ".tbz2", ".txz"}:
+        try:
+            if isinstance(path_or_data, Path):
+                with tarfile.open(path_or_data, mode="r:*") as handle:
+                    return read_tar_member_bytes(handle, member_name=member_name, max_bytes=max_bytes)
+            else:
+                with tarfile.open(fileobj=io.BytesIO(path_or_data), mode="r:*") as handle:
+                    return read_tar_member_bytes(handle, member_name=member_name, max_bytes=max_bytes)
+        except (OSError, tarfile.TarError) as exc:
+            raise ValueError(f"Cannot read TAR member {member_name}: {exc}") from exc
+    else:
+        raise ValueError(f"Unsupported archive suffix for materialization: {suffix}")
+    raise ValueError(f"Archive member not found: {member_name}")
+
+
+def read_tar_member_bytes(handle: tarfile.TarFile, *, member_name: str, max_bytes: int) -> bytes:
+    for member in handle:
+        if normalize_artifact_path(member.name) != member_name:
+            continue
+        if not member.isfile():
+            raise ValueError(f"{member_name}: archive member is not a file")
+        if member.size > max_bytes:
+            raise ValueError(f"{member_name}: exceeds materialization limit {format_bytes(max_bytes)}")
+        extracted = handle.extractfile(member)
+        if extracted is None:
+            raise ValueError(f"{member_name}: archive member cannot be read")
+        return extracted.read()
+    raise ValueError(f"Archive member not found: {member_name}")
+
+
+def read_candidate_bytes(
+    *,
+    round_dir: Path,
+    source_ref: str,
+    nested_path_chain: tuple[str, ...],
+    max_materialize_bytes: int,
+) -> bytes:
+    source = resolve_source_bundle(round_dir, source_ref, BundleInventoryLimits())
+    if not nested_path_chain:
+        if not source.path.is_file():
+            raise ValueError(f"{source_ref}: source bundle is not a materializable file candidate")
+        if source.path.stat().st_size > max_materialize_bytes:
+            raise ValueError(f"{source_ref}: exceeds materialization limit {format_bytes(max_materialize_bytes)}")
+        return source.path.read_bytes()
+    if source.kind == "directory":
+        current_path = source.path
+        current_data: bytes | None = None
+        current_suffix = ""
+        for index, part in enumerate(nested_path_chain):
+            unsafe_reason = unsafe_portable_member_reason(part)
+            if unsafe_reason is not None:
+                raise ValueError(f"{part}: {unsafe_reason}")
+            if current_data is None:
+                next_path = current_path / part
+                ensure_directory_materialization_path(source.path, next_path, label=part)
+                if index == len(nested_path_chain) - 1:
+                    if not next_path.is_file():
+                        raise ValueError(f"{part}: directory candidate is not a file")
+                    if next_path.stat().st_size > max_materialize_bytes:
+                        raise ValueError(f"{part}: exceeds materialization limit {format_bytes(max_materialize_bytes)}")
+                    return next_path.read_bytes()
+                if not next_path.is_file():
+                    raise ValueError(f"{part}: directory nested archive candidate is not a file")
+                if next_path.stat().st_size > max_materialize_bytes:
+                    raise ValueError(f"{part}: exceeds materialization limit {format_bytes(max_materialize_bytes)}")
+                current_data = next_path.read_bytes()
+                current_suffix = archive_suffix(next_path)
+            else:
+                data = read_archive_member_bytes(
+                    current_data,
+                    suffix=current_suffix,
+                    member_name=part,
+                    max_bytes=max_materialize_bytes,
+                )
+                if index == len(nested_path_chain) - 1:
+                    return data
+                current_data = data
+                current_suffix = archive_name_suffix(part)
+        raise ValueError("Empty nested path chain")
+    current_data_or_path: Path | bytes = source.path
+    current_suffix = archive_suffix(source.path)
+    for index, part in enumerate(nested_path_chain):
+        data = read_archive_member_bytes(
+            current_data_or_path,
+            suffix=current_suffix,
+            member_name=part,
+            max_bytes=max_materialize_bytes,
+        )
+        if index == len(nested_path_chain) - 1:
+            return data
+        current_data_or_path = data
+        current_suffix = archive_name_suffix(part)
+    raise ValueError("Empty nested path chain")
+
+
+def ensure_directory_materialization_path(source_root: Path, target: Path, *, label: str) -> None:
+    try:
+        relative = target.relative_to(source_root)
+    except ValueError as exc:
+        raise ValueError(f"{label}: directory candidate is outside source root") from exc
+    current = source_root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"{label}: refusing to materialize through a symlink")
+    try:
+        target.resolve(strict=True).relative_to(source_root.resolve(strict=True))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"{label}: resolved candidate escapes source root") from exc
+
+
+def load_materialization_manifest(path: Path, *, case_id: str, round_id: str) -> dict[str, Any]:
+    if not path.is_file():
+        return {
+            "schema_version": SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA,
+            "case_id": case_id,
+            "round_id": round_id,
+            "generated_at": now_utc(),
+            "producer": SUBMISSION_BUNDLE_MATERIALIZATION_PRODUCER,
+            "materializations": [],
+        }
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict) or loaded.get("schema_version") != SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA:
+        raise ValueError(f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: unsupported schema_version")
+    if loaded.get("case_id") != case_id or loaded.get("round_id") != round_id:
+        raise ValueError(f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: case_id/round_id mismatch")
+    if not isinstance(loaded.get("materializations"), list):
+        raise ValueError(f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: materializations must be a list")
+    return loaded
+
+
+def write_materialization_manifest(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def materialize_submission_bundle_candidate(
+    *,
+    case_id: str,
+    round_id: str,
+    round_dir: Path,
+    candidate_id: str,
+    output_ref: str | None = None,
+    allow_ambiguous: bool = False,
+    allow_duplicate: bool = False,
+    max_materialize_bytes: int = 250 * 1024 * 1024,
+    generated_at: str | None = None,
+    producer: str = SUBMISSION_BUNDLE_MATERIALIZATION_PRODUCER,
+) -> MaterializedCandidate:
+    inventory = load_submission_bundle_inventory(round_dir)
+    if inventory.get("case_id") != case_id or inventory.get("round_id") != round_id:
+        raise ValueError(f"{SUBMISSION_BUNDLE_INVENTORY_REL}: case_id/round_id mismatch")
+    require_round_start_inventory(inventory)
+    candidate = find_inventory_candidate(inventory, candidate_id)
+    state = candidate.get("state")
+    if state == "needs_operator_selection" and not allow_ambiguous:
+        raise ValueError(f"{candidate_id}: candidate requires explicit --allow-ambiguous selection")
+    if state == "duplicate_candidate" and not allow_duplicate:
+        raise ValueError(f"{candidate_id}: candidate requires explicit --allow-duplicate selection")
+    if state not in {
+        "materialize_candidate",
+        "needs_operator_selection",
+        "duplicate_candidate",
+        "nested_archive_depth_limit",
+    }:
+        raise ValueError(f"{candidate_id}: candidate state {state!r} cannot be materialized")
+
+    source_ref = candidate.get("source_bundle_ref")
+    chain = candidate.get("nested_path_chain")
+    if (
+        not isinstance(source_ref, str)
+        or not isinstance(chain, list)
+        or not all(isinstance(item, str) for item in chain)
+    ):
+        raise ValueError(f"{candidate_id}: inventory candidate is missing source path data")
+    target_ref = output_ref or default_materialized_ref(candidate)
+    validate_materialized_ref(target_ref)
+
+    data = read_candidate_bytes(
+        round_dir=round_dir,
+        source_ref=source_ref,
+        nested_path_chain=tuple(chain),
+        max_materialize_bytes=max_materialize_bytes,
+    )
+    data_sha256 = sha256_bytes(data)
+    expected_sha = candidate.get("sha256")
+    if isinstance(expected_sha, str) and expected_sha and expected_sha != data_sha256:
+        raise ValueError(f"{candidate_id}: source bytes no longer match inventory hash")
+
+    target_path = round_dir / target_ref
+    action = "materialized"
+    if target_path.exists():
+        if not target_path.is_file():
+            raise ValueError(f"{target_ref}: target exists and is not a file")
+        if sha256_file(target_path) != data_sha256:
+            raise ValueError(f"{target_ref}: target exists with different content")
+        action = "reused_existing"
+    else:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(data)
+
+    manifest_path = round_dir / SUBMISSION_BUNDLE_MATERIALIZATION_REL
+    manifest = load_materialization_manifest(manifest_path, case_id=case_id, round_id=round_id)
+    materializations = manifest["materializations"]
+    inventory_path = round_dir / SUBMISSION_BUNDLE_INVENTORY_REL
+    record = {
+        "candidate_id": candidate_id,
+        "source_bundle_ref": source_ref,
+        "source_bundle_sha256": candidate.get("source_bundle_sha256", ""),
+        "nested_path_chain": chain,
+        "source_candidate_ref": candidate.get("candidate_ref", ""),
+        "source_member_sha256": data_sha256,
+        "artifact_class": candidate.get("artifact_class", ""),
+        "reason_codes": candidate.get("reason_codes", []),
+        "state_at_selection": state,
+        "action": action,
+        "materialized_ref": target_ref,
+        "materialized_sha256": data_sha256,
+        "size_bytes": len(data),
+        "selected_at": generated_at or now_utc(),
+        "producer": producer,
+        "source_inventory_ref": SUBMISSION_BUNDLE_INVENTORY_REL,
+        "source_inventory_sha256": sha256_file(inventory_path),
+    }
+    materializations[:] = [
+        item
+        for item in materializations
+        if not isinstance(item, dict)
+        or item.get("candidate_id") != candidate_id
+        or item.get("materialized_ref") != target_ref
+    ]
+    materializations.append(record)
+    manifest["generated_at"] = generated_at or now_utc()
+    write_materialization_manifest(manifest_path, manifest)
+    candidate["materialized_ref"] = target_ref
+    write_submission_bundle_inventory(round_dir=round_dir, payload=inventory)
+    return MaterializedCandidate(
+        candidate=candidate,
+        materialized_ref=target_ref,
+        materialized_path=target_path,
+        materialized_sha256=data_sha256,
+        manifest_path=manifest_path,
+        action=action,
+    )
 
 
 def build_and_write_submission_bundle_inventory(

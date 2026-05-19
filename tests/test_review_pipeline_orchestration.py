@@ -405,7 +405,45 @@ def test_round_start_planner_classifies_parent_submission_bundles_without_code_d
     assert plan.actions[0].action_id == "classify_bundle"
     assert plan.actions[0].material_refs == ("inputs/submission.zip",)
     assert plan.actions[0].target_refs == ("inputs/thesis.pdf", "inputs/code.zip")
+    assert plan.actions[1].action_id == "inventory_submission_bundle"
+    assert plan.actions[1].material_refs == ("inputs/submission.zip",)
+    assert plan.actions[1].target_refs == (
+        "work/submission_bundle_inventory.json",
+        "work/submission_bundle_inventory.md",
+    )
     assert [action.action_id for action in plan.actions].count("prepare_code_workspace") == 1
+
+
+def test_round_start_planner_aggregates_multiple_submission_bundles_into_one_inventory_action() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+        materials=(
+            RoundMaterialDescriptor(
+                "submission_bundle",
+                path="inputs/part-a.zip",
+                bundle_classification="container_bundle",
+                decomposed_authoritative_refs=("inputs/thesis.pdf",),
+            ),
+            RoundMaterialDescriptor(
+                "submission_bundle",
+                path="inputs/part-b.zip",
+                bundle_classification="container_bundle",
+                decomposed_authoritative_refs=("inputs/code.zip",),
+            ),
+        ),
+    )
+
+    inventory_actions = [action for action in plan.actions if action.action_id == "inventory_submission_bundle"]
+
+    assert len(inventory_actions) == 1
+    assert inventory_actions[0].material_refs == ("inputs/part-a.zip", "inputs/part-b.zip")
+    assert [action.action_id for action in plan.actions[:3]] == [
+        "classify_bundle",
+        "classify_bundle",
+        "inventory_submission_bundle",
+    ]
 
 
 def test_round_start_planner_rejects_unsafe_material_paths() -> None:

@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "$script_dir/.." && pwd -P)"
+case_id="__smoke_submission_bundle_materialization__"
+round_id="20260519-smoke"
+case_dir="$repo_root/cases/$case_id"
+round_dir="$case_dir/rounds/$round_id"
+
+cleanup() {
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+cleanup
+
+mkdir -p "$round_dir/inputs" "$round_dir/notes" "$round_dir/extracted" "$round_dir/work" "$round_dir/outputs"
+cat >"$case_dir/case.md" <<'EOF'
+Work type: BP
+Academic year: 2025/2026
+Student feedback language: cs
+Thesis language: auto
+Reviewer profile: default
+EOF
+printf '%s\n' "$round_id" >"$case_dir/current-round.txt"
+cat >"$round_dir/notes/assignment.md" <<'EOF'
+# Assignment
+
+## Formal Assignment Artifacts
+- synthetic assignment source
+
+## Formal Assignment Text Or Summary
+Synthetic assignment summary.
+
+## Private Assignment Notes For Student
+Synthetic private note.
+EOF
+
+python3 - "$round_dir/inputs/submission.zip" <<'PY'
+import io
+import sys
+import zipfile
+
+target = sys.argv[1]
+code = io.BytesIO()
+with zipfile.ZipFile(code, "w") as handle:
+    handle.writestr("project/pyproject.toml", "[project]\nname = 'synthetic'\n")
+    handle.writestr("project/src/main.py", "print('synthetic')\n")
+with zipfile.ZipFile(target, "w") as handle:
+    handle.writestr("handoff/code.zip", code.getvalue())
+    handle.writestr("handoff/assignment-zadani.pdf", b"%PDF-1.4\n")
+PY
+
+"$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
+  --profile opponent_materials \
+  --submission-bundle inputs/submission.zip \
+  --bundle-classification container_bundle \
+  --bundle-child inputs/materialized-code.zip >/tmp/submission-bundle-start-smoke.out
+
+candidate_id="$(
+  python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+for candidate in payload["candidates"]:
+    if candidate["artifact_class"] == "code_archive_candidate":
+        print(candidate["candidate_id"])
+        break
+else:
+    raise SystemExit("missing code archive candidate")
+PY
+)"
+
+"$repo_root/scripts/materialize-submission-bundle-candidate" \
+  "$case_id" \
+  "$round_id" \
+  --candidate-id "$candidate_id" \
+  --output inputs/materialized-code.zip \
+  --generated-at 2026-05-19T12:00:00Z >/tmp/submission-bundle-materialize-smoke.out
+
+"$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
+  --profile opponent_materials \
+  --submission-bundle inputs/submission.zip \
+  --bundle-classification container_bundle \
+  --bundle-child inputs/materialized-code.zip \
+  --code-archive inputs/materialized-code.zip >/tmp/submission-bundle-rerun-smoke.out
+
+"$repo_root/scripts/prepare-code-workspace" "$case_id" "$round_id" >/tmp/submission-bundle-code-smoke.out
+"$repo_root/scripts/prepare-review-round" \
+  "$case_id" \
+  "$round_id" \
+  --skip-materiality-check >/tmp/submission-bundle-prepare-review-smoke.out
+
+test -f "$round_dir/inputs/materialized-code.zip"
+test -f "$round_dir/work/submission_bundle_materialization.json"
+test -f "$round_dir/work/code/materialized-code/project/src/main.py"
+test -f "$round_dir/work/review_role_plan.json"
+
+assignment_candidate_id="$(
+  python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+for candidate in payload["candidates"]:
+    if candidate["artifact_class"] == "assignment_pdf_candidate":
+        print(candidate["candidate_id"])
+        break
+else:
+    raise SystemExit("missing assignment PDF candidate")
+PY
+)"
+
+"$repo_root/scripts/materialize-submission-bundle-candidate" \
+  "$case_id" \
+  "$round_id" \
+  --candidate-id "$assignment_candidate_id" \
+  --output inputs/assignment-zadani.pdf \
+  --generated-at 2026-05-19T12:01:00Z >/tmp/submission-bundle-assignment-materialize-smoke.out
+
+test -f "$round_dir/inputs/assignment-zadani.pdf"
+
+python3 - "$round_dir/work/submission_bundle_materialization.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+records = {record["materialized_ref"]: record for record in payload["materializations"]}
+assert records["inputs/materialized-code.zip"]["source_bundle_ref"] == "inputs/submission.zip"
+assert records["inputs/materialized-code.zip"]["nested_path_chain"] == ["handoff/code.zip"]
+assert records["inputs/assignment-zadani.pdf"]["nested_path_chain"] == ["handoff/assignment-zadani.pdf"]
+PY
+
+echo "submission bundle materialization smoke passed"

@@ -570,6 +570,47 @@ any duplicated active instructions it creates.
   `scripts/smoke-submission-bundle-inventory`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 3 started. Scope is round-start inventory ownership and
+  selected-candidate materialization through direct `inputs/` artifacts with
+  provenance. Serena scoped lookup confirmed `review_round_start.execute_action`
+  as the existing deterministic action execution hook to extend. No doctor,
+  packet, manifest silent-evidence, media-observation, or closeout convergence
+  work is in scope for this slice.
+- 2026-05-19: Slice 3 implemented `review-round-start` bundle inventory action
+  over the Slice 2 library and added
+  `scripts/materialize-submission-bundle-candidate` as a thin selected-candidate
+  helper. Materialization writes a direct `inputs/` child, preserves ambiguity
+  unless `--allow-ambiguous` is explicit, rejects unsafe output paths, updates
+  the inventory `materialized_ref`, and records
+  `work/submission_bundle_materialization.json` with source bundle, nested path,
+  hashes, action, timestamp, output ref, and artifact class.
+- 2026-05-19: Slice 3 focused checks passed before reviewer handoff:
+  `pants test tests/test_submission_bundle.py
+  tests/test_review_pipeline_orchestration.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-submission-bundle-materialization`,
+  `scripts/smoke-review-round-start`, `scripts/smoke-submission-bundle-inventory`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, and
+  `scripts/smoke-package-workflow-tools`.
+- 2026-05-19: Slice 3 reviewer findings were fixed before commit:
+  materialization smoke now reruns `review-round-start`, prepares code, and
+  writes a role plan through `prepare-review-round`; round-start trace text
+  names the internal owner instead of the diagnostic helper; materialization
+  rejects diagnostic inventories not produced by `review-round-start`; nested
+  assignment PDF materialization is covered; multiple submitted bundles are
+  aggregated into one inventory action; explicit materialized output refs get
+  Windows-portable validation; directory bundle materialization rejects symlink
+  parent escapes; and the manifest test now covers source/action/timestamp/hash
+  fields plus idempotent reuse and collision rejection.
+- 2026-05-19: Slice 3 post-review checks passed: `pants fmt` on touched files,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_submission_bundle.py tests/test_review_pipeline_orchestration.py
+  tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-submission-bundle-materialization`,
+  `scripts/smoke-review-round-start`, `scripts/smoke-submission-bundle-inventory`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 
