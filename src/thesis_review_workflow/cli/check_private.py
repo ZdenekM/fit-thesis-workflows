@@ -17,6 +17,7 @@ PRIVATE_JSONL_RE = re.compile(
 PRIVATE_MANIFEST_RE = re.compile(
     r"(^|/)(review_manifest|agent_coverage|serena_roots|\.prepare-code-workspace-manifest|"
     r"reuse_index|"
+    r"submission_bundle_inventory|"
     r"opponent_calibration_use|opponent_calibration_advisory|opponent_report_revision_request|"
     r"supervisor_report_feedback_history|supervisor_report_trace|supervisor_report_confirmation|"
     r"supervisor_report_calibration_use|supervisor_report_calibration_advisory|"
@@ -28,6 +29,7 @@ PRIVATE_MANIFEST_RE = re.compile(
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
 PRIVATE_MARKDOWN_RE = re.compile(
     r"(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|"
+    r"submission_bundle_inventory|"
     r"code_consistency|code_quality_review|literature_citation_review|figure_media_review|"
     r"typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|"
     r"reference_report_comparison|opponent_reading_packet|reviewer_calibration_profile|"

@@ -117,6 +117,43 @@ CODE_ARCHIVE_HINTS = {
     "implementation",
     "submission",
 }
+ASSIGNMENT_PDF_HINTS = {
+    "assignment",
+    "zadani",
+    "specification",
+}
+THESIS_PDF_HINTS = {
+    "thesis",
+    "prace",
+    "bakalar",
+    "diplom",
+    "report",
+}
+MEDIA_SUFFIXES = {
+    ".avi",
+    ".m4v",
+    ".mkv",
+    ".mov",
+    ".mp3",
+    ".mp4",
+    ".ogg",
+    ".wav",
+    ".webm",
+}
+EXECUTABLE_SUFFIXES = {
+    ".apk",
+    ".appimage",
+    ".bat",
+    ".cmd",
+    ".dll",
+    ".dmg",
+    ".exe",
+    ".jar",
+    ".msi",
+    ".ps1",
+    ".sh",
+    ".war",
+}
 UNITY_VENDOR_ROOTS = {"packages", "library", "temp", "logs", "obj"}
 UNITY_SAMPLE_PARTS = {"samples", "sample", "samples~"}
 GENERATED_PARTS = {"bin", "obj", "build", "dist", "target", ".gradle", ".vs", "__pycache__"}
@@ -205,6 +242,8 @@ def classify_path_evidence(value: str) -> PathEvidence:
     name = parts[-1] if parts else ""
     lower_name = name.lower()
     suffix = PurePosixPath(lower_name).suffix
+    full_folded_path = folded(normalized)
+    compound_archive_suffix = archive_suffix(Path(normalized))
     reasons: list[str] = []
 
     if not parts:
@@ -225,10 +264,24 @@ def classify_path_evidence(value: str) -> PathEvidence:
         reasons.append("test_evidence")
     if suffix in CODE_SUFFIX_LANGUAGES:
         reasons.append("code_file")
-    if suffix in UNSUPPORTED_ARCHIVE_SUFFIXES:
+    if suffix == ".pdf":
+        reasons.append("pdf_artifact")
+        if any(hint in full_folded_path for hint in ASSIGNMENT_PDF_HINTS):
+            reasons.append("assignment_pdf_hint")
+        if any(hint in full_folded_path for hint in THESIS_PDF_HINTS):
+            reasons.append("thesis_pdf_hint")
+    if suffix in MEDIA_SUFFIXES:
+        reasons.append("media_artifact")
+    if suffix in EXECUTABLE_SUFFIXES:
+        reasons.append("executable_artifact")
+    if compound_archive_suffix in UNSUPPORTED_ARCHIVE_SUFFIXES:
         reasons.append("unsupported_archive_suffix")
-    elif suffix in SUPPORTED_ARCHIVE_SUFFIXES or archive_suffix(Path(normalized)) in SUPPORTED_ARCHIVE_SUFFIXES:
+    elif compound_archive_suffix in SUPPORTED_ARCHIVE_SUFFIXES:
         reasons.append("supported_archive_suffix")
+        if any(hint in full_folded_path for hint in TEXT_ARCHIVE_HINTS):
+            reasons.append("thesis_source_archive_hint")
+        elif any(hint in full_folded_path for hint in CODE_ARCHIVE_HINTS):
+            reasons.append("code_archive_hint")
 
     if "unsupported_archive_suffix" in reasons:
         artifact_class = "unsupported_archive"
@@ -236,10 +289,24 @@ def classify_path_evidence(value: str) -> PathEvidence:
         artifact_class = "generated_or_vendor"
     elif "sample_content" in reasons or "vendor_or_package_content" in reasons:
         artifact_class = "sample_or_vendor"
+    elif "assignment_pdf_hint" in reasons:
+        artifact_class = "assignment_pdf_candidate"
+    elif "thesis_pdf_hint" in reasons:
+        artifact_class = "thesis_pdf_candidate"
+    elif "pdf_artifact" in reasons:
+        artifact_class = "pdf_artifact"
+    elif "media_artifact" in reasons:
+        artifact_class = "media_artifact"
+    elif "executable_artifact" in reasons:
+        artifact_class = "executable_artifact"
     elif "test_evidence" in reasons:
         artifact_class = "test_evidence"
     elif "readme_candidate" in reasons:
         artifact_class = "readme_candidate"
+    elif "thesis_source_archive_hint" in reasons:
+        artifact_class = "thesis_source_archive_candidate"
+    elif "code_archive_hint" in reasons:
+        artifact_class = "code_archive_candidate"
     elif "code_file" in reasons or "dependency_or_build_manifest" in reasons:
         artifact_class = "first_party_candidate"
     elif "supported_archive_suffix" in reasons:

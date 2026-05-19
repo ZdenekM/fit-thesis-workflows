@@ -535,6 +535,41 @@ any duplicated active instructions it creates.
   `scripts/smoke-prepare-review-round`, `scripts/smoke-round-reuse-index`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 2 started. Scope is a shared bounded bundle inventory
+  library and diagnostic helper surface only. Normal intake ownership remains
+  `review-round-start`; no materialization behavior is in scope for this slice.
+  Serena scoped lookup confirmed `artifact_classification.classify_path_evidence`
+  as the shared structural-classification entry point for bundle candidates.
+- 2026-05-19: Slice 2 implemented `submission_bundle.py` as the bounded
+  structural inventory owner for nested archives/directories, candidate ids,
+  source hashes, limits, skipped entries, unsupported archives, size/depth limit
+  states, duplicate/selection states, and `work/submission_bundle_inventory.*`
+  outputs. Added diagnostic `scripts/inventory-submission-bundle` as a thin
+  command-surface-compliant wrapper over that library; normal intake ownership
+  still remains `review-round-start`.
+- 2026-05-19: Slice 2 focused checks passed before reviewer handoff:
+  `pants fmt ::`, `pants test tests/test_submission_bundle.py
+  tests/test_workflow_python_contracts.py tests/test_work_artifacts.py`,
+  `scripts/smoke-submission-bundle-inventory`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, and
+  `scripts/smoke-package-workflow-tools`.
+- 2026-05-19: Slice 2 reviewer findings were fixed before commit:
+  generated/vendor/build-output paths keep precedence over executable/media
+  artifact classes; diagnostic inventory is not auto-collected as manifest
+  provenance until the later manifest slice; nested archive handling now uses
+  one recursive bounded path with depth-limit records; directory bundle symlinks
+  are skipped before hashing; archive reads have a total budget; Windows-invalid
+  member names are rejected; and `next_action` no longer names a materialization
+  helper before Slice 3.
+- 2026-05-19: Slice 2 post-review checks passed: `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `pants test
+  tests/test_submission_bundle.py tests/test_case_doctor_summary.py
+  tests/test_work_artifacts.py tests/test_workflow_python_contracts.py`,
+  `scripts/smoke-submission-bundle-inventory`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 

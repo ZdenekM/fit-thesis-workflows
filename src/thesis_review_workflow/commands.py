@@ -54,6 +54,7 @@ WORKFLOW_COMMAND_MODULES = {
     "import-round": "thesis_review_workflow.cli.import_round",
     "import-theses-report": "thesis_review_workflow.cli.import_theses_report",
     "init-review-manifest": "thesis_review_workflow.cli.init_review_manifest",
+    "inventory-submission-bundle": "thesis_review_workflow.cli.inventory_submission_bundle",
     "new-case": "thesis_review_workflow.cli.new_case",
     "opponent-closeout": "thesis_review_workflow.cli.opponent_closeout",
     "opponent-preflight": "thesis_review_workflow.cli.opponent_preflight",

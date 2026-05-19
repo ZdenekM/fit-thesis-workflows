@@ -665,6 +665,23 @@ def test_review_round_start_is_packaged_and_smoked() -> None:
     assert "scripts/review-round-start" in smoke_text
 
 
+def test_inventory_submission_bundle_is_packaged_and_smoked() -> None:
+    shell_sources = scripts_shell_sources()
+    pex_targets = workflow_pex_targets()
+    cli_sources = cli_python_sources()
+    runtime_deps = workflow_runtime_deps()
+    module = WORKFLOW_COMMAND_MODULES["inventory-submission-bundle"]
+    module_name = module.rsplit(".", 1)[-1]
+    smoke_text = (REPO_ROOT / "scripts" / "smoke-submission-bundle-inventory").read_text(encoding="utf-8")
+
+    assert cli_sources[module_name] == f"{module_name}.py"
+    assert f"src/thesis_review_workflow/cli:{module_name}" in runtime_deps
+    assert pex_targets["inventory-submission-bundle"]["entry_point"] == f"{module}:console_main"
+    assert "inventory-submission-bundle" in shell_sources
+    assert "smoke-submission-bundle-inventory" in shell_sources
+    assert "scripts/inventory-submission-bundle" in smoke_text
+
+
 def test_review_round_closeout_is_packaged_and_smoked() -> None:
     shell_sources = scripts_shell_sources()
     pex_targets = workflow_pex_targets()
