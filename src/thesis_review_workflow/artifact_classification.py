@@ -129,17 +129,18 @@ THESIS_PDF_HINTS = {
     "diplom",
     "report",
 }
-MEDIA_SUFFIXES = {
+VIDEO_SUFFIXES = {
     ".avi",
     ".m4v",
     ".mkv",
     ".mov",
-    ".mp3",
     ".mp4",
-    ".ogg",
-    ".wav",
     ".webm",
 }
+AUDIO_SUFFIXES = {".mp3", ".ogg", ".wav"}
+IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}
+PRESENTATION_SUFFIXES = {".key", ".odp", ".ppt", ".pptx"}
+MEDIA_SUFFIXES = VIDEO_SUFFIXES | AUDIO_SUFFIXES | IMAGE_SUFFIXES | PRESENTATION_SUFFIXES
 EXECUTABLE_SUFFIXES = {
     ".apk",
     ".appimage",

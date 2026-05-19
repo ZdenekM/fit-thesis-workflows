@@ -284,7 +284,8 @@ Nejběžnější výstupy jsou:
   strukturovaný handoff pro kvantitativní/result claimy, jednotky, baseline,
   praktický kontext a reprodukovatelnost,
 - `work/media_presence_inventory.jsonl` - strukturální inventář nalezených
-  media souborů podle cesty a přípony,
+  media souborů podle cesty, přípony a deterministických nesémantických
+  metadat,
 - `work/code_reproducibility.json` - statická klasifikace reprodukovatelnosti
   kódového podkladu bez spouštění studentského kódu,
 - `work/supervisor_packets/*.md` - stručné role-specific podklady pro agentní

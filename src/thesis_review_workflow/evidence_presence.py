@@ -5,26 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from thesis_review_workflow.artifact_classification import (
+    AUDIO_SUFFIXES,
+    MEDIA_SUFFIXES,
+    PRESENTATION_SUFFIXES,
+    VIDEO_SUFFIXES,
+)
+from thesis_review_workflow.artifact_metadata import structural_metadata_for_artifact
+from thesis_review_workflow.artifact_validation import sha256_file
+
 MEDIA_INVENTORY_SCHEMA = "visual-media-inventory-v1"
 MEDIA_PRESENCE_INVENTORY_REL = Path("work/media_presence_inventory.jsonl")
-
-MEDIA_SUFFIXES = {
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".svg",
-    ".mp4",
-    ".mov",
-    ".avi",
-    ".mkv",
-    ".webm",
-    ".ppt",
-    ".pptx",
-    ".odp",
-    ".key",
-}
 
 
 def rel(round_dir: Path, path: Path) -> str:
@@ -46,24 +37,37 @@ def media_files(round_dir: Path) -> list[Path]:
 
 def media_category(path: Path) -> str:
     suffix = path.suffix.lower()
-    if suffix in {".mp4", ".mov", ".avi", ".mkv", ".webm"}:
+    if suffix in VIDEO_SUFFIXES:
         return "video"
-    if suffix in {".ppt", ".pptx", ".odp", ".key"}:
+    if suffix in AUDIO_SUFFIXES:
+        return "audio"
+    if suffix in PRESENTATION_SUFFIXES:
         return "presentation"
     return "image"
 
 
 def build_media_inventory(round_dir: Path) -> list[dict[str, object]]:
-    return [
-        {
+    records: list[dict[str, object]] = []
+    for path in media_files(round_dir):
+        rel_path = rel(round_dir, path)
+        digest = sha256_file(path)
+        record: dict[str, object] = {
             "schema_version": MEDIA_INVENTORY_SCHEMA,
-            "path": rel(round_dir, path),
+            "path": rel_path,
             "category": media_category(path),
             "state": "present-uninspected",
             "inspection_depth": "metadata-only",
         }
-        for path in media_files(round_dir)
-    ]
+        metadata = structural_metadata_for_artifact(
+            path_ref=rel_path,
+            artifact_class="media_artifact",
+            size_bytes=path.stat().st_size,
+            sha256=digest,
+        )
+        if metadata is not None:
+            record["deterministic_metadata"] = metadata
+        records.append(record)
+    return records
 
 
 def write_media_inventory(path: Path, records: list[dict[str, object]]) -> None:

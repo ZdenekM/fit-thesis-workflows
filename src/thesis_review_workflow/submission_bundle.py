@@ -22,6 +22,7 @@ from thesis_review_workflow.artifact_classification import (
     classify_path_evidence,
     normalize_artifact_path,
 )
+from thesis_review_workflow.artifact_metadata import structural_metadata_for_artifact
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 SUBMISSION_BUNDLE_INVENTORY_SCHEMA = "submission-bundle-inventory-v1"
@@ -308,6 +309,14 @@ def base_candidate(
         record["size_bytes"] = size_bytes
     if sha256 is not None:
         record["sha256"] = sha256
+    metadata = structural_metadata_for_artifact(
+        path_ref=candidate_ref(source.ref, chain),
+        artifact_class=artifact_class,
+        size_bytes=size_bytes,
+        sha256=sha256,
+    )
+    if metadata is not None:
+        record["deterministic_metadata"] = metadata
     extract_ref = pdf_extract_ref_for_candidate(source.ref, chain)
     if extract_ref is not None:
         record["expected_extract_ref"] = extract_ref

@@ -695,6 +695,36 @@ any duplicated active instructions it creates.
   `scripts/smoke-refresh-round-hashes`, `scripts/smoke-review-manifest`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 6 started. Scope is structural-only media/executable
+  ergonomics: cheap deterministic extension/size/hash metadata in the existing
+  bundle inventory and the existing media-presence work artifact. No submitted
+  code execution, semantic video/image/audio inspection, new media-review
+  command, or bundle-classification side path is in scope.
+- 2026-05-19: Slice 6 implemented shared non-executing metadata for media and
+  executable artifacts. Bundle candidates and `work/media_presence_inventory.jsonl`
+  now record extension, size, hash when available, and explicit
+  non-execution/non-semantic state; large bounded media candidates record that
+  hashes were not collected instead of implying content absence. The media
+  suffix taxonomy is shared through structural classification so nested bundle
+  media and materialized media use the same metadata path. Active operator docs
+  now describe media presence as path/suffix plus deterministic non-semantic
+  metadata.
+- 2026-05-19: Slice 6 agent review found no blocking duplicate workflow path, but
+  requested proof that optional media observation stays separate from bundle
+  classification, one shared media taxonomy, active doc updates, and reuse of an
+  existing hash helper. Fixed those findings by adding a `visual_inventory.jsonl`
+  smoke assertion that leaves `work/submission_bundle_inventory.json` unchanged,
+  moving image/presentation/audio/video suffixes into the shared classifier,
+  updating README/opponent workflow wording, and using the existing
+  `artifact_validation.sha256_file`.
+- 2026-05-19: Slice 6 checks passed after fixes: `pants fmt` on touched files,
+  `pants test tests/test_submission_bundle.py tests/test_evidence_presence.py`,
+  `pants lint src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`,
+  `scripts/smoke-evidence-presence`,
+  `scripts/smoke-submission-bundle-materialization`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 

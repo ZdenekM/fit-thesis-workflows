@@ -55,6 +55,7 @@ def test_nextcloud_style_bundle_inventory_discovers_nested_artifacts(tmp_path: P
         handle.writestr("Nextcloud export/README.md", "# Synthetic\n")
         handle.writestr("Nextcloud export/app.apk", b"apk placeholder")
         handle.writestr("Nextcloud export/demo video.mp4", b"mp4 placeholder")
+        handle.writestr("Nextcloud export/result screenshot.png", b"png placeholder")
 
     payload = build_submission_bundle_inventory(
         case_id="case-a",
@@ -83,6 +84,20 @@ def test_nextcloud_style_bundle_inventory_discovers_nested_artifacts(tmp_path: P
     assert candidate_by_class(payload, "readme_candidate")
     assert candidate_by_class(payload, "executable_artifact")
     assert candidate_by_class(payload, "media_artifact")
+    media_candidates = candidate_by_class(payload, "media_artifact")
+    media = next(item for item in media_candidates if item["candidate_ref"].endswith("demo video.mp4"))
+    assert media["deterministic_metadata"]["extension"] == ".mp4"
+    assert media["deterministic_metadata"]["metadata_mode"] == "non_executing_structural_metadata"
+    assert media["deterministic_metadata"]["semantic_observation"] == "not_performed"
+    assert media["deterministic_metadata"]["execution_state"] == "not_run"
+    assert media["deterministic_metadata"]["sha256"] == media["sha256"]
+    image = next(item for item in media_candidates if item["candidate_ref"].endswith("result screenshot.png"))
+    assert image["deterministic_metadata"]["extension"] == ".png"
+    assert image["deterministic_metadata"]["metadata_mode"] == "non_executing_structural_metadata"
+    executable = candidate_by_class(payload, "executable_artifact")[0]
+    assert executable["deterministic_metadata"]["extension"] == ".apk"
+    assert executable["deterministic_metadata"]["artifact_category"] == "executable"
+    assert executable["deterministic_metadata"]["execution_state"] == "not_run"
     assignment = candidate_by_class(payload, "assignment_pdf_candidate")[0]
     assert assignment["nested_path_chain"] == ["Nextcloud export/thesis-source.zip", "thesis/zadani.pdf"]
     assert assignment["expected_extract_ref"].startswith("extracted/submission_bundle/")
@@ -229,6 +244,31 @@ def test_archive_inventory_enforces_total_read_budget(tmp_path: Path) -> None:
     )
 
     assert any("read_budget_limit_reached" in item["reason_codes"] for item in payload["skipped_entries"])
+
+
+def test_large_media_candidate_records_metadata_without_hash_claim(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "large-media.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("demo/large-demo.mp4", b"synthetic media placeholder")
+
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/large-media.zip"],
+        limits=BundleInventoryLimits(max_hash_bytes=1),
+        generated_at="2026-05-19T12:00:00Z",
+    )
+
+    candidate = candidate_by_class(payload, "media_artifact")[0]
+    metadata = candidate["deterministic_metadata"]
+    assert "sha256" not in candidate
+    assert metadata["extension"] == ".mp4"
+    assert metadata["size_bytes"] == len(b"synthetic media placeholder")
+    assert metadata["sha256_state"] == "not_collected_due_to_inventory_limit"
+    assert metadata["stream_metadata_state"] == "not_collected"
+    assert metadata["semantic_observation"] == "not_performed"
 
 
 def test_multiple_bundle_inventory_preserves_all_sources_and_cross_bundle_ambiguity(tmp_path: Path) -> None:

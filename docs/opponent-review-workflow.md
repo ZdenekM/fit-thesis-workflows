@@ -45,8 +45,8 @@ Evidence requirements jsou výjimka z před-agentního preflightu:
 `work/evidence_requirements.json` musí připravit autorizovaný evidence agent nebo
 člověk jako strukturovaný přehled požadované a dostupné evidence. Potom spusťte
 `scripts/check-evidence-presence`; skript artefakt jen ověřuje a zapíše
-strukturální `work/media_presence_inventory.jsonl` podle cest a přípon
-nalezených souborů.
+strukturální `work/media_presence_inventory.jsonl` podle cest, přípon a
+deterministických nesémantických metadat nalezených souborů.
 Assignment coverage je výjimka z před-agentního preflightu: `work/assignment_coverage_agent.json`
 musí připravit autorizovaný text/assignment agent nebo člověk jako strukturovanou
 mapu bodů zadání proti dostupné evidenci. Potom spusťte

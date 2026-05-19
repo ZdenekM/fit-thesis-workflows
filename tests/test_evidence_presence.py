@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.cli import check_evidence_presence
 from thesis_review_workflow.evidence_presence import (
     MEDIA_PRESENCE_INVENTORY_REL,
@@ -78,7 +79,11 @@ def test_check_evidence_presence_validates_requirements_and_writes_media_invento
     assert "Requirement states: present=1, weak=1" in output
     assert "Media inventory records: 1" in output
     inventory = (round_dir / MEDIA_PRESENCE_INVENTORY_REL).read_text(encoding="utf-8").splitlines()
-    assert json.loads(inventory[0])["path"] == "inputs/demo.mp4"
+    record = json.loads(inventory[0])
+    assert record["path"] == "inputs/demo.mp4"
+    assert record["deterministic_metadata"]["metadata_mode"] == "non_executing_structural_metadata"
+    assert record["deterministic_metadata"]["semantic_observation"] == "not_performed"
+    assert record["deterministic_metadata"]["sha256"] == sha256_file(round_dir / "inputs" / "demo.mp4")
     assert not (round_dir / "work" / "evidence_presence.json").exists()
 
 
@@ -129,18 +134,36 @@ def test_build_media_inventory_records_present_media_only(tmp_path: Path) -> Non
     (round_dir / "inputs").mkdir()
     (round_dir / "notes" / "assignment.md").write_text("Provide a demo video.\n", encoding="utf-8")
     (round_dir / "inputs" / "demo.mp4").write_text("synthetic", encoding="utf-8")
+    (round_dir / "inputs" / "screenshot.png").write_text("image", encoding="utf-8")
 
     records = build_media_inventory(round_dir)
 
-    assert records == [
-        {
-            "schema_version": "visual-media-inventory-v1",
-            "path": "inputs/demo.mp4",
-            "category": "video",
-            "state": "present-uninspected",
-            "inspection_depth": "metadata-only",
-        }
-    ]
+    digest = sha256_file(round_dir / "inputs" / "demo.mp4")
+    by_path = {str(record["path"]): record for record in records}
+    assert by_path["inputs/demo.mp4"] == {
+        "schema_version": "visual-media-inventory-v1",
+        "path": "inputs/demo.mp4",
+        "category": "video",
+        "state": "present-uninspected",
+        "inspection_depth": "metadata-only",
+        "deterministic_metadata": {
+            "schema_version": "deterministic-artifact-metadata-v1",
+            "artifact_category": "media",
+            "extension": ".mp4",
+            "metadata_mode": "non_executing_structural_metadata",
+            "content_inspection": "not_performed",
+            "semantic_observation": "not_performed",
+            "execution_state": "not_run",
+            "stream_metadata_state": "not_collected",
+            "size_bytes": len("synthetic"),
+            "sha256": digest,
+        },
+    }
+    image_record = by_path["inputs/screenshot.png"]
+    assert image_record["category"] == "image"
+    image_metadata = image_record["deterministic_metadata"]
+    assert isinstance(image_metadata, dict)
+    assert image_metadata["extension"] == ".png"
 
 
 def test_write_media_inventory_uses_jsonl(tmp_path: Path) -> None:

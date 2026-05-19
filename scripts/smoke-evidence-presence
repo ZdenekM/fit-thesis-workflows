@@ -122,6 +122,12 @@ assert len(inventory_lines) == 1, inventory_lines
 record = json.loads(inventory_lines[0])
 assert record["path"] == "inputs/demo.mp4", record
 assert record["state"] == "present-uninspected", record
+metadata = record["deterministic_metadata"]
+assert metadata["extension"] == ".mp4", metadata
+assert metadata["metadata_mode"] == "non_executing_structural_metadata", metadata
+assert metadata["semantic_observation"] == "not_performed", metadata
+assert metadata["execution_state"] == "not_run", metadata
+assert "sha256" in metadata, metadata
 PY
 test ! -f "$round_dir/work/evidence_presence.json"
 

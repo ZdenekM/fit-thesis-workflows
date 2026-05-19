@@ -65,12 +65,25 @@ import json
 import sys
 
 payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+media_seen = False
+executable_seen = False
+code_id = None
 for candidate in payload["candidates"]:
-    if candidate["artifact_class"] == "code_archive_candidate":
-        print(candidate["candidate_id"])
-        break
-else:
+    if candidate["artifact_class"] in {"media_artifact", "executable_artifact"}:
+        metadata = candidate["deterministic_metadata"]
+        assert metadata["metadata_mode"] == "non_executing_structural_metadata", metadata
+        assert metadata["semantic_observation"] == "not_performed", metadata
+        assert metadata["execution_state"] == "not_run", metadata
+        assert "sha256" in metadata, metadata
+        media_seen = media_seen or candidate["artifact_class"] == "media_artifact"
+        executable_seen = executable_seen or candidate["artifact_class"] == "executable_artifact"
+    if candidate["artifact_class"] == "code_archive_candidate" and code_id is None:
+        code_id = candidate["candidate_id"]
+if code_id is None:
     raise SystemExit("missing code archive candidate")
+assert media_seen, "missing media metadata"
+assert executable_seen, "missing executable metadata"
+print(code_id)
 PY
 )"
 
@@ -137,6 +150,28 @@ PY
 
 test -f "$round_dir/inputs/assignment-zadani.pdf"
 
+media_candidate_id="$(
+  python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+for candidate in payload["candidates"]:
+    if candidate["artifact_class"] == "media_artifact":
+        print(candidate["candidate_id"])
+        break
+else:
+    raise SystemExit("missing media candidate")
+PY
+)"
+
+"$repo_root/scripts/materialize-submission-bundle-candidate" \
+  "$case_id" \
+  "$round_id" \
+  --candidate-id "$media_candidate_id" \
+  --output inputs/demo.mp4 \
+  --generated-at 2026-05-19T12:01:30Z >/tmp/submission-bundle-media-materialize-smoke.out
+
 "$repo_root/scripts/update-current-evidence-snapshot" \
   "$case_id" \
   "$round_id" >/tmp/submission-bundle-current-evidence-smoke.out
@@ -188,11 +223,71 @@ for rel in (
 inputs = {item["path"] for item in manifest["inputs"]}
 assert "inputs/materialized-code.zip" in inputs
 assert "inputs/assignment-zadani.pdf" in inputs
+assert "inputs/demo.mp4" in inputs
 snapshot = json.loads((round_dir / "work/current_evidence_snapshot.json").read_text(encoding="utf-8"))
 snapshot_refs = {item["path"] for item in snapshot["items"]}
 assert "work/submission_bundle_inventory.json" in snapshot_refs
 assert "work/submission_bundle_materialization.json" in snapshot_refs
 assert not (round_dir / "extracted/submission_bundle").exists()
 PY
+
+cat >"$round_dir/work/evidence_requirements.json" <<'JSON'
+{
+  "schema_version": "evidence-requirements-v1",
+  "case_id": "__smoke_submission_bundle_materialization__",
+  "round_id": "20260519-smoke",
+  "generated_at": "2026-05-19T12:03:15Z",
+  "producer_type": "human",
+  "producer_role": "smoke",
+  "producer_agent": "",
+  "human_reviewer_note": "Synthetic smoke requirement for media-presence metadata only.",
+  "authorization_note": "Synthetic smoke fixture.",
+  "source_refs": [
+    "inputs/demo.mp4"
+  ],
+  "requirements": [
+    {
+      "requirement_id": "media-demo",
+      "category": "media",
+      "state": "present",
+      "request": "Synthetic demo artifact is structurally present.",
+      "evidence_refs": [
+        "inputs/demo.mp4"
+      ],
+      "requires_reviewer_verification": true
+    }
+  ],
+  "limitations": [
+    "Synthetic smoke records metadata only; media content is not semantically inspected."
+  ]
+}
+JSON
+inventory_before_media_check="$(sha256sum "$round_dir/work/submission_bundle_inventory.json" | awk '{print $1}')"
+"$repo_root/scripts/check-evidence-presence" \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-evidence-presence-smoke.out
+inventory_after_media_check="$(sha256sum "$round_dir/work/submission_bundle_inventory.json" | awk '{print $1}')"
+test "$inventory_before_media_check" = "$inventory_after_media_check"
+python3 - "$round_dir/work/media_presence_inventory.jsonl" <<'PY'
+import json
+import pathlib
+import sys
+
+records = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()]
+record = next(item for item in records if item["path"] == "inputs/demo.mp4")
+metadata = record["deterministic_metadata"]
+assert metadata["metadata_mode"] == "non_executing_structural_metadata", metadata
+assert metadata["semantic_observation"] == "not_performed", metadata
+assert metadata["execution_state"] == "not_run", metadata
+assert metadata["extension"] == ".mp4", metadata
+PY
+inventory_before_observation="$(sha256sum "$round_dir/work/submission_bundle_inventory.json" | awk '{print $1}')"
+mkdir -p "$round_dir/work/figure_media"
+cat >"$round_dir/work/figure_media/visual_inventory.jsonl" <<'JSONL'
+{"item_id":"demo-video-structural-note","type":"media","pdf_anchor":"not applicable","caption_or_nearby_claim":"Synthetic smoke demo artifact.","source_asset_path":"inputs/demo.mp4","inspection_status":"inventoried_only","visual_description":"Media content was not inspected; this is a separate observation placeholder.","limitations":"Synthetic smoke only verifies that observation artifacts stay separate from bundle inventory.","downstream_relevance":"Optional media observation artifact remains outside bundle classification."}
+JSONL
+inventory_after_observation="$(sha256sum "$round_dir/work/submission_bundle_inventory.json" | awk '{print $1}')"
+test "$inventory_before_observation" = "$inventory_after_observation"
+test -f "$round_dir/work/figure_media/visual_inventory.jsonl"
 
 echo "submission bundle materialization smoke passed"
