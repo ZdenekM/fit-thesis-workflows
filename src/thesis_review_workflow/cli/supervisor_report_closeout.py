@@ -46,7 +46,7 @@ FINAL_SNAPSHOT_REFS = (
 
 
 def current_evidence_snapshot_command(round_dir: Path, case_id: str, round_id: str) -> list[str]:
-    command = ["scripts/update-current-evidence-snapshot", "--no-known"]
+    command = ["scripts/update-current-evidence-snapshot"]
     for rel_path in FINAL_SNAPSHOT_REFS:
         if (round_dir / rel_path).exists():
             command.extend(["--source-ref", rel_path])
@@ -107,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip check-private, check-scripts, and git diff --check",
     )
+    parser.add_argument(
+        "--skip-current-evidence-refresh",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     return parser
 
 
@@ -135,13 +140,27 @@ def main(argv: list[str]) -> int:
             ["scripts/check-supervisor-report", "--require-reviewed", "--require-confirmation", args.case_id, round_id],
         )
     )
-    steps.append(
-        run_step(
-            root,
-            "Current evidence snapshot",
-            current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+    if args.skip_current_evidence_refresh:
+        steps.append(
+            Step(
+                label="Current evidence snapshot",
+                command=current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+                returncode=0,
+                output=(
+                    "skipped: review-round-closeout already refreshed current evidence with the shared known-ref "
+                    "contract before delegating to supervisor-report-closeout"
+                ),
+                required=True,
+            )
         )
-    )
+    else:
+        steps.append(
+            run_step(
+                root,
+                "Current evidence snapshot",
+                current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+            )
+        )
     steps.append(
         run_step(
             root,

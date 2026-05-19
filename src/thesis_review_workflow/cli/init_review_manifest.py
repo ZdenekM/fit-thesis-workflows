@@ -39,6 +39,7 @@ from thesis_review_workflow.review_manifest import (
     apply_artifact_dependency_refs,
     apply_artifact_registration_sidecars,
     apply_review_approval_records,
+    apply_supporting_work_dependency_refs,
     merge_supporting_work_artifacts,
 )
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
@@ -682,6 +683,7 @@ def add_artifact_refs(manifest: dict[str, Any], round_dir: Path) -> None:
             continue
         path = artifact["path"]
         artifact.setdefault("check_refs", check_refs_by_artifact.get(path, []))
+    apply_supporting_work_dependency_refs(manifest, round_dir)
     apply_artifact_dependency_refs(manifest, round_dir)
 
 

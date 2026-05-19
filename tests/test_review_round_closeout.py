@@ -146,12 +146,18 @@ def test_closeout_refreshes_common_briefing_after_effective_materiality(monkeypa
     assert [step.returncode for step in steps] == [0] * len(steps)
     assert events == [
         "Readiness gate: check-round-ready",
+        "Current evidence snapshot refresh",
         "Review manifest refresh",
         "Final materiality profile: opponent_review",
         "common_briefing",
         "role_plan",
         "review_delta",
         "Delegated profile closeout: opponent-closeout",
+    ]
+    assert dict(commands)["Current evidence snapshot refresh"] == [
+        "scripts/update-current-evidence-snapshot",
+        "case-a",
+        "round-a",
     ]
     materiality_command = dict(commands)["Final materiality profile: opponent_review"]
     assert materiality_command[:5] == [
@@ -160,4 +166,54 @@ def test_closeout_refreshes_common_briefing_after_effective_materiality(monkeypa
         "opponent_review",
         "--phase",
         "final",
+    ]
+
+
+def test_review_round_closeout_delegates_supervisor_report_after_shared_current_evidence(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    events: list[str] = []
+    commands: dict[str, list[str]] = {}
+
+    def fake_run_step(root_path: Path, label: str, command: list[str]) -> Step:
+        events.append(label)
+        commands[label] = command
+        return Step(label=label, command=command, returncode=0, output="ok")
+
+    monkeypatch.setattr(review_round_closeout, "run_step", fake_run_step)
+    monkeypatch.setattr(
+        review_round_closeout,
+        "write_common_briefing",
+        lambda *args, **kwargs: round_dir / "work/common_briefing.json",
+    )
+    monkeypatch.setattr(
+        review_round_closeout,
+        "role_plan_step",
+        lambda *args, **kwargs: Step(label="Review role plan closeout", command=None, returncode=0, output="ok"),
+    )
+    monkeypatch.setattr(
+        review_round_closeout,
+        "review_delta_step",
+        lambda *args, **kwargs: Step(label="Review delta closeout", command=None, returncode=0, output="ok"),
+    )
+
+    steps = review_round_closeout.generic_closeout_steps(
+        root,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_report",
+    )
+
+    assert [step.returncode for step in steps] == [0] * len(steps)
+    assert "Current evidence snapshot refresh" in events
+    assert commands["Delegated profile closeout: supervisor-report-closeout"] == [
+        "scripts/supervisor-report-closeout",
+        "--skip-repo-hygiene",
+        "--skip-current-evidence-refresh",
+        "case-a",
+        "round-a",
     ]

@@ -70,6 +70,77 @@ def test_refresh_round_hashes_does_not_modify_approval_records(tmp_path: Path, m
     assert approval.read_text(encoding="utf-8") == approval_before
 
 
+def test_refresh_round_hashes_updates_common_briefing_after_bundle_inventory_refresh(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    inventory = round_dir / "work" / "submission_bundle_inventory.json"
+    summary = round_dir / "work" / "submission_bundle_inventory.md"
+    inventory.parent.mkdir(parents=True)
+    inventory.write_text(
+        json.dumps(
+            {
+                "schema_version": "submission-bundle-inventory-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-19T12:00:00Z",
+                "producer": "scripts/review-round-start",
+                "limits": {},
+                "source_bundles": [],
+                "candidates": [],
+                "skipped_entries": [],
+                "summary": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    summary.write_text("# Submission Bundle Inventory\n", encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-18T10:00:00Z", round_dir)
+    inventory.write_text(
+        json.dumps(
+            {
+                "schema_version": "submission-bundle-inventory-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-19T12:01:00Z",
+                "producer": "scripts/review-round-start",
+                "limits": {},
+                "source_bundles": [],
+                "candidates": [
+                    {
+                        "candidate_id": "sb-readme",
+                        "candidate_ref": "inputs/submission.zip!README.md",
+                        "artifact_class": "readme_candidate",
+                        "state": "materialize_candidate",
+                    }
+                ],
+                "skipped_entries": [],
+                "summary": {},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    stale_errors = validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a")
+    assert any("sha256 is stale for work/submission_bundle_inventory.json" in error for error in stale_errors)
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    assert validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a") == []
+
+
 def test_refresh_round_hashes_refuses_to_bless_changed_review_outputs(tmp_path: Path, monkeypatch, capsys) -> None:
     root, round_dir = make_round(tmp_path)
     monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)

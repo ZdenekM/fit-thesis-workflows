@@ -858,8 +858,10 @@ def _artifact_stale_reasons(round_dir: Path, artifact_path: str) -> list[str]:
     reasons: list[str] = []
     manifest, _ = load_json_object(round_dir / REVIEW_MANIFEST_REL)
     if manifest is not None:
-        artifacts = manifest.get("artifacts")
-        if isinstance(artifacts, list):
+        for collection in ("artifacts", "supporting_work_artifacts"):
+            artifacts = manifest.get(collection)
+            if not isinstance(artifacts, list):
+                continue
             for artifact in artifacts:
                 if not isinstance(artifact, dict) or artifact.get("path") != artifact_path:
                     continue

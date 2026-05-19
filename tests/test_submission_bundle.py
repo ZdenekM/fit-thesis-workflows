@@ -508,7 +508,7 @@ def test_inventory_records_unsupported_archives_and_utf8_names(tmp_path: Path) -
     assert any("odevzdání/zdrojový kód.zip" in item["candidate_ref"] for item in payload["candidates"])
 
 
-def test_directory_bundle_inventory_stays_diagnostic_until_manifest_slice(tmp_path: Path) -> None:
+def test_directory_bundle_inventory_is_registered_as_supporting_work_after_manifest_slice(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     bundle_dir = round_dir / "inputs" / "bundle dir"
     (bundle_dir / "src").mkdir(parents=True)
@@ -524,10 +524,13 @@ def test_directory_bundle_inventory_stays_diagnostic_until_manifest_slice(tmp_pa
     )
     write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
     records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
 
     assert candidate_by_class(payload, "readme_candidate")
     assert candidate_by_class(payload, "first_party_candidate")
-    assert "work/submission_bundle_inventory.json" not in {record["path"] for record in records}
+    assert by_path["work/submission_bundle_inventory.json"]["schema_version"] == "submission-bundle-inventory-v1"
+    assert by_path["work/submission_bundle_inventory.json"]["producer"] == "scripts/inventory-submission-bundle"
+    assert by_path["work/submission_bundle_inventory.md"]["kind"] == "text"
     assert (round_dir / "work/submission_bundle_inventory.json").is_file()
     assert (round_dir / "work/submission_bundle_inventory.md").is_file()
     assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
@@ -580,6 +583,22 @@ def test_materialize_selected_nested_code_archive_records_manifest(tmp_path: Pat
     assert record["source_member_sha256"] == record["materialized_sha256"]
     assert record["size_bytes"] == result.materialized_path.stat().st_size
     assert isinstance(record["reason_codes"], list)
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {item["path"]: item for item in records}
+    assert (
+        by_path["work/submission_bundle_materialization.json"]["schema_version"]
+        == "submission-bundle-materialization-v1"
+    )
+    assert by_path["work/submission_bundle_materialization.json"]["producer"] == (
+        "scripts/materialize-submission-bundle-candidate"
+    )
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+    result.materialized_path.write_bytes(b"tampered\n")
+    assert any(
+        "materialized_sha256 does not match current file" in error
+        for error in validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+    )
+    result.materialized_path.write_bytes(code_archive)
 
     reused = materialize_submission_bundle_candidate(
         case_id="case-a",

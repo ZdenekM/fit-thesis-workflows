@@ -540,6 +540,8 @@ Vyznačení podobností
 report_pdf = round_dir / THESES_SIMILARITY_REPORT_REL
 report_pdf.parent.mkdir(parents=True, exist_ok=True)
 report_pdf.write_bytes(b"%PDF synthetic similarity report\n")
+source_bundle = round_dir / "inputs/submission.zip"
+source_bundle.write_bytes(b"synthetic parent bundle placeholder\n")
 extracted = round_dir / THESES_SIMILARITY_EXTRACTED_TEXT_REL
 extracted.parent.mkdir(parents=True, exist_ok=True)
 extracted.write_text(report_text, encoding="utf-8")
@@ -591,44 +593,64 @@ write_json(
         "limitations": [],
     },
 )
+write_json(
+    "work/submission_bundle_materialization.json",
+    {
+        "schema_version": "submission-bundle-materialization-v1",
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": "2026-05-12T00:03:30Z",
+        "producer": "scripts/materialize-submission-bundle-candidate",
+        "materializations": [
+            {
+                "candidate_id": "sb-similarity-report",
+                "source_bundle_ref": "inputs/submission.zip",
+                "source_bundle_sha256": sha(source_bundle),
+                "nested_path_chain": ["handoff/theses-report.pdf"],
+                "source_candidate_ref": "inputs/submission.zip!handoff/theses-report.pdf",
+                "source_member_sha256": sha(report_pdf),
+                "artifact_class": "pdf_artifact",
+                "action": "materialized",
+                "materialized_ref": THESES_SIMILARITY_REPORT_REL,
+                "materialized_sha256": sha(report_pdf),
+                "selected_at": "2026-05-12T00:03:30Z",
+            }
+        ],
+    },
+)
 PY
 expect_success "refresh manifest with similarity evidence" "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
-python3 - "$round_dir" <<'PY'
-import hashlib
-import json
-import pathlib
-import sys
-
-round_dir = pathlib.Path(sys.argv[1])
-manifest_path = round_dir / "work/review_manifest.json"
-manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-assessment_rel = "work/theses_similarity/assessment.json"
-assessment_hash = hashlib.sha256((round_dir / assessment_rel).read_bytes()).hexdigest()
-for artifact in manifest.get("supporting_work_artifacts", []):
-    if artifact.get("path") != assessment_rel:
-        continue
-    artifact["skills"] = ["thesis-theses-similarity-review"]
-    artifact["review_scope"] = "covered_by_synthesis"
-    artifact["independent_review"] = {
-        "status": "not_required",
-        "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
-        "used_findings": "silent_internal_evidence:no_material_concern",
-        "evidence_hash": assessment_hash,
-    }
-    break
-else:
-    raise AssertionError(f"missing manifest record for {assessment_rel}")
-manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
-PY
+expect_success "register silent similarity coverage" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" work/theses_similarity/assessment.json \
+  --role thesis-theses-similarity-review \
+  --agent supervisor-report-smoke-similarity-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --feeds outputs/vedouci_posudek_revidovany.md \
+  --input-ref inputs/theses_similarity/report.pdf \
+  --used-findings "silent_internal_evidence:no_material_concern" \
+  --limitation "Synthetic no-concern similarity evidence covered by reviewed supervisor report."
+expect_success "refresh manifest after registered silent similarity coverage" \
+  "$repo_root/scripts/init-review-manifest" "$case_id" "$round_id"
 expect_success "supervisor report materiality after silent similarity" \
   "$repo_root/scripts/check-review-materiality" --workflow supervisor_report --phase final "$case_id" "$round_id"
 python3 - "$round_dir" <<'PY'
+import hashlib
 import json
 import pathlib
 import re
 import sys
 
 round_dir = pathlib.Path(sys.argv[1])
+manifest = json.loads((round_dir / "work/review_manifest.json").read_text(encoding="utf-8"))
+assessment = next(
+    item
+    for item in manifest["supporting_work_artifacts"]
+    if item.get("path") == "work/theses_similarity/assessment.json"
+)
+materialization_rel = "work/submission_bundle_materialization.json"
+assert materialization_rel in assessment["evidence_refs"], assessment
+assert assessment["source_sha256"][materialization_rel] == hashlib.sha256((round_dir / materialization_rel).read_bytes()).hexdigest()
 index = json.loads((round_dir / "work/review_materiality/supervisor_report/index.json").read_text(encoding="utf-8"))
 theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
 assert theses["coverage_satisfied_by"] == "silent_internal_evidence", theses

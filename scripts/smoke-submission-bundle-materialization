@@ -137,6 +137,26 @@ PY
 
 test -f "$round_dir/inputs/assignment-zadani.pdf"
 
+"$repo_root/scripts/update-current-evidence-snapshot" \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-current-evidence-smoke.out
+"$repo_root/scripts/refresh-round-hashes" \
+  --generated-at 2026-05-19T12:02:00Z \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-refresh-smoke.out
+"$repo_root/scripts/prepare-review-round" \
+  "$case_id" \
+  "$round_id" \
+  --skip-materiality-check >/tmp/submission-bundle-reprepare-review-smoke.out
+"$repo_root/scripts/init-review-manifest" \
+  --run-checks \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-manifest-smoke.out
+"$repo_root/scripts/check-review-manifest" \
+  --require-complete \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-check-manifest-smoke.out
+
 python3 - "$round_dir/work/submission_bundle_materialization.json" <<'PY'
 import json
 import sys
@@ -146,6 +166,33 @@ records = {record["materialized_ref"]: record for record in payload["materializa
 assert records["inputs/materialized-code.zip"]["source_bundle_ref"] == "inputs/submission.zip"
 assert records["inputs/materialized-code.zip"]["nested_path_chain"] == ["handoff/code.zip"]
 assert records["inputs/assignment-zadani.pdf"]["nested_path_chain"] == ["handoff/assignment-zadani.pdf"]
+PY
+
+python3 - "$round_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+round_dir = pathlib.Path(sys.argv[1])
+manifest = json.loads((round_dir / "work/review_manifest.json").read_text(encoding="utf-8"))
+support = {item["path"]: item for item in manifest["supporting_work_artifacts"]}
+for rel in (
+    "work/submission_bundle_inventory.json",
+    "work/submission_bundle_inventory.md",
+    "work/submission_bundle_materialization.json",
+):
+    assert rel in support, rel
+    digest = hashlib.sha256((round_dir / rel).read_bytes()).hexdigest()
+    assert support[rel]["artifact_sha256"] == digest, rel
+inputs = {item["path"] for item in manifest["inputs"]}
+assert "inputs/materialized-code.zip" in inputs
+assert "inputs/assignment-zadani.pdf" in inputs
+snapshot = json.loads((round_dir / "work/current_evidence_snapshot.json").read_text(encoding="utf-8"))
+snapshot_refs = {item["path"] for item in snapshot["items"]}
+assert "work/submission_bundle_inventory.json" in snapshot_refs
+assert "work/submission_bundle_materialization.json" in snapshot_refs
+assert not (round_dir / "extracted/submission_bundle").exists()
 PY
 
 echo "submission bundle materialization smoke passed"

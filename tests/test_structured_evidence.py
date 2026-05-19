@@ -14,6 +14,7 @@ from thesis_review_workflow.structured_evidence import (
     current_evidence_default_source_refs,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
 
 
 def write_json(path: Path, value: object) -> None:
@@ -487,12 +488,16 @@ def test_current_evidence_default_source_refs_expands_review_records(tmp_path: P
     write_text(round_dir, "work/review_manifest.json", "{}\n")
     write_text(round_dir, "work/agent_coverage.json", "{}\n")
     write_text(round_dir, "work/reviews/supervisor_feedback_review.json", "{}\n")
+    for ref in SUBMISSION_BUNDLE_VISIBILITY_REFS:
+        write_text(round_dir, ref, "bundle visibility fixture\n")
 
     refs = current_evidence_default_source_refs(round_dir)
 
     assert "work/review_manifest.json" not in refs
     assert "work/agent_coverage.json" not in refs
     assert "work/reviews/supervisor_feedback_review.json" in refs
+    for ref in SUBMISSION_BUNDLE_VISIBILITY_REFS:
+        assert ref in refs
     assert "outputs/github_code_intake.md" not in refs
 
 

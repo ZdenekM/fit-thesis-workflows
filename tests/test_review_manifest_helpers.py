@@ -24,6 +24,7 @@ from thesis_review_workflow.review_manifest import (
     apply_artifact_dependency_refs,
     apply_artifact_registration_sidecars,
     apply_review_approval_records,
+    apply_supporting_work_dependency_refs,
     ensure_manifest,
     merge_supporting_work_artifacts,
     output_defaults,
@@ -2589,6 +2590,209 @@ def test_final_artifact_packet_dependencies_are_handoff_refs_not_semantic_source
     assert "work/supervisor_packets/code_quality.md" not in artifact["evidence_refs"]
     assert "work/common_briefing.json" not in artifact.get("source_sha256", {})
     assert "work/supervisor_packets/code_quality.md" not in artifact.get("source_sha256", {})
+
+
+def test_bundle_materialization_manifest_becomes_source_for_registered_materialized_input(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "code_quality_review.md"
+    materialized_input = round_dir / "inputs" / "materialized-code.zip"
+    materialization = round_dir / "work" / "submission_bundle_materialization.json"
+    output.parent.mkdir(parents=True)
+    materialized_input.parent.mkdir(parents=True)
+    materialization.parent.mkdir(parents=True)
+    output.write_text("# Code Quality\n", encoding="utf-8")
+    materialized_input.write_bytes(b"synthetic code archive\n")
+    materialization.write_text(
+        json.dumps(
+            {
+                "schema_version": "submission-bundle-materialization-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-19T12:00:00Z",
+                "producer": "scripts/materialize-submission-bundle-candidate",
+                "materializations": [
+                    {
+                        "candidate_id": "sb-code",
+                        "source_bundle_ref": "inputs/submission.zip",
+                        "nested_path_chain": ["handoff/code.zip"],
+                        "materialized_ref": "inputs/materialized-code.zip",
+                        "artifact_class": "code_archive_candidate",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "supporting_work_artifacts": [{"path": "work/submission_bundle_materialization.json"}],
+        "artifacts": [
+            {
+                "path": "outputs/code_quality_review.md",
+                "artifact_type": "code_quality",
+                "artifact_sha256": sha256_file(output),
+                "review_scope": "internal_only",
+                "skills": ["thesis-code-quality-review"],
+                "generated_by": [],
+                "independent_review": {"status": "not_recorded"},
+                "helper_checks": [],
+                "limitations": [],
+                "dependency_refs_source": "registered",
+                "input_refs": ["inputs/materialized-code.zip"],
+                "evidence_refs": [],
+            }
+        ],
+    }
+
+    apply_artifact_dependency_refs(manifest, round_dir)
+
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact = artifacts[0]
+    assert isinstance(artifact, dict)
+    assert "work/submission_bundle_materialization.json" in artifact["evidence_refs"]
+    assert artifact["source_sha256"]["inputs/materialized-code.zip"] == sha256_file(materialized_input)
+    assert artifact["source_sha256"]["work/submission_bundle_materialization.json"] == sha256_file(materialization)
+
+
+def test_bundle_materialization_manifest_becomes_source_for_registered_code_workspace_dependency(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "code_quality_review.md"
+    workspace_summary = round_dir / "work" / "code_workspace.md"
+    workspace_manifest = round_dir / "work" / "code" / ".prepare-code-workspace-manifest.json"
+    materialization = round_dir / "work" / "submission_bundle_materialization.json"
+    output.parent.mkdir(parents=True)
+    workspace_manifest.parent.mkdir(parents=True)
+    output.write_text("# Code Quality\n", encoding="utf-8")
+    workspace_summary.write_text("# Code workspace\n", encoding="utf-8")
+    workspace_manifest.write_text(
+        json.dumps(
+            {
+                "schema": "prepare-code-workspace-manifest-v1",
+                "sources": {
+                    "inputs/materialized-code.zip": {
+                        "target": "work/code/materialized-code",
+                        "fingerprint": "synthetic-fingerprint",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    materialization.write_text(
+        json.dumps(
+            {
+                "schema_version": "submission-bundle-materialization-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-19T12:00:00Z",
+                "producer": "scripts/materialize-submission-bundle-candidate",
+                "materializations": [{"materialized_ref": "inputs/materialized-code.zip"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "supporting_work_artifacts": [
+            {"path": "work/code_workspace.md"},
+            {"path": "work/submission_bundle_materialization.json"},
+        ],
+        "artifacts": [
+            {
+                "path": "outputs/code_quality_review.md",
+                "artifact_type": "code_quality",
+                "artifact_sha256": sha256_file(output),
+                "review_scope": "internal_only",
+                "skills": ["thesis-code-quality-review"],
+                "generated_by": [],
+                "independent_review": {"status": "not_recorded"},
+                "helper_checks": [],
+                "limitations": [],
+                "dependency_refs_source": "registered",
+                "input_refs": [],
+                "evidence_refs": ["work/code_workspace.md"],
+            }
+        ],
+    }
+
+    apply_artifact_dependency_refs(manifest, round_dir)
+
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact = artifacts[0]
+    assert isinstance(artifact, dict)
+    assert "work/submission_bundle_materialization.json" in artifact["evidence_refs"]
+    assert artifact["source_sha256"]["work/code_workspace.md"] == sha256_file(workspace_summary)
+    assert artifact["source_sha256"]["work/submission_bundle_materialization.json"] == sha256_file(materialization)
+
+
+def test_bundle_materialization_manifest_becomes_source_for_registered_supporting_work(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    supporting = round_dir / "work" / "theses_similarity" / "assessment.json"
+    materialized_input = round_dir / "inputs" / "theses-report.pdf"
+    materialization = round_dir / "work" / "submission_bundle_materialization.json"
+    supporting.parent.mkdir(parents=True)
+    materialized_input.parent.mkdir(parents=True)
+    supporting.write_text('{"schema_version":"theses-similarity-assessment-v1"}\n', encoding="utf-8")
+    materialized_input.write_bytes(b"%PDF synthetic\n")
+    materialization.write_text(
+        json.dumps(
+            {
+                "schema_version": "submission-bundle-materialization-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-05-19T12:00:00Z",
+                "producer": "scripts/materialize-submission-bundle-candidate",
+                "materializations": [
+                    {
+                        "candidate_id": "sb-report",
+                        "source_bundle_ref": "inputs/submission.zip",
+                        "nested_path_chain": ["handoff/theses-report.pdf"],
+                        "materialized_ref": "inputs/theses-report.pdf",
+                        "artifact_class": "pdf_artifact",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "supporting_work_artifacts": [
+            {
+                "path": "work/theses_similarity/assessment.json",
+                "kind": "structured_data",
+                "artifact_sha256": sha256_file(supporting),
+                "review_scope": "covered_by_synthesis",
+                "input_refs": ["inputs/theses-report.pdf"],
+                "independent_review": {
+                    "status": "not_required",
+                    "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                    "used_findings": "silent_internal_evidence:no_material_concern",
+                    "evidence_hash": sha256_file(supporting),
+                },
+            },
+            {"path": "work/submission_bundle_materialization.json"},
+        ]
+    }
+
+    apply_supporting_work_dependency_refs(manifest, round_dir)
+
+    records = manifest["supporting_work_artifacts"]
+    assert isinstance(records, list)
+    record = records[0]
+    assert isinstance(record, dict)
+    assert "work/submission_bundle_materialization.json" in record["evidence_refs"]
+    assert record["source_sha256"]["inputs/theses-report.pdf"] == sha256_file(materialized_input)
+    assert record["source_sha256"]["work/submission_bundle_materialization.json"] == sha256_file(materialization)
 
 
 def test_opponent_report_review_packet_dependencies_are_handoff_refs(tmp_path: Path) -> None:

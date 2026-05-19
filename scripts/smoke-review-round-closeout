@@ -25,13 +25,21 @@ expect_success() {
   fi
 }
 
-mkdir -p "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
+mkdir -p "$round_dir/inputs" "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
 cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
 Work type: BP
 Academic year: 2025/2026
 Student feedback language: cs
 Reviewer profile: default
 EOF
+
+python3 - "$round_dir/inputs/submission.zip" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1], "w") as handle:
+    handle.writestr("handoff/README.md", "# Synthetic submitted bundle\n")
+PY
 echo "$round_id" >"$repo_root/cases/$case_id/current-round.txt"
 
 cat >"$round_dir/notes/assignment.md" <<'EOF'
@@ -136,13 +144,37 @@ expect_success "current evidence snapshot" "$repo_root/scripts/update-current-ev
 
 expect_success "start review round trace" "$repo_root/scripts/review-round-start" \
   --profile supervisor_feedback \
-  --dry-run \
+  --submission-bundle inputs/submission.zip \
+  --bundle-classification container_bundle \
+  --bundle-child inputs/materialized-readme.md \
   "$case_id" "$round_id"
+
+candidate_id="$(
+  python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'
+import json
+import sys
+
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+for candidate in payload["candidates"]:
+    if candidate["artifact_class"] == "readme_candidate":
+        print(candidate["candidate_id"])
+        break
+else:
+    raise SystemExit("missing readme candidate")
+PY
+)"
 
 expect_success "prepare role plan" "$repo_root/scripts/prepare-review-round" \
   --profile supervisor_feedback \
   --skip-ready-check \
   "$case_id" "$round_id"
+
+expect_success "materialize nested readme after role plan" \
+  "$repo_root/scripts/materialize-submission-bundle-candidate" \
+  "$case_id" "$round_id" \
+  --candidate-id "$candidate_id" \
+  --output inputs/materialized-readme.md \
+  --generated-at 2026-05-19T12:00:00Z
 
 cat >"$round_dir/work/supervisor_packets/text_assignment_findings.md" <<'EOF'
 # Text Assignment Findings
@@ -176,6 +208,7 @@ trace = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 plan = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
 assert trace["schema_version"] == "review-run-trace-v1", trace
 assert any(item["phase"] == "closeout" and item["status"] == "passed" for item in trace["events"]), trace
+assert (pathlib.Path(sys.argv[1]).parent / "submission_bundle_materialization.json").is_file()
 assert plan["schema_version"] == "review-role-plan-v1", plan
 roles = {item["role"]: item for item in plan["role_states"]}
 assert roles["final_review"]["coverage_role"] == "supervisor_feedback_review", roles["final_review"]

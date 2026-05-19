@@ -49,6 +49,14 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     validate_review_run_trace_payload,
 )
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
+from thesis_review_workflow.submission_bundle import (
+    SUBMISSION_BUNDLE_INVENTORY_REL,
+    SUBMISSION_BUNDLE_INVENTORY_SCHEMA,
+    SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
+    SUBMISSION_BUNDLE_MATERIALIZATION_REL,
+    SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA,
+    validate_submission_bundle_materialization_payload,
+)
 from thesis_review_workflow.submitted_report_deltas import (
     is_submitted_report_delta_artifact,
     validate_opponent_submitted_report_deltas,
@@ -87,6 +95,8 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     CLAIM_REVIEW_BASIS_REL: {CLAIM_REVIEW_BASIS_SCHEMA},
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
+    SUBMISSION_BUNDLE_INVENTORY_REL: {SUBMISSION_BUNDLE_INVENTORY_SCHEMA},
+    SUBMISSION_BUNDLE_MATERIALIZATION_REL: {SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA},
 }
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
@@ -113,6 +123,8 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     COMMON_BRIEFING_REL: {"common_inputs": list, "context_handoffs": list},
     EVIDENCE_CAPSULES_REL: {"capsules": list},
     CLAIM_REVIEW_BASIS_REL: {"claims": list},
+    SUBMISSION_BUNDLE_INVENTORY_REL: {"source_bundles": list, "candidates": list, "skipped_entries": list},
+    SUBMISSION_BUNDLE_MATERIALIZATION_REL: {"materializations": list},
     THESES_SIMILARITY_INTAKE_REL: {
         "report_pdf": dict,
         "extracted_text": dict,
@@ -143,6 +155,9 @@ EXPLICIT_WORK_ARTIFACTS = (
     COMMON_BRIEFING_REL,
     EVIDENCE_CAPSULES_REL,
     CLAIM_REVIEW_BASIS_REL,
+    SUBMISSION_BUNDLE_INVENTORY_REL,
+    SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
+    SUBMISSION_BUNDLE_MATERIALIZATION_REL,
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",
@@ -249,6 +264,7 @@ def json_producer_fields(path: Path) -> dict[str, str]:
         return {}
     fields: dict[str, str] = {}
     for source, target in (
+        ("producer", "producer"),
         ("producer_role", "producer_role"),
         ("producer_agent", "producer_agent"),
         ("producer_type", "producer_type"),
@@ -504,6 +520,16 @@ def validate_json_work_artifact(
     elif rel_path == SOURCE_ACQUISITION_REL:
         errors.extend(
             validate_source_acquisition_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == SUBMISSION_BUNDLE_MATERIALIZATION_REL:
+        errors.extend(
+            validate_submission_bundle_materialization_payload(
                 loaded,
                 rel_path,
                 round_dir=round_dir,

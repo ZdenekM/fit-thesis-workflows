@@ -87,6 +87,7 @@ def write_reviewed_supervisor_report_manifest(
     supporting_path: str,
     supporting_hash: str,
     used_findings: str,
+    supporting_source_sha256: dict[str, str] | None = None,
 ) -> None:
     final = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
     final.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +115,7 @@ def write_reviewed_supervisor_report_manifest(
                         "used_findings": used_findings,
                         "evidence_hash": supporting_hash,
                     },
+                    **({"source_sha256": supporting_source_sha256} if supporting_source_sha256 else {}),
                 }
             ],
             "artifacts": [
@@ -935,6 +937,54 @@ def test_final_supervisor_report_quantitative_handoff_requires_review_or_synthes
     )
     assert errors == []
     assert unresolved == []
+
+
+def test_final_supervisor_report_quantitative_synthesis_coverage_tracks_supporting_source_hashes(
+    tmp_path: Path,
+) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    source = round_dir / "inputs" / "results.csv"
+    source.write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / "work" / "quantitative_claims.json", quantitative_claims_payload())
+    quantitative_path = round_dir / "work" / "quantitative_claims.json"
+    write_reviewed_supervisor_report_manifest(
+        round_dir,
+        supporting_path="work/quantitative_claims.json",
+        supporting_hash=sha256_file(quantitative_path),
+        used_findings="quantitative_claims:covered_by_reviewed_supervisor_report",
+        supporting_source_sha256={"inputs/results.csv": sha256_file(source)},
+    )
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+    )
+    assert errors == []
+
+    source.write_text("metric,value\nlatency,99\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase=phase,
+        generated_at="2026-05-11T00:01:00Z",
+    )
+
+    index = json.loads(
+        (round_dir / "work" / "review_materiality" / "supervisor_report" / "index.json").read_text(encoding="utf-8")
+    )
+    quantitative = next(item for item in index["decisions"] if item["role"] == "quantitative_claims")
+    assert quantitative["fresh_review_required"] is True
+    assert quantitative["coverage_satisfied_by"] == "not_satisfied"
+    assert [item["role"] for item in index["next_actions"]] == ["quantitative_claims"]
+    assert any(
+        "manifest source hash is stale for inputs/results.csv" in item
+        for item in index["next_actions"][0]["limitations"]
+    )
 
 
 def test_materiality_index_rejects_missing_source_hash_for_material_decision(tmp_path: Path) -> None:

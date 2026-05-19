@@ -1047,6 +1047,100 @@ def load_optional_materialization_manifest(round_dir: Path) -> tuple[dict[str, A
     return loaded, None
 
 
+def _validate_sha256_file_field(
+    *,
+    payload: dict[str, Any],
+    field: str,
+    path: Path,
+    prefix: str,
+    errors: list[str],
+) -> str | None:
+    value = payload.get(field)
+    if not isinstance(value, str) or not value:
+        errors.append(f"{prefix}: {field} must be a non-empty sha256 string")
+        return None
+    if path.is_file() and sha256_file(path) != value:
+        errors.append(f"{prefix}: {field} does not match current file")
+    return value
+
+
+def validate_submission_bundle_materialization_payload(
+    payload: dict[str, Any],
+    rel_path: str,
+    *,
+    round_dir: Path,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if payload.get("schema_version") != SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA:
+        errors.append(f"{rel_path}: schema_version must be {SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA}")
+    if case_id is not None and payload.get("case_id") != case_id:
+        errors.append(f"{rel_path}: case_id does not match requested case")
+    if round_id is not None and payload.get("round_id") != round_id:
+        errors.append(f"{rel_path}: round_id does not match requested round")
+    records = payload.get("materializations")
+    if not isinstance(records, list):
+        errors.append(f"{rel_path}: materializations must be a list")
+        return errors
+    for index, record in enumerate(records, start=1):
+        prefix = f"{rel_path}: materializations item {index}"
+        if not isinstance(record, dict):
+            errors.append(f"{prefix}: must be an object")
+            continue
+        materialized_ref = record.get("materialized_ref")
+        if not isinstance(materialized_ref, str) or not is_safe_round_relative_path(materialized_ref):
+            errors.append(f"{prefix}: materialized_ref must be a safe round-relative path")
+            continue
+        materialized_path = round_dir / materialized_ref
+        if not materialized_path.is_file():
+            errors.append(f"{prefix}: materialized_ref does not exist: {materialized_ref}")
+        materialized_sha = _validate_sha256_file_field(
+            payload=record,
+            field="materialized_sha256",
+            path=materialized_path,
+            prefix=prefix,
+            errors=errors,
+        )
+        source_member_sha = record.get("source_member_sha256")
+        if (
+            isinstance(source_member_sha, str)
+            and materialized_sha is not None
+            and source_member_sha != materialized_sha
+        ):
+            errors.append(f"{prefix}: source_member_sha256 must match materialized_sha256")
+        source_bundle_ref = record.get("source_bundle_ref")
+        if not isinstance(source_bundle_ref, str) or not is_safe_round_relative_path(source_bundle_ref):
+            errors.append(f"{prefix}: source_bundle_ref must be a safe round-relative path")
+        else:
+            _validate_sha256_file_field(
+                payload=record,
+                field="source_bundle_sha256",
+                path=round_dir / source_bundle_ref,
+                prefix=prefix,
+                errors=errors,
+            )
+        source_inventory_ref = record.get("source_inventory_ref")
+        if source_inventory_ref is not None:
+            if not isinstance(source_inventory_ref, str) or not is_safe_round_relative_path(source_inventory_ref):
+                errors.append(f"{prefix}: source_inventory_ref must be a safe round-relative path")
+            else:
+                _validate_sha256_file_field(
+                    payload=record,
+                    field="source_inventory_sha256",
+                    path=round_dir / source_inventory_ref,
+                    prefix=prefix,
+                    errors=errors,
+                )
+        for field_name in ("candidate_id", "artifact_class", "action", "selected_at"):
+            if not isinstance(record.get(field_name), str) or not str(record.get(field_name)).strip():
+                errors.append(f"{prefix}: {field_name} must be a non-empty string")
+        nested_path_chain = record.get("nested_path_chain")
+        if not isinstance(nested_path_chain, list) or not all(isinstance(item, str) for item in nested_path_chain):
+            errors.append(f"{prefix}: nested_path_chain must be a list of strings")
+    return errors
+
+
 def _count_by(items: Iterable[dict[str, Any]], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
@@ -1580,10 +1674,16 @@ def materialize_submission_bundle_candidate(
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_bytes(data)
 
+    candidate["materialized_ref"] = target_ref
+    inventory_path = round_dir / SUBMISSION_BUNDLE_INVENTORY_REL
+    write_submission_bundle_inventory(round_dir=round_dir, payload=inventory)
     manifest_path = round_dir / SUBMISSION_BUNDLE_MATERIALIZATION_REL
     manifest = load_materialization_manifest(manifest_path, case_id=case_id, round_id=round_id)
     materializations = manifest["materializations"]
-    inventory_path = round_dir / SUBMISSION_BUNDLE_INVENTORY_REL
+    current_inventory_sha256 = sha256_file(inventory_path)
+    for item in materializations:
+        if isinstance(item, dict) and item.get("source_inventory_ref") == SUBMISSION_BUNDLE_INVENTORY_REL:
+            item["source_inventory_sha256"] = current_inventory_sha256
     record = {
         "candidate_id": candidate_id,
         "source_bundle_ref": source_ref,
@@ -1601,7 +1701,7 @@ def materialize_submission_bundle_candidate(
         "selected_at": generated_at or now_utc(),
         "producer": producer,
         "source_inventory_ref": SUBMISSION_BUNDLE_INVENTORY_REL,
-        "source_inventory_sha256": sha256_file(inventory_path),
+        "source_inventory_sha256": current_inventory_sha256,
     }
     materializations[:] = [
         item
@@ -1613,8 +1713,6 @@ def materialize_submission_bundle_candidate(
     materializations.append(record)
     manifest["generated_at"] = generated_at or now_utc()
     write_materialization_manifest(manifest_path, manifest)
-    candidate["materialized_ref"] = target_ref
-    write_submission_bundle_inventory(round_dir=round_dir, payload=inventory)
     return MaterializedCandidate(
         candidate=candidate,
         materialized_ref=target_ref,

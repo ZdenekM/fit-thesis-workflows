@@ -9,6 +9,7 @@ from typing import Any
 
 from thesis_review_workflow.artifact_validation import sha256_file, validate_common_artifact_fields
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
 from thesis_review_workflow.theses_similarity import (
     CURRENT_SUBMISSION_MATCH_STATUSES,
     SIMILARITY_CONFIDENCE_VALUES,
@@ -97,6 +98,7 @@ SUPERVISOR_REPORT_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing
 CURRENT_EVIDENCE_ITEM_STATUSES = {"present", "missing", "invalid", "unavailable", "not_applicable"}
 CURRENT_EVIDENCE_FRESHNESS_STATUSES = {"current", "stale", "not_checked", "not_applicable"}
 CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
+    *SUBMISSION_BUNDLE_VISIBILITY_REFS,
     "work/code_workspace.md",
     "work/serena_roots.json",
     "work/code_reproducibility.json",

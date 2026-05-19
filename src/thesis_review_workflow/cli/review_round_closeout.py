@@ -209,6 +209,13 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
     for gate in profile.readiness_gates:
         steps.append(run_step(root, f"Readiness gate: {gate}", split_gate(gate, case_id, round_id)))
     steps.append(
+        run_step(
+            root,
+            "Current evidence snapshot refresh",
+            ["scripts/update-current-evidence-snapshot", case_id, round_id],
+        )
+    )
+    steps.append(
         run_step(root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", case_id, round_id])
     )
     if profile.effective_materiality_profile:
@@ -235,11 +242,14 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
 
     delegated = DELEGATED_CLOSEOUT_COMMANDS.get(profile_id)
     if delegated:
+        delegated_command = [f"scripts/{delegated}", "--skip-repo-hygiene", case_id, round_id]
+        if delegated == "supervisor-report-closeout":
+            delegated_command.insert(2, "--skip-current-evidence-refresh")
         steps.append(
             run_step(
                 root,
                 f"Delegated profile closeout: {delegated}",
-                [f"scripts/{delegated}", "--skip-repo-hygiene", case_id, round_id],
+                delegated_command,
             )
         )
         return steps

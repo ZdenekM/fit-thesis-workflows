@@ -21,6 +21,7 @@ from thesis_review_workflow.review_approvals import (
     validate_review_approval_with_manifest,
 )
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
+from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_MATERIALIZATION_REL
 from thesis_review_workflow.work_artifacts import artifact_kind, sha256_file
 
 MANIFEST_REL = Path("work/review_manifest.json")
@@ -402,6 +403,63 @@ def reuse_index_dependency_refs(round_dir: Path, artifact_type: str) -> tuple[li
     return [], []
 
 
+def submission_bundle_materialized_refs(round_dir: Path) -> set[str]:
+    path = round_dir / SUBMISSION_BUNDLE_MATERIALIZATION_REL
+    if not path.is_file():
+        return set()
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    if not isinstance(loaded, dict) or not isinstance(loaded.get("materializations"), list):
+        return set()
+    refs: set[str] = set()
+    for item in loaded["materializations"]:
+        if not isinstance(item, dict):
+            continue
+        ref = item.get("materialized_ref")
+        if isinstance(ref, str) and ref.startswith("inputs/") and is_safe_round_relative_path(ref):
+            refs.add(ref)
+    return refs
+
+
+def prepared_code_refs_from_sources(round_dir: Path, source_refs: set[str]) -> set[str]:
+    manifest = load_round_json(round_dir, "work/code/.prepare-code-workspace-manifest.json")
+    if manifest is None:
+        return set()
+    sources = manifest.get("sources")
+    if not isinstance(sources, dict):
+        return set()
+    refs: set[str] = set()
+    for source_ref, source in sources.items():
+        if not isinstance(source_ref, str) or source_ref not in source_refs or not isinstance(source, dict):
+            continue
+        refs.add(source_ref)
+        target = source.get("target")
+        if isinstance(target, str) and is_safe_round_relative_path(target):
+            refs.add(target)
+    return refs
+
+
+def submission_bundle_materialization_dependency_refs(round_dir: Path, refs: list[str]) -> list[str]:
+    materialized_refs = submission_bundle_materialized_refs(round_dir)
+    if not materialized_refs or not (round_dir / SUBMISSION_BUNDLE_MATERIALIZATION_REL).is_file():
+        return []
+    ref_set = {ref for ref in refs if isinstance(ref, str)}
+    if ref_set & materialized_refs:
+        return [SUBMISSION_BUNDLE_MATERIALIZATION_REL]
+    code_workspace_refs = {
+        "work/code_workspace.md",
+        "work/serena_roots.json",
+        "work/code/.prepare-code-workspace-manifest.json",
+        "work/code_reproducibility.json",
+    }
+    prepared_refs = prepared_code_refs_from_sources(round_dir, materialized_refs)
+    if ref_set & (code_workspace_refs | prepared_refs):
+        return [SUBMISSION_BUNDLE_MATERIALIZATION_REL]
+    return []
+
+
 def packet_dependency_refs(round_dir: Path, artifact_type: str) -> list[str]:
     packet_dirs = {
         "supervisor_feedback": "work/supervisor_packets",
@@ -435,6 +493,10 @@ def artifact_dependency_refs(
     input_refs: list[str] = []
     evidence_refs: list[str] = []
     handoff_refs: list[str] = []
+    if artifact.get("dependency_refs_source") == REGISTERED_DEPENDENCY_REFS_SOURCE:
+        input_refs.extend(_string_list(artifact.get("input_refs")))
+        evidence_refs.extend(_string_list(artifact.get("evidence_refs")))
+        handoff_refs.extend(_string_list(artifact.get("handoff_refs")))
 
     if spec and spec.final_output:
         claim_inputs, claim_evidence = claim_basis_dependency_refs(round_dir, artifact_path=path, artifact=artifact)
@@ -449,6 +511,12 @@ def artifact_dependency_refs(
     review = artifact.get("independent_review")
     if isinstance(review, dict):
         append_ref(evidence_refs, review.get("review_basis_path"))
+    evidence_refs.extend(
+        submission_bundle_materialization_dependency_refs(
+            round_dir,
+            [*input_refs, *evidence_refs, *handoff_refs],
+        )
+    )
     return append_unique([], input_refs), append_unique([], evidence_refs), append_unique([], handoff_refs)
 
 
@@ -478,6 +546,38 @@ def apply_artifact_dependency_refs(manifest: dict[str, Any], round_dir: Path) ->
             artifact["source_sha256"] = source_hashes(round_dir, append_unique([], source_refs))
         else:
             artifact.pop("source_sha256", None)
+
+
+def registered_supporting_work_refs(record: dict[str, Any]) -> list[str]:
+    refs: list[str] = []
+    for field in ("input_refs", "evidence_refs"):
+        values = record.get(field)
+        if isinstance(values, list):
+            refs.extend(ref for ref in values if isinstance(ref, str))
+    source_sha256 = record.get("source_sha256")
+    if isinstance(source_sha256, dict):
+        refs.extend(ref for ref in source_sha256 if isinstance(ref, str))
+    return append_unique([], refs)
+
+
+def apply_supporting_work_dependency_refs(manifest: dict[str, Any], round_dir: Path) -> None:
+    records = manifest.get("supporting_work_artifacts")
+    if not isinstance(records, list):
+        return
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        refs = registered_supporting_work_refs(record)
+        dependency_refs = submission_bundle_materialization_dependency_refs(round_dir, refs)
+        if dependency_refs:
+            input_refs, evidence_refs = split_dependency_refs([*refs, *dependency_refs])
+            record["input_refs"] = append_unique(record.get("input_refs"), input_refs)
+            record["evidence_refs"] = append_unique(record.get("evidence_refs"), evidence_refs)
+        source_refs = append_unique(
+            [], _string_list(record.get("input_refs")) + _string_list(record.get("evidence_refs"))
+        )
+        if source_refs:
+            record["source_sha256"] = source_hashes(round_dir, source_refs)
 
 
 def upsert_output_artifact(

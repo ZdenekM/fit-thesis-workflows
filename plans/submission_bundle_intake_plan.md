@@ -654,6 +654,47 @@ any duplicated active instructions it creates.
   `scripts/smoke-opponent-preflight`, `scripts/smoke-supervisor-packets`,
   `scripts/smoke-supervisor-report-packets`, `scripts/smoke-prepare-review-round`,
   `scripts/smoke-import-theses-report`, and `scripts/smoke-package-workflow-tools`.
+- 2026-05-19: Slice 5 started. Scope is manifest/supporting-work registration,
+  source hashing for bundle-derived materialized inputs, current-evidence and
+  refresh integration, and silent covered-by-synthesis materiality convergence.
+  Serena scoped lookup confirmed `current_evidence_default_source_refs` and
+  `collect_supporting_work_artifacts` as existing owners. Media metadata,
+  free-space preflight, and closeout-order hardening remain out of scope until
+  later slices.
+- 2026-05-19: Slice 5 implemented provenance binding for bundle inventories and
+  materialization manifests. `work_artifacts` now registers inventory and
+  materialization outputs as supporting work, manifest refresh records
+  materialization manifests and source hashes for downstream artifacts and
+  supporting work that consume materialized inputs or code workspaces, materiality
+  checks detect stale supporting-work source hashes, current-evidence defaults
+  include bundle visibility refs, and `refresh-round-hashes` can refresh common
+  briefing/role-plan hashes after verified materialized input changes. Shared
+  `review-round-closeout` now owns the current-evidence refresh and delegates
+  supervisor-report closeout with a skip flag to avoid duplicate refresh
+  ownership. `smoke-supervisor-report` covers silent Theses.cz evidence through
+  `register-review-artifact`, and bundle/closeout smokes cover mid-round
+  materialization recovery.
+- 2026-05-19: Slice 5 agent review found duplicate current-evidence refresh
+  ownership, missing materialization provenance for `supporting_work_artifacts`,
+  drift between refresh and manifest code-workspace refs, shallow
+  materialization-manifest validation, and a closeout smoke that did not
+  exercise post-prepare materialization. Fixed those findings by centralizing
+  shared closeout refresh, extending supporting-work dependency injection,
+  including code reproducibility refs, validating materialized/file/member
+  hashes, and moving the closeout smoke materialization after role-plan
+  preparation.
+- 2026-05-19: Slice 5 checks passed after fixes: `pants test
+  tests/test_submission_bundle.py tests/test_review_manifest_helpers.py
+  tests/test_supervisor_report_closeout.py tests/test_review_round_closeout.py
+  tests/test_review_materiality.py tests/test_refresh_round_hashes.py
+  tests/test_structured_evidence.py`, `pants lint src/thesis_review_workflow::
+  tests:: scripts::`, `pants check src/thesis_review_workflow:: tests::
+  scripts::`, `scripts/smoke-supervisor-report`,
+  `scripts/smoke-review-round-closeout`,
+  `scripts/smoke-submission-bundle-materialization`,
+  `scripts/smoke-refresh-round-hashes`, `scripts/smoke-review-manifest`,
+  `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 
