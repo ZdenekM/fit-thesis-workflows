@@ -1,6 +1,6 @@
 # Review Delta Governance Plan
 
-Status: planned
+Status: active
 
 ## Goal
 
@@ -23,6 +23,12 @@ approval/hash authority, profile update command, or local-profile CI gate.
   - `src/thesis_review_workflow/review_delta.py`
   - `tests/test_review_delta.py`
   - `scripts/smoke-record-review-delta`
+- Current supervisor-report delta wrapper owner:
+  - `scripts/record-report-amendment`
+  - `src/thesis_review_workflow/cli/record_report_amendment.py`
+  - `src/thesis_review_workflow/amendments.py`
+  - `tests/test_report_amendments.py`
+  - `scripts/smoke-record-report-amendment`
 - Current operation-trail owner:
   - `scripts/record-workflow-operation`
   - `src/thesis_review_workflow/cli/record_workflow_operation.py`
@@ -73,9 +79,15 @@ approval/hash authority, profile update command, or local-profile CI gate.
   artifact closeout, and case operations need `work/operation_log.jsonl`.
   `WORKFLOW_MEMORY.md` stays rationale only.
 - Serena preflight: project `diplomky_v2` was activated for Python/Markdown.
-  Initial plan creation used bounded shell reads and `rg` because no source edit
-  was needed yet; use Serena again for non-trivial Python navigation during
-  implementation slices.
+  This execution used `get_symbols_overview` on
+  `src/thesis_review_workflow/review_delta.py` and confirmed the shared delta
+  schema/build/validation symbols before deciding Slice 1. Use Serena again for
+  further non-trivial Python navigation during implementation slices.
+- Pre-implementation agent review result: the plan has one concrete outcome and
+  uses existing owners, but the reviewer identified that the
+  `record-report-amendment` wrapper must stay in delta-owner scope, and that any
+  Slice 4 command extension must explicitly carry command-surface paths, tests,
+  and Windows packaging coverage.
 - No private case data has been read for this plan. Do not inspect `cases/`
   during implementation except through synthetic fixtures or explicitly ignored
   operator commands run by the user.
@@ -164,8 +176,12 @@ Expected paths if Slice 1 confirms a schema change:
 
 - `src/thesis_review_workflow/review_delta.py`
 - `src/thesis_review_workflow/cli/record_review_delta.py`
+- `src/thesis_review_workflow/amendments.py`
+- `src/thesis_review_workflow/cli/record_report_amendment.py`
 - `tests/test_review_delta.py`
+- `tests/test_report_amendments.py`
 - `scripts/smoke-record-review-delta`
+- `scripts/smoke-record-report-amendment`
 - `README.md`
 - `docs/workflow-command-surface.md`
 
@@ -237,7 +253,14 @@ Expected paths if Slice 1 confirms batching is needed now:
 - `src/thesis_review_workflow/review_delta.py` or
   `src/thesis_review_workflow/operation_log.py` only if the existing records need
   structural support
+- `src/thesis_review_workflow/cli/record_review_delta.py` or
+  `src/thesis_review_workflow/cli/record_workflow_operation.py` only if an
+  existing command is extended
+- `src/thesis_review_workflow/commands.py`, `src/thesis_review_workflow/cli/BUILD`,
+  `scripts/BUILD`, and `tests/test_workflow_python_contracts.py` only if the
+  command surface changes
 - `tests/test_review_delta.py` or `tests/test_operation_log.py`
+- relevant smoke script only if existing command behavior changes
 
 Work:
 
@@ -260,7 +283,10 @@ scripts/check-scripts
 ```
 
 Run relevant `pants lint`/`pants check` targets sequentially if Python files are
-changed.
+changed. If command semantics or package-visible behavior changes, also run the
+focused command-surface test and relevant smoke/package launcher check needed by
+`docs/workflow-command-surface.md`; do not claim native Windows runtime proof
+from Linux structural checks.
 
 ### Slice 5 - Local Profile Audit Boundary And TODO Reconciliation
 
@@ -307,6 +333,11 @@ Run focused Pants tests if deterministic privacy behavior changes.
   `record-review-delta` schema/CLI/test surfaces. Used Serena project
   activation for the repo and bounded shell reads for the first audit. No
   private `cases/` data was read.
+- 2026-05-19: Pre-implementation plan review completed with one reviewer agent.
+  Findings were incorporated before implementation: added the
+  `record-report-amendment` shared-delta wrapper to owner scope and made Slice 4
+  command-surface/Windows coverage conditional explicit. Baseline checks passed:
+  `git diff --check`, `scripts/check-private`, `scripts/check-scripts`.
 
 ## Decision Log
 
