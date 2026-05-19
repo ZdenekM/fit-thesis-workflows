@@ -111,15 +111,10 @@ confirms it with `scripts/confirm-supervisor-report` and
 ## Agent Final Response Contract
 
 Write full review output to the owned round files and keep the chat final
-response compact:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-Do not paste full Markdown artifacts that are already on disk.
+response compact. Use the default handoff shape in
+`docs/agent-scheduling.md#subagent-handoffs`, plus the reviewed-output path,
+approval-record path, checks run, limitations, and validation status. Do not
+paste full Markdown artifacts that are already on disk.
 
 ## Model And Reasoning
 

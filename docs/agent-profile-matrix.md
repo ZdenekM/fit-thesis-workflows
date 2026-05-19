@@ -15,6 +15,16 @@ This matrix is not the workflow-profile registry. Workflow profiles such as
 `src/thesis_review_workflow/review_profiles.py`; this page only maps the
 spawned Codex role profiles used by those workflows.
 
+Profile terms are intentionally separate:
+
+- workflow profiles select the case workflow and closeout surface;
+- wave workflows and materiality profiles decide which role evidence is needed;
+- Codex agent profiles select the spawned reviewer role from `.codex/agents/`;
+- reviewer preference profiles calibrate personal style and assessment
+  preferences for the current supervisor or opponent.
+
+Role skills should point here instead of redefining those categories.
+
 Command routing: `scripts/<tool>` examples in this document are Linux/dev
 shorthand and logical workflow command names. On Windows, package the workflow
 tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching

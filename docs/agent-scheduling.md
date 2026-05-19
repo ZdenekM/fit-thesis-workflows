@@ -171,6 +171,15 @@ This handoff rule does not override repo skills, role-owned outputs, required
 review artifacts, coverage manifests, exhaustive audit requirements, or
 validation checks.
 
+Skill-local `Agent Final Response Contract` sections should point to this
+default handoff instead of copying the bullet list. A role skill may add only the
+role-specific facts the parent needs to verify: owned output paths, special
+artifact or trace writes, required validators, approval records, and limitations
+that are unique to that workflow. Orchestration skills should likewise point to
+this document for concurrency, wave ordering, role-failure handling, and parent
+synthesis, then list only the workflow-specific roles and `check-review-wave`
+commands they own.
+
 ## Non-Negotiables
 
 - Required roles remain required even when the concurrency limit is 1.

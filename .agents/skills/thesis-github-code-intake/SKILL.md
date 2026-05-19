@@ -171,16 +171,9 @@ When acting as a workflow agent, write full intake evidence to the owned round
 files and keep the chat final response compact. Do not paste full Markdown
 artifacts that are already on disk.
 
-Return only:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-The main session must verify file claims with expected-output checks before
-relying on them.
+Use the default handoff shape in `docs/agent-scheduling.md#subagent-handoffs`,
+plus any role-specific validation status, owned output paths, and limitations
+that affect parent verification.
 
 ## Limits Of V1
 

@@ -163,6 +163,21 @@ Exact `.agents/skills/<skill>/SKILL.md` paths slated for Slice 2 edits:
 - 2026-05-19: Slice 1 checks passed: `git diff --check`,
   `scripts/check-private`, `scripts/check-scripts`. Slice 1 agent review found
   no blocking issues and confirmed no private case data was inspected.
+- 2026-05-19: Slice 2 in progress. Editing only `AGENTS.md`,
+  `docs/agent-scheduling.md`, `docs/agent-profile-matrix.md`, and the exact
+  skill paths enumerated in Slice 1.
+- 2026-05-19: Slice 2 consolidation complete. Removed repeated handoff
+  bullet-lists from role skills, moved profile terminology to
+  `docs/agent-profile-matrix.md`, kept scheduling defaults in
+  `docs/agent-scheduling.md`, and shortened `AGENTS.md` to owner pointers.
+  Slice 2 reviewers found no privacy or Windows issues; ownership findings were
+  fixed by genericizing AGENTS closeout guidance, naming
+  `scripts/record-workflow-operation`, and pointing orchestration role-state
+  semantics back to `docs/agent-scheduling.md`.
+- 2026-05-19: Slice 2 checks passed after fixes: `git diff --check`,
+  `scripts/check-private`, `scripts/check-scripts`, and
+  targeted Pants tests for `tests/test_agent_profile_contracts.py` and
+  `tests/test_check_scripts_contracts.py`.
 
 ## Decision Log
 

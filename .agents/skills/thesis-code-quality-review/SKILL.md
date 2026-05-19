@@ -94,8 +94,8 @@ artifact skeleton, registration preset, and the validator command
 `scripts/check-code-quality-review --require-synthesis-handoff <case-id>
 [round-id]`. If the packet or `work/review_role_plan.json` omits that contract,
 ask the parent session to regenerate the round plan before writing final
-evidence. Workflow profiles, materiality profiles, wave workflows, Codex agent
-profiles, and reviewer preference profiles are separate concepts.
+evidence. For profile terminology boundaries, use
+`docs/agent-profile-matrix.md`.
 
 ## Agent Final Response Contract
 
@@ -103,16 +103,9 @@ When acting as a workflow agent, write full evidence content to the owned round
 file and keep the chat final response compact. Do not paste full Markdown
 artifacts that are already on disk.
 
-Return only:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-The main session must verify file claims with expected-output checks before
-relying on them.
+Use the default handoff shape in `docs/agent-scheduling.md#subagent-handoffs`,
+plus any role-specific validation status, owned output paths, and limitations
+that affect parent verification.
 
 ## Model And Reasoning
 

@@ -43,19 +43,13 @@ cases/<case-id>/rounds/<round-id>/
    `scripts/prepare-review-round --profile opponent_materials <case-id> [round-id]`
    to write `work/review_role_plan.json` and opponent packets. Do not manually
    reconstruct role needs from chat when a current role plan can be generated.
-   Use the generated `work/opponent_packets/*.md` packets as the compact role
-   handoff, and regenerate them after assignment/evidence/reproducibility
-   artifacts change. Role states in `work/review_role_plan.json` decide whether
-   a role needs fresh review, scoped delta review, current reviewed reuse, or a
-   concrete typed limitation. Packets render materiality `next_actions`;
-   resolve required GitHub, quantitative, and Theses.cz similarity-report
-   actions with a current artifact or a typed `work/review_manifest.json`
-   limitation that records `trigger`, `scope`, `type`, `required_for`,
-   `description`, `impact`, `status`, and `accepted_by` or `reviewer_role`
-   before synthesis/reviewed wave readiness. Packets, reuse-index decisions,
-   and capsules reduce repeated context; they do not replace this skill,
-   required semantic role coverage, independent review, approval records, or
-   manifest validation.
+   Use generated `work/opponent_packets/*.md` packets as compact role handoffs
+   and regenerate them after assignment/evidence/reproducibility artifacts
+   change. Interpret role states, packet semantics, reuse decisions, and typed
+   limitations according to `docs/agent-scheduling.md`; before
+   synthesis/reviewed wave readiness, resolve opponent-specific GitHub,
+   quantitative, and Theses.cz similarity-report materiality actions with a
+   current artifact or typed `work/review_manifest.json` limitation.
 10. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
@@ -162,11 +156,10 @@ available. The packets do not replace the skills or evidence checks; they make
 the role scope, available inputs, reusable current evidence, missing inputs,
 claim-basis triggers, and constraints explicit before agents start.
 
-Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
-workflow agents, use 1 on memory-constrained machines, and run roles in waves
-instead of spawning every role at once. The concurrency limit must not remove
-required role coverage, typography/formal limitations when needed, or the
-independent review pass.
+Follow `docs/agent-scheduling.md` for concurrency, wave ordering, role-failure
+handling, and parent synthesis. The scheduling limit must not remove required
+role coverage, typography/formal limitations when needed, or the independent
+review pass.
 
 Use `scripts/check-review-wave --workflow opponent_materials --wave draft`
 after draft generation and `--wave reviewed` after the independent review pass.
@@ -202,16 +195,9 @@ When acting as a workflow agent, write full materials or evidence content to the
 owned round files and keep the chat final response compact. Do not paste full
 Markdown artifacts that are already on disk.
 
-Return only:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-The main session must verify file claims with expected-output checks before
-relying on them.
+Use the default handoff shape in `docs/agent-scheduling.md#subagent-handoffs`,
+plus any role-specific validation status, owned output paths, and limitations
+that affect parent verification.
 
 ## Model And Reasoning
 

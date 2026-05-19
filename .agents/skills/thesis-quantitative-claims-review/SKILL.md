@@ -204,10 +204,7 @@ semantic review.
 ## Agent Final Response Contract
 
 When acting as a workflow agent, write the JSON artifact to disk and keep the
-chat final response compact. Return only:
-
-- files written or changed;
-- top material claim risks;
-- commands/checks run;
-- explicit limitations;
-- whether `scripts/check-evaluation-claims` passed.
+chat final response compact. Use the default handoff shape in
+`docs/agent-scheduling.md#subagent-handoffs`, plus the top material claim risks,
+the `work/quantitative_claims.json` path, checks run, explicit limitations, and
+whether `scripts/check-evaluation-claims` passed.

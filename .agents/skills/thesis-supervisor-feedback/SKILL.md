@@ -69,19 +69,12 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     supervisor_feedback <case-id> [round-id]` to write
     `work/review_role_plan.json` and supervisor packets. Do not manually
     reconstruct role needs from chat when a current role plan can be generated.
-    Use `work/supervisor_packets/*.md` as compact role handoffs and keep the
-    parent as a coordinator over capsules, claim-basis refs, and targeted
-    drill-down requests. Role states in `work/review_role_plan.json` decide
-    whether a role needs fresh review, scoped delta review, current reviewed
-    reuse, or a concrete typed limitation. Packets render materiality
-    `next_actions`; resolve required GitHub, quantitative, and Theses.cz
-    similarity-report actions with a current artifact or a typed
-    `work/review_manifest.json` limitation that records `trigger`, `scope`,
-    `type`, `required_for`, `description`, `impact`, `status`, and
-    `accepted_by` or `reviewer_role` before synthesis/final wave readiness.
-    Packets and reuse decisions reduce repeated context; they do not replace
-    this skill, semantic role coverage, independent review, approval records,
-    or manifest validation.
+    Use `work/supervisor_packets/*.md` as compact role handoffs. Interpret role
+    states, packet semantics, reuse decisions, and typed limitations according
+    to `docs/agent-scheduling.md`; before synthesis/final wave readiness,
+    resolve supervisor-specific GitHub, quantitative, and Theses.cz
+    similarity-report materiality actions with a current artifact or typed
+    `work/review_manifest.json` limitation.
 14. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
 15. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
 16. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
@@ -207,10 +200,9 @@ For a large round, split reviewer agents by role:
 - evidence and priority calibration,
 - synthesis into draft `work/feedback_student_draft.md`, followed by review into `outputs/feedback_student.md`.
 
-Follow `docs/agent-scheduling.md`: default to at most 2 concurrent spawned
-workflow agents, use 1 on memory-constrained machines, and run roles in waves
-instead of spawning every role at once. The concurrency limit must not remove
-required role coverage or the independent review pass.
+Follow `docs/agent-scheduling.md` for concurrency, wave ordering, role-failure
+handling, and parent synthesis. The scheduling limit must not remove required
+role coverage or the independent review pass.
 
 Use `scripts/check-review-wave --workflow supervisor_feedback --wave draft`
 after draft generation and `--wave final` after the review pass when the expected
@@ -255,16 +247,9 @@ When acting as a workflow agent, write full draft or evidence content to the
 owned round files and keep the chat final response compact. Do not paste full
 Markdown artifacts that are already on disk.
 
-Return only:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-The main session must verify file claims with expected-output checks before
-relying on them.
+Use the default handoff shape in `docs/agent-scheduling.md#subagent-handoffs`,
+plus any role-specific validation status, owned output paths, and limitations
+that affect parent verification.
 
 ## Model And Reasoning
 

@@ -168,15 +168,10 @@ overall assessment.
 ## Agent Final Response Contract
 
 When acting as a workflow agent, write the full trace, draft, or reviewed report
-to the owned round files. Keep the chat final response compact:
-
-- files written or changed;
-- top 3-5 findings, verdicts, or risks;
-- commands/checks run;
-- explicit limitations;
-- whether expected output validation passed.
-
-Do not paste full Markdown artifacts that are already on disk.
+to the owned round files. Keep the chat final response compact using the default
+handoff shape in `docs/agent-scheduling.md#subagent-handoffs`, plus report-trace
+state, checks run, limitations, and validation status. Do not paste full
+Markdown artifacts that are already on disk.
 
 ## Model And Reasoning
 

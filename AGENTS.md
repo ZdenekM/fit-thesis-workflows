@@ -111,93 +111,49 @@ Do not repeat old feedback mechanically.
 
 ## Parallel Review
 
-When the user explicitly authorizes agents, give them enough time. If authorization is missing, ask once and wait; do not begin the parallel review or generate a sendable/final artifact. For thesis/code reviews, split work by role rather than by arbitrary files:
+When the user explicitly authorizes agents, use role coverage rather than
+arbitrary file splits, and synthesize findings into the requested artifact. If
+authorization is missing, ask once and stop before any parallel review or
+sendable/final artifact generation.
 
-- text structure and assignment coverage,
-- figure/media evidence, captions, visual claims, context/claim alignment, and figure changes between rounds,
-- code/reproducibility and text-code consistency,
-- code quality/design and reviewer-facing implementation evidence,
-- quantitative/result claims, units, baselines, practical magnitude, and reproducibility context,
-- GitHub/PR contribution intake when code evidence comes from GitHub URLs or upstream PRs,
-- literature/citation relevance, source availability, and claim support,
-- late-stage typography/formal presentation when the round is near final or explicitly asks for it,
-- evidence and claim calibration,
-- synthesis into the final Markdown artifact.
-
-The final output must integrate findings into the requested artifact, not just list reviewer comments.
-
-Bound agent concurrency by default: run at most two spawned workflow agents at the same time, and use one on memory-constrained machines. Higher concurrency requires an explicit project config change before the run, not only an ad hoc decision in the prompt. This is scheduling only; it does not reduce required role coverage, evidence artifacts, independent review, manifest hashes, or `scripts/check-agent-coverage`. For larger workflows, run role agents in waves according to `docs/agent-scheduling.md` and let each wave finish before starting the next one.
-
-If a required role agent, helper, or wave fails to produce its expected output,
-do not replace it with a parent-generated limited artifact and continue as if
-coverage passed. Stop before synthesis/closeout, report what failed, record the
-role as blocked with a typed limitation when appropriate, and ask the operator
-whether to rerun/repair the role or explicitly accept a scoped limitation.
-
-When spawning reviewer agents, prefer concise self-contained prompts with exact case/round paths and role-owned outputs. Do not use full-history/forked context by default; use it only when the role genuinely needs the whole conversation. If a spawn invocation fails because full-history/fork options are incompatible with explicit agent type or reasoning effort, retry with the simpler no-fork invocation and carry the needed context in the prompt.
-
-Subagent final responses should optimize for parent synthesis, not raw transcript
-transfer. Detailed handoff expectations live in `docs/agent-scheduling.md`.
+`docs/agent-scheduling.md` owns concurrency, wave sequencing, subagent handoff
+shape, role failure handling, and parent synthesis. `docs/agent-profile-matrix.md`
+owns Codex role-profile routing, allowed writes, review separation, and
+validators. The relevant repo-local skill owns role-specific evidence rules,
+output paths, and checker expectations.
 
 ## Generated Artifact Review Loop
 
-Any generated Markdown artifact under `outputs/` that is sendable to a student/opponent context, or used as final operator evidence, must pass an explicitly authorized independent agent review loop. If the user has not authorized agents in the current request, ask for authorization and stop before writing or revising the final artifact. The loop terminates only when a different explicitly authorized reviewer agent checks the draft or evidence and either writes the reviewed target artifact or explicitly approves it. Material edits after that review reopen the draft state.
+Any generated Markdown artifact under `outputs/` that is sendable to a
+student/opponent context, or used as final operator evidence, must pass the
+independent review loop defined by its repo-local skill and
+`docs/agent-profile-matrix.md`. Material edits after that review reopen draft
+state. A downstream synthesis review certifies only the findings it uses; it
+does not automatically make every standalone evidence artifact final.
 
-Dedicated review loops:
-
-- supervisor feedback: first draft in `work/feedback_student_draft.md`, then `thesis-supervisor-feedback-review` writes reviewed `outputs/feedback_student.md`;
-- supervisor report: first draft in `work/vedouci_posudek_draft.md`, then `thesis-supervisor-report-review` writes reviewed `outputs/vedouci_posudek_revidovany.md`; `work/supervisor_report_confirmation.json` is still required before treating it as ready for IS entry;
-- opponent materials: first draft in `work/oponent_podklady_draft.md` or `outputs/oponent_podklady.md`, then `thesis-opponent-materials-review` writes reviewed `outputs/oponent_podklady_revidovane.md`;
-- opponent report trace, canonical draft, and clean proposal: after reviewed opponent materials exist, `work/opponent_report_trace.json` records the reviewed IS-item formulations, defense questions, pre-submission checks, uncertainty handling, and current reviewed-materials hash. `scripts/draft-opponent-report <case-id> [round-id]` may then create the trace-bound canonical draft at `work/oponent_posudek_draft.md`. The generated file is intentionally not sendable until a human calibrates concrete points/grade, resolves open wording, and `scripts/check-opponent-report --mode canonical <case-id> [round-id]` passes against the current trace and reviewed-materials hashes. `scripts/export-opponent-report <case-id> [round-id]` then writes the clean IS-entry proposal to `outputs/oponent_posudek_navrh.md`, strips only source metadata/status/private checklist content, and requires `scripts/check-opponent-report --mode clean <case-id> [round-id]` before the proposal is used as report-review basis;
-- opponent report review: this is itself a review of a human draft; if an agent also rewrites the report text, run a fresh review pass before treating that rewrite as sendable.
-
-Internal evidence artifacts such as `outputs/revision_diff.md`, `outputs/github_code_intake.md`, `outputs/code_consistency.md`, `outputs/code_quality_review.md`, `work/quantitative_claims.json`, `outputs/literature_citation_review.md`, `outputs/figure_media_review.md`, `outputs/typography_formal_review.md`, and `outputs/theses_similarity_review.md` must be reviewed before they are relied on as final standalone evidence. A downstream synthesis review certifies only the findings it uses in supervisor feedback, supervisor reports, or opponent materials; it does not automatically mark the whole evidence artifact final. For standalone final use, a separate evidence-calibration reviewer must check the artifact and the review verdict must be recorded in the artifact, the provenance manifest, or the final response. Record any exception or unavailable review explicitly.
-
-Keep generated-artifact provenance in the ignored round workspace at `work/review_manifest.json`. The manifest records contributing inputs, checks, skills, generator/reviewer roles, review scope, limitations, and the reviewed artifact hash so material edits after review are visible as stale. Required multi-agent role coverage is generated into `work/agent_coverage.json` from the manifest and validated by `scripts/check-agent-coverage <case-id> [round-id]`; missing required roles must be fixed in the manifest or recorded as typed limitations before closeout.
-
-Keep a lightweight append-only operation trail in `work/operation_log.jsonl` for non-trivial case work: role-agent failures, skipped or blocked pipeline parts, manual fallback decisions, post-review corrections, user calibration decisions, and closeout/audit findings. Use `scripts/record-workflow-operation <case-id> [round-id] ...` to record what happened and which artifacts/checks were involved. The operation log is for reconstruction and is intentionally separate from manifest hash gating.
+Generated-artifact provenance stays in the ignored round workspace. Use the
+existing manifest, coverage, wave, approval, delta, and closeout commands named
+by the relevant skill and `docs/agent-scheduling.md`; use
+`scripts/record-workflow-operation` for the existing `work/operation_log.jsonl`
+reconstruction trail. Do not invent replacement ledgers or closeout surfaces.
 
 ## Output Conventions
 
-Default outputs go into the active round:
-
-- supervisor feedback: `outputs/feedback_student.md`
-- supervisor feedback draft for agent-generated first passes: `work/feedback_student_draft.md`
-- supervisor report intake: `notes/supervisor-report-operator-input.md`
-- supervisor report feedback-history handoff: `work/supervisor_report_feedback_history.json`
-- supervisor report trace: `work/supervisor_report_trace.json`
-- supervisor report draft: `work/vedouci_posudek_draft.md`
-- reviewed supervisor report: `outputs/vedouci_posudek_revidovany.md`
-- supervisor report confirmation: `work/supervisor_report_confirmation.json`
-- revision comparison: `outputs/revision_diff.md`
-- GitHub code intake: `outputs/github_code_intake.md`
-- code consistency check: `outputs/code_consistency.md`
-- code quality/design review: `outputs/code_quality_review.md`
-- literature/citation review: `outputs/literature_citation_review.md`
-- targeted literature source-acquisition handoff: `work/literature/source_acquisition.json`
-- figure/media review: `outputs/figure_media_review.md`
-- typography/formal review: `outputs/typography_formal_review.md`
-- Theses.cz similarity-report intake: `work/theses_similarity/intake.json`
-- Theses.cz similarity-report assessment: `work/theses_similarity/assessment.json`
-- Theses.cz similarity-report review draft: `work/theses_similarity/review_draft.md`
-- Theses.cz similarity-report review: `outputs/theses_similarity_review.md`
-- Theses.cz similarity-report review approval: `work/reviews/theses_similarity_review.json`
-- reusable visual inventory: `work/figure_media/visual_inventory.jsonl`
-- review evidence/provenance manifest: `work/review_manifest.json`
-- agent role coverage manifest: `work/agent_coverage.json`
-- workflow operation log: `work/operation_log.jsonl`
-- quantitative/result-claims handoff: `work/quantitative_claims.json`
-- opponent materials: `outputs/oponent_podklady.md`
-- reviewed opponent materials: `outputs/oponent_podklady_revidovane.md`
-- opponent report trace: `work/opponent_report_trace.json`
-- opponent materials draft for agent-generated first passes: `work/oponent_podklady_draft.md`
-- opponent report draft: `work/oponent_posudek_draft.md`
-- opponent report clean IS-entry proposal: `outputs/oponent_posudek_navrh.md`
-- opponent report review: `outputs/feedback_k_posudku.md`
-
-Standalone GitHub intake, code consistency, code quality, literature/citation, figure/media, and typography/formal outputs are internal/operator evidence unless the user explicitly asks to send them. Student-facing feedback should contain only selected, phase-appropriate action items.
+Default artifact paths live in the relevant repo-local skill and
+`docs/agent-profile-matrix.md`. Standalone GitHub intake, code consistency,
+code quality, literature/citation, figure/media, typography/formal, and
+Theses.cz outputs are internal/operator evidence unless the user explicitly
+asks to send them. Student-facing feedback should contain only selected,
+phase-appropriate action items.
 
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 `Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.
 
-Before closing a task, run relevant lightweight checks such as `git status --short --untracked-files=all`, `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`. For larger repo-tooling edits, consider the dev-only hygiene targets in `docs/dev-hygiene.md`; they must not become thesis case pipeline gates. When changing deterministic checkers, run their smoke scripts too. After generating or revising round outputs, update and validate provenance with `scripts/init-review-manifest --run-checks <case-id> [round-id]`, `scripts/check-agent-coverage <case-id> [round-id]` when role coverage is required, and `scripts/check-review-manifest --require-complete <case-id> [round-id]`. Before sending student-facing supervisor feedback, also run `scripts/check-feedback-language <case-id> [round-id]` and `scripts/check-feedback-output <case-id> [round-id]`. Before relying on literature/citation evidence, run `scripts/check-literature-citation-review <case-id> [round-id]`. Before relying on figure/media evidence, run `scripts/check-figure-media-review <case-id> [round-id]`. Before relying on typography/formal evidence, run `scripts/check-typography-formal --require-output <case-id> [round-id]`. Before relying on Theses.cz similarity-report evidence, run `scripts/check-theses-similarity-report <case-id> [round-id]`. Before relying on reviewed opponent materials, run `scripts/check-opponent-materials <case-id> [round-id]`. Before using an opponent-report draft, run `scripts/check-opponent-report --mode canonical <case-id> [round-id]`; before reviewing or submitting the clean IS-entry proposal, run `scripts/export-opponent-report <case-id> [round-id]` and `scripts/check-opponent-report --mode clean <case-id> [round-id]`.
+Before closing a repo-maintainer task, run relevant lightweight checks such as
+`git status --short --untracked-files=all`, `scripts/check-private`,
+`scripts/check-scripts`, and `git diff --check`. For larger repo-tooling edits,
+consider the dev-only hygiene targets in `docs/dev-hygiene.md`; they must not
+become thesis case pipeline gates. When changing deterministic checkers, run
+their smoke scripts and targeted Pants tests too. For generated thesis-review
+artifacts, use the role-specific validators, manifest/coverage checks, and
+closeout command named by the relevant skill and profile matrix.
