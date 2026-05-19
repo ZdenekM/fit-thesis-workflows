@@ -193,10 +193,9 @@ operator-delta ledger, or parallel instruction system.
 
 These are intentionally not implementation slices in this plan:
 
-- Review-agent instruction consolidation: audit duplicated boilerplate, but
-  prefer compact extensions to `docs/agent-scheduling.md` and role skills over
-  a new shared contract document. Role-specific evidence rules, output paths,
-  validators, and review-loop rules stay in owning skills.
+- Review-agent instruction consolidation: extracted to
+  `plans/review_workflow_followup_plan.md`. It is no longer active work in this
+  bundle-intake plan.
 - Calibration/profile governance: extend the existing `record-review-delta`
   schema and promotion-target validation if needed. Candidate fields include
   `classification_reason`, `rejected_targets`, `privacy_review`, and
@@ -435,33 +434,17 @@ any duplicated active instructions it creates.
      guidance.
 
 8. Follow-up plan extraction
-   - Review the `Deferred Follow-up Candidates`, final audit findings, operator
-     pain observed during implementation, and any remaining TODO overlap after
-     bundle intake is working.
-   - Select only the highest-benefit next workflow improvement that is not part
-     of bundle intake. Prefer one focused follow-up plan over several broad
-     plans. Candidate themes are review-agent instruction consolidation,
-     calibration/profile governance via `record-review-delta`, maintainer
-     write-scope and sanitized issue reporting, or iterative operator-note
-     batching.
-   - Before creating the follow-up plan, identify the existing owner for each
-     proposed behavior and record which commands/docs/skills would be extended.
-     Reject any candidate whose first implementation step would create a
-     parallel ledger, parallel closeout owner, or second review mode.
-   - If a tracked follow-up plan is created, use a concrete path such as
-     `plans/review_workflow_followup_plan.md` and give it one concrete outcome
-     under the `plans/README.md` contract. If no candidate is mature enough,
-     update `TODO.md` instead and explain why no active plan was created.
-   - Ensure this parent plan no longer contains active implementation
-     instructions for the extracted follow-up. Keep only a progress link,
-     archive note, or TODO pointer.
-   - Verification: `plans/README.md` contract review confirms the follow-up has
-     one outcome, exact owner extensions, commit-sized slices, and no private
-     data.
-   - Verification: `rg` or equivalent check confirms no active rule is now
-     duplicated between this plan, the follow-up plan, `TODO.md`, and existing
-     workflow docs.
-   - Verification: `git diff --check`, `scripts/check-private`, and
+   - Completed as planning-only extraction to
+     `plans/review_workflow_followup_plan.md`.
+   - The follow-up plan targets review-agent instruction consolidation through
+     existing owners only: `docs/agent-scheduling.md`,
+     `docs/agent-profile-matrix.md`, repo-local role skills, and existing
+     coverage/wave/manifest/closeout commands.
+   - Calibration/profile governance, maintainer write-scope reporting, and
+     operator-note batching remain deferred and are not active bundle-intake
+     work.
+   - Verification: `plans/README.md` contract review, targeted `rg` duplicate
+     check, `git diff --check`, `scripts/check-private`, and
      `scripts/check-scripts`.
 
 ## Progress
@@ -760,6 +743,14 @@ any duplicated active instructions it creates.
   tests:: scripts::`, `pants check src/thesis_review_workflow:: tests::
   scripts::`, `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 8 started and selected review-agent instruction
+  consolidation as the single follow-up because it has clear existing owners and
+  reduces repeated multi-agent workflow drift without touching bundle intake.
+  Created `plans/review_workflow_followup_plan.md` with one outcome, explicit
+  owner extensions, commit-sized slices, no private case data, and no new
+  ledger, closeout owner, or review mode. Deferred calibration/profile
+  governance, maintainer write-scope reporting, and operator-note batching stay
+  deferred in `TODO.md` and existing archived plans.
 
 ## Decision Log
 
