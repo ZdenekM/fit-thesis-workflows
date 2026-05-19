@@ -61,6 +61,8 @@
 
 ## P2 - Later Automation
 
+- [ ] Implement review-delta/profile governance from `plans/review_delta_governance_plan.md`.
+   - Keep this TODO as an index only; the active plan owns execution detail.
 - [ ] Revisit supervisor/opponent calibration convergence after both V1 workflows are exercised.
    - Keep the current supervisor-report calibration private, optional, hash-bound, and supervisor-specific until there is evidence that a generic reviewer-report calibration subsystem would simplify rather than blur the workflows.
    - Compare artifact names, schemas, anti-overfit review, and applicability/advisory behavior before merging the concepts.
