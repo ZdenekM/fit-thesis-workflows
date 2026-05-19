@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from thesis_review_workflow.cli.check_scripts import check_windows_operator_contract
+from thesis_review_workflow.cli.check_scripts import check_review_instruction_ownership, check_windows_operator_contract
 
 
 def write_contract_file(path: Path, snippets: tuple[str, ...]) -> None:
@@ -131,3 +131,55 @@ def test_windows_operator_contract_rejects_missing_active_rule(tmp_path: Path) -
     check_windows_operator_contract(root, errors)
 
     assert any("Do not introduce WSL-only assumptions" in error for error in errors)
+
+
+def test_review_instruction_ownership_rejects_copied_owner_text(tmp_path: Path) -> None:
+    snippets = (
+        (
+            "Return only:\n\n"
+            "- files written or changed;\n"
+            "- top 3-5 findings, verdicts, or risks;\n"
+            "- commands/checks run;\n"
+            "- explicit limitations;\n"
+            "- whether expected output validation passed.\n",
+            "copied default subagent handoff list",
+        ),
+        (
+            "default to at most 2 concurrent spawned\n" "workflow agents, use 1 on memory-constrained machines\n",
+            "copied scheduling default",
+        ),
+        (
+            "Role states in `work/review_role_plan.json` decide whether\n" "a role needs fresh review\n",
+            "copied role-state semantics",
+        ),
+        (
+            "Workflow profiles, materiality profiles, wave workflows, Codex agent\n"
+            "profiles, and reviewer preference profiles are separate concepts.\n",
+            "copied profile terminology boundary",
+        ),
+    )
+
+    for index, (snippet, label) in enumerate(snippets):
+        root = create_contract_root(
+            tmp_path / f"case-{index}",
+            agents_snippets=(
+                "Windows is a supported operator platform",
+                "Do not introduce WSL-only assumptions",
+                "Python/Pants/PEX command surface",
+                "native `.cmd`/`.ps1` launchers",
+                "Windows-aware",
+                "Treat `scripts/<tool>` references",
+                "logical workflow tool names",
+                "platform-native packaging entrypoint",
+            ),
+        )
+        skill_path = root / ".agents/skills/example/SKILL.md"
+        skill_path.write_text(
+            skill_path.read_text(encoding="utf-8") + "\n" + snippet,
+            encoding="utf-8",
+        )
+
+        errors: list[str] = []
+        check_review_instruction_ownership(root, errors)
+
+        assert any(label in error for error in errors)

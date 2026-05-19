@@ -178,6 +178,17 @@ Exact `.agents/skills/<skill>/SKILL.md` paths slated for Slice 2 edits:
   `scripts/check-private`, `scripts/check-scripts`, and
   targeted Pants tests for `tests/test_agent_profile_contracts.py` and
   `tests/test_check_scripts_contracts.py`.
+- 2026-05-19: Slice 3 in progress. Recurrence guard will extend existing
+  `scripts/check-scripts` and `tests/test_check_scripts_contracts.py`; Serena
+  scoped use re-read `check_scripts.py` symbols before Python edits.
+- 2026-05-19: Slice 3 complete. Existing `scripts/check-scripts` now rejects
+  copied role-skill handoff lists, scheduling defaults, role-state semantics,
+  and profile terminology that belong to `docs/agent-scheduling.md` or
+  `docs/agent-profile-matrix.md`. Slice 3 reviewers found no blocking issues
+  and confirmed no new command, instruction layer, review path, ledger, or
+  closeout owner. Checks passed: `git diff --check`, `scripts/check-private`,
+  `scripts/check-scripts`, `pants fmt`, `pants lint`, `pants check`, and
+  `pants test tests/test_check_scripts_contracts.py`.
 
 ## Decision Log
 

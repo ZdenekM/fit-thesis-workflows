@@ -75,6 +75,27 @@ SKILL_COMMAND_ROUTING_SNIPPETS = (
     "not run or click extensionless `scripts/<tool>` files",
 )
 
+DISALLOWED_SKILL_INSTRUCTION_SNIPPETS = {
+    "copied default subagent handoff list": (
+        "Return only:\n\n"
+        "- files written or changed;\n"
+        "- top 3-5 findings, verdicts, or risks;\n"
+        "- commands/checks run;\n"
+        "- explicit limitations;\n"
+        "- whether expected output validation passed."
+    ),
+    "copied scheduling default": (
+        "default to at most 2 concurrent spawned\n" "workflow agents, use 1 on memory-constrained machines"
+    ),
+    "copied role-state semantics": (
+        "Role states in `work/review_role_plan.json` decide whether\n" "a role needs fresh review"
+    ),
+    "copied profile terminology boundary": (
+        "Workflow profiles, materiality profiles, wave workflows, Codex agent\n"
+        "profiles, and reviewer preference profiles are separate concepts."
+    ),
+}
+
 
 def script_files(root: Path) -> list[Path]:
     scripts_dir = root / "scripts"
@@ -153,6 +174,28 @@ def check_windows_operator_contract(root: Path, errors: list[str]) -> None:
             check_required_snippets(skill_path, SKILL_COMMAND_ROUTING_SNIPPETS, errors)
 
 
+def check_review_instruction_ownership(root: Path, errors: list[str]) -> None:
+    skills_dir = root / ".agents" / "skills"
+    if not skills_dir.is_dir():
+        return
+    for skill_path in sorted(skills_dir.glob("*/SKILL.md")):
+        try:
+            content = skill_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{skill_path}: could not read skill instruction file: {exc}")
+            continue
+        except UnicodeDecodeError as exc:
+            errors.append(f"{skill_path}: skill instruction file is not UTF-8: {exc}")
+            continue
+
+        for label, snippet in DISALLOWED_SKILL_INSTRUCTION_SNIPPETS.items():
+            if snippet in content:
+                errors.append(
+                    f"{skill_path}: duplicated review-agent instruction ({label}); "
+                    "point to docs/agent-scheduling.md or docs/agent-profile-matrix.md instead"
+                )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scripts/check-scripts",
@@ -166,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     skipped_bash: list[Path] = []
 
     check_windows_operator_contract(root, errors)
+    check_review_instruction_ownership(root, errors)
 
     for path in script_files(root):
         check_newlines(path, errors)
