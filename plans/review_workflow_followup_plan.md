@@ -94,6 +94,54 @@ or closeout owner.
    - Move this plan to `plans/archive/` after completion or copy residual open
      work into `TODO.md`.
 
+## Slice 1 Duplication Audit
+
+- `AGENTS.md` duplicates scheduling, role-failure, generated-artifact review,
+  provenance, closeout, and output-path wording that already has narrower
+  owners. Proposed owner: keep `AGENTS.md` as the short authorization and
+  routing pointer; keep scheduling, handoff, role failure handling, wave gates,
+  and parent synthesis in `docs/agent-scheduling.md`; keep role routing,
+  allowed writes, review separation, and validators in
+  `docs/agent-profile-matrix.md`; keep role-specific outputs and checker
+  expectations in the skills.
+- `thesis-supervisor-feedback` and `thesis-opponent-materials` repeat the
+  scheduling default and wave/concurrency prose from `docs/agent-scheduling.md`.
+  Proposed owner: `docs/agent-scheduling.md` owns concurrency and wave rules;
+  each orchestration skill keeps only its role list and workflow-specific
+  `scripts/check-review-wave` commands.
+- Sixteen role skills repeat the same `Agent Final Response Contract` handoff
+  list while changing only the owned artifact noun. Proposed owner:
+  `docs/agent-scheduling.md` owns default chat handoff shape and parent
+  synthesis; role skills keep only role-specific artifact writes, expected
+  validation, and any special response additions.
+- `thesis-code-consistency` and `thesis-code-quality-review` repeat the
+  distinction among workflow profiles, materiality profiles, wave workflows,
+  Codex agent profiles, and reviewer preference profiles. Proposed owner:
+  `docs/agent-profile-matrix.md`; code skills keep a pointer only.
+- Per-skill command-routing text is intentionally not slated for removal in
+  Slice 2. It is a Windows command-surface warning enforced by
+  `scripts/check-scripts`, not a competing review-agent scheduling or handoff
+  rule.
+
+Exact `.agents/skills/<skill>/SKILL.md` paths slated for Slice 2 edits:
+
+- `.agents/skills/thesis-code-consistency/SKILL.md`
+- `.agents/skills/thesis-code-quality-review/SKILL.md`
+- `.agents/skills/thesis-figure-media-review/SKILL.md`
+- `.agents/skills/thesis-github-code-intake/SKILL.md`
+- `.agents/skills/thesis-literature-citation-review/SKILL.md`
+- `.agents/skills/thesis-opponent-materials-review/SKILL.md`
+- `.agents/skills/thesis-opponent-materials/SKILL.md`
+- `.agents/skills/thesis-opponent-report-review/SKILL.md`
+- `.agents/skills/thesis-quantitative-claims-review/SKILL.md`
+- `.agents/skills/thesis-revision-diff/SKILL.md`
+- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
+- `.agents/skills/thesis-supervisor-feedback/SKILL.md`
+- `.agents/skills/thesis-supervisor-report-review/SKILL.md`
+- `.agents/skills/thesis-supervisor-report/SKILL.md`
+- `.agents/skills/thesis-theses-similarity-review/SKILL.md`
+- `.agents/skills/thesis-typography-formal-review/SKILL.md`
+
 ## Progress
 
 - 2026-05-19: Created from Slice 8 of
@@ -106,6 +154,15 @@ or closeout owner.
   coverage, and closeout command ownership. Serena preflight succeeded for
   repo-local Python/Markdown work; scoped use observed
   `src/thesis_review_workflow/cli/check_scripts.py` owner symbols.
+- 2026-05-19: Slice 1 in progress. Auditing repeated scheduling, handoff,
+  role-routing, evidence-review, closeout, and Windows command-surface wording
+  across owner docs and repo-local skills. No `cases/` content inspected.
+- 2026-05-19: Slice 1 audit recorded above. Exact skill paths for Slice 2 are
+  enumerated; command-routing warnings are intentionally preserved as the
+  existing Windows command-surface contract.
+- 2026-05-19: Slice 1 checks passed: `git diff --check`,
+  `scripts/check-private`, `scripts/check-scripts`. Slice 1 agent review found
+  no blocking issues and confirmed no private case data was inspected.
 
 ## Decision Log
 
