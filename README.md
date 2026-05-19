@@ -850,6 +850,12 @@ Do gitu nepatří studentská PDF, zdrojové zipy, extrakty, kódové odevzdávk
 soukromé poznámky ani vygenerované case výstupy. Tyto věci mají zůstat pod
 ignorovaným `cases/`.
 
+Běžné hlášení problému z konkrétní práce zůstává v case workspace jako
+omezení, sanitizovaný issue report, review delta nebo operation-log událost.
+Úpravy tracked workflow souborů jsou maintainer práce a vyžadují výslovný
+souhlas v aktuálním požadavku; přesná hranice je v
+`docs/workflow-command-surface.md`.
+
 Před commitem workflow změn:
 
 ```bash

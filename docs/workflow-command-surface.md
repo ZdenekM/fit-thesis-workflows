@@ -92,6 +92,15 @@ calibration decision. This log is deliberately separate from
 `work/review_manifest.json` hash gating so diagnostic notes do not make a closed
 manifest stale.
 
+Default colleague/operator issue reporting is case-local. Put limitations,
+sanitized issue reports, review deltas, and operation events under the ignored
+round workspace, and cite tracked workflow owners only by public path when a
+fix should be considered later. Editing tracked workflow/docs/skills/tests is
+maintainer work: it requires explicit current-request consent, keeps the same
+DEEP/review requirements, and must run `scripts/check-private` before commit.
+That consent is a write-scope opt-in only; it is not a second review mode,
+profile-update command, closeout shortcut, or alternate command surface.
+
 `refresh-round-hashes` is a deterministic maintenance surface for stale helper
 hashes after operator-note or approval-record edits. It currently refreshes
 `work/common_briefing.json` only. It must not change approval records,

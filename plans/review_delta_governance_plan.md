@@ -212,7 +212,7 @@ changed.
 
 ### Slice 3 - Maintainer Write-Scope And Sanitized Issue Reporting
 
-Status: pending - implement
+Status: done
 
 Expected paths:
 
@@ -366,6 +366,15 @@ Run focused Pants tests if deterministic privacy behavior changes.
   targeted `pants check ...`, `scripts/smoke-record-review-delta`,
   `scripts/smoke-record-report-amendment`, `scripts/smoke-package-workflow-tools`,
   `git diff --check`, `scripts/check-private`, `scripts/check-scripts`.
+- 2026-05-19: Slice 3 started. Scope is docs-only: document case-local
+  sanitized issue reporting and explicit tracked-maintenance consent through
+  existing command-surface/README/profile owners. No active duplicated skill
+  instruction has been identified, so no skill edit is planned.
+- 2026-05-19: Slice 3 completed. `docs/workflow-command-surface.md` now owns
+  the detailed case-local issue reporting and tracked-maintenance write-scope
+  boundary; `README.md` keeps only a short operator pointer. Slice reviewer
+  found no issues. Checks passed: `git diff --check`, `scripts/check-private`,
+  `scripts/check-scripts`.
 
 ## Decision Log
 
