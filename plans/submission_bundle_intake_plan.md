@@ -611,6 +611,49 @@ any duplicated active instructions it creates.
   `scripts/smoke-review-round-start`, `scripts/smoke-submission-bundle-inventory`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 4 started. Scope is discovered/materialized bundle
+  visibility in doctor, preflight, and role-packet surfaces. Serena scoped
+  lookup confirmed `opponent_packets.generate_packets` as one packet-generation
+  owner to extend. Manifest/silent-evidence registration, media observation,
+  and closeout convergence remain out of scope until later slices.
+- 2026-05-19: Slice 4 implemented shared bundle-visibility rendering over
+  `work/submission_bundle_inventory.*` and
+  `work/submission_bundle_materialization.json`. `case-doctor`,
+  `check-supervisor-ready`, `opponent-preflight`, common briefing, and
+  supervisor/opponent/supervisor-report packets now surface discovered versus
+  materialized candidates, demo/media/executable candidates, and
+  first-party-looking code separately from generated/build/sample/vendor
+  summaries. Verification before agent review: `pants test
+  tests/test_submission_bundle.py tests/test_opponent_packets.py
+  tests/test_opponent_preflight.py tests/test_supervisor_packets.py
+  tests/test_supervisor_report_packets.py tests/test_case_doctor_summary.py
+  tests/test_review_pipeline_orchestration.py`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`,
+  `scripts/smoke-submission-bundle-materialization`, `scripts/smoke-case-doctor`,
+  `scripts/smoke-opponent-preflight`, `scripts/smoke-supervisor-packets`,
+  `scripts/smoke-supervisor-report-packets`, `scripts/smoke-prepare-review-round`,
+  `scripts/smoke-import-theses-report`, `scripts/smoke-package-workflow-tools`,
+  `git diff --check`, `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 4 agent review found that visibility must not treat
+  diagnostic inventories as role-intake evidence, supervisor readiness should
+  print bundle visibility before early gate failures, bounded/unsupported
+  candidates need visible next actions, PDF candidates need expected extract
+  refs, and first-party/generated buckets must come from structured summary
+  fields. Fixed those findings and added focused tests for diagnostic inventory
+  rejection, case/round identity checks, malformed summary tolerance,
+  bounded/unsupported next actions, supervisor readiness output ordering, and
+  supervisor/supervisor-report packet visibility. Re-ran `pants test
+  tests/test_submission_bundle.py tests/test_opponent_packets.py
+  tests/test_opponent_preflight.py tests/test_supervisor_packets.py
+  tests/test_supervisor_report_packets.py tests/test_supervisor_ready.py
+  tests/test_case_doctor_summary.py tests/test_review_pipeline_orchestration.py`,
+  `scripts/smoke-submission-bundle-materialization`, `pants lint
+  src/thesis_review_workflow:: tests:: scripts::`, `pants check
+  src/thesis_review_workflow:: tests:: scripts::`, `scripts/smoke-case-doctor`,
+  `scripts/smoke-opponent-preflight`, `scripts/smoke-supervisor-packets`,
+  `scripts/smoke-supervisor-report-packets`, `scripts/smoke-prepare-review-round`,
+  `scripts/smoke-import-theses-report`, and `scripts/smoke-package-workflow-tools`.
 
 ## Decision Log
 

@@ -1,9 +1,14 @@
 import json
+import zipfile
 from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import PACKET_ROLES, generate_packets, render_packet
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
+from thesis_review_workflow.submission_bundle import (
+    build_submission_bundle_inventory,
+    write_submission_bundle_inventory,
+)
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
@@ -350,6 +355,37 @@ def test_packet_lists_input_directories(tmp_path: Path) -> None:
     briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
 
     assert "inputs/submitted-src/" in briefing["available_round_inputs"]
+
+
+def test_packets_surface_submission_bundle_visibility_before_raw_archives(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "inputs").mkdir(parents=True)
+    with zipfile.ZipFile(round_dir / "inputs" / "submission.zip", "w") as handle:
+        handle.writestr("handoff/src/app.py", "print('synthetic')\n")
+        handle.writestr("handoff/demo.mp4", b"mp4")
+        handle.writestr("handoff/app.apk", b"apk")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    visibility = "\n".join(briefing["submission_bundle_visibility"])
+    text = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(encoding="utf-8")
+
+    assert "Submission Bundle Inventory" in text
+    assert "Use this inventory before opening raw submitted bundles" in text
+    assert "First-party-looking code:" in visibility
+    assert "Demo/media/executables:" in visibility
+    assert "media_artifact" in visibility
+    assert "executable_artifact" in visibility
 
 
 def test_packets_use_role_owned_expected_outputs() -> None:

@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from thesis_review_workflow.cases import repo_root
+from thesis_review_workflow.cases import MissingCurrentRound, repo_root
+from thesis_review_workflow.cases import resolve_round as resolve_round_core
 from thesis_review_workflow.commands import run_step
+from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
 
 
 def usage() -> str:
@@ -35,6 +37,21 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv[1:])
     command_args = [args.case_id, *([args.round_id] if args.round_id else [])]
     root = repo_root()
+    case_dir = root / "cases" / args.case_id
+    visibility_round_id: str | None = None
+    try:
+        visibility_round_id = resolve_round_core(case_dir, args.round_id)
+    except (MissingCurrentRound, ValueError):
+        pass
+    if visibility_round_id is not None:
+        bundle_lines = submission_bundle_visibility_lines(
+            case_dir / "rounds" / visibility_round_id,
+            include_absent=False,
+        )
+        if bundle_lines:
+            print("Submission Bundle Inventory")
+            for line in bundle_lines:
+                print(line)
     for command in ("check-round-ready", "supervisor-deadline"):
         step = run_step(root, command, [f"scripts/{command}", *command_args])
         if step.output:

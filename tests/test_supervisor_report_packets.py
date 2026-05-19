@@ -1,9 +1,14 @@
 import json
+import zipfile
 from pathlib import Path
 
 from thesis_review_workflow.cli import prepare_supervisor_report_packets
 from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
+from thesis_review_workflow.submission_bundle import (
+    build_submission_bundle_inventory,
+    write_submission_bundle_inventory,
+)
 from thesis_review_workflow.supervisor_report_packets import generate_packets
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
@@ -135,6 +140,28 @@ def test_supervisor_report_packets_include_quantitative_output_contract(tmp_path
     assert "JSON schema: quantitative-claims-v1" in text
     assert "scripts/check-evaluation-claims case-a round-a" in text
     assert "work/current_evidence_snapshot.json" in text
+
+
+def test_supervisor_report_packets_surface_submission_bundle_visibility(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    with zipfile.ZipFile(round_dir / "inputs" / "submission.zip", "w") as handle:
+        handle.writestr("handoff/src/main.py", "print('synthetic')\n")
+        handle.writestr("handoff/demo.mp4", b"mp4")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+
+    text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
+    assert "Submission Bundle Inventory" in text
+    assert "Use this inventory before opening raw submitted bundles" in text
 
 
 def test_supervisor_report_packets_ignore_supervisor_feedback_materiality(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ from thesis_review_workflow.submission_bundle import (
     build_submission_bundle_inventory,
     materialize_submission_bundle_candidate,
     render_inventory_markdown,
+    submission_bundle_visibility_lines,
     write_submission_bundle_inventory,
 )
 from thesis_review_workflow.work_artifacts import collect_supporting_work_artifacts, validate_supporting_work_artifacts
@@ -87,6 +88,7 @@ def test_nextcloud_style_bundle_inventory_discovers_nested_artifacts(tmp_path: P
     assert assignment["expected_extract_ref"].startswith("extracted/submission_bundle/")
     code_candidate = candidate_by_class(payload, "code_archive_candidate")[0]
     assert code_candidate["summary"]["code_like"] is True
+    assert code_candidate["summary"]["first_party_count"] == 2
     assert code_candidate["summary"]["test_count"] == 1
     assert "archive_contains_code_evidence" in code_candidate["reason_codes"]
     assert {item["state"] for item in payload["candidates"]} == {"materialize_candidate"}
@@ -269,6 +271,219 @@ def test_generated_executables_are_not_promoted_to_actionable_leaf_evidence(tmp_
     )
 
     assert payload["candidates"] == []
+
+
+def test_archive_summary_keeps_first_party_tests_generated_and_samples_separate(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    project_archive = nested_zip(
+        {
+            "Project/Assets/Scripts/Game.cs": "class Game {}\n",
+            "Project/Tests/GameTests.cs": "class GameTests {}\n",
+            "Project/Packages/com.vendor.sample/Runtime/Foo.cs": "class Foo {}\n",
+            "Project/Assets/Samples/Demo/Example.cs": "class Example {}\n",
+            "Project/bin/Debug/net8.0/App.dll": b"dll",
+            "Project/obj/Debug/net8.0/App.g.cs": "class Generated {}\n",
+        }
+    )
+    bundle = round_dir / "inputs" / "game-export.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("handoff/game-project.zip", project_archive)
+
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/game-export.zip"],
+        generated_at="2026-05-19T12:00:00Z",
+    )
+
+    candidate = candidate_by_class(payload, "code_archive_candidate")[0]
+    assert candidate["artifact_class"] == "code_archive_candidate"
+    assert candidate["summary"]["first_party_count"] == 1
+    assert candidate["summary"]["test_count"] == 1
+    assert candidate["summary"]["sample_or_vendor_count"] == 1
+    assert candidate["summary"]["generated_or_vendor_count"] == 3
+
+
+def test_visibility_does_not_treat_diagnostic_inventory_as_role_intake(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("handoff/src/main.py", "print('synthetic')\n")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    text = "\n".join(submission_bundle_visibility_lines(round_dir))
+
+    assert "diagnostic" in text
+    assert "rerun `scripts/review-round-start`" in text
+    assert "First-party-looking code:" not in text
+
+
+def test_visibility_validates_inventory_identity_against_round_path(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("README.md", "# synthetic\n")
+    payload = build_submission_bundle_inventory(
+        case_id="other-case",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    text = "\n".join(submission_bundle_visibility_lines(round_dir))
+
+    assert "invalid" in text
+    assert "case_id does not match round path" in text
+
+
+def test_visibility_keeps_generated_only_code_archives_out_of_first_party_bucket(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    generated_archive = nested_zip(
+        {
+            "Project/bin/Debug/net8.0/App.dll": b"dll",
+            "Project/obj/Debug/net8.0/App.g.cs": "class Generated {}\n",
+        }
+    )
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("handoff/generated-code.zip", generated_archive)
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    text = "\n".join(submission_bundle_visibility_lines(round_dir))
+
+    assert "First-party-looking code: none discovered" in text
+    assert "Generated/build/sample/vendor code:" in text
+    assert "generated/build=2" in text
+
+
+def test_visibility_lines_distinguish_discovered_materialized_and_demo_candidates(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    code_archive = nested_zip(
+        {
+            "project/pyproject.toml": "[project]\nname = 'synthetic'\n",
+            "project/src/main.py": "print('synthetic')\n",
+            "project/tests/test_main.py": "def test_main(): assert True\n",
+        }
+    )
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("handoff/code.zip", code_archive)
+        handle.writestr("handoff/assignment-zadani.pdf", b"%PDF-1.4\n")
+        handle.writestr("handoff/demo.mp4", b"mp4")
+        handle.writestr("handoff/app.apk", b"apk")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+    code_id = candidate_by_class(payload, "code_archive_candidate")[0]["candidate_id"]
+
+    materialize_submission_bundle_candidate(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        candidate_id=code_id,
+        output_ref="inputs/materialized-code.zip",
+        generated_at="2026-05-19T12:01:00Z",
+    )
+    lines = submission_bundle_visibility_lines(round_dir)
+    text = "\n".join(lines)
+
+    assert "Materialized candidates:" in text
+    assert "inputs/materialized-code.zip" in text
+    assert "First-party-looking code:" in text
+    assert "first-party-looking=2; tests=1" in text
+    assert "Demo/media/executables:" in text
+    assert "media_artifact" in text
+    assert "executable_artifact" in text
+    assert "expected extract `extracted/submission_bundle/" in text
+
+
+def test_visibility_reports_bounded_and_unsupported_next_actions(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    unsupported = round_dir / "inputs" / "submission.7z"
+    unsupported.write_bytes(b"not really 7z")
+    with zipfile.ZipFile(round_dir / "inputs" / "large.zip", "w") as handle:
+        handle.writestr("project/src/main.py", "print('synthetic')\n")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.7z", "inputs/large.zip"],
+        limits=BundleInventoryLimits(max_archive_bytes=1),
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    text = "\n".join(submission_bundle_visibility_lines(round_dir))
+
+    assert "unsupported_archive_type" in text
+    assert "not_listed_due_to_size" in text
+    assert "convert or unpack the archive outside deterministic workflow helpers" in text
+    assert "increase inventory limits or ask the operator to decompose the bundle" in text
+
+
+def test_visibility_tolerates_malformed_archive_summary_counts(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    payload = {
+        "schema_version": "submission-bundle-inventory-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-19T12:00:00Z",
+        "producer": "scripts/review-round-start",
+        "limits": BundleInventoryLimits().as_record(),
+        "source_bundles": [],
+        "candidates": [
+            {
+                "candidate_id": "sb-malformed",
+                "source_bundle_ref": "inputs/submission.zip",
+                "source_bundle_sha256": "0" * 64,
+                "nested_path_chain": ["code.zip"],
+                "candidate_ref": "inputs/submission.zip!code.zip",
+                "artifact_class": "code_archive_candidate",
+                "reason_codes": ["archive_contains_code_evidence"],
+                "confidence": "high",
+                "state": "materialize_candidate",
+                "materialized_ref": "",
+                "limits": BundleInventoryLimits().as_record(),
+                "next_action": "candidate is visible for the existing review-round intake boundary",
+                "archive_depth": 1,
+                "summary": {"first_party_count": "bad", "generated_or_vendor_count": None},
+            }
+        ],
+        "skipped_entries": [],
+        "summary": {},
+    }
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    text = "\n".join(submission_bundle_visibility_lines(round_dir))
+
+    assert "first-party-looking=0" in text
+    assert "Candidate next actions:" in text
 
 
 def test_inventory_records_unsupported_archives_and_utf8_names(tmp_path: Path) -> None:

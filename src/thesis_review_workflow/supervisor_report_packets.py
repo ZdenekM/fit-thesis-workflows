@@ -21,6 +21,7 @@ from thesis_review_workflow.review_packets import (
     role_is_active,
     sha256_file,
     status_list,
+    submission_bundle_visibility_section,
     text_list,
     write_common_briefing,
     write_text_if_changed,
@@ -435,6 +436,7 @@ def render_packet(
     active_packets = generated_role_paths(PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
     role_constraints = COMMON_CONSTRAINTS + role.constraints
     optional_sections = [
+        submission_bundle_visibility_section(round_dir),
         materiality_next_actions_section(
             round_dir,
             case_id=case_id,
@@ -478,8 +480,8 @@ def render_packet(
             "",
             status_list(round_dir, (COMMON_BRIEFING_REL,), case_id=case_id, round_id=round_id),
             "Read the common briefing first for case/profile inputs, round inventory, extracted text refs, "
-            "previous feedback refs, current evidence snapshots, prepared code roots, materiality refs, and "
-            "current context handoffs.",
+            "previous feedback refs, submitted-bundle inventory, current evidence snapshots, prepared code roots, "
+            "materiality refs, and current context handoffs.",
             "",
             "## Optional Prior Feedback Evidence",
             "",

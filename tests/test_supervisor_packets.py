@@ -1,9 +1,14 @@
 import json
+import zipfile
 from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import generate_packets as generate_opponent_packets
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
+from thesis_review_workflow.submission_bundle import (
+    build_submission_bundle_inventory,
+    write_submission_bundle_inventory,
+)
 from thesis_review_workflow.supervisor_packets import PACKET_ROLES, generate_packets, render_packet
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
@@ -354,6 +359,36 @@ def test_supervisor_packet_consumes_quantitative_claims_handoff(tmp_path: Path) 
     assert "`work/quantitative_claims.json` (present" in text
     advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
     assert advisory["work/quantitative_claims.json"]["status"] == "present"
+
+
+def test_supervisor_packets_surface_submission_bundle_visibility(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    with zipfile.ZipFile(round_dir / "inputs" / "submission.zip", "w") as handle:
+        handle.writestr("handoff/src/main.py", "print('synthetic')\n")
+        handle.writestr("handoff/demo.mp4", b"mp4")
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        producer="scripts/review-round-start",
+        generated_at="2026-05-19T12:00:00Z",
+    )
+    write_submission_bundle_inventory(round_dir=round_dir, payload=payload)
+
+    generate_packets(
+        "case-a",
+        "round-a",
+        "2026-05-11T00:00:00Z",
+        round_dir,
+        deadline_context=DEADLINE_CONTEXT,
+    )
+
+    text = (round_dir / "work" / "supervisor_packets" / "text_assignment.md").read_text(encoding="utf-8")
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    assert "Submission Bundle Inventory" in text
+    assert "Use this inventory before opening raw submitted bundles" in text
+    assert any("Demo/media/executables:" in item for item in briefing["submission_bundle_visibility"])
 
 
 def test_supervisor_packet_includes_previous_feedback_index(tmp_path: Path) -> None:

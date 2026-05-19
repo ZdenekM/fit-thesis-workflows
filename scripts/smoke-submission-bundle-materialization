@@ -49,6 +49,8 @@ with zipfile.ZipFile(code, "w") as handle:
 with zipfile.ZipFile(target, "w") as handle:
     handle.writestr("handoff/code.zip", code.getvalue())
     handle.writestr("handoff/assignment-zadani.pdf", b"%PDF-1.4\n")
+    handle.writestr("handoff/demo.mp4", b"mp4 placeholder")
+    handle.writestr("handoff/app.apk", b"apk placeholder")
 PY
 
 "$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
@@ -91,11 +93,25 @@ PY
   "$case_id" \
   "$round_id" \
   --skip-materiality-check >/tmp/submission-bundle-prepare-review-smoke.out
+"$repo_root/scripts/opponent-preflight" \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-preflight-smoke.out
+"$repo_root/scripts/case-doctor" \
+  "$case_id" \
+  "$round_id" >/tmp/submission-bundle-doctor-smoke.out
 
 test -f "$round_dir/inputs/materialized-code.zip"
 test -f "$round_dir/work/submission_bundle_materialization.json"
 test -f "$round_dir/work/code/materialized-code/project/src/main.py"
 test -f "$round_dir/work/review_role_plan.json"
+grep -Fq "Submission Bundle Inventory" /tmp/submission-bundle-preflight-smoke.out
+grep -Fq "Demo/media/executables:" /tmp/submission-bundle-preflight-smoke.out
+grep -Fq "executable_artifact" /tmp/submission-bundle-preflight-smoke.out
+grep -Fq "expected extract \`extracted/submission_bundle/" /tmp/submission-bundle-preflight-smoke.out
+grep -Fq "Submission Bundle Inventory" /tmp/submission-bundle-doctor-smoke.out
+grep -Fq "First-party-looking code:" /tmp/submission-bundle-doctor-smoke.out
+grep -Fq "work/submission_bundle_inventory.json" "$round_dir/work/common_briefing.json"
+grep -Fq "Submission Bundle Inventory" "$round_dir/work/opponent_packets/text_structure_assignment.md"
 
 assignment_candidate_id="$(
   python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'

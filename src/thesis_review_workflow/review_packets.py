@@ -22,6 +22,11 @@ from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.submission_bundle import (
+    SUBMISSION_BUNDLE_VISIBILITY_REFS,
+    render_submission_bundle_visibility_markdown,
+    submission_bundle_visibility_lines,
+)
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_EXTRACTED_TEXT_REL,
@@ -52,6 +57,7 @@ SNAPSHOT_SOURCE_PATHS = (
     "work/current_evidence_snapshot.json",
     "work/code_workspace.md",
     "work/serena_roots.json",
+    *SUBMISSION_BUNDLE_VISIBILITY_REFS,
     "outputs/github_code_intake.md",
     "outputs/oponent_podklady_revidovane.md",
     "work/opponent_report_trace.json",
@@ -111,6 +117,7 @@ COMMON_BRIEFING_ADVISORY_ARTIFACTS = tuple(
             "work/quantitative_claims.json",
             "work/media_presence_inventory.jsonl",
             "work/figure_media/visual_inventory.jsonl",
+            *SUBMISSION_BUNDLE_VISIBILITY_REFS,
             "work/code_workspace.md",
             "work/serena_roots.json",
             "outputs/github_code_intake.md",
@@ -635,6 +642,7 @@ def build_common_briefing_payload(
         "available_round_notes": top_level_paths(round_dir, "notes"),
         "extracted_text_refs": extracted_text_paths(round_dir),
         "previous_feedback_refs": previous_feedback_index(round_dir),
+        "submission_bundle_visibility": submission_bundle_visibility_lines(round_dir, include_absent=False),
         "prepared_code_roots": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
             for rel_path in CODE_WORKSPACE_PATHS
@@ -733,6 +741,7 @@ def validate_common_briefing_payload(
         "available_round_notes",
         "extracted_text_refs",
         "previous_feedback_refs",
+        "submission_bundle_visibility",
         "open_full_artifact_triggers",
         "limitations",
     ):
@@ -847,6 +856,16 @@ def late_communications_section(round_dir: Path) -> str:
             "supporting work artifacts.",
             "",
         ]
+    )
+
+
+def submission_bundle_visibility_section(round_dir: Path) -> str:
+    rendered = render_submission_bundle_visibility_markdown(round_dir, include_absent=False)
+    if not rendered:
+        return ""
+    return rendered + (
+        "Use this inventory before opening raw submitted bundles. It distinguishes discovered nested candidates "
+        "from direct round inputs that were materialized for the existing review-round workflow.\n"
     )
 
 

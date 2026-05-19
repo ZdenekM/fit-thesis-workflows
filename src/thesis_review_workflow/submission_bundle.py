@@ -30,7 +30,14 @@ SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL = "work/submission_bundle_inventory.md"
 SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA = "submission-bundle-materialization-v1"
 SUBMISSION_BUNDLE_MATERIALIZATION_REL = "work/submission_bundle_materialization.json"
 SUBMISSION_BUNDLE_PRODUCER = "scripts/inventory-submission-bundle"
+SUBMISSION_BUNDLE_ROUND_START_PRODUCER = "scripts/review-round-start"
 SUBMISSION_BUNDLE_MATERIALIZATION_PRODUCER = "scripts/materialize-submission-bundle-candidate"
+SUBMISSION_BUNDLE_VISIBILITY_SCHEMA = "submission-bundle-visibility-v1"
+SUBMISSION_BUNDLE_VISIBILITY_REFS = (
+    SUBMISSION_BUNDLE_INVENTORY_REL,
+    SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
+    SUBMISSION_BUNDLE_MATERIALIZATION_REL,
+)
 
 ACTIONABLE_CLASSES = {
     "assignment_pdf_candidate",
@@ -336,21 +343,23 @@ def skipped_entry(
 def archive_summary_from_names(names: list[str], *, truncated: bool) -> dict[str, Any]:
     code_like = [name for name in names if archive_entry_code_like(name)]
     evidence = [classify_path_evidence(name) for name in names]
+    first_party = [item.normalized_path for item in evidence if item.artifact_class == "first_party_candidate"]
     tests = [item.normalized_path for item in evidence if item.artifact_class == "test_evidence"]
     readmes = [item.normalized_path for item in evidence if item.artifact_class == "readme_candidate"]
     assignments = [item.normalized_path for item in evidence if item.artifact_class == "assignment_pdf_candidate"]
-    generated_or_vendor = [
-        item.normalized_path for item in evidence if item.artifact_class in {"generated_or_vendor", "sample_or_vendor"}
-    ]
+    generated_or_vendor = [item.normalized_path for item in evidence if item.artifact_class == "generated_or_vendor"]
+    sample_or_vendor = [item.normalized_path for item in evidence if item.artifact_class == "sample_or_vendor"]
     return {
         "entries_seen": len(names),
         "truncated": truncated,
         "code_like": bool(code_like),
         "code_like_count": len(code_like),
+        "first_party_count": len(first_party),
         "test_count": len(tests),
         "readme_count": len(readmes),
         "assignment_pdf_count": len(assignments),
         "generated_or_vendor_count": len(generated_or_vendor),
+        "sample_or_vendor_count": len(sample_or_vendor),
     }
 
 
@@ -1011,6 +1020,270 @@ def write_submission_bundle_inventory(
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     md_path.write_text(render_inventory_markdown(payload), encoding="utf-8")
     return json_path, md_path
+
+
+def load_optional_submission_bundle_inventory(round_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+    path = round_dir / SUBMISSION_BUNDLE_INVENTORY_REL
+    if not path.is_file():
+        return None, None
+    try:
+        return load_submission_bundle_inventory(round_dir), None
+    except (OSError, ValueError) as exc:
+        return None, str(exc)
+
+
+def load_optional_materialization_manifest(round_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+    path = round_dir / SUBMISSION_BUNDLE_MATERIALIZATION_REL
+    if not path.is_file():
+        return None, None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: cannot read materialization manifest: {exc}"
+    if not isinstance(loaded, dict) or loaded.get("schema_version") != SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA:
+        return None, f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: unsupported schema_version"
+    if not isinstance(loaded.get("materializations"), list):
+        return None, f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: materializations must be a list"
+    return loaded, None
+
+
+def _count_by(items: Iterable[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = item.get(key)
+        if isinstance(value, str) and value:
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _count_text(counts: dict[str, int]) -> str:
+    return ", ".join(f"{key}={counts[key]}" for key in sorted(counts)) if counts else "none"
+
+
+def _round_identity(round_dir: Path) -> tuple[str | None, str | None]:
+    if round_dir.parent.name != "rounds":
+        return None, None
+    return round_dir.parent.parent.name, round_dir.name
+
+
+def _safe_int(value: Any) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _candidate_label(candidate: dict[str, Any]) -> str:
+    ref = str(candidate.get("candidate_ref", "unknown"))
+    candidate_id = str(candidate.get("candidate_id", "unknown"))
+    artifact_class = str(candidate.get("artifact_class", "unknown"))
+    state = str(candidate.get("state", "unknown"))
+    materialized_ref = str(candidate.get("materialized_ref", "") or "")
+    suffix = f" -> `{materialized_ref}`" if materialized_ref else ""
+    expected_extract = candidate.get("expected_extract_ref")
+    extract_suffix = f"; expected extract `{expected_extract}`" if isinstance(expected_extract, str) else ""
+    return f"`{candidate_id}` `{artifact_class}` `{state}` `{ref}`{suffix}{extract_suffix}"
+
+
+def _candidate_materialized(candidate: dict[str, Any]) -> bool:
+    value = candidate.get("materialized_ref")
+    return isinstance(value, str) and bool(value)
+
+
+def _archive_summary_line(candidate: dict[str, Any]) -> str | None:
+    summary = candidate.get("summary")
+    if not isinstance(summary, dict):
+        return None
+    counts = {
+        "first_party": _safe_int(summary.get("first_party_count")),
+        "tests": _safe_int(summary.get("test_count")),
+        "generated_build": _safe_int(summary.get("generated_or_vendor_count")),
+        "sample_vendor": _safe_int(summary.get("sample_or_vendor_count")),
+    }
+    return (
+        f"{_candidate_label(candidate)}; "
+        f"first-party-looking={counts['first_party']}; tests={counts['tests']}; "
+        f"generated/build={counts['generated_build']}; sample/vendor={counts['sample_vendor']}"
+    )
+
+
+def _limited_labels(candidates: list[dict[str, Any]], *, limit: int) -> list[str]:
+    labels = [_candidate_label(candidate) for candidate in candidates[:limit]]
+    omitted = len(candidates) - limit
+    if omitted > 0:
+        labels.append(f"... {omitted} more")
+    return labels
+
+
+def _candidate_has_first_party_code(candidate: dict[str, Any]) -> bool:
+    if candidate.get("artifact_class") == "first_party_candidate":
+        return True
+    summary = candidate.get("summary")
+    return isinstance(summary, dict) and _safe_int(summary.get("first_party_count")) > 0
+
+
+def _candidate_has_generated_sample_vendor(candidate: dict[str, Any]) -> bool:
+    summary = candidate.get("summary")
+    return isinstance(summary, dict) and (
+        _safe_int(summary.get("generated_or_vendor_count")) > 0 or _safe_int(summary.get("sample_or_vendor_count")) > 0
+    )
+
+
+def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> dict[str, Any]:
+    inventory, inventory_error = load_optional_submission_bundle_inventory(round_dir)
+    materialization, materialization_error = load_optional_materialization_manifest(round_dir)
+    expected_case_id, expected_round_id = _round_identity(round_dir)
+    inventory_status = "invalid" if inventory_error else "present" if inventory else "missing"
+    inventory_note = ""
+    authoritative_inventory = False
+    if inventory is not None and inventory_status == "present":
+        if expected_case_id and inventory.get("case_id") != expected_case_id:
+            inventory_status = "invalid"
+            inventory_error = f"{SUBMISSION_BUNDLE_INVENTORY_REL}: case_id does not match round path"
+        elif expected_round_id and inventory.get("round_id") != expected_round_id:
+            inventory_status = "invalid"
+            inventory_error = f"{SUBMISSION_BUNDLE_INVENTORY_REL}: round_id does not match round path"
+        elif inventory.get("producer") != SUBMISSION_BUNDLE_ROUND_START_PRODUCER:
+            inventory_status = "diagnostic"
+            inventory_note = (
+                f"produced by `{inventory.get('producer', '') or 'unknown'}`; rerun `scripts/review-round-start` "
+                "before role packets or readiness checks rely on nested candidates"
+            )
+        else:
+            authoritative_inventory = True
+    materialization_status = "invalid" if materialization_error else "present" if materialization else "missing"
+    if materialization is not None and materialization_status == "present":
+        if expected_case_id and materialization.get("case_id") != expected_case_id:
+            materialization_status = "invalid"
+            materialization_error = f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: case_id does not match round path"
+        elif expected_round_id and materialization.get("round_id") != expected_round_id:
+            materialization_status = "invalid"
+            materialization_error = f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: round_id does not match round path"
+    candidates = [
+        item for item in (inventory or {}).get("candidates", []) if authoritative_inventory and isinstance(item, dict)
+    ]
+    skipped = [
+        item
+        for item in (inventory or {}).get("skipped_entries", [])
+        if authoritative_inventory and isinstance(item, dict)
+    ]
+    source_bundles = [
+        item
+        for item in (inventory or {}).get("source_bundles", [])
+        if authoritative_inventory and isinstance(item, dict)
+    ]
+    materializations = [
+        item
+        for item in (materialization or {}).get("materializations", [])
+        if materialization_status == "present" and isinstance(item, dict)
+    ]
+    materialized_candidates = [candidate for candidate in candidates if _candidate_materialized(candidate)]
+    first_party_candidates = [candidate for candidate in candidates if _candidate_has_first_party_code(candidate)]
+    archive_summaries = [line for candidate in candidates if isinstance(line := _archive_summary_line(candidate), str)]
+    generated_or_vendor = [
+        line
+        for candidate in candidates
+        if _candidate_has_generated_sample_vendor(candidate)
+        and isinstance(line := _archive_summary_line(candidate), str)
+    ]
+    demo_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate.get("artifact_class") in {"media_artifact", "executable_artifact"}
+    ]
+    next_action_candidates = [candidate for candidate in candidates if not _candidate_materialized(candidate)]
+    return {
+        "schema_version": SUBMISSION_BUNDLE_VISIBILITY_SCHEMA,
+        "inventory_ref": SUBMISSION_BUNDLE_INVENTORY_REL,
+        "inventory_status": inventory_status,
+        "inventory_error": inventory_error or "",
+        "inventory_note": inventory_note,
+        "materialization_ref": SUBMISSION_BUNDLE_MATERIALIZATION_REL,
+        "materialization_status": materialization_status,
+        "materialization_error": materialization_error or "",
+        "source_bundles": source_bundles[:limit],
+        "candidate_counts_by_class": _count_by(candidates, "artifact_class"),
+        "candidate_counts_by_state": _count_by(candidates, "state"),
+        "materialized_candidates": _limited_labels(materialized_candidates, limit=limit),
+        "materialization_records": [
+            {
+                "candidate_id": str(record.get("candidate_id", "")),
+                "materialized_ref": str(record.get("materialized_ref", "")),
+                "artifact_class": str(record.get("artifact_class", "")),
+                "source_candidate_ref": str(record.get("source_candidate_ref", "")),
+            }
+            for record in materializations[:limit]
+        ],
+        "first_party_code_candidates": _limited_labels(first_party_candidates, limit=limit),
+        "archive_code_summaries": archive_summaries[:limit],
+        "generated_sample_vendor_summaries": generated_or_vendor[:limit],
+        "demo_media_executable_candidates": _limited_labels(demo_candidates, limit=limit),
+        "next_actions": [
+            f"{_candidate_label(candidate)}: {candidate.get('next_action', 'inspect inventory record')}"
+            for candidate in next_action_candidates[:limit]
+        ],
+        "skipped_entry_count": len(skipped),
+        "skipped_entry_examples": [
+            f"`{item.get('candidate_ref', '')}` `{item.get('state', '')}`: {item.get('detail', '')}"
+            for item in skipped[:limit]
+        ],
+    }
+
+
+def submission_bundle_visibility_lines(
+    round_dir: Path,
+    *,
+    include_absent: bool = True,
+    limit: int = 8,
+) -> list[str]:
+    payload = submission_bundle_visibility_payload(round_dir, limit=limit)
+    if payload["inventory_status"] == "missing" and not include_absent:
+        return []
+    lines = [
+        f"- Inventory: `{payload['inventory_ref']}` ({payload['inventory_status']})",
+        f"- Materialization manifest: `{payload['materialization_ref']}` ({payload['materialization_status']})",
+    ]
+    if payload["inventory_error"]:
+        lines.append(f"- Inventory error: {payload['inventory_error']}")
+        return lines
+    if payload["inventory_status"] == "diagnostic":
+        lines.append(f"- Inventory note: {payload['inventory_note']}")
+        return lines
+    if payload["materialization_error"]:
+        lines.append(f"- Materialization manifest error: {payload['materialization_error']}")
+    source_lines = []
+    for source in payload["source_bundles"]:
+        ref = source.get("source_bundle_ref", "")
+        kind = source.get("kind", "unknown")
+        size = format_bytes(int(source.get("size_bytes") or 0))
+        source_lines.append(f"`{ref}` ({kind}, {size})")
+    lines.append(f"- Source bundles: {', '.join(source_lines) if source_lines else 'none'}")
+    lines.append(f"- Candidate classes: {_count_text(payload['candidate_counts_by_class'])}")
+    lines.append(f"- Candidate states: {_count_text(payload['candidate_counts_by_state'])}")
+    materialized = payload["materialized_candidates"]
+    lines.append("- Materialized candidates: " + ("; ".join(materialized) if materialized else "none"))
+    first_party = payload["first_party_code_candidates"]
+    lines.append("- First-party-looking code: " + ("; ".join(first_party) if first_party else "none discovered"))
+    archive_summaries = payload["archive_code_summaries"]
+    if archive_summaries:
+        lines.append("- Archive code summary: " + " | ".join(archive_summaries))
+    generated = payload["generated_sample_vendor_summaries"]
+    lines.append(
+        "- Generated/build/sample/vendor code: " + (" | ".join(generated) if generated else "none recorded separately")
+    )
+    demo = payload["demo_media_executable_candidates"]
+    lines.append("- Demo/media/executables: " + ("; ".join(demo) if demo else "none discovered"))
+    actions = payload["next_actions"]
+    lines.append("- Candidate next actions: " + ("; ".join(actions) if actions else "none"))
+    skipped_count = int(payload["skipped_entry_count"])
+    skipped = payload["skipped_entry_examples"]
+    if skipped_count:
+        lines.append(f"- Skipped or bounded entries: {skipped_count}; " + "; ".join(skipped))
+    return lines
+
+
+def render_submission_bundle_visibility_markdown(round_dir: Path, *, include_absent: bool = True) -> str:
+    lines = submission_bundle_visibility_lines(round_dir, include_absent=include_absent)
+    if not lines:
+        return ""
+    return "\n".join(["## Submission Bundle Inventory", "", *lines, ""])
 
 
 def load_submission_bundle_inventory(round_dir: Path) -> dict[str, Any]:

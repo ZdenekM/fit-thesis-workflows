@@ -18,6 +18,7 @@ from thesis_review_workflow.code_workspace import (
 )
 from thesis_review_workflow.commands import Step, print_step, run_step
 from thesis_review_workflow.ids import validate_id as validate_id_core
+from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
 
 
 def validate_id(label: str, value: str) -> None:
@@ -157,6 +158,12 @@ def output_next_actions(
         )
         for hit in github_hits:
             print(f"  - {hit}")
+    bundle_lines = submission_bundle_visibility_lines(round_dir, include_absent=False)
+    if bundle_lines:
+        print()
+        print("## Submission Bundle Inventory")
+        for line in bundle_lines:
+            print(line)
     print("- If this preflight has FAIL items, fix them before generating opponent materials.")
     print("- If it passes, start the role-split opponent workflow with explicit agent authorization.")
 

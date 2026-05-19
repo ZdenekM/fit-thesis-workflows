@@ -51,6 +51,7 @@ from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
 from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
+from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
 
 MANIFEST_REL = Path("work/review_manifest.json")
 LARGE_ARCHIVE_BYTES = 100 * 1024 * 1024
@@ -699,6 +700,7 @@ def main(argv: list[str]) -> int:
     if not archive_lines:
         archive_lines.append("- none")
     output_section("Archives", archive_lines)
+    output_section("Submission Bundle Inventory", submission_bundle_visibility_lines(round_dir))
 
     code_lines: list[str] = [f"- Code evidence detected: {'yes' if code_present else 'no'}"]
     code_workspace_report = round_dir / "work" / "code_workspace.md"
