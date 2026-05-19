@@ -1,6 +1,6 @@
 # Review Workflow Follow-up Plan
 
-Status: active
+Status: done
 
 ## Goal
 
@@ -202,4 +202,21 @@ Exact `.agents/skills/<skill>/SKILL.md` paths slated for Slice 2 edits:
 
 ## Final Audit
 
-Not started.
+- Completed 2026-05-19 and archived under `plans/archive/` according to
+  `plans/README.md`.
+- Duplicate active instruction audit: targeted `rg` checks found no remaining
+  copied role-skill handoff lists, scheduling defaults, generic role-state
+  semantics, or profile terminology boundaries across `AGENTS.md`,
+  `docs/agent-scheduling.md`, `docs/agent-profile-matrix.md`, repo-local
+  skills, and this plan.
+- Surface audit: no new shared review-agent contract doc, command,
+  operator-note ledger, review mode, closeout owner, or parallel workflow path
+  was added. No `cases/` files were read for implementation or included in any
+  diff.
+- Windows command surface: per-skill and owner-doc command-routing warnings
+  remain enforced by `scripts/check-scripts`.
+- Residual work: none for this plan. Existing unrelated `TODO.md` items remain
+  open; no new follow-up was added.
+- Final checks: `git diff --check`, `scripts/check-private`,
+  `scripts/check-scripts`, targeted Pants `fmt`, `lint`, `check`, and
+  `test tests/test_check_scripts_contracts.py`.
