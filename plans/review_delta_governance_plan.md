@@ -140,7 +140,7 @@ approval/hash authority, profile update command, or local-profile CI gate.
 
 ### Slice 1 - Owner Audit And Field Decision
 
-Status: pending
+Status: done
 
 Expected paths:
 
@@ -170,7 +170,7 @@ scripts/check-scripts
 
 ### Slice 2 - Review-Delta Schema And Promotion Validation
 
-Status: pending
+Status: pending - implement
 
 Expected paths if Slice 1 confirms a schema change:
 
@@ -199,8 +199,9 @@ Work:
 Verification:
 
 ```bash
-pants test tests/test_review_delta.py tests/test_workflow_python_contracts.py
+pants test tests/test_review_delta.py tests/test_report_amendments.py tests/test_workflow_python_contracts.py
 scripts/smoke-record-review-delta
+scripts/smoke-record-report-amendment
 git diff --check
 scripts/check-private
 scripts/check-scripts
@@ -211,7 +212,7 @@ changed.
 
 ### Slice 3 - Maintainer Write-Scope And Sanitized Issue Reporting
 
-Status: pending
+Status: pending - implement
 
 Expected paths:
 
@@ -244,7 +245,7 @@ Run focused Pants tests if deterministic behavior changes.
 
 ### Slice 4 - Operator-Note Batching Boundary
 
-Status: pending
+Status: skipped - accepted deferral from Slice 1
 
 Expected paths if Slice 1 confirms batching is needed now:
 
@@ -290,7 +291,7 @@ from Linux structural checks.
 
 ### Slice 5 - Local Profile Audit Boundary And TODO Reconciliation
 
-Status: pending
+Status: pending - implement
 
 Expected paths:
 
@@ -338,6 +339,15 @@ Run focused Pants tests if deterministic privacy behavior changes.
   `record-report-amendment` shared-delta wrapper to owner scope and made Slice 4
   command-surface/Windows coverage conditional explicit. Baseline checks passed:
   `git diff --check`, `scripts/check-private`, `scripts/check-scripts`.
+- 2026-05-19: Slice 1 owner audit completed. Implement Slice 2 as an additive
+  extension of the existing `review-delta-v1` payload, CLI, shared
+  `record-report-amendment` wrapper path, tests, and smoke fixtures. Implement
+  Slice 3 as docs over existing delta/operation-log/privacy owners. Skip Slice 4
+  for now: no repeated operator-note workload currently proves a need for
+  staged batching, command extensions, structural operation-log changes, or a
+  separate freeze path. Implement Slice 5 as profile/privacy docs and TODO
+  reconciliation only; current `check-private` already guards tracked private
+  profile paths.
 
 ## Decision Log
 
@@ -350,6 +360,43 @@ Run focused Pants tests if deterministic privacy behavior changes.
   extend `record-review-delta`, `record-workflow-operation`, profile privacy
   checks, or closeout validators first.
 - Local profile audits are private evidence, not tracked repo hygiene.
+- Slice 1 field decision:
+  - `classification_reason`: implement as an optional string in
+    `record-review-delta` to explain whether a correction is case-specific,
+    private-profile calibration, tracked workflow guidance, or rejected as not
+    promotable. This belongs to the existing delta payload, not a new ledger.
+  - `rejected_targets`: implement as optional bounded promotion-target strings
+    in the existing delta payload so a delta can record considered-but-rejected
+    tracked/profile destinations without creating a profile-update queue.
+  - `privacy_review`: implement as an optional enum-like status in the existing
+    delta payload, with validation only over structural values. It must document
+    that private profile content was not copied or that the delta is not
+    profile-related; it must not inspect profile prose.
+  - `profile_proposal_ref`: implement as an optional safe round-relative path
+    to an ignored, redacted proposal artifact, with hash binding when present.
+    It must never point to tracked profile content or copy private profile text
+    into the repo.
+  - Tighten `promotion_target` validation for
+    `private-reviewer-profile:...` so it remains an identifier-style destination
+    and not an arbitrary path or private content carrier.
+- Slice 1 owner decision:
+  - `record-review-delta` remains the canonical delta owner.
+  - `record-report-amendment` remains a supervisor-report convenience wrapper
+    over the same delta payload and must receive/pass through shared governance
+    fields when relevant.
+  - `record-workflow-operation` remains the owner for pipeline failures,
+    skips, fallbacks, operator calibration decisions, and any future batching
+    freeze events; no operation-log schema change is needed now.
+  - `review-round-closeout`, profile-specific closeout, review manifest, and
+    approval records remain the only closeout/hash authorities.
+  - `profiles/README.md`, `profiles/default.md`, `.gitignore`, and
+    `check-private` remain the profile/privacy owners; no local-profile CI gate
+    or profile-update command is needed.
+- Slice 1 deferral decision: skip Slice 4 in this execution. If a future case
+  proves repeated operator-note batching is needed, create a focused plan that
+  extends `record-review-delta` and `record-workflow-operation`, includes the
+  command-surface paths/tests before any command extension, and still emits
+  normal delta records plus operation-log events on freeze.
 
 ## Final Audit
 
