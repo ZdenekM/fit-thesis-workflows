@@ -725,6 +725,41 @@ any duplicated active instructions it creates.
   `scripts/smoke-submission-bundle-materialization`,
   `scripts/smoke-package-workflow-tools`, `git diff --check`,
   `scripts/check-private`, and `scripts/check-scripts`.
+- 2026-05-19: Slice 7 started. Scope is hardening the existing
+  `review-round-closeout` and delegated profile closeout path: stable refresh
+  order, stale deterministic-state recovery messages, optional draft-calibration
+  status separation, and an early free-space preflight. Serena scoped lookup
+  confirmed `generic_closeout_steps` as the shared closeout owner and
+  `check_opponent_report.check_text` as the existing report-draft calibration
+  validator to extend. No new closeout command or parallel round-state refresh
+  path is in scope.
+- 2026-05-19: Slice 7 implemented convergence hardening in existing owners.
+  `review-round-closeout` now runs the stable refresh sequence through readiness,
+  current evidence, materiality, common briefing, role-plan refresh, manifest,
+  role-plan closeout, review deltas, and profile gates. Existing profile closeout
+  commands now share a free-space preflight, and direct write-heavy surfaces
+  `init-review-manifest`, `write-review-approval`, and
+  `record-workflow-operation` stop before writes when the preflight fails.
+  Opponent materials closeout reports pending bridge-draft point/grade/IS
+  calibration separately while strict canonical report checking still rejects
+  explicit invalid values.
+- 2026-05-19: Slice 7 agent review found that the first preflight draft only
+  reported low space instead of stopping later write-heavy steps, direct
+  manifest/approval write commands also needed the preflight, supervisor-report
+  role-plan recovery wording lacked the full authorization command, pending
+  opponent draft calibration was too broad for explicit invalid values, and docs
+  still described the old strict opponent-closeout contract. Fixed each finding
+  before commit.
+- 2026-05-19: Slice 7 checks passed after fixes: `pants test
+  tests/test_closeout_preflight.py tests/test_opponent_report.py
+  tests/test_review_manifest_helpers.py tests/test_review_round_closeout.py
+  tests/test_supervisor_report_closeout.py tests/test_review_approvals.py`,
+  `scripts/smoke-review-round-closeout`, `scripts/smoke-opponent-closeout`,
+  `scripts/smoke-supervisor-report`, `scripts/smoke-review-manifest`,
+  `scripts/smoke-opponent-report`, `pants lint src/thesis_review_workflow::
+  tests:: scripts::`, `pants check src/thesis_review_workflow:: tests::
+  scripts::`, `scripts/smoke-package-workflow-tools`, `git diff --check`,
+  `scripts/check-private`, and `scripts/check-scripts`.
 
 ## Decision Log
 

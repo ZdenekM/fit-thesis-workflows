@@ -144,12 +144,14 @@ def test_closeout_refreshes_common_briefing_after_effective_materiality(monkeypa
     )
 
     assert [step.returncode for step in steps] == [0] * len(steps)
+    assert steps[0].label == "Free-space preflight"
     assert events == [
         "Readiness gate: check-round-ready",
         "Current evidence snapshot refresh",
-        "Review manifest refresh",
         "Final materiality profile: opponent_review",
         "common_briefing",
+        "Review role plan refresh",
+        "Review manifest refresh",
         "role_plan",
         "review_delta",
         "Delegated profile closeout: opponent-closeout",
@@ -210,6 +212,8 @@ def test_review_round_closeout_delegates_supervisor_report_after_shared_current_
 
     assert [step.returncode for step in steps] == [0] * len(steps)
     assert "Current evidence snapshot refresh" in events
+    assert steps[0].label == "Free-space preflight"
+    assert any(step.label == "Review role plan refresh" for step in steps)
     assert commands["Delegated profile closeout: supervisor-report-closeout"] == [
         "scripts/supervisor-report-closeout",
         "--skip-repo-hygiene",

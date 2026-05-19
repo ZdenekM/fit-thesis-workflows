@@ -251,7 +251,10 @@ změnou manifestu kontroluje, že `work/review_run_trace.json` a
 profilový start a prepare krok znovu. Pro oponentské materiály potom deleguje
 profilové kontroly do `opponent-closeout`,
 který znovu projde revidované podklady, report trace, případný report draft,
-manifest, agent coverage, private-data kontrolu a skriptovou hygienu.
+manifest, agent coverage, private-data kontrolu a skriptovou hygienu. Pending
+body, známka a IS volby v bridge draftu jsou v materials closeoutu hlášené jako
+samostatný kalibrační stav; striktní draft gate před exportem zůstává
+`scripts/check-opponent-report --mode canonical`.
 
 Po skutečném vložení posudku do IS uložte veřejný PDF export přes
 `scripts/record-submitted-opponent-report --pdf <pdf> --public-text-file

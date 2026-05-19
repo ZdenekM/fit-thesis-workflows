@@ -25,7 +25,7 @@ expect_success() {
   fi
 }
 
-mkdir -p "$round_dir/inputs" "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
+mkdir -p "$round_dir/extracted" "$round_dir/inputs" "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
 cat >"$repo_root/cases/$case_id/case.md" <<'EOF'
 Work type: BP
 Academic year: 2025/2026
@@ -56,6 +56,11 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 ## Private Assignment Notes For Student
 
 - None.
+EOF
+
+cat >"$round_dir/extracted/thesis.txt" <<'EOF'
+Tato práce obsahuje syntetický text závěrečné práce, popis zadání, realizace a výsledků.
+Text je určený pouze pro smoke kontrolu typografického/formálního artefaktu.
 EOF
 
 cat >"$round_dir/work/feedback_student_draft.md" <<'EOF'
@@ -191,6 +196,113 @@ expect_success "register text assignment role output" "$repo_root/scripts/regist
   --input-ref notes/assignment.md \
   --limitation "Synthetic role output fixture." \
   --used-findings "Synthetic text-assignment finding used by final feedback smoke."
+
+cat >"$round_dir/outputs/typography_formal_review.md" <<'EOF'
+# Typography/Formal Review
+
+## Review Scope
+
+Synthetic typography/formal role output required by final supervisor-feedback materiality.
+
+## Thesis Language
+
+Czech.
+
+## Deterministic Checker Findings
+
+No repeated warning pattern is material in this smoke artifact.
+
+## Source-Level Hints
+
+No source-level hints are material in this smoke artifact.
+
+## Student-Facing Synthesis
+
+No student-facing typography action is needed from this smoke artifact.
+
+## Downstream Use
+
+Used only as covered-by-synthesis smoke evidence for final supervisor feedback.
+
+## Review Status
+
+Approved by smoke validation.
+
+## Manual Checks
+
+No manual checks required for this smoke artifact.
+EOF
+expect_success "register typography role output" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" outputs/typography_formal_review.md \
+  --role thesis-typography-formal-review \
+  --agent typography-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --feeds outputs/feedback_student.md \
+  --input-ref notes/assignment.md \
+  --limitation "Synthetic typography/formal fixture." \
+  --used-findings "Synthetic typography finding used by final feedback smoke."
+
+cat >"$round_dir/work/supervisor_packets/evidence_calibration_findings.md" <<'EOF'
+# Evidence Calibration Findings
+
+Synthetic evidence-calibration role output for closeout smoke.
+EOF
+expect_success "register evidence calibration role output" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" work/supervisor_packets/evidence_calibration_findings.md \
+  --role evidence_calibration \
+  --agent evidence-calibration-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --feeds outputs/feedback_student.md \
+  --evidence-ref outputs/typography_formal_review.md \
+  --limitation "Synthetic evidence-calibration fixture." \
+  --used-findings "Synthetic evidence calibration used by final feedback smoke."
+
+expect_success "register synthesis draft role output" "$repo_root/scripts/register-review-artifact" \
+  "$case_id" "$round_id" work/feedback_student_draft.md \
+  --role synthesis \
+  --agent synthesis-agent \
+  --review-scope covered_by_synthesis \
+  --review-status not_required \
+  --feeds outputs/feedback_student.md \
+  --handoff-ref work/supervisor_packets/text_assignment_findings.md \
+  --handoff-ref work/supervisor_packets/evidence_calibration_findings.md \
+  --limitation "Synthetic synthesis fixture." \
+  --used-findings "Synthetic synthesis draft used by final feedback smoke."
+
+old_basis_hash="$(
+  python3 - "$round_dir/work/reviews/supervisor_feedback_review.json" <<'PY'
+import json
+import sys
+
+print(json.loads(open(sys.argv[1], encoding="utf-8").read())["review_basis_sha256"])
+PY
+)"
+cat >>"$round_dir/work/feedback_student_draft.md" <<'EOF'
+
+Dodatečná syntetická věta ověřuje refresh approval basis bez ruční úpravy JSON.
+EOF
+expect_success "refresh feedback approval after draft change" "$repo_root/scripts/write-review-approval" \
+  "$case_id" "$round_id" \
+  --profile supervisor-feedback \
+  --reviewer-agent review-agent \
+  --check check-supervisor-ready \
+  --check check-feedback-language \
+  --check check-feedback-output \
+  --used-findings "Synthetic reviewed feedback smoke after draft-basis refresh."
+new_basis_hash="$(
+  python3 - "$round_dir/work/reviews/supervisor_feedback_review.json" <<'PY'
+import json
+import sys
+
+print(json.loads(open(sys.argv[1], encoding="utf-8").read())["review_basis_sha256"])
+PY
+)"
+if [[ "$old_basis_hash" == "$new_basis_hash" ]]; then
+  echo "Expected approval basis hash to refresh after draft mutation" >&2
+  exit 1
+fi
 
 expect_success "review-round closeout" "$repo_root/scripts/review-round-closeout" \
   --profile supervisor_feedback \

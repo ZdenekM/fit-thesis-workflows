@@ -13,6 +13,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
+from thesis_review_workflow.closeout_preflight import free_space_preflight_step
 from thesis_review_workflow.commands import Step, print_step, run_step
 from thesis_review_workflow.review_materiality import unresolved_required_next_actions
 
@@ -129,98 +130,120 @@ def main(argv: list[str]) -> int:
     print(f"Case: cases/{args.case_id}")
     print(f"Round: cases/{args.case_id}/rounds/{round_id}")
 
-    steps: list[Step] = []
-    steps.append(
-        run_step(root, "Supervisor report readiness", ["scripts/check-supervisor-report-ready", args.case_id, round_id])
-    )
-    steps.append(
-        run_step(
-            root,
-            "Reviewed and confirmed supervisor report",
-            ["scripts/check-supervisor-report", "--require-reviewed", "--require-confirmation", args.case_id, round_id],
-        )
-    )
-    if args.skip_current_evidence_refresh:
-        steps.append(
-            Step(
-                label="Current evidence snapshot",
-                command=current_evidence_snapshot_command(round_dir, args.case_id, round_id),
-                returncode=0,
-                output=(
-                    "skipped: review-round-closeout already refreshed current evidence with the shared known-ref "
-                    "contract before delegating to supervisor-report-closeout"
-                ),
-                required=True,
-            )
-        )
-    else:
+    preflight = free_space_preflight_step(round_dir)
+    steps: list[Step] = [preflight]
+    if preflight.ok:
         steps.append(
             run_step(
                 root,
-                "Current evidence snapshot",
-                current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+                "Supervisor report readiness",
+                ["scripts/check-supervisor-report-ready", args.case_id, round_id],
             )
         )
-    steps.append(
-        run_step(
-            root,
-            "Final supervisor report materiality",
-            [
-                "scripts/check-review-materiality",
-                "--workflow",
-                "supervisor_report",
-                "--phase",
-                "final",
-                args.case_id,
-                round_id,
-            ],
-        )
-    )
-    steps.append(materiality_next_actions_step(round_dir, case_id=args.case_id, round_id=round_id))
-    steps.append(
-        run_step(
-            root,
-            "Pre-wave review manifest refresh",
-            ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
-        )
-    )
-    steps.append(
-        run_step(
-            root,
-            "Final supervisor report review wave",
-            ["scripts/check-review-wave", "--workflow", "supervisor_report", "--wave", "final", args.case_id, round_id],
-        )
-    )
-    steps.append(
-        run_step(
-            root,
-            "Post-wave review manifest refresh",
-            ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
-        )
-    )
-    if (round_dir / COVERAGE_REL).is_file():
-        steps.append(run_step(root, "Agent role coverage", ["scripts/check-agent-coverage", args.case_id, round_id]))
-    else:
         steps.append(
-            Step(
-                label="Agent role coverage",
-                command=["scripts/check-agent-coverage", args.case_id, round_id],
-                returncode=0,
-                output="skipped: work/agent_coverage.json is not present after manifest refresh",
-                required=True,
+            run_step(
+                root,
+                "Reviewed and confirmed supervisor report",
+                [
+                    "scripts/check-supervisor-report",
+                    "--require-reviewed",
+                    "--require-confirmation",
+                    args.case_id,
+                    round_id,
+                ],
             )
         )
-    steps.append(
-        run_step(
-            root,
-            "Review manifest completeness",
-            ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+        if args.skip_current_evidence_refresh:
+            steps.append(
+                Step(
+                    label="Current evidence snapshot",
+                    command=current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+                    returncode=0,
+                    output=(
+                        "skipped: review-round-closeout already refreshed current evidence with the shared known-ref "
+                        "contract before delegating to supervisor-report-closeout"
+                    ),
+                    required=True,
+                )
+            )
+        else:
+            steps.append(
+                run_step(
+                    root,
+                    "Current evidence snapshot",
+                    current_evidence_snapshot_command(round_dir, args.case_id, round_id),
+                )
+            )
+        steps.append(
+            run_step(
+                root,
+                "Final supervisor report materiality",
+                [
+                    "scripts/check-review-materiality",
+                    "--workflow",
+                    "supervisor_report",
+                    "--phase",
+                    "final",
+                    args.case_id,
+                    round_id,
+                ],
+            )
         )
-    )
-    if not args.skip_repo_hygiene:
-        steps.append(run_step(root, "Private workspace hygiene", ["scripts/check-private"]))
-        steps.append(run_step(root, "Script syntax", ["scripts/check-scripts"]))
-        steps.append(run_step(root, "Whitespace/diff hygiene", ["git", "diff", "--check"]))
+        steps.append(materiality_next_actions_step(round_dir, case_id=args.case_id, round_id=round_id))
+        steps.append(
+            run_step(
+                root,
+                "Pre-wave review manifest refresh",
+                ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
+            )
+        )
+        steps.append(
+            run_step(
+                root,
+                "Final supervisor report review wave",
+                [
+                    "scripts/check-review-wave",
+                    "--workflow",
+                    "supervisor_report",
+                    "--wave",
+                    "final",
+                    args.case_id,
+                    round_id,
+                ],
+            )
+        )
+        steps.append(
+            run_step(
+                root,
+                "Post-wave review manifest refresh",
+                ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
+            )
+        )
+        if (round_dir / COVERAGE_REL).is_file():
+            steps.append(
+                run_step(root, "Agent role coverage", ["scripts/check-agent-coverage", args.case_id, round_id])
+            )
+        else:
+            steps.append(
+                Step(
+                    label="Agent role coverage",
+                    command=["scripts/check-agent-coverage", args.case_id, round_id],
+                    returncode=0,
+                    output="skipped: work/agent_coverage.json is not present after manifest refresh",
+                    required=True,
+                )
+            )
+        steps.append(
+            run_step(
+                root,
+                "Review manifest completeness",
+                ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+            )
+        )
+        if not args.skip_repo_hygiene:
+            steps.append(run_step(root, "Private workspace hygiene", ["scripts/check-private"]))
+            steps.append(run_step(root, "Script syntax", ["scripts/check-scripts"]))
+            steps.append(run_step(root, "Whitespace/diff hygiene", ["git", "diff", "--check"]))
 
     for step in steps:
         print_step(step, output_limit=1000)

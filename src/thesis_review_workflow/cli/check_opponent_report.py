@@ -272,7 +272,33 @@ def run_opponent_materials_check(root: Path, case_id: str, round_id: str, errors
         errors.append("reviewed opponent materials check failed" + (f":\n{detail}" if detail else ""))
 
 
-def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "canonical") -> None:
+def record_draft_calibration_issue(
+    message: str,
+    errors: list[str],
+    notes: list[str],
+    *,
+    allow_draft_calibration_pending: bool,
+) -> None:
+    if allow_draft_calibration_pending:
+        notes.append(message)
+    else:
+        errors.append(message)
+
+
+def is_open_calibration_text(value: str) -> bool:
+    return any(re.search(pattern, value, re.IGNORECASE) for pattern in OPEN_CALIBRATION_PATTERNS)
+
+
+def check_text(
+    text: str,
+    public_text: str,
+    errors: list[str],
+    *,
+    mode: str = "canonical",
+    allow_draft_calibration_pending: bool = False,
+    draft_calibration_notes: list[str] | None = None,
+) -> None:
+    draft_calibration_notes = draft_calibration_notes if draft_calibration_notes is not None else []
     lines = text.splitlines()
     required_headings = CANONICAL_REQUIRED_HEADINGS if mode == "canonical" else COMMON_REQUIRED_HEADINGS
     for heading in required_headings:
@@ -301,7 +327,12 @@ def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "c
 
     for pattern in OPEN_CALIBRATION_PATTERNS:
         if re.search(pattern, public_text, re.IGNORECASE):
-            errors.append(f"report draft still contains open calibration wording: {pattern}")
+            record_draft_calibration_issue(
+                f"report draft still contains open calibration wording: {pattern}",
+                errors,
+                draft_calibration_notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
 
     questions = section_text(lines, "## 10. Otázky k obhajobě")
     if "?" not in questions:
@@ -310,9 +341,19 @@ def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "c
     points = [int(match.group(1)) for match in POINT_RE.finditer(public_text)]
     grades = [match.group(1).upper() for match in GRADE_RE.finditer(public_text)]
     if not points:
-        errors.append("concrete numeric point value is required before the report draft can pass")
+        record_draft_calibration_issue(
+            "concrete numeric point value is required before the report draft can pass",
+            errors,
+            draft_calibration_notes,
+            allow_draft_calibration_pending=allow_draft_calibration_pending,
+        )
     if not grades:
-        errors.append("concrete proposed grade is required before the report draft can pass")
+        record_draft_calibration_issue(
+            "concrete proposed grade is required before the report draft can pass",
+            errors,
+            draft_calibration_notes,
+            allow_draft_calibration_pending=allow_draft_calibration_pending,
+        )
     for point_value in points:
         if point_value < 0 or point_value > 100:
             errors.append(f"point value outside 0-100 range: {point_value}")
@@ -320,9 +361,12 @@ def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "c
     private_comment = section_text(lines, PRIVATE_COMMENT_HEADING).strip()
     private_comment_nonspace_chars = len(re.sub(r"\s+", "", private_comment))
     if private_comment_nonspace_chars < PRIVATE_COMMENT_MIN_NONSPACE_CHARS:
-        errors.append(
+        record_draft_calibration_issue(
             "private student comment is too short to be a calibrated IS comment "
-            f"({private_comment_nonspace_chars} non-whitespace characters)"
+            f"({private_comment_nonspace_chars} non-whitespace characters)",
+            errors,
+            draft_calibration_notes,
+            allow_draft_calibration_pending=allow_draft_calibration_pending,
         )
 
     form_fields, duplicate_fields = parse_colon_fields(section_text(lines, IS_FORM_SECTION_HEADING))
@@ -332,16 +376,40 @@ def check_text(text: str, public_text: str, errors: list[str], *, mode: str = "c
     for field, allowed_values in IS_SELECT_FIELDS.items():
         selection_value = form_fields.get(field)
         if not selection_value:
-            errors.append(f"missing IS form selection: {field}")
+            record_draft_calibration_issue(
+                f"missing IS form selection: {field}",
+                errors,
+                draft_calibration_notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
+        elif selection_value not in allowed_values and is_open_calibration_text(selection_value):
+            record_draft_calibration_issue(
+                f"invalid IS form selection for {field}: {selection_value}",
+                errors,
+                draft_calibration_notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
         elif selection_value not in allowed_values:
             errors.append(f"invalid IS form selection for {field}: {selection_value}")
     for field in IS_POINT_FIELDS:
         field_value = form_fields.get(field)
         if not field_value:
-            errors.append(f"missing IS form points: {field}")
+            record_draft_calibration_issue(
+                f"missing IS form points: {field}",
+                errors,
+                draft_calibration_notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
             continue
         parsed = parse_point_value(field_value)
-        if parsed is None:
+        if parsed is None and is_open_calibration_text(field_value):
+            record_draft_calibration_issue(
+                f"invalid IS form point value for {field}: {field_value}",
+                errors,
+                draft_calibration_notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
+        elif parsed is None:
             errors.append(f"invalid IS form point value for {field}: {field_value}")
         elif parsed < 0 or parsed > 100:
             errors.append(f"IS form point value outside 0-100 range for {field}: {parsed}")
@@ -353,6 +421,15 @@ def main(argv: list[str]) -> int:
     parser.add_argument("round_id", nargs="?")
     parser.add_argument("--mode", choices=("canonical", "clean"), default="canonical")
     parser.add_argument("--path", help="round-relative report draft path")
+    parser.add_argument(
+        "--allow-draft-calibration-pending",
+        action="store_true",
+        help=(
+            "treat missing/unfinished points, grade, IS-point fields, and private-comment calibration as "
+            "non-blocking draft status while still validating reviewed materials, trace hashes, structure, "
+            "and privacy leaks"
+        ),
+    )
     args = parser.parse_args(argv[1:])
 
     validate_id("CASE_ID", args.case_id)
@@ -372,6 +449,7 @@ def main(argv: list[str]) -> int:
         raise
 
     errors: list[str] = []
+    draft_calibration_notes: list[str] = []
     run_round_ready(root, args.case_id, round_id, errors)
     run_opponent_materials_check(root, args.case_id, round_id, errors)
     trace_errors = validate_structured_evidence_artifact(
@@ -403,7 +481,14 @@ def main(argv: list[str]) -> int:
             validate_trace_metadata(text, trace_path, path_arg, errors)
             validate_source_metadata(text, materials_path, path_arg, errors)
             public_text = strip_metadata_comments(text)
-        check_text(text, public_text, errors, mode=args.mode)
+        check_text(
+            text,
+            public_text,
+            errors,
+            mode=args.mode,
+            allow_draft_calibration_pending=args.allow_draft_calibration_pending,
+            draft_calibration_notes=draft_calibration_notes,
+        )
 
     submitted_record_path = round_dir / OPPONENT_REPORT_SUBMITTED_RECORD_REL
     if submitted_record_path.is_file():
@@ -437,6 +522,10 @@ def main(argv: list[str]) -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
+    if draft_calibration_notes:
+        print("Opponent report draft calibration pending:")
+        for note in draft_calibration_notes:
+            print(f"- {note}")
     print(f"Opponent report {args.mode} check passed")
     return 0
 

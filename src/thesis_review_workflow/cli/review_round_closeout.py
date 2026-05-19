@@ -17,6 +17,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
+from thesis_review_workflow.closeout_preflight import free_space_preflight_step
 from thesis_review_workflow.commands import Step, print_step, run_step
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
@@ -91,13 +92,30 @@ def split_gate(gate: str, case_id: str, round_id: str) -> list[str]:
     return [*args, case_id, round_id]
 
 
+def prepare_review_round_command(
+    profile_id: str,
+    case_id: str,
+    round_id: str,
+    *,
+    skip_ready_materiality: bool = False,
+) -> list[str]:
+    command = ["scripts/prepare-review-round", "--profile", profile_id]
+    if profile_id == "supervisor_report":
+        command.extend(["--agents-authorized", "--authorization-note", "<note>"])
+    if skip_ready_materiality:
+        command.extend(["--skip-ready-check", "--skip-materiality-check"])
+    command.extend([case_id, round_id])
+    return command
+
+
 def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
+    command = prepare_review_round_command(profile_id, case_id, round_id)
     try:
         plan = load_review_role_plan(round_dir)
     except (OSError, ValueError) as exc:
         return Step(
             label="Review role plan closeout",
-            command=["scripts/prepare-review-round", "--profile", profile_id, case_id, round_id],
+            command=command,
             returncode=1,
             output=f"Could not read {REVIEW_ROLE_PLAN_REL}: {exc}",
         )
@@ -111,13 +129,13 @@ def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: 
     if errors:
         return Step(
             label="Review role plan closeout",
-            command=["scripts/prepare-review-round", "--profile", profile_id, case_id, round_id],
+            command=command,
             returncode=1,
             output="\n".join(f"- {error}" for error in errors),
         )
     return Step(
         label="Review role plan closeout",
-        command=["scripts/prepare-review-round", "--profile", profile_id, case_id, round_id],
+        command=command,
         returncode=0,
         output=f"{REVIEW_ROLE_PLAN_REL} is current enough for closeout.",
     )
@@ -168,7 +186,7 @@ def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, pro
         recovery = [
             "Regenerate the profile transition artifacts before closeout mutates manifest state:",
             f"scripts/review-round-start --profile {profile_id} {case_id} {round_id}",
-            f"scripts/prepare-review-round --profile {profile_id} {case_id} {round_id}",
+            shlex.join(prepare_review_round_command(profile_id, case_id, round_id)),
         ]
         return Step(
             label="Review profile transition preflight",
@@ -202,10 +220,30 @@ def common_briefing_refresh_step(round_dir: Path, *, case_id: str, round_id: str
     )
 
 
+def role_plan_refresh_step(root: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
+    command = prepare_review_round_command(profile_id, case_id, round_id, skip_ready_materiality=True)
+    if profile_id == "supervisor_report":
+        return Step(
+            label="Review role plan refresh",
+            command=command,
+            returncode=0,
+            output=(
+                "skipped: supervisor_report packet refresh requires explicit agent authorization. "
+                "If closeout reports stale packets or role-plan state, rerun "
+                f"`{shlex.join(command)}` before closeout."
+            ),
+        )
+    return run_step(root, "Review role plan refresh", command)
+
+
 def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_id: str) -> list[Step]:
     profile = get_workflow_review_profile(profile_id)
     workflow, wave = closeout_wave_for_profile(profile_id)
-    steps: list[Step] = []
+    round_dir = root / "cases" / case_id / "rounds" / round_id
+    preflight = free_space_preflight_step(round_dir)
+    steps: list[Step] = [preflight]
+    if not preflight.ok:
+        return steps
     for gate in profile.readiness_gates:
         steps.append(run_step(root, f"Readiness gate: {gate}", split_gate(gate, case_id, round_id)))
     steps.append(
@@ -214,9 +252,6 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
             "Current evidence snapshot refresh",
             ["scripts/update-current-evidence-snapshot", case_id, round_id],
         )
-    )
-    steps.append(
-        run_step(root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", case_id, round_id])
     )
     if profile.effective_materiality_profile:
         steps.append(
@@ -234,9 +269,12 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
                 ],
             )
         )
-    round_dir = root / "cases" / case_id / "rounds" / round_id
     if profile.effective_materiality_profile:
         steps.append(common_briefing_refresh_step(round_dir, case_id=case_id, round_id=round_id))
+    steps.append(role_plan_refresh_step(root, case_id=case_id, round_id=round_id, profile_id=profile_id))
+    steps.append(
+        run_step(root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", case_id, round_id])
+    )
     steps.append(role_plan_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
     steps.append(review_delta_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
 
@@ -414,6 +452,11 @@ def main(argv: list[str] | None = None) -> int:
         return preflight.returncode
 
     steps = generic_closeout_steps(root, case_id=args.case_id, round_id=round_id, profile_id=profile.profile_id)
+    if steps and steps[0].label == "Free-space preflight" and not steps[0].ok:
+        for step in steps:
+            print_step(step, output_limit=max(args.output_limit, 200))
+        print_summary(round_dir, profile_id=profile.profile_id, steps=steps)
+        return 1
     if not args.skip_repo_hygiene:
         steps.extend(repo_hygiene_steps(root))
 

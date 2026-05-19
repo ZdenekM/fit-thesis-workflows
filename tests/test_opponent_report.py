@@ -285,6 +285,27 @@ def test_check_text_requires_valid_is_form_fields() -> None:
     assert "invalid IS form point value for Realizační výstup: výborný" in errors
 
 
+def test_check_text_allow_pending_still_rejects_invalid_concrete_calibration_values() -> None:
+    text = calibrated_report_text().replace("Bodové hodnocení: 75 bodů", "Bodové hodnocení: 101 bodů")
+    text = text.replace("Náročnost zadání: obtížnější zadání", "Náročnost zadání: hodně těžké zadání")
+    text = text.replace("Realizační výstup: 85 bodů", "Realizační výstup: 105 bodů")
+    errors: list[str] = []
+    notes: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        allow_draft_calibration_pending=True,
+        draft_calibration_notes=notes,
+    )
+
+    assert "point value outside 0-100 range: 101" in errors
+    assert "invalid IS form selection for Náročnost zadání: hodně těžké zadání" in errors
+    assert "IS form point value outside 0-100 range for Realizační výstup: 105" in errors
+    assert notes == []
+
+
 def test_check_text_rejects_private_comment_placeholder() -> None:
     text = calibrated_report_text().replace(
         "Děkuji za práci na prototypu a za dotažení hlavní implementace.\n"
@@ -296,6 +317,28 @@ def test_check_text_rejects_private_comment_placeholder() -> None:
     check_text(text, text, errors)
 
     assert any("private student comment is too short" in error for error in errors)
+
+
+def test_check_text_can_report_draft_calibration_pending_without_blocking_materials() -> None:
+    text = calibrated_report_text()
+    text = text.replace("Bodové hodnocení: 75 bodů", "Bodové hodnocení: k ručnímu výběru z nabídky IS")
+    text = text.replace("Navržená známka: C", "Navržená známka: k ručnímu výběru z nabídky IS")
+    text = text.replace("Realizační výstup: 85 bodů", "Realizační výstup: k ručnímu zadání bodů 0-100")
+    errors: list[str] = []
+    notes: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        allow_draft_calibration_pending=True,
+        draft_calibration_notes=notes,
+    )
+
+    assert errors == []
+    assert any("concrete numeric point value" in note for note in notes)
+    assert any("concrete proposed grade" in note for note in notes)
+    assert any("invalid IS form point value for Realizační výstup" in note for note in notes)
 
 
 def test_check_text_rejects_duplicate_is_form_fields() -> None:

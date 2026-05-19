@@ -437,7 +437,7 @@ case_id="${case_prefix}_valid"
 prepare_reviewed_case "$case_id"
 expect_success "reviewed opponent materials close out" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
 expect_output "Reviewed opponent materials: PASS"
-expect_output "Opponent report trace: PASS"
+expect_output "Opponent report trace and draft status: PASS"
 expect_output "Agent role coverage: PASS"
 expect_output "Review manifest completeness: PASS"
 
@@ -450,20 +450,22 @@ mark_opponent_reviewed "$round_dir"
 "$repo_root/scripts/init-review-manifest" "$case_id" round-a >/dev/null
 block_typography_role "$round_dir"
 expect_failure "missing report trace blocks closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
-expect_output "Opponent report trace: FAIL"
+expect_output "Opponent report trace and draft status: FAIL"
 
 case_id="${case_prefix}_draft_uncalibrated"
 prepare_reviewed_case "$case_id"
 expect_success "draft helper writes uncalibrated report draft" "$repo_root/scripts/draft-opponent-report" "$case_id"
-expect_failure "uncalibrated report draft blocks full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
-expect_output "Opponent report trace: FAIL"
+expect_success "uncalibrated report draft keeps materials closeout green with pending calibration" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
+expect_output "Opponent report trace and draft status: PASS"
+expect_output "Opponent report draft calibration pending:"
+expect_output "Review manifest completeness: PASS"
 
 case_id="${case_prefix}_draft_calibrated"
 prepare_reviewed_case "$case_id"
 expect_success "draft helper writes report draft for calibration" "$repo_root/scripts/draft-opponent-report" "$case_id"
 calibrate_draft "$repo_root/cases/$case_id/rounds/round-a/work/oponent_posudek_draft.md"
 expect_success "calibrated report draft passes full opponent closeout" "$repo_root/scripts/opponent-closeout" "$case_id" --skip-repo-hygiene
-expect_output "Opponent report trace: PASS"
+expect_output "Opponent report trace and draft status: PASS"
 expect_output "Review manifest completeness: PASS"
 
 case_id="${case_prefix}_valid_with_hygiene"

@@ -49,6 +49,7 @@ def test_supervisor_report_closeout_refreshes_manifest_before_final_wave(tmp_pat
 
     assert result == 0
     assert printed_labels == [
+        "Free-space preflight",
         "Supervisor report readiness",
         "Reviewed and confirmed supervisor report",
         "Current evidence snapshot",
@@ -91,6 +92,7 @@ def test_supervisor_report_closeout_can_reuse_shared_current_evidence_refresh(tm
     )
 
     assert result == 0
+    assert "Free-space preflight" not in run_labels
     assert "Current evidence snapshot" not in run_labels
 
 

@@ -13,6 +13,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
+from thesis_review_workflow.closeout_preflight import free_space_preflight_step
 from thesis_review_workflow.commands import Step, print_step, run_step
 
 COVERAGE_REL = Path("work/agent_coverage.json")
@@ -51,40 +52,52 @@ def main(argv: list[str]) -> int:
     print(f"Case: cases/{args.case_id}")
     print(f"Round: cases/{args.case_id}/rounds/{round_id}")
 
-    steps: list[Step] = []
-    steps.append(run_step(root, "Round readiness", ["scripts/check-round-ready", args.case_id, round_id]))
-    steps.append(
-        run_step(root, "Reviewed opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id])
-    )
-    steps.append(run_step(root, "Opponent report trace", ["scripts/check-opponent-report", args.case_id, round_id]))
-    steps.append(
-        run_step(
-            root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id]
-        )
-    )
-    if (round_dir / COVERAGE_REL).is_file():
-        steps.append(run_step(root, "Agent role coverage", ["scripts/check-agent-coverage", args.case_id, round_id]))
-    else:
+    preflight = free_space_preflight_step(round_dir)
+    steps: list[Step] = [preflight]
+    if preflight.ok:
+        steps.append(run_step(root, "Round readiness", ["scripts/check-round-ready", args.case_id, round_id]))
         steps.append(
-            Step(
-                label="Agent role coverage",
-                command=["scripts/check-agent-coverage", args.case_id, round_id],
-                returncode=0,
-                output="skipped: work/agent_coverage.json is not present after manifest refresh",
-                required=True,
+            run_step(root, "Reviewed opponent materials", ["scripts/check-opponent-materials", args.case_id, round_id])
+        )
+        steps.append(
+            run_step(
+                root,
+                "Opponent report trace and draft status",
+                ["scripts/check-opponent-report", "--allow-draft-calibration-pending", args.case_id, round_id],
             )
         )
-    steps.append(
-        run_step(
-            root,
-            "Review manifest completeness",
-            ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+        steps.append(
+            run_step(
+                root,
+                "Review manifest refresh",
+                ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
+            )
         )
-    )
-    if not args.skip_repo_hygiene:
-        steps.append(run_step(root, "Private workspace hygiene", ["scripts/check-private"]))
-        steps.append(run_step(root, "Script syntax", ["scripts/check-scripts"]))
-        steps.append(run_step(root, "Whitespace/diff hygiene", ["git", "diff", "--check"]))
+        if (round_dir / COVERAGE_REL).is_file():
+            steps.append(
+                run_step(root, "Agent role coverage", ["scripts/check-agent-coverage", args.case_id, round_id])
+            )
+        else:
+            steps.append(
+                Step(
+                    label="Agent role coverage",
+                    command=["scripts/check-agent-coverage", args.case_id, round_id],
+                    returncode=0,
+                    output="skipped: work/agent_coverage.json is not present after manifest refresh",
+                    required=True,
+                )
+            )
+        steps.append(
+            run_step(
+                root,
+                "Review manifest completeness",
+                ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+            )
+        )
+        if not args.skip_repo_hygiene:
+            steps.append(run_step(root, "Private workspace hygiene", ["scripts/check-private"]))
+            steps.append(run_step(root, "Script syntax", ["scripts/check-scripts"]))
+            steps.append(run_step(root, "Whitespace/diff hygiene", ["git", "diff", "--check"]))
 
     for step in steps:
         print_step(step, output_limit=1000)
@@ -100,10 +113,16 @@ def main(argv: list[str]) -> int:
     else:
         print(f"- Opponent report trace present: `{OPPONENT_REPORT_TRACE_REL.as_posix()}`.")
     if (round_dir / OPPONENT_REPORT_DRAFT_REL).is_file():
-        print(f"- Opponent report draft present: `{OPPONENT_REPORT_DRAFT_REL.as_posix()}`; " "included in trace gate.")
+        print(
+            f"- Opponent report draft present: `{OPPONENT_REPORT_DRAFT_REL.as_posix()}`; "
+            "human calibration status is reported separately from reviewed-materials readiness."
+        )
     else:
         print("- No opponent report draft present; trace gate checks the reviewed trace only.")
-    print("- PASS means reviewed materials, report trace, and any existing draft passed reliance gates.")
+    print(
+        "- PASS means reviewed materials and report trace passed reliance gates; "
+        "an existing bridge draft may still report separate human calibration items."
+    )
     print("- FAIL means fix the named gate before relying on the materials.")
     return 1 if any(not step.ok and step.required for step in steps) else 0
 

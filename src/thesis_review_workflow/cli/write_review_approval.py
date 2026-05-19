@@ -15,6 +15,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
+from thesis_review_workflow.closeout_preflight import free_space_preflight_step
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo
 from thesis_review_workflow.review_approvals import (
     APPROVAL_PROFILES,
@@ -142,6 +143,11 @@ def main(argv: list[str] | None = None) -> int:
     case_dir = require_case_dir(root, args.case_id)
     round_id = resolve_round(case_dir, args.round_id)
     round_dir = require_round_dir(case_dir, args.case_id, round_id)
+
+    preflight = free_space_preflight_step(round_dir)
+    if not preflight.ok:
+        print(f"ERROR: {preflight.output}")
+        return 1
 
     try:
         approval_path, workflow_profile, reviewed_artifact, review_basis, reviewer_role, required_checks = (

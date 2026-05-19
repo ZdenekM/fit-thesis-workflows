@@ -31,6 +31,7 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
+from thesis_review_workflow.closeout_preflight import free_space_preflight_step
 from thesis_review_workflow.commands import canonical_command_text, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
@@ -462,7 +463,7 @@ def required_checks(
             targets.append("work/oponent_posudek_draft.md")
         add(
             "check-opponent-report:canonical",
-            f"check-opponent-report --mode canonical {case_id} {round_id}",
+            f"check-opponent-report --mode canonical --allow-draft-calibration-pending {case_id} {round_id}",
             targets,
         )
     if "outputs/oponent_posudek_navrh.md" in artifact_paths:
@@ -796,6 +797,11 @@ def main() -> int:
     case_dir = require_case_dir(root, args.case_id)
     round_id = resolve_round(case_dir, args.round_id)
     round_dir = require_round_dir(case_dir, args.case_id, round_id)
+
+    preflight = free_space_preflight_step(round_dir)
+    if not preflight.ok:
+        print(f"ERROR: {preflight.output}")
+        return 1
 
     manifest_path = round_dir / MANIFEST_REL
     existing = load_existing(manifest_path)

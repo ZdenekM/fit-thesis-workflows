@@ -381,7 +381,10 @@ def test_init_manifest_opponent_report_check_does_not_target_review_output(tmp_p
         "outputs/oponent_podklady_revidovane.md",
         "work/oponent_posudek_draft.md",
     ]
-    assert opponent_report["command"] == "check-opponent-report --mode canonical case-a round-a"
+    assert (
+        opponent_report["command"]
+        == "check-opponent-report --mode canonical --allow-draft-calibration-pending case-a round-a"
+    )
 
 
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:

@@ -351,9 +351,13 @@ hash vazbu na trace a revidované podklady.
 `scripts/opponent-closeout <case-id> [round-id]` je finální oponentský gate
 pro aktuální stav roundu. Zavře revidované podklady, report trace, manifest,
 agent coverage a repo hygienu. Gate vždy vyžaduje validní
-`work/opponent_report_trace.json`; pokud už existuje
-`work/oponent_posudek_draft.md`, musí být nejdřív lidsky zkalibrovaný v bodech,
-známce, výběrech/bodech IS formuláře a formulacích.
+`work/opponent_report_trace.json`. Pokud už existuje
+`work/oponent_posudek_draft.md`, closeout může projít s výslovně vypsanými
+pending body/známkou/IS volbami jako se stavem bridge draftu; revidované
+podklady tím nejsou zneplatněné. Striktní gate před exportem nebo review návrhu
+posudku zůstává `scripts/check-opponent-report --mode canonical <case-id>
+[round-id]`, který projde až po lidské kalibraci bodů, známky, IS formuláře a
+formulací.
 Pokud existují interní evidence `outputs/code_consistency.md`,
 `outputs/code_quality_review.md` nebo `outputs/revision_diff.md`, manifest a
 oponentní closeout vyžadují i jejich strukturální validátory.
