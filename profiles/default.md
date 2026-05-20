@@ -99,6 +99,39 @@ Avoid:
 - Suggest defense questions that are fair and grounded in the submitted
   materials.
 
+## Opponent Report Style
+
+These preferences apply to the final opponent report and its private student
+comment. They are generic communication defaults only; current evidence, FIT IS
+rubric fields, `work/report_calibration_basis.json`, and explicit operator
+input remain authoritative.
+
+Prefer:
+
+- cautious wording for evidence that was not directly checked;
+- visible assignment traceability in the assignment-fulfillment and overall
+  assessment sections;
+- rubric-specific comments that do not move the same criticism between
+  unrelated FIT IS fields;
+- balanced strengths and limitations, with strengths stated when they are
+  supported by current evidence;
+- explicit point/grade calibration, so the prose and proposed assessment feel
+  proportionate to each other;
+- platform or domain difficulty as a calibration factor, not as a replacement
+  for evidence about the submitted work;
+- compact IS prose that mentions decisive evidence and leaves audit detail in
+  internal materials;
+- focused defense questions tied to important evidence gaps, tensions, or
+  clarifications.
+
+Avoid:
+
+- categorical claims about missing functionality when the actual limitation is
+  that the provided materials did not evidence it;
+- using the private student comment to introduce new unsupported criticisms;
+- expanding the public report with trace, packet, manifest, or confidence-label
+  detail.
+
 ## Calibration
 
 - Do not search for faults at any cost.

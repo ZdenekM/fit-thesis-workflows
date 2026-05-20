@@ -879,6 +879,20 @@ Discarded as case-specific:
   Omen MCP semantic search found the new clean-report validation symbol; Omen
   MCP complexity again returned zero files for the repo path, so reproducible
   closeout used `pants run :omen`.
+- 2026-05-20: Slice 5 started. Scope is limited to generic public default
+  profile preferences and profile-boundary documentation for opponent reports;
+  private reviewer strictness and concrete case examples remain out of tracked
+  files.
+- 2026-05-20: Slice 5 implemented and agent-reviewed. The public default
+  profile now carries only generic opponent-report style preferences for
+  cautious unchecked-evidence wording, assignment traceability, rubric-specific
+  comments, balanced strengths and limitations, point/grade consistency,
+  platform difficulty as one calibration factor, compact IS prose, and focused
+  defense questions. `profiles/README.md` and
+  `docs/opponent-review-workflow.md` preserve the boundary: personal strictness,
+  recurring private phrasing, and case-derived lessons belong in ignored local
+  profiles or round-scoped calibration/review artifacts. Agent review found no
+  follow-up findings.
 
 ## Decision Log
 
@@ -1054,6 +1068,19 @@ scripts/smoke-review-manifest             # passed
 scripts/smoke-opponent-report             # passed
 scripts/smoke-export-opponent-report      # passed
 PANTS_CONCURRENT=false pants run :omen    # passed; existing hotspot report, no critical exit
+```
+
+No concrete case output under `cases/` has been edited.
+
+Slice 5 checks after profile/default update and agent review:
+
+```bash
+scripts/check-private                                      # passed
+scripts/smoke-reviewer-profile                            # passed
+PANTS_CONCURRENT=false pants test tests/test_report_calibration.py tests/test_opponent_report.py
+# passed
+git diff --check                                          # passed
+scripts/check-scripts                                     # passed
 ```
 
 No concrete case output under `cases/` has been edited.

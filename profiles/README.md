@@ -32,6 +32,15 @@ For opponent reports, distinguish four states:
   `scripts/check-report-calibration`, canonical/clean opponent-report checks,
   and the independent review gate when the report basis is calibration-bound.
 
+The tracked default profile may contain only generic opponent-report
+preferences: cautious wording for unchecked evidence, assignment traceability,
+rubric-specific comments, balanced strengths and limitations, explicit
+point/grade calibration, platform-difficulty calibration as one evidence
+factor, compact IS prose, and focused defense questions. Personal strictness,
+grade tendencies, recurring reviewer phrasings, or case-derived preferences
+belong in `profiles/local/*` or in ignored round calibration artifacts, not in
+`profiles/default.md`.
+
 ## Public And Private Profiles
 
 The public repository tracks only:

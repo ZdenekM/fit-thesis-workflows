@@ -243,6 +243,15 @@ applied. Deterministic helpers validate only structured values, hashes, paths,
 enums, and stale-input checks; semantic preference selection stays with the
 authorized human or agent review step.
 
+The public `profiles/default.md` is allowed to express only generic
+opponent-report style preferences such as cautious unchecked-evidence wording,
+assignment traceability, rubric-specific comments, balanced strengths and
+limitations, point/grade consistency, platform difficulty as one calibration
+factor, compact IS prose, and focused defense questions. Personal reviewer
+strictness, recurring private phrasing, or one-case calibration belongs in an
+ignored local profile, `work/report_calibration_basis.json`, operator notes, or
+review deltas for the active round.
+
 When late operator calibration feedback arrives after a draft exists, update or
 write `work/report_calibration_basis.json` first. Then refresh
 `work/opponent_report_trace.json` if the structured IS values, grade/points,
