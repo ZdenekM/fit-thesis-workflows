@@ -256,7 +256,10 @@ Candidate new private work artifact:
 Trace additions are report-bound controls and references, not a new evidence
 warehouse. The trace may summarize only the smallest report-facing conclusion
 needed to draft or check the IS proposal; detailed evidence stays in role-owned
-artifacts.
+artifacts. New trace fields should carry ids, safe refs, enums, short summaries,
+wording modes, and typed limitations; they must not copy tables, raw logs, long
+review excerpts, citation inventories, code diagnostics, or experiment-protocol
+detail from role-owned evidence.
 
 V1 required trace controls:
 
@@ -822,6 +825,16 @@ Discarded as case-specific:
   commands no longer use placeholders, private profile refresh is excluded from
   tracked TODO, and clean export exclusion of private/manual-check detail is now
   mandatory.
+- 2026-05-20: Slice 1 started. Scope is limited to a tracked, case-neutral
+  feedback-intake template and progress/audit updates in this plan.
+- 2026-05-20: Slice 1 implemented and reviewed. The review found that the first
+  template draft could look like a parallel path for concrete report feedback,
+  so it was revised to require the existing ignored
+  `notes/opponent-report-operator-feedback.md` to
+  `work/opponent_report_revision_request.json` route before any tracked
+  meta-learning promotion. The template now also names secondary routing for
+  current-case report correction, current report calibration, private profile
+  preference, historical calibration, public workflow rule, or no promotion.
 
 ## Decision Log
 
@@ -939,5 +952,12 @@ rg -n "[<]synthetic|[<]round|[<]case|case-specific term[s]|not necessar[y]" \
 # passed; no matches
 ```
 
-Implementation audit is not applicable yet. The plan remains a planning
-artifact; no workflow code or concrete case output has been changed.
+Slice 1 checks after template implementation and review fixes:
+
+```bash
+git diff --check                  # passed
+scripts/check-private             # passed
+scripts/check-scripts             # passed
+```
+
+No workflow code or concrete case output has been changed yet.
