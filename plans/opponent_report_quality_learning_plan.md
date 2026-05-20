@@ -303,12 +303,15 @@ instead of duplicating role evidence.
 
 Candidate additions to `work/report_calibration_basis.json`:
 
-- expected report controls for grade/point interval rationale, not just final
-  numeric consistency;
-- selected report length class, approximate public-report budget, per-section
-  compression priorities, and maximum defense-question count remain controls;
-  semantic harshness or mildness remains an independent review judgment, while
-  deterministic checks enforce only declared length class, question bounds,
+- expected report controls remain profile/operator calibration controls such
+  as final grade, point interval, IS select values, defense-question count,
+  public-report length class, and private-comment requirement;
+- grade/point interval rationale is recorded in `strength_grade_tension` on
+  `work/opponent_report_trace.json`, where it can cite current evidence rather
+  than pretending to be a profile preference;
+- semantic compression priorities stay in skills/review guidance unless an
+  operator or profile explicitly provides them as a calibration preference.
+  Deterministic checks enforce only declared length class, question bounds,
   private-comment presence, and missing-control drift;
 - private-comment controls should require a useful private student comment and
   prevent it from introducing new unsupported criticism or a different grade
@@ -843,6 +846,23 @@ Discarded as case-specific:
   canonical checklist in `docs/opponent-review-workflow.md`, makes the three
   opponent skills reference it with role-specific obligations, and softens
   FIT Theses Checker wording to apply when a validated summary exists.
+- 2026-05-20: Slice 3 started. Scope is Python command/artifact/schema work for
+  Theses Checker summary and trace/calibration structural controls; Pants
+  commands will be run serially.
+- 2026-05-20: Slice 3 implemented and agent-reviewed. The slice adds
+  `work/theses_checker_summary.json`, `record-theses-checker-summary`,
+  `check-theses-checker-summary`, `opponent-report-trace-v2`, required
+  report-quality trace controls, manifest/approval/closeout integration, and
+  focused tests/smokes. Review findings fixed before commit: the checker
+  summary check is required when bound, approval validation checks summary
+  dependency freshness, summary refs require `status: checker_summary`, direct
+  technical-report-scope wording requires a bound rendered PDF and categorical
+  checker status, numeric thresholds reject non-finite/inconsistent values,
+  checked PDF refs are constrained to `inputs/*.pdf`, and grade rationale or
+  compression priorities were kept out of report-calibration controls unless
+  they are explicit profile/operator preferences. Omen MCP semantic search
+  found the intended touched symbols; Omen MCP complexity returned zero files
+  for this repo path, so reproducible closeout used `pants run :omen`.
 
 ## Decision Log
 
@@ -892,6 +912,10 @@ Discarded as case-specific:
 - Public default profile changes are limited to generic opponent-report
   preferences. Private reviewer calibration refreshes do not enter tracked
   plans or TODO.
+- Slice 3 intentionally bumps `work/opponent_report_trace.json` to
+  `opponent-report-trace-v2`. This experimental repo does not carry broad
+  fallback behavior for older trace contracts; current rounds should regenerate
+  the trace through the active opponent-report workflow.
 
 ## Final Audit
 
@@ -976,4 +1000,25 @@ scripts/check-private             # passed
 scripts/check-scripts             # passed
 ```
 
-No workflow code or concrete case output has been changed yet.
+Slice 3 checks after schema/helper implementation, agent review, and fixes:
+
+```bash
+pants test tests/test_theses_checker_summary.py tests/test_structured_evidence.py tests/test_work_artifacts.py tests/test_opponent_report.py tests/test_opponent_calibration.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_report_calibration.py tests/test_workflow_python_contracts.py
+# passed
+pants lint src/thesis_review_workflow/theses_checker_summary.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/review_approvals.py src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/check_review_manifest.py tests/test_theses_checker_summary.py tests/test_structured_evidence.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py
+# passed
+pants check src/thesis_review_workflow/theses_checker_summary.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/review_approvals.py src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/work_artifacts.py src/thesis_review_workflow/cli/check_theses_checker_summary.py src/thesis_review_workflow/cli/record_theses_checker_summary.py
+# passed
+scripts/smoke-theses-checker-summary      # passed
+scripts/smoke-opponent-report             # passed
+scripts/smoke-opponent-closeout           # passed
+scripts/smoke-export-opponent-report      # passed
+scripts/smoke-report-calibration          # passed
+scripts/smoke-package-workflow-tools      # passed
+pants run :omen                           # passed; existing hotspot report, no critical exit
+git diff --check                          # passed
+scripts/check-private                     # passed
+scripts/check-scripts                     # passed
+```
+
+No concrete case output under `cases/` has been edited.

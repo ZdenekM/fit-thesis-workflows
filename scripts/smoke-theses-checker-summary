@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__theses_checker_summary_smoke_$$"
+round_id="round-a"
+case_dir="$repo_root/cases/$case_id"
+round_dir="$case_dir/rounds/$round_id"
+
+cleanup() {
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/inputs" "$round_dir/notes" "$round_dir/work"
+printf "%s\n" "$round_id" >"$case_dir/current-round.txt"
+cat >"$case_dir/case.md" <<'EOF'
+# Synthetic Theses Checker summary smoke
+
+Work type: bachelor thesis
+Academic year: 2025/2026
+Reviewer profile: default
+Student feedback language: cs
+EOF
+printf "# Assignment\n" >"$round_dir/notes/assignment.md"
+printf "PDF bytes for the rendered thesis fixture\n" >"$round_dir/inputs/thesis.pdf"
+cat >"$round_dir/notes/theses-checker-output.txt" <<'EOF'
+FIT Theses Checker synthetic transcript
+Normostrany: 42.5
+EOF
+
+"$repo_root/scripts/record-theses-checker-summary" \
+  --source notes/theses-checker-output.txt \
+  --source-kind copied_text \
+  --checked-pdf inputs/thesis.pdf \
+  --normostrany 42.5 \
+  --status within_required_range \
+  --minimum 30 \
+  --recommended-minimum 35 \
+  --maximum 80 \
+  "$case_id" "$round_id"
+
+"$repo_root/scripts/check-theses-checker-summary" "$case_id" "$round_id"
+
+printf "\nlate edit\n" >>"$round_dir/notes/theses-checker-output.txt"
+if "$repo_root/scripts/check-theses-checker-summary" "$case_id" "$round_id" >/tmp/check-theses-checker-summary.out 2>&1; then
+  echo "Expected stale source hash to fail" >&2
+  exit 1
+fi
+grep -Fq "source_artifact: sha256 is stale for notes/theses-checker-output.txt" /tmp/check-theses-checker-summary.out
+rm -f /tmp/check-theses-checker-summary.out
+
+echo "Theses Checker summary smoke passed"

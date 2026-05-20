@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.structured_evidence import (
     CURRENT_EVIDENCE_SNAPSHOT_REL,
     OPPONENT_REPORT_TRACE_REL,
@@ -14,8 +15,8 @@ from thesis_review_workflow.structured_evidence import (
     current_evidence_default_source_refs,
     validate_structured_evidence_artifact,
 )
-from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL, THESES_CHECKER_SUMMARY_SCHEMA
 
 
 def write_json(path: Path, value: object) -> None:
@@ -61,6 +62,56 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def write_theses_checker_summary(
+    round_dir: Path,
+    *,
+    checked_pdf_bound: bool = True,
+    status: str = "within_required_range",
+) -> Path:
+    source = write_text(round_dir, "notes/theses-checker-output.txt", "Normostrany: 42.5\n")
+    checked_pdf = write_text(round_dir, "inputs/thesis.pdf", "Rendered thesis PDF fixture\n")
+    checked_pdf_record = (
+        {"path": "inputs/thesis.pdf", "sha256": sha256_file(checked_pdf)} if checked_pdf_bound else None
+    )
+    checked_pdf_limitation = (
+        None
+        if checked_pdf_bound
+        else {
+            "type": "source_does_not_identify_pdf",
+            "description": "The checker output did not identify the rendered PDF.",
+            "accepted_by": "test-operator",
+        }
+    )
+    summary = round_dir / THESES_CHECKER_SUMMARY_REL
+    write_json(
+        summary,
+        {
+            "schema_version": THESES_CHECKER_SUMMARY_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-20T00:00:00Z",
+            "producer_type": "deterministic_helper",
+            "producer_role": "record-theses-checker-summary",
+            "producer_agent": "record-theses-checker-summary",
+            "source_refs": ["notes/theses-checker-output.txt", "inputs/thesis.pdf"],
+            "source_artifact": {
+                "path": "notes/theses-checker-output.txt",
+                "sha256": sha256_file(source),
+                "kind": "copied_text",
+            },
+            "checked_pdf": checked_pdf_record,
+            "checked_pdf_limitation": checked_pdf_limitation,
+            "normostrany": 42.5,
+            "thresholds": {"minimum": 30, "recommended_minimum": 35, "maximum": 80},
+            "status": status,
+            "checker_timestamp": None,
+            "captured_at": "2026-05-20T00:00:00Z",
+            "limitations": [],
+        },
+    )
+    return summary
+
+
 def common_fields(schema_version: str) -> dict[str, object]:
     return {
         "schema_version": schema_version,
@@ -73,6 +124,89 @@ def common_fields(schema_version: str) -> dict[str, object]:
         "authorization_note": "Current request explicitly authorized agents.",
         "source_refs": ["notes/assignment.md"],
         "limitations": [],
+    }
+
+
+def opponent_report_quality_controls(*, question_ids: tuple[str, ...] = ("D1",)) -> dict[str, object]:
+    evidence_ref = "outputs/oponent_podklady_revidovane.md"
+    claim_id = "claim-overall"
+    return {
+        "assignment_fulfillment_map": {
+            "source_refs": [evidence_ref],
+            "points": [
+                {
+                    "point_id": "assignment-point-1",
+                    "summary": "Fixture assignment point is partially evidenced.",
+                    "fulfillment_state": "partially_fulfilled",
+                    "evidence_strength": "direct",
+                    "evidence_refs": [evidence_ref],
+                    "report_impact": "Mention as a calibrated limitation.",
+                }
+            ],
+        },
+        "rubric_alignment": [
+            {
+                "item_id": item_id,
+                "criterion_scope": "Fixture checks the item independently.",
+                "evidence_refs": [evidence_ref],
+                "do_not_mix_with": ["overall_assessment"],
+                "wording_tone": "Evidence-bound and compact.",
+            }
+            for item_id in sorted(REQUIRED_OPPONENT_IS_ITEM_IDS)
+        ],
+        "report_claim_ledger": [
+            {
+                "claim_id": claim_id,
+                "target_item_id": "overall_assessment",
+                "summary": "Overall public wording is evidence-bound.",
+                "evidence_class": "reviewed_materials",
+                "evidence_strength": "direct",
+                "public_wording_mode": "direct",
+                "evidence_refs": [evidence_ref],
+            }
+        ],
+        "checked_scope": [
+            {
+                "evidence_class": "reviewed_materials",
+                "status": "checked",
+                "source_refs": [evidence_ref],
+                "limitations": [],
+            }
+        ],
+        "evidence_source_matrix": [
+            {
+                "claim_id": claim_id,
+                "source_class": "reviewed_materials",
+                "support_mode": "supports",
+                "source_refs": [evidence_ref],
+            }
+        ],
+        "technical_report_scope_basis": {
+            "status": "operator_accepted_limitation",
+            "wording_mode": "manual_check",
+            "evidence_refs": [evidence_ref],
+            "typed_limitation": {
+                "type": "checker_summary_not_available",
+                "description": "Fixture records manual acceptance instead of a Theses Checker summary.",
+                "accepted_by": "test-operator",
+            },
+        },
+        "strength_grade_tension": {
+            "strength_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "limiting_factor_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "grade_interval_rationale": "Fixture grade interval follows the evidence ledger.",
+            "private_comment_focus": "No private comment in this fixture.",
+        },
+        "defense_question_strategy": [
+            {
+                "question_id": question_id,
+                "purpose": "Probe one evidence gap.",
+                "target_item_id": "overall_assessment",
+                "evidence_gap_or_tension": "Runtime confidence is limited.",
+                "single_focus": True,
+            }
+            for question_id in question_ids
+        ],
     }
 
 
@@ -513,7 +647,7 @@ def trace_payload(source_hash: str) -> dict[str, object]:
         for item_id in sorted(REQUIRED_OPPONENT_IS_ITEM_IDS)
     ]
     return {
-        **common_fields("opponent-report-trace-v1"),
+        **common_fields("opponent-report-trace-v2"),
         "source_refs": ["outputs/oponent_podklady_revidovane.md"],
         "source_materials_path": "outputs/oponent_podklady_revidovane.md",
         "source_materials_sha256": source_hash,
@@ -547,6 +681,7 @@ def trace_payload(source_hash: str) -> dict[str, object]:
                 "status": "carried_to_report",
             }
         ],
+        **opponent_report_quality_controls(),
         "limitations": [],
     }
 
@@ -660,9 +795,7 @@ def bind_report_calibration_basis(payload: dict[str, object], round_dir: Path) -
     trace_generated_from = payload.get("trace_generated_from")
     source_ref_values = [ref for ref in source_refs if isinstance(ref, str)] if isinstance(source_refs, list) else []
     trace_generated_values = (
-        [ref for ref in trace_generated_from if isinstance(ref, str)]
-        if isinstance(trace_generated_from, list)
-        else []
+        [ref for ref in trace_generated_from if isinstance(ref, str)] if isinstance(trace_generated_from, list) else []
     )
     payload["source_refs"] = [*source_ref_values, REPORT_CALIBRATION_BASIS_REL]
     payload["trace_generated_from"] = [*trace_generated_values, REPORT_CALIBRATION_BASIS_REL]
@@ -1048,6 +1181,106 @@ def test_validate_opponent_report_trace_accepts_complete_payload(tmp_path: Path)
     assert errors == []
 
 
+def test_validate_opponent_report_trace_accepts_theses_checker_summary_binding(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    summary = write_theses_checker_summary(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["technical_report_scope_basis"] = {
+        "status": "checker_summary",
+        "wording_mode": "direct",
+        "evidence_refs": ["work/theses_checker_summary.json"],
+        "summary_path": "work/theses_checker_summary.json",
+        "summary_sha256": sha256_file(summary),
+    }
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_report_trace_rejects_stale_theses_checker_summary_binding(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    summary = write_theses_checker_summary(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["technical_report_scope_basis"] = {
+        "status": "checker_summary",
+        "wording_mode": "direct",
+        "evidence_refs": ["work/theses_checker_summary.json"],
+        "summary_path": "work/theses_checker_summary.json",
+        "summary_sha256": sha256_file(summary),
+    }
+    summary.write_text('{"changed": true}\n', encoding="utf-8")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("summary_sha256 is stale for work/theses_checker_summary.json" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_rejects_invalid_theses_checker_summary_binding(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    summary = write_text(round_dir, "work/theses_checker_summary.json", "{}\n")
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["technical_report_scope_basis"] = {
+        "status": "checker_summary",
+        "wording_mode": "direct",
+        "evidence_refs": ["work/theses_checker_summary.json"],
+        "summary_path": "work/theses_checker_summary.json",
+        "summary_sha256": sha256_file(summary),
+    }
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any(
+        "technical_report_scope_basis: work/theses_checker_summary.json: schema_version" in error for error in errors
+    )
+
+
+def test_validate_opponent_report_trace_rejects_summary_path_without_checker_status(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    summary = write_theses_checker_summary(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    basis = payload["technical_report_scope_basis"]
+    assert isinstance(basis, dict)
+    basis["summary_path"] = "work/theses_checker_summary.json"
+    basis["summary_sha256"] = sha256_file(summary)
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("summary_path and summary_sha256 require status checker_summary" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_requires_bound_pdf_for_direct_checker_wording(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    summary = write_theses_checker_summary(round_dir, checked_pdf_bound=False)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["technical_report_scope_basis"] = {
+        "status": "checker_summary",
+        "wording_mode": "direct",
+        "evidence_refs": ["work/theses_checker_summary.json"],
+        "summary_path": "work/theses_checker_summary.json",
+        "summary_sha256": sha256_file(summary),
+    }
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("wording_mode direct requires checked_pdf" in error for error in errors)
+
+
 def test_validate_opponent_report_trace_accepts_report_calibration_basis_binding(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     create_round_refs(round_dir)
@@ -1346,9 +1579,9 @@ def test_validate_opponent_report_trace_rejects_conflicting_calibration_controls
     )
 
     assert any(
-        "expected_report_controls.overall_grade conflicts with report_calibration_basis" in error
-        for error in errors
+        "expected_report_controls.overall_grade conflicts with report_calibration_basis" in error for error in errors
     )
+
 
 def test_validate_opponent_report_trace_rejects_stale_calibration_context_source(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"

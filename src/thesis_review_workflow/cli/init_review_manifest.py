@@ -51,6 +51,11 @@ from thesis_review_workflow.review_manifest import (
     merge_supporting_work_artifacts,
 )
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
+from thesis_review_workflow.theses_checker_summary import (
+    THESES_CHECKER_SUMMARY_REL,
+    round_uses_theses_checker_summary,
+    theses_checker_summary_dependency_files,
+)
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
     theses_similarity_check_targets,
@@ -164,9 +169,13 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
                     [("round:work/report_calibration_basis.json", round_dir / REPORT_CALIBRATION_BASIS_REL)]
                 )
             )
+        if round_uses_theses_checker_summary(round_dir):
+            hashes.update(hash_existing_paths(theses_checker_summary_dependency_files(round_dir)))
         hashes.update(hash_tree("round:extracted/submitted_reports", round_dir / "extracted" / "submitted_reports"))
     if base_check_name == "check-report-calibration":
         hashes.update(hash_existing_paths(report_calibration_dependency_files(round_dir)))
+    if base_check_name == "check-theses-checker-summary":
+        hashes.update(hash_existing_paths(theses_checker_summary_dependency_files(round_dir)))
     if base_check_name == "check-supervisor-report":
         hashes.update(hash_tree("round:work/review_deltas", round_dir / "work" / "review_deltas"))
     return hashes
@@ -472,6 +481,8 @@ def required_checks(
         targets = ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"]
         if round_uses_report_calibration_basis(round_dir):
             targets.append(REPORT_CALIBRATION_BASIS_REL)
+        if round_uses_theses_checker_summary(round_dir):
+            targets.append(THESES_CHECKER_SUMMARY_REL)
         if (
             (round_dir / "work" / "oponent_posudek_draft.md").is_file()
             or "outputs/oponent_posudek_navrh.md" in artifact_paths
@@ -491,6 +502,8 @@ def required_checks(
         ]
         if round_uses_report_calibration_basis(round_dir):
             targets.append(REPORT_CALIBRATION_BASIS_REL)
+        if round_uses_theses_checker_summary(round_dir):
+            targets.append(THESES_CHECKER_SUMMARY_REL)
         add(
             "check-opponent-report:clean",
             f"check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md {case_id} {round_id}",
@@ -501,6 +514,12 @@ def required_checks(
             "check-report-calibration",
             f"check-report-calibration {case_id} {round_id}",
             report_calibration_check_targets(round_dir),
+        )
+    if round_uses_theses_checker_summary(round_dir):
+        add(
+            "check-theses-checker-summary",
+            f"check-theses-checker-summary {case_id} {round_id}",
+            [THESES_CHECKER_SUMMARY_REL],
         )
     if "outputs/figure_media_review.md" in artifact_paths:
         add(

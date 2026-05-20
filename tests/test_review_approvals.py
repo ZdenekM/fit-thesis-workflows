@@ -3,9 +3,16 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.cli import write_review_approval
+from thesis_review_workflow.cli.init_review_manifest import (
+    helper_dependency_hashes,
+    repo_root_from_round,
+    workflow_checker_version,
+)
 from thesis_review_workflow.review_approvals import (
+    APPROVAL_PROFILES,
     REVIEW_APPROVAL_SCHEMA,
     build_review_approval_payload,
+    required_checks_for_review_approval,
     reviewer_matches_generator,
     sha256_file,
     validate_required_checks,
@@ -422,6 +429,110 @@ def test_review_approval_wave_route_checks_are_observed_only(tmp_path: Path) -> 
     )
 
     assert errors == []
+
+
+def test_review_approval_requires_theses_checker_summary_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    trace.parent.mkdir(parents=True)
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+
+    required = required_checks_for_review_approval(
+        APPROVAL_PROFILES["opponent-report-review"],
+        round_dir,
+        "outputs/oponent_posudek_navrh.md",
+    )
+
+    assert "check-theses-checker-summary" in required
+
+
+def test_review_approval_requires_theses_checker_summary_helper_target(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+    summary = round_dir / "work" / "theses_checker_summary.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    summary.parent.mkdir(parents=True)
+    summary.write_text("{}\n", encoding="utf-8")
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+    manifest = {
+        "helper_checks": [
+            helper_check_record(
+                "check-theses-checker-summary",
+                round_dir,
+                [],
+            )
+        ]
+    }
+
+    errors = validate_required_checks(
+        required_checks=("check-theses-checker-summary",),
+        checks_observed=["check-theses-checker-summary"],
+        rel_path="work/reviews/opponent_report_review.json",
+        round_dir=round_dir,
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        manifest=manifest,
+    )
+
+    assert (
+        "work/reviews/opponent_report_review.json: helper check check-theses-checker-summary "
+        "must record target_artifacts"
+    ) in errors
+
+
+def test_review_approval_checks_theses_checker_summary_dependency_freshness(tmp_path: Path) -> None:
+    round_dir = make_case(tmp_path)
+    source = round_dir / "notes" / "theses-checker-output.txt"
+    checked_pdf = round_dir / "inputs" / "thesis.pdf"
+    summary = round_dir / "work" / "theses_checker_summary.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    for path, text in (
+        (source, "Normostrany: 42.5\n"),
+        (checked_pdf, "Rendered thesis PDF fixture\n"),
+        (
+            summary,
+            json.dumps(
+                {
+                    "source_refs": ["notes/theses-checker-output.txt", "inputs/thesis.pdf"],
+                    "source_artifact": {"path": "notes/theses-checker-output.txt"},
+                    "checked_pdf": {"path": "inputs/thesis.pdf"},
+                }
+            )
+            + "\n",
+        ),
+        (
+            trace,
+            '{"technical_report_scope_basis": {"status": "checker_summary", '
+            '"summary_path": "work/theses_checker_summary.json"}}\n',
+        ),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    check = helper_check_record("check-theses-checker-summary", round_dir, ["work/theses_checker_summary.json"])
+    check["checker_version"] = workflow_checker_version(repo_root_from_round(round_dir))
+    check["dependency_sha256"] = helper_dependency_hashes(round_dir, "check-theses-checker-summary")
+    source.write_text("Normostrany: changed\n", encoding="utf-8")
+    manifest = {"helper_checks": [check]}
+
+    errors = validate_required_checks(
+        required_checks=("check-theses-checker-summary",),
+        checks_observed=["check-theses-checker-summary"],
+        rel_path="work/reviews/opponent_report_review.json",
+        round_dir=round_dir,
+        reviewed_artifact_path="outputs/feedback_k_posudku.md",
+        manifest=manifest,
+    )
+
+    assert (
+        "work/reviews/opponent_report_review.json: helper check check-theses-checker-summary "
+        "dependency_sha256 is stale"
+    ) in errors
 
 
 def test_build_review_approval_rejects_structured_check_objects(tmp_path: Path) -> None:

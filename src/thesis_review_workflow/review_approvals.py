@@ -14,6 +14,7 @@ from thesis_review_workflow.report_calibration import (
     report_calibration_check_targets,
     report_calibration_review_basis_bound,
 )
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL, round_uses_theses_checker_summary
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_REVIEW_APPROVAL_REL,
@@ -29,6 +30,7 @@ OBSERVED_ONLY_REQUIRED_CHECKS = {
     "check-review-wave.opponent-report.draft",
 }
 REPORT_CALIBRATION_REQUIRED_CHECK = "check-report-calibration"
+THESES_CHECKER_SUMMARY_REQUIRED_CHECK = "check-theses-checker-summary"
 
 
 @dataclass(frozen=True)
@@ -206,10 +208,41 @@ def validate_required_checks(
                     errors.append(f"{rel_path}: helper check {name} missing target hash for {target_path}")
                 elif recorded != sha256_file(target_file):
                     errors.append(f"{rel_path}: helper check {name} target hash is stale for {target_path}")
+        _validate_required_helper_freshness(name, item, rel_path, round_dir, errors)
     seen = {item.get("check") for item in helper_checks if isinstance(item, dict)}
     for check in sorted(set(helper_required_checks) - {item for item in seen if isinstance(item, str)}):
         errors.append(f"{rel_path}: missing manifest helper check record: {check}")
     return errors
+
+
+def _validate_required_helper_freshness(
+    name: Any,
+    check: dict[str, Any],
+    rel_path: str,
+    round_dir: Path,
+    errors: list[str],
+) -> None:
+    if name != THESES_CHECKER_SUMMARY_REQUIRED_CHECK:
+        return
+    from thesis_review_workflow.cli.init_review_manifest import (
+        helper_dependency_hashes,
+        repo_root_from_round,
+        workflow_checker_version,
+    )
+
+    current_version = workflow_checker_version(repo_root_from_round(round_dir))
+    recorded_version = check.get("checker_version")
+    if not isinstance(recorded_version, str) or not recorded_version:
+        errors.append(f"{rel_path}: helper check {name} missing checker_version")
+    elif recorded_version != current_version:
+        errors.append(f"{rel_path}: helper check {name} checker_version is stale")
+
+    recorded_dependencies = check.get("dependency_sha256")
+    current_dependencies = helper_dependency_hashes(round_dir, str(name))
+    if not isinstance(recorded_dependencies, dict):
+        errors.append(f"{rel_path}: helper check {name} missing dependency_sha256")
+    elif recorded_dependencies != current_dependencies:
+        errors.append(f"{rel_path}: helper check {name} dependency_sha256 is stale")
 
 
 def required_checks_for_review_approval(
@@ -224,14 +257,24 @@ def required_checks_for_review_approval(
         and REPORT_CALIBRATION_REQUIRED_CHECK not in checks
     ):
         checks.append(REPORT_CALIBRATION_REQUIRED_CHECK)
+    if (
+        profile.profile in {"opponent-materials", "opponent-report-review"}
+        and round_uses_theses_checker_summary(round_dir)
+        and THESES_CHECKER_SUMMARY_REQUIRED_CHECK not in checks
+    ):
+        checks.append(THESES_CHECKER_SUMMARY_REQUIRED_CHECK)
     return tuple(checks)
 
 
 def required_helper_targets_for_approval(name: str, round_dir: Path, approval_path: str) -> set[str]:
     if name == REPORT_CALIBRATION_REQUIRED_CHECK:
         return set(report_calibration_check_targets(round_dir))
+    if name == THESES_CHECKER_SUMMARY_REQUIRED_CHECK:
+        return {THESES_CHECKER_SUMMARY_REL}
     if name in {"check-opponent-report", "check-opponent-report:canonical"}:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
+        if round_uses_theses_checker_summary(round_dir):
+            targets.add(THESES_CHECKER_SUMMARY_REL)
         if (
             approval_path == "work/reviews/opponent_report_review.json"
             or (round_dir / "work" / "oponent_posudek_draft.md").is_file()
@@ -241,11 +284,14 @@ def required_helper_targets_for_approval(name: str, round_dir: Path, approval_pa
             targets.add("work/oponent_posudek_draft.md")
         return targets
     if name == "check-opponent-report:clean":
-        return {
+        targets = {
             "work/opponent_report_trace.json",
             "outputs/oponent_podklady_revidovane.md",
             "outputs/oponent_posudek_navrh.md",
         }
+        if round_uses_theses_checker_summary(round_dir):
+            targets.add(THESES_CHECKER_SUMMARY_REL)
+        return targets
     return set()
 
 

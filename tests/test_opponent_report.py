@@ -28,6 +28,89 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def opponent_report_quality_controls(*, question_ids: tuple[str, ...] = ("D1",)) -> dict[str, object]:
+    evidence_ref = "outputs/oponent_podklady_revidovane.md"
+    claim_id = "claim-overall"
+    return {
+        "assignment_fulfillment_map": {
+            "source_refs": [evidence_ref],
+            "points": [
+                {
+                    "point_id": "assignment-point-1",
+                    "summary": "Fixture assignment point is partially evidenced.",
+                    "fulfillment_state": "partially_fulfilled",
+                    "evidence_strength": "direct",
+                    "evidence_refs": [evidence_ref],
+                    "report_impact": "Mention as a calibrated limitation.",
+                }
+            ],
+        },
+        "rubric_alignment": [
+            {
+                "item_id": item_id,
+                "criterion_scope": "Fixture checks the item independently.",
+                "evidence_refs": [evidence_ref],
+                "do_not_mix_with": ["overall_assessment"],
+                "wording_tone": "Evidence-bound and compact.",
+            }
+            for item_id in IS_IDS
+        ],
+        "report_claim_ledger": [
+            {
+                "claim_id": claim_id,
+                "target_item_id": "overall_assessment",
+                "summary": "Overall public wording is evidence-bound.",
+                "evidence_class": "reviewed_materials",
+                "evidence_strength": "direct",
+                "public_wording_mode": "direct",
+                "evidence_refs": [evidence_ref],
+            }
+        ],
+        "checked_scope": [
+            {
+                "evidence_class": "reviewed_materials",
+                "status": "checked",
+                "source_refs": [evidence_ref],
+                "limitations": [],
+            }
+        ],
+        "evidence_source_matrix": [
+            {
+                "claim_id": claim_id,
+                "source_class": "reviewed_materials",
+                "support_mode": "supports",
+                "source_refs": [evidence_ref],
+            }
+        ],
+        "technical_report_scope_basis": {
+            "status": "operator_accepted_limitation",
+            "wording_mode": "manual_check",
+            "evidence_refs": [evidence_ref],
+            "typed_limitation": {
+                "type": "checker_summary_not_available",
+                "description": "Fixture records manual acceptance instead of a Theses Checker summary.",
+                "accepted_by": "test-operator",
+            },
+        },
+        "strength_grade_tension": {
+            "strength_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "limiting_factor_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "grade_interval_rationale": "Fixture grade interval follows the evidence ledger.",
+            "private_comment_focus": "No private comment in this fixture.",
+        },
+        "defense_question_strategy": [
+            {
+                "question_id": question_id,
+                "purpose": "Probe one evidence gap.",
+                "target_item_id": "overall_assessment",
+                "evidence_gap_or_tension": "Runtime confidence is limited.",
+                "single_focus": True,
+            }
+            for question_id in question_ids
+        ],
+    }
+
+
 def trace_payload() -> dict[str, object]:
     return {
         "is_items": [
@@ -64,6 +147,7 @@ def trace_payload() -> dict[str, object]:
                 "status": "carried_to_report",
             }
         ],
+        **opponent_report_quality_controls(),
     }
 
 
@@ -148,7 +232,8 @@ def test_strip_metadata_comments_removes_trace_and_materials_paths() -> None:
         "<!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->\n"
         "<!-- source_materials_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -->\n"
         "<!-- source_report_calibration_basis_path: work/report_calibration_basis.json -->\n"
-        "<!-- source_report_calibration_basis_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc -->\n"
+        "<!-- source_report_calibration_basis_sha256: "
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc -->\n"
         "# Návrh oponentského posudku\n"
     )
 

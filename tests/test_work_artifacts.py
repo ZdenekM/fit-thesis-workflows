@@ -3,14 +3,15 @@ from pathlib import Path
 
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
-from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
 from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_ROLE_PLAN_SCHEMA,
     REVIEW_RUN_TRACE_REL,
     REVIEW_RUN_TRACE_SCHEMA,
 )
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL, THESES_CHECKER_SUMMARY_SCHEMA
 from thesis_review_workflow.work_artifacts import (
     collect_supporting_work_artifacts,
     sha256_file,
@@ -171,6 +172,37 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
         },
     )
     write_json(round_dir / REPORT_CALIBRATION_BASIS_REL, report_calibration_payload(round_dir))
+    checker_source = round_dir / "notes" / "theses-checker-output.txt"
+    checker_source.write_text("Normostrany: 42.5\n", encoding="utf-8")
+    thesis_pdf = round_dir / "inputs" / "thesis.pdf"
+    thesis_pdf.parent.mkdir(parents=True, exist_ok=True)
+    thesis_pdf.write_text("Rendered thesis PDF fixture\n", encoding="utf-8")
+    write_json(
+        round_dir / THESES_CHECKER_SUMMARY_REL,
+        {
+            "schema_version": THESES_CHECKER_SUMMARY_SCHEMA,
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-20T00:00:00Z",
+            "producer_type": "deterministic_helper",
+            "producer_role": "record-theses-checker-summary",
+            "producer_agent": "record-theses-checker-summary",
+            "source_refs": ["notes/theses-checker-output.txt", "inputs/thesis.pdf"],
+            "source_artifact": {
+                "path": "notes/theses-checker-output.txt",
+                "sha256": sha256_file(checker_source),
+                "kind": "copied_text",
+            },
+            "checked_pdf": {"path": "inputs/thesis.pdf", "sha256": sha256_file(thesis_pdf)},
+            "checked_pdf_limitation": None,
+            "normostrany": 42.5,
+            "thresholds": {"minimum": 30},
+            "status": "within_required_range",
+            "checker_timestamp": None,
+            "captured_at": "2026-05-20T00:00:00Z",
+            "limitations": [],
+        },
+    )
     packet = round_dir / "work" / "opponent_packets" / "synthesis.md"
     packet.parent.mkdir(parents=True, exist_ok=True)
     packet.write_text("# Packet\n", encoding="utf-8")
@@ -193,6 +225,8 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     assert by_path["work/code_quality_omen.json"]["kind"] == "structured_data"
     assert by_path[REPORT_CALIBRATION_BASIS_REL]["schema_version"] == "report-calibration-basis-v1"
     assert by_path[REPORT_CALIBRATION_BASIS_REL]["producer_role"] == "thesis-opponent-materials-reviewer"
+    assert by_path[THESES_CHECKER_SUMMARY_REL]["schema_version"] == THESES_CHECKER_SUMMARY_SCHEMA
+    assert by_path[THESES_CHECKER_SUMMARY_REL]["producer_role"] == "record-theses-checker-summary"
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
     assert by_path["work/supervisor_report_packets/trace.md"]["kind"] == "text"

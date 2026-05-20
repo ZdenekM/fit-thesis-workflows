@@ -32,6 +32,7 @@ shell_sources(
         "check-supervisor-report-calibration-profile",
         "check-supervisor-report-ready",
         "check-supervisor-ready",
+        "check-theses-checker-summary",
         "check-theses-similarity-report",
         "check-tooling",
         "check-typography-formal",
@@ -60,6 +61,7 @@ shell_sources(
         "record-submitted-opponent-report",
         "record-submitted-report-delta",
         "record-submitted-supervisor-report",
+        "record-theses-checker-summary",
         "record-workflow-operation",
         "refresh-round-hashes",
         "register-review-artifact",
@@ -98,6 +100,7 @@ shell_sources(
         "smoke-record-submitted-supervisor-report",
         "smoke-refresh-round-hashes",
         "smoke-supervisor-report-calibration-profile",
+        "smoke-theses-checker-summary",
         "smoke-supervisor-report-packets",
         "smoke-supervisor-packets",
         "smoke-private",
@@ -174,6 +177,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_supervisor_report_calibration_profile",
     "src/thesis_review_workflow/cli:check_supervisor_report_ready",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
+    "src/thesis_review_workflow/cli:check_theses_checker_summary",
     "src/thesis_review_workflow/cli:check_theses_similarity_report",
     "src/thesis_review_workflow/cli:check_tooling",
     "src/thesis_review_workflow/cli:check_typography_formal",
@@ -201,6 +205,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_submitted_supervisor_report",
     "src/thesis_review_workflow/cli:record_submitted_opponent_report",
     "src/thesis_review_workflow/cli:record_submitted_report_delta",
+    "src/thesis_review_workflow/cli:record_theses_checker_summary",
     "src/thesis_review_workflow/cli:record_workflow_operation",
     "src/thesis_review_workflow/cli:refresh_round_hashes",
     "src/thesis_review_workflow/cli:register_review_artifact",
@@ -524,6 +529,16 @@ pex_binary(
 )
 
 pex_binary(
+    name="check_theses_checker_summary_tool",
+    entry_point="thesis_review_workflow.cli.check_theses_checker_summary:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-theses-checker-summary",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
     name="check_theses_similarity_report_tool",
     entry_point="thesis_review_workflow.cli.check_theses_similarity_report:console_main",
     dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
@@ -790,6 +805,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/record-submitted-supervisor-report",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="record_theses_checker_summary_tool",
+    entry_point="thesis_review_workflow.cli.record_theses_checker_summary:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/record-theses-checker-summary",
     tags=["workflow-tool"],
 )
 

@@ -45,6 +45,7 @@ from thesis_review_workflow.review_approvals import (
 from thesis_review_workflow.review_manifest import claim_basis_applies_to_artifact, claim_basis_dependency_refs
 from thesis_review_workflow.review_materiality import validate_materiality_workflow_limitations
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL, round_uses_theses_checker_summary
 from thesis_review_workflow.theses_similarity import theses_similarity_check_targets, theses_similarity_evidence_present
 from thesis_review_workflow.work_artifacts import validate_supporting_work_artifacts
 
@@ -308,6 +309,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if round_uses_report_calibration_basis(round_dir):
             targets.add(REPORT_CALIBRATION_BASIS_REL)
+        if round_uses_theses_checker_summary(round_dir):
+            targets.add(THESES_CHECKER_SUMMARY_REL)
         if (
             (round_dir / "work" / "oponent_posudek_draft.md").is_file()
             or (round_dir / "outputs" / "oponent_posudek_navrh.md").is_file()
@@ -323,7 +326,11 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         }
         if round_uses_report_calibration_basis(round_dir):
             targets.add(REPORT_CALIBRATION_BASIS_REL)
+        if round_uses_theses_checker_summary(round_dir):
+            targets.add(THESES_CHECKER_SUMMARY_REL)
         return targets
+    if name == "check-theses-checker-summary":
+        return {THESES_CHECKER_SUMMARY_REL}
     if name == "check-supervisor-report":
         targets = {"work/supervisor_report_trace.json", "outputs/vedouci_posudek_revidovany.md"}
         if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():
@@ -475,6 +482,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.update({"check-opponent-report:canonical", "check-opponent-report:clean"})
     if report_calibration_check_required(round_dir):
         required.add("check-report-calibration")
+    if round_uses_theses_checker_summary(round_dir):
+        required.add("check-theses-checker-summary")
     if "outputs/figure_media_review.md" in paths:
         required.add("check-figure-media-review")
     if "outputs/literature_citation_review.md" in paths:

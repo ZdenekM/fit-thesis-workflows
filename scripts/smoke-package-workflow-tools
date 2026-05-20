@@ -367,9 +367,23 @@ Nejlepe obhajitelny interval je 76-82 bodu.
 materials_path = round_dir / "outputs" / "oponent_podklady_revidovane.md"
 materials_path.write_text(materials, encoding="utf-8")
 materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+profile_sources = [
+    {
+        "path": "profiles/default.md",
+        "sha256": hashlib.sha256((repo_root / "profiles/default.md").read_bytes()).hexdigest(),
+    }
+]
+local_profile = repo_root / "profiles/local/default.md"
+if local_profile.is_file():
+    profile_sources.append(
+        {
+            "path": "profiles/local/default.md",
+            "sha256": hashlib.sha256(local_profile.read_bytes()).hexdigest(),
+        }
+    )
 
 trace = {
-    "schema_version": "opponent-report-trace-v1",
+    "schema_version": "opponent-report-trace-v2",
     "case_id": case_id,
     "round_id": round_id,
     "generated_at": "2026-05-18T00:00:00Z",
@@ -412,17 +426,93 @@ trace = {
         "assessed_by": "agent",
         "assessor_role": "package-smoke-trace-reviewer",
         "assessed_at": "2026-05-18T00:00:01Z",
-        "profile_sources": [
-            {
-                "path": "profiles/default.md",
-                "sha256": hashlib.sha256((repo_root / "profiles/default.md").read_bytes()).hexdigest(),
-            }
-        ],
+        "profile_sources": profile_sources,
         "operator_calibration_sources": [],
         "rationale": "Package smoke fixture records that no synthetic profile-specific calibration is applied.",
     },
     "limitations": [],
 }
+claim_id = "claim-overall"
+trace.update(
+    {
+        "assignment_fulfillment_map": {
+            "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "points": [
+                {
+                    "point_id": "assignment-point-1",
+                    "summary": "Synteticky bod zadani je castecne dolozen.",
+                    "fulfillment_state": "partially_fulfilled",
+                    "evidence_strength": "direct",
+                    "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+                    "report_impact": "Uvest jako kalibrovanou vyhradu.",
+                }
+            ],
+        },
+        "rubric_alignment": [
+            {
+                "item_id": item["item_id"],
+                "criterion_scope": "Package fixture keeps the FIT IS item separate.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "do_not_mix_with": ["overall_assessment"],
+                "wording_tone": "Evidence-bound and compact.",
+            }
+            for item in trace["is_items"]
+        ],
+        "report_claim_ledger": [
+            {
+                "claim_id": claim_id,
+                "target_item_id": "overall_assessment",
+                "summary": "Celkove hodnoceni je navazane na zdrojove podklady.",
+                "evidence_class": "reviewed_materials",
+                "evidence_strength": "direct",
+                "public_wording_mode": "direct",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "checked_scope": [
+            {
+                "evidence_class": "reviewed_materials",
+                "status": "checked",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "limitations": [],
+            }
+        ],
+        "evidence_source_matrix": [
+            {
+                "claim_id": claim_id,
+                "source_class": "reviewed_materials",
+                "support_mode": "supports",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "technical_report_scope_basis": {
+            "status": "operator_accepted_limitation",
+            "wording_mode": "manual_check",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "typed_limitation": {
+                "type": "checker_summary_not_available",
+                "description": "Package fixture uses accepted manual scope wording.",
+                "accepted_by": "package-smoke-operator",
+            },
+        },
+        "strength_grade_tension": {
+            "strength_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "limiting_factor_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "grade_interval_rationale": "Package fixture grade interval follows the evidence ledger.",
+            "private_comment_focus": "No private comment in this package fixture.",
+        },
+        "defense_question_strategy": [
+            {
+                "question_id": item["question_id"],
+                "purpose": "Probe one evidence gap.",
+                "target_item_id": "overall_assessment",
+                "evidence_gap_or_tension": "Runtime confidence is limited.",
+                "single_focus": True,
+            }
+            for item in trace["defense_questions"]
+        ],
+    }
+)
 trace_path = round_dir / "work" / "opponent_report_trace.json"
 trace_path.write_text(json.dumps(trace, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 trace_hash = hashlib.sha256(trace_path.read_bytes()).hexdigest()

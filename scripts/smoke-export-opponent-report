@@ -302,7 +302,7 @@ formulations = {
     "overall_assessment": ("Celkové hodnocení", "Celkove jde o obhajitelny BP vystup."),
 }
 payload = {
-    "schema_version": "opponent-report-trace-v1",
+    "schema_version": "opponent-report-trace-v2",
     "case_id": case_id,
     "round_id": round_id,
     "generated_at": "2026-05-18T00:00:00Z",
@@ -361,6 +361,87 @@ payload = {
     "uncertainty_items": [],
     "limitations": [],
 }
+claim_id = "claim-overall"
+payload.update(
+    {
+        "assignment_fulfillment_map": {
+            "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "points": [
+                {
+                    "point_id": "assignment-point-1",
+                    "summary": "Synteticky bod zadani je castecne dolozen.",
+                    "fulfillment_state": "partially_fulfilled",
+                    "evidence_strength": "direct",
+                    "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+                    "report_impact": "Uvest jako kalibrovanou vyhradu.",
+                }
+            ],
+        },
+        "rubric_alignment": [
+            {
+                "item_id": item_id,
+                "criterion_scope": "Smoke fixture keeps the FIT IS item separate.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "do_not_mix_with": ["overall_assessment"],
+                "wording_tone": "Evidence-bound and compact.",
+            }
+            for item_id in formulations
+        ],
+        "report_claim_ledger": [
+            {
+                "claim_id": claim_id,
+                "target_item_id": "overall_assessment",
+                "summary": "Celkove hodnoceni je navazane na zdrojove podklady.",
+                "evidence_class": "reviewed_materials",
+                "evidence_strength": "direct",
+                "public_wording_mode": "direct",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "checked_scope": [
+            {
+                "evidence_class": "reviewed_materials",
+                "status": "checked",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "limitations": [],
+            }
+        ],
+        "evidence_source_matrix": [
+            {
+                "claim_id": claim_id,
+                "source_class": "reviewed_materials",
+                "support_mode": "supports",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "technical_report_scope_basis": {
+            "status": "operator_accepted_limitation",
+            "wording_mode": "manual_check",
+            "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "typed_limitation": {
+                "type": "checker_summary_not_available",
+                "description": "Smoke fixture uses accepted manual scope wording.",
+                "accepted_by": "smoke-operator",
+            },
+        },
+        "strength_grade_tension": {
+            "strength_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "limiting_factor_refs": ["outputs/oponent_podklady_revidovane.md"],
+            "grade_interval_rationale": "Smoke fixture grade interval follows the evidence ledger.",
+            "private_comment_focus": "No private comment in this smoke fixture.",
+        },
+        "defense_question_strategy": [
+            {
+                "question_id": item["question_id"],
+                "purpose": "Probe one evidence gap.",
+                "target_item_id": "overall_assessment",
+                "evidence_gap_or_tension": "Runtime confidence is limited.",
+                "single_focus": True,
+            }
+            for item in payload["defense_questions"]
+        ],
+    }
+)
 path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 }

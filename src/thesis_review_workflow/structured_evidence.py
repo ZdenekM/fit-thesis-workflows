@@ -20,6 +20,10 @@ from thesis_review_workflow.report_calibration import (
     validate_report_calibration_artifact,
 )
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
+from thesis_review_workflow.theses_checker_summary import (
+    THESES_CHECKER_SUMMARY_REL,
+    validate_theses_checker_summary_artifact,
+)
 from thesis_review_workflow.theses_similarity import (
     CURRENT_SUBMISSION_MATCH_STATUSES,
     SIMILARITY_CONFIDENCE_VALUES,
@@ -48,7 +52,7 @@ STRUCTURED_EVIDENCE_SCHEMAS: dict[str, str] = {
     ASSIGNMENT_COVERAGE_REL: "assignment-coverage-agent-v1",
     EVIDENCE_REQUIREMENTS_REL: "evidence-requirements-v1",
     QUANTITATIVE_CLAIMS_REL: "quantitative-claims-v1",
-    OPPONENT_REPORT_TRACE_REL: "opponent-report-trace-v1",
+    OPPONENT_REPORT_TRACE_REL: "opponent-report-trace-v2",
     SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL: "supervisor-report-feedback-history-v1",
     SUPERVISOR_REPORT_TRACE_REL: "supervisor-report-trace-v1",
     SUPERVISOR_REPORT_CONFIRMATION_REL: "supervisor-report-confirmation-v1",
@@ -81,6 +85,35 @@ OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", 
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
 OPPONENT_TRACE_CALIBRATION_TARGET_CONTROLS = EXPECTED_REPORT_CONTROL_KEYS
 OPPONENT_TRACE_CALIBRATION_LIMITATION_TYPE = "no_applicable_profile_or_operator_calibration"
+OPPONENT_TRACE_FULFILLMENT_STATES = {"fulfilled", "partially_fulfilled", "not_evidenced", "not_fulfilled"}
+OPPONENT_TRACE_EVIDENCE_STRENGTHS = {"direct", "indirect", "not_documented", "not_checked", "not_available"}
+OPPONENT_TRACE_WORDING_MODES = {"direct", "cautious_not_evidenced", "manual_check", "defense_question", "internal_only"}
+OPPONENT_TRACE_EVIDENCE_CLASSES = {
+    "assignment",
+    "thesis_text",
+    "submitted_code_static",
+    "build_run_demo",
+    "media_visual",
+    "operator_notes",
+    "literature_citation",
+    "reproducibility",
+    "licensing",
+    "deployment",
+    "third_party_authorship",
+    "quantitative_evaluation",
+    "reviewed_materials",
+    "other",
+}
+OPPONENT_TRACE_SCOPE_STATUSES = {"checked", "sampled", "not_available", "not_checked", "manual_check"}
+OPPONENT_TRACE_SUPPORT_MODES = {"supports", "partially_supports", "limits", "not_checked", "not_available"}
+OPPONENT_TRACE_MEDIA_STATUSES = {
+    "pdf_inspected",
+    "source_asset_checked",
+    "inventoried_only",
+    "not_checked",
+    "not_applicable",
+}
+OPPONENT_TRACE_SCOPE_BASIS_STATUSES = {"checker_summary", "operator_accepted_limitation"}
 SUPERVISOR_FEEDBACK_HISTORY_STATUSES = {
     "absent",
     "present",
@@ -115,6 +148,7 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "work/serena_roots.json",
     "work/code_reproducibility.json",
     "work/quantitative_claims.json",
+    THESES_CHECKER_SUMMARY_REL,
     "outputs/github_code_intake.md",
     "outputs/feedback_student.md",
     "work/feedback_student_draft.md",
@@ -501,6 +535,7 @@ def _validate_opponent_report_trace(
 
     _validate_trace_questions(loaded, "defense_questions", "question_id", "question", rel_path, errors)
     _validate_trace_questions(loaded, "pre_submission_checks", "check_id", "instruction", rel_path, errors)
+    _validate_opponent_trace_quality_controls(loaded, rel_path, round_dir, errors)
     uncertainty_items = _require_list(loaded, "uncertainty_items", rel_path, errors)
     if isinstance(uncertainty_items, list):
         for index, item in enumerate(uncertainty_items, start=1):
@@ -565,7 +600,279 @@ def _validate_opponent_report_trace(
                     errors,
                 )
     elif require_report_calibration and "report_calibration_limitation" in loaded:
-        _validate_report_calibration_limitation(loaded.get("report_calibration_limitation"), rel_path, round_dir, errors)
+        _validate_report_calibration_limitation(
+            loaded.get("report_calibration_limitation"), rel_path, round_dir, errors
+        )
+
+
+def _validate_opponent_trace_quality_controls(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    _validate_assignment_fulfillment_map(loaded.get("assignment_fulfillment_map"), rel_path, errors)
+    _validate_rubric_alignment(loaded.get("rubric_alignment"), rel_path, errors)
+    ledger_ids = _validate_report_claim_ledger(loaded.get("report_claim_ledger"), rel_path, errors)
+    _validate_checked_scope(loaded.get("checked_scope"), rel_path, errors)
+    _validate_evidence_source_matrix(loaded.get("evidence_source_matrix"), ledger_ids, rel_path, errors)
+    _validate_technical_report_scope_basis(loaded.get("technical_report_scope_basis"), rel_path, round_dir, errors)
+    _validate_strength_grade_tension(loaded.get("strength_grade_tension"), rel_path, errors)
+    _validate_defense_question_strategy(
+        loaded.get("defense_question_strategy"), _trace_question_ids(loaded), rel_path, errors
+    )
+    for field in (
+        "evaluation_claim_review",
+        "scaling_claim_review",
+        "third_party_authorship_review",
+        "contribution_boundary_review",
+        "citation_support_review",
+        "technical_difficulty_breakdown",
+        "result_usability_level",
+        "deployment_readiness",
+    ):
+        if field in loaded:
+            _validate_materiality_bound_trace_ref(loaded.get(field), field, rel_path, errors)
+
+
+def _validate_assignment_fulfillment_map(value: Any, rel_path: str, errors: list[str]) -> None:
+    prefix = f"{rel_path}: assignment_fulfillment_map"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_nonempty_list(value, "source_refs", prefix, errors)
+    points = value.get("points")
+    limitation = value.get("typed_limitation")
+    if not isinstance(points, list) and not isinstance(limitation, dict):
+        errors.append(f"{prefix}: must contain points or typed_limitation")
+    if isinstance(points, list):
+        if not points:
+            errors.append(f"{prefix}: points must not be empty when present")
+        for index, item in enumerate(points, start=1):
+            item_prefix = f"{prefix}: points item {index}"
+            if not isinstance(item, dict):
+                errors.append(f"{item_prefix} must be object")
+                continue
+            _require_nonempty_string(item, "point_id", item_prefix, errors)
+            _require_nonempty_string(item, "summary", item_prefix, errors)
+            _require_enum(item, "fulfillment_state", OPPONENT_TRACE_FULFILLMENT_STATES, item_prefix, errors)
+            _require_enum(item, "evidence_strength", OPPONENT_TRACE_EVIDENCE_STRENGTHS, item_prefix, errors)
+            _require_nonempty_list(item, "evidence_refs", item_prefix, errors)
+            _require_nonempty_string(item, "report_impact", item_prefix, errors)
+    if isinstance(limitation, dict):
+        _require_nonempty_string(limitation, "type", f"{prefix}: typed_limitation", errors)
+        _require_nonempty_string(limitation, "description", f"{prefix}: typed_limitation", errors)
+
+
+def _validate_rubric_alignment(value: Any, rel_path: str, errors: list[str]) -> None:
+    items = _require_nonempty_list({"rubric_alignment": value}, "rubric_alignment", rel_path, errors)
+    if not isinstance(items, list):
+        return
+    seen: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: rubric_alignment item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        item_id = item.get("item_id")
+        if isinstance(item_id, str):
+            if item_id in seen:
+                errors.append(f"{prefix}: duplicate item_id {item_id}")
+            seen.add(item_id)
+        _require_enum(item, "item_id", REQUIRED_OPPONENT_IS_ITEM_IDS, prefix, errors)
+        _require_nonempty_string(item, "criterion_scope", prefix, errors)
+        _require_nonempty_list(item, "evidence_refs", prefix, errors)
+        _require_nonempty_list(item, "do_not_mix_with", prefix, errors)
+        _require_nonempty_string(item, "wording_tone", prefix, errors)
+    missing = sorted(REQUIRED_OPPONENT_IS_ITEM_IDS - seen)
+    if missing:
+        errors.append(f"{rel_path}: rubric_alignment missing required item ids: {', '.join(missing)}")
+
+
+def _validate_report_claim_ledger(value: Any, rel_path: str, errors: list[str]) -> set[str]:
+    ids: set[str] = set()
+    items = _require_nonempty_list({"report_claim_ledger": value}, "report_claim_ledger", rel_path, errors)
+    if not isinstance(items, list):
+        return ids
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: report_claim_ledger item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        claim_id = item.get("claim_id")
+        if isinstance(claim_id, str):
+            if claim_id in ids:
+                errors.append(f"{prefix}: duplicate claim_id {claim_id}")
+            ids.add(claim_id)
+        _require_nonempty_string(item, "claim_id", prefix, errors)
+        _require_enum(item, "target_item_id", REQUIRED_OPPONENT_IS_ITEM_IDS, prefix, errors)
+        _require_nonempty_string(item, "summary", prefix, errors)
+        _require_enum(item, "evidence_class", OPPONENT_TRACE_EVIDENCE_CLASSES, prefix, errors)
+        _require_enum(item, "evidence_strength", OPPONENT_TRACE_EVIDENCE_STRENGTHS, prefix, errors)
+        _require_enum(item, "public_wording_mode", OPPONENT_TRACE_WORDING_MODES, prefix, errors)
+        _require_nonempty_list(item, "evidence_refs", prefix, errors)
+    return ids
+
+
+def _validate_checked_scope(value: Any, rel_path: str, errors: list[str]) -> None:
+    items = _require_nonempty_list({"checked_scope": value}, "checked_scope", rel_path, errors)
+    if not isinstance(items, list):
+        return
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: checked_scope item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        _require_enum(item, "evidence_class", OPPONENT_TRACE_EVIDENCE_CLASSES, prefix, errors)
+        _require_enum(item, "status", OPPONENT_TRACE_SCOPE_STATUSES, prefix, errors)
+        _require_nonempty_list(item, "source_refs", prefix, errors)
+        limitations = item.get("limitations")
+        if not isinstance(limitations, list) or not all(isinstance(limitation, str) for limitation in limitations):
+            errors.append(f"{prefix}: limitations must be a list of strings")
+
+
+def _validate_evidence_source_matrix(
+    value: Any,
+    ledger_ids: set[str],
+    rel_path: str,
+    errors: list[str],
+) -> None:
+    items = _require_nonempty_list({"evidence_source_matrix": value}, "evidence_source_matrix", rel_path, errors)
+    if not isinstance(items, list):
+        return
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: evidence_source_matrix item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        claim_id = item.get("claim_id")
+        _require_nonempty_string(item, "claim_id", prefix, errors)
+        if isinstance(claim_id, str) and ledger_ids and claim_id not in ledger_ids:
+            errors.append(f"{prefix}: claim_id is not present in report_claim_ledger")
+        _require_enum(item, "source_class", OPPONENT_TRACE_EVIDENCE_CLASSES, prefix, errors)
+        _require_enum(item, "support_mode", OPPONENT_TRACE_SUPPORT_MODES, prefix, errors)
+        _require_nonempty_list(item, "source_refs", prefix, errors)
+        if item.get("source_class") == "media_visual" or "media_status" in item:
+            _require_enum(item, "media_status", OPPONENT_TRACE_MEDIA_STATUSES, prefix, errors)
+
+
+def _validate_technical_report_scope_basis(
+    value: Any,
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    prefix = f"{rel_path}: technical_report_scope_basis"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_enum(value, "status", OPPONENT_TRACE_SCOPE_BASIS_STATUSES, prefix, errors)
+    _require_enum(value, "wording_mode", OPPONENT_TRACE_WORDING_MODES, prefix, errors)
+    _require_nonempty_list(value, "evidence_refs", prefix, errors)
+    if value.get("status") == "checker_summary":
+        if value.get("summary_path") != THESES_CHECKER_SUMMARY_REL:
+            errors.append(f"{prefix}: summary_path must be {THESES_CHECKER_SUMMARY_REL}")
+        digest = value.get("summary_sha256")
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            errors.append(f"{prefix}: summary_sha256 must be a 64-character hex string")
+        elif round_dir is not None:
+            summary_path = round_dir / THESES_CHECKER_SUMMARY_REL
+            if not summary_path.is_file():
+                errors.append(f"{prefix}: referenced checker summary is missing")
+            elif sha256_file(summary_path) != digest:
+                errors.append(f"{prefix}: summary_sha256 is stale for {THESES_CHECKER_SUMMARY_REL}")
+            else:
+                summary_errors = validate_theses_checker_summary_artifact(round_dir, THESES_CHECKER_SUMMARY_REL)
+                errors.extend(f"{prefix}: {error}" for error in summary_errors)
+                if not summary_errors:
+                    _validate_technical_report_scope_summary_wording(value, prefix, summary_path, errors)
+    else:
+        if "summary_path" in value or "summary_sha256" in value:
+            errors.append(f"{prefix}: summary_path and summary_sha256 require status checker_summary")
+        limitation = value.get("typed_limitation")
+        if not isinstance(limitation, dict):
+            errors.append(f"{prefix}: typed_limitation must be object when status is operator_accepted_limitation")
+        else:
+            _require_nonempty_string(limitation, "type", f"{prefix}: typed_limitation", errors)
+            _require_nonempty_string(limitation, "description", f"{prefix}: typed_limitation", errors)
+            _require_nonempty_string(limitation, "accepted_by", f"{prefix}: typed_limitation", errors)
+
+
+def _validate_technical_report_scope_summary_wording(
+    value: dict[str, Any],
+    prefix: str,
+    summary_path: Path,
+    errors: list[str],
+) -> None:
+    if value.get("wording_mode") != "direct":
+        return
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(summary, dict):
+        return
+    if not isinstance(summary.get("checked_pdf"), dict):
+        errors.append(f"{prefix}: wording_mode direct requires checked_pdf in {THESES_CHECKER_SUMMARY_REL}")
+    if summary.get("status") in {"unknown_threshold", "not_applicable"}:
+        errors.append(f"{prefix}: wording_mode direct requires a categorical theses checker summary status")
+
+
+def _validate_strength_grade_tension(value: Any, rel_path: str, errors: list[str]) -> None:
+    prefix = f"{rel_path}: strength_grade_tension"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_nonempty_list(value, "strength_refs", prefix, errors)
+    _require_nonempty_list(value, "limiting_factor_refs", prefix, errors)
+    _require_nonempty_string(value, "grade_interval_rationale", prefix, errors)
+    _require_nonempty_string(value, "private_comment_focus", prefix, errors)
+
+
+def _validate_defense_question_strategy(
+    value: Any,
+    question_ids: set[str],
+    rel_path: str,
+    errors: list[str],
+) -> None:
+    items = _require_nonempty_list({"defense_question_strategy": value}, "defense_question_strategy", rel_path, errors)
+    if not isinstance(items, list):
+        return
+    seen: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        prefix = f"{rel_path}: defense_question_strategy item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        question_id = item.get("question_id")
+        if isinstance(question_id, str):
+            if question_id in seen:
+                errors.append(f"{prefix}: duplicate question_id {question_id}")
+            seen.add(question_id)
+            if question_ids and question_id not in question_ids:
+                errors.append(f"{prefix}: question_id is not present in defense_questions")
+        _require_nonempty_string(item, "question_id", prefix, errors)
+        _require_nonempty_string(item, "purpose", prefix, errors)
+        _require_enum(item, "target_item_id", REQUIRED_OPPONENT_IS_ITEM_IDS, prefix, errors)
+        _require_nonempty_string(item, "evidence_gap_or_tension", prefix, errors)
+        _require_bool(item, "single_focus", prefix, errors)
+    missing = sorted(question_ids - seen)
+    if missing:
+        errors.append(f"{rel_path}: defense_question_strategy missing question ids: {', '.join(missing)}")
+
+
+def _validate_materiality_bound_trace_ref(value: Any, field: str, rel_path: str, errors: list[str]) -> None:
+    prefix = f"{rel_path}: {field}"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_nonempty_string(value, "summary", prefix, errors)
+    _require_nonempty_list(value, "evidence_refs", prefix, errors)
+    _require_enum(value, "wording_mode", OPPONENT_TRACE_WORDING_MODES, prefix, errors)
+    _require_nonempty_string(value, "materiality_reason", prefix, errors)
+    limitations = value.get("limitations")
+    if not isinstance(limitations, list) or not all(isinstance(limitation, str) for limitation in limitations):
+        errors.append(f"{prefix}: limitations must be a list of strings")
 
 
 def _validate_supervisor_report_feedback_history(
@@ -1164,7 +1471,9 @@ def _round_has_report_calibration_context(round_dir: Path) -> bool:
 
 
 def _existing_report_calibration_source_paths(round_dir: Path) -> tuple[str, ...]:
-    return tuple(rel_path for rel_path in report_calibration_source_paths(round_dir) if (round_dir / rel_path).is_file())
+    return tuple(
+        rel_path for rel_path in report_calibration_source_paths(round_dir) if (round_dir / rel_path).is_file()
+    )
 
 
 def _effective_reviewer_profile_context(round_dir: Path) -> tuple[str | None, list[str] | None, list[str]]:
@@ -1355,7 +1664,9 @@ def _validate_trace_calibration_preferences(
     basis_ids = set(report_calibration_applied_preference_ids(basis_payload))
     for preference_id in declared:
         if preference_id not in basis_ids:
-            errors.append(f"{rel_path}: calibration_preference_ids includes unknown or unapplied preference {preference_id}")
+            errors.append(
+                f"{rel_path}: calibration_preference_ids includes unknown or unapplied preference {preference_id}"
+            )
     applications = loaded.get("calibration_preference_applications")
     if not isinstance(applications, list):
         errors.append(f"{rel_path}: calibration_preference_applications must be list")
@@ -1483,9 +1794,7 @@ def _trace_question_ids(loaded: dict[str, Any]) -> set[str]:
     if not isinstance(values, list):
         return set()
     return {
-        item["question_id"]
-        for item in values
-        if isinstance(item, dict) and isinstance(item.get("question_id"), str)
+        item["question_id"] for item in values if isinstance(item, dict) and isinstance(item.get("question_id"), str)
     }
 
 

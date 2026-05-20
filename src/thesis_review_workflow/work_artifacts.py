@@ -73,6 +73,11 @@ from thesis_review_workflow.supervisor_report_calibration import (
     is_supervisor_report_calibration_artifact,
     validate_supervisor_report_calibration_artifact,
 )
+from thesis_review_workflow.theses_checker_summary import (
+    THESES_CHECKER_SUMMARY_REL,
+    THESES_CHECKER_SUMMARY_SCHEMA,
+    validate_theses_checker_summary_payload,
+)
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_ASSESSMENT_SCHEMA,
@@ -85,7 +90,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/assignment_coverage_agent.json": {"assignment-coverage-agent-v1"},
     "work/evidence_requirements.json": {"evidence-requirements-v1"},
     "work/quantitative_claims.json": {"quantitative-claims-v1"},
-    "work/opponent_report_trace.json": {"opponent-report-trace-v1"},
+    "work/opponent_report_trace.json": {"opponent-report-trace-v2"},
     "work/supervisor_report_feedback_history.json": {"supervisor-report-feedback-history-v1"},
     "work/supervisor_report_trace.json": {"supervisor-report-trace-v1"},
     "work/supervisor_report_confirmation.json": {"supervisor-report-confirmation-v1"},
@@ -103,11 +108,12 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     REPORT_CALIBRATION_BASIS_REL: {REPORT_CALIBRATION_BASIS_SCHEMA},
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
+    THESES_CHECKER_SUMMARY_REL: {THESES_CHECKER_SUMMARY_SCHEMA},
     SUBMISSION_BUNDLE_INVENTORY_REL: {SUBMISSION_BUNDLE_INVENTORY_SCHEMA},
     SUBMISSION_BUNDLE_MATERIALIZATION_REL: {SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA},
 }
 
-JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
+JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type | tuple[type, ...]]] = {
     "work/assignment_coverage_agent.json": {"assignment_points": list},
     "work/evidence_requirements.json": {"requirements": list},
     "work/quantitative_claims.json": {"claims": list},
@@ -146,6 +152,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
         "matched_passages": list,
     },
     THESES_SIMILARITY_ASSESSMENT_REL: {"judgments": list},
+    THESES_CHECKER_SUMMARY_REL: {"source_artifact": dict, "normostrany": (int, float), "status": str},
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -187,6 +194,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/opponent_calibration_advisory.json",
     "work/opponent_report_revision_request.json",
     "work/opponent_calibration_refresh_eligibility.json",
+    THESES_CHECKER_SUMMARY_REL,
     "work/code_reproducibility.json",
     SOURCE_ACQUISITION_REL,
     "work/media_presence_inventory.jsonl",
@@ -485,7 +493,7 @@ def validate_json_work_artifact(
             errors.append(f"{rel_path}: missing {field}")
     for field, expected_type in JSON_ARTIFACT_REQUIRED_FIELDS.get(rel_path, {}).items():
         if not isinstance(loaded.get(field), expected_type):
-            errors.append(f"{rel_path}: {field} must be {expected_type.__name__}")
+            errors.append(f"{rel_path}: {field} must be {_type_label(expected_type)}")
     if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
         errors.extend(
             validate_structured_evidence_payload(
@@ -560,6 +568,16 @@ def validate_json_work_artifact(
                 round_id=round_id,
             )
         )
+    elif rel_path == THESES_CHECKER_SUMMARY_REL:
+        errors.extend(
+            validate_theses_checker_summary_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
     elif rel_path == SUBMISSION_BUNDLE_MATERIALIZATION_REL:
         errors.extend(
             validate_submission_bundle_materialization_payload(
@@ -570,3 +588,9 @@ def validate_json_work_artifact(
                 round_id=round_id,
             )
         )
+
+
+def _type_label(expected_type: type | tuple[type, ...]) -> str:
+    if isinstance(expected_type, tuple):
+        return " or ".join(item.__name__ for item in expected_type)
+    return expected_type.__name__

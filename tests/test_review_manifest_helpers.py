@@ -5,12 +5,9 @@ from pathlib import Path
 from thesis_review_workflow.agent_coverage import COVERAGE_REL, build_coverage
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.cli import init_review_manifest, register_review_artifact
-from thesis_review_workflow.cli.check_review_manifest import (
-    check_helper_checks,
-    check_manifest,
-    check_source_hashes,
-    required_helper_targets,
-)
+from thesis_review_workflow.cli.check_review_manifest import check_helper_checks, check_manifest, check_source_hashes
+from thesis_review_workflow.cli.check_review_manifest import required_checks as closeout_required_checks
+from thesis_review_workflow.cli.check_review_manifest import required_helper_targets
 from thesis_review_workflow.cli.init_review_manifest import (
     helper_dependency_hashes,
     merge_checks,
@@ -65,6 +62,41 @@ def test_helper_dependency_hashes_include_report_calibration_basis_when_trace_bo
     hashes = helper_dependency_hashes(round_dir, "check-opponent-report:canonical")
 
     assert hashes["round:work/report_calibration_basis.json"] == sha256_file(basis)
+
+
+def test_helper_dependency_hashes_include_theses_checker_summary_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    summary = round_dir / "work" / "theses_checker_summary.json"
+    source = round_dir / "notes" / "theses-checker-output.txt"
+    checked_pdf = round_dir / "inputs" / "thesis.pdf"
+    summary.parent.mkdir(parents=True)
+    source.parent.mkdir(parents=True)
+    checked_pdf.parent.mkdir(parents=True)
+    source.write_text("Normostrany: 42.5\n", encoding="utf-8")
+    checked_pdf.write_text("Rendered thesis PDF fixture\n", encoding="utf-8")
+    summary.write_text(
+        json.dumps(
+            {
+                "source_refs": ["notes/theses-checker-output.txt", "inputs/thesis.pdf"],
+                "source_artifact": {"path": "notes/theses-checker-output.txt"},
+                "checked_pdf": {"path": "inputs/thesis.pdf"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+
+    hashes = helper_dependency_hashes(round_dir, "check-opponent-report:canonical")
+
+    assert hashes["round:work/theses_checker_summary.json"] == sha256_file(summary)
+    assert hashes["round:notes/theses-checker-output.txt"] == sha256_file(source)
+    assert hashes["round:inputs/thesis.pdf"] == sha256_file(checked_pdf)
 
 
 def write_claim_review_basis(round_dir: Path, *, draft_ref: str = "work/feedback_student_draft.md") -> None:
@@ -421,6 +453,50 @@ def test_init_manifest_opponent_report_check_targets_report_calibration_basis(tm
     assert "work/report_calibration_basis.json" in opponent_report["target_artifacts"]
 
 
+def test_init_manifest_opponent_report_check_targets_theses_checker_summary(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    summary = round_dir / "work" / "theses_checker_summary.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+    summary.write_text("{}\n", encoding="utf-8")
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/oponent_podklady_revidovane.md", "outputs/feedback_k_posudku.md"},
+        round_dir,
+        {},
+    )
+
+    opponent_report = next(item for item in checks if item["check"] == "check-opponent-report:canonical")
+    theses_checker = next(item for item in checks if item["check"] == "check-theses-checker-summary")
+
+    assert "work/theses_checker_summary.json" in opponent_report["target_artifacts"]
+    assert theses_checker["target_artifacts"] == ["work/theses_checker_summary.json"]
+
+
+def test_review_manifest_requires_theses_checker_summary_check_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    trace.parent.mkdir(parents=True)
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+
+    required = closeout_required_checks({"outputs/oponent_podklady_revidovane.md"}, round_dir, {})
+
+    assert "check-theses-checker-summary" in required
+
+
 def test_init_manifest_adds_report_calibration_check_for_bound_report(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     draft = round_dir / "work" / "oponent_posudek_draft.md"
@@ -615,6 +691,59 @@ def test_review_manifest_requires_report_calibration_basis_target_when_trace_bou
     assert (
         "helper_checks check-opponent-report:clean: missing required target artifact "
         "work/report_calibration_basis.json" in errors
+    )
+
+
+def test_review_manifest_requires_theses_checker_summary_target_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    proposal = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    summary = round_dir / "work" / "theses_checker_summary.json"
+    materials.parent.mkdir(parents=True)
+    trace.parent.mkdir(parents=True)
+    proposal.parent.mkdir(parents=True, exist_ok=True)
+    summary.parent.mkdir(parents=True, exist_ok=True)
+    materials.write_text("# Reviewed materials\n", encoding="utf-8")
+    trace.write_text(
+        '{"technical_report_scope_basis": {"status": "checker_summary", '
+        '"summary_path": "work/theses_checker_summary.json"}}\n',
+        encoding="utf-8",
+    )
+    proposal.write_text("# Clean report proposal\n", encoding="utf-8")
+    summary.write_text("{}\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-report:clean",
+                "command": "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md case-a round-a",
+                "target_artifacts": [
+                    "work/opponent_report_trace.json",
+                    "outputs/oponent_podklady_revidovane.md",
+                    "outputs/oponent_posudek_navrh.md",
+                ],
+                "target_sha256": {
+                    "work/opponent_report_trace.json": sha256_file(trace),
+                    "outputs/oponent_podklady_revidovane.md": sha256_file(materials),
+                    "outputs/oponent_posudek_navrh.md": sha256_file(proposal),
+                },
+                "status": "passed",
+                "checked_at": "2026-05-20T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-report:clean"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-opponent-report:clean: missing required target artifact "
+        "work/theses_checker_summary.json" in errors
     )
 
 
