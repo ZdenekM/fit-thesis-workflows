@@ -161,6 +161,10 @@ def test_build_report_uses_structured_trace_without_fallback_prose() -> None:
     assert "Formulation for assignment_difficulty." in report
     assert "- Prepared defense question?" in report
     assert "- Manual point and grade calibration." in report
+    assert "skutečně zkontrolovanému rozsahu" in report
+    assert "každé veřejné tvrzení má odpovídající záznam o tvrzení" in report
+    assert "FIT IS rubriky řeší vlastní kritérium" in report
+    assert "Theses Checker souhrnu nebo z výslovně přijaté limitace" in report
     assert "U1: Runtime was not fully verified.; stav: carried_to_report" in report
     assert "pokyn: Preserve cautious wording in the overall assessment." in report
     assert "Z dostupných revidovaných podkladů není pro tuto položku" not in report
@@ -243,6 +247,16 @@ def test_strip_metadata_comments_removes_trace_and_materials_paths() -> None:
     assert "outputs/" not in stripped
     assert "report_calibration" not in stripped
     assert stripped.startswith("# Návrh")
+
+
+def test_check_text_canonical_mode_rejects_unsupported_source_metadata() -> None:
+    text = "<!-- source_theses_checker_summary_sha256: " + "d" * 64 + " -->\n" + calibrated_report_text()
+    public_text = strip_metadata_comments(text)
+    errors: list[str] = []
+
+    check_text(text, public_text, errors)
+
+    assert any("unsupported source metadata comment" in error for error in errors)
 
 
 def test_calibration_metadata_validation_requires_trace_bound_comments() -> None:
@@ -382,6 +396,118 @@ def test_check_text_clean_mode_rejects_hashes_and_workflow_mechanics() -> None:
     assert any("oponent_posudek_navrh" in error for error in errors)
     assert any("0-9a-f" in error for error in errors)
     assert any("approval record" in error for error in errors)
+
+
+def test_check_text_clean_mode_rejects_audit_tables_and_internal_headings() -> None:
+    text = (
+        clean_report_text()
+        + "\n## Synthesis Handoff\n\n"
+        + "| Severity | Evidence | Risk |\n"
+        + "|---|---|---|\n"
+        + "| high | internal | leak |\n"
+    )
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert "clean opponent report proposal must not contain audit-style evidence/risk tables" in errors
+    assert any("internal-only heading: ## Synthesis Handoff" in error for error in errors)
+
+
+def test_check_text_clean_mode_rejects_excessive_questions() -> None:
+    questions = "\n".join(f"{index}. Otázka {index}?" for index in range(1, 7))
+    text = clean_report_text().replace("1. Otázka?", questions)
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert "clean opponent report proposal has excessive defense questions: expected at most 5, got 6" in errors
+
+
+def test_check_text_clean_mode_counts_multiple_questions_on_one_line() -> None:
+    questions = "1. První otázka? Druhá otázka? Třetí otázka? Čtvrtá otázka? Pátá otázka? Šestá otázka?"
+    text = clean_report_text().replace("1. Otázka?", questions)
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert "clean opponent report proposal has excessive defense questions: expected at most 5, got 6" in errors
+
+
+def test_check_text_clean_mode_uses_calibration_question_max_when_declared() -> None:
+    questions = "1. První otázka? Druhá otázka? Třetí otázka? Čtvrtá otázka? Pátá otázka? Šestá otázka?"
+    text = clean_report_text().replace("1. Otázka?", questions)
+    errors: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        mode="clean",
+        expected_report_controls={"defense_question_count": {"max": 6}},
+        expected_report_controls_source="test calibration",
+    )
+
+    assert not any("excessive defense questions" in error for error in errors)
+    assert errors == []
+
+
+def test_check_text_clean_mode_enforces_declared_public_length_class() -> None:
+    long_section = "\n".join(f"Strukturální řádek {index}." for index in range(130))
+    text = clean_report_text().replace("## 9. Celkové hodnocení\n\nText.", f"## 9. Celkové hodnocení\n\n{long_section}")
+    errors: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        mode="clean",
+        expected_report_controls={"public_report_length": "compact"},
+        expected_report_controls_source="test calibration",
+    )
+
+    assert any("public_report_length=compact" in error for error in errors)
+
+
+def test_check_text_clean_mode_enforces_declared_public_word_budget() -> None:
+    long_paragraph = " ".join(f"slovo{index}" for index in range(1900))
+    text = clean_report_text().replace(
+        "## 9. Celkové hodnocení\n\nText.", f"## 9. Celkové hodnocení\n\n{long_paragraph}"
+    )
+    errors: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        mode="clean",
+        expected_report_controls={"public_report_length": "compact"},
+        expected_report_controls_source="test calibration",
+    )
+
+    assert any("expected at most 1800 words" in error for error in errors)
+
+
+def test_check_text_clean_mode_public_length_ignores_private_comment() -> None:
+    long_private_comment = " ".join(f"komentar{index}" for index in range(1900))
+    text = clean_report_text().replace(
+        "Děkuji za práci na prototypu a za dotažení hlavní implementace.\n"
+        "K obhajobě si připravte stručné vysvětlení testování, limitů a dalšího možného vývoje.",
+        long_private_comment,
+    )
+    errors: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        mode="clean",
+        expected_report_controls={"public_report_length": "compact"},
+        expected_report_controls_source="test calibration",
+    )
+
+    assert not any("public_report_length=compact" in error for error in errors)
+    assert errors == []
 
 
 def test_check_text_rejects_leaked_report_calibration_in_clean_report() -> None:

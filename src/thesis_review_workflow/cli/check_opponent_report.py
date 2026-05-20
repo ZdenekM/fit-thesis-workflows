@@ -21,6 +21,7 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.markdown_utils import section_text as markdown_section_text
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.report_calibration import (
+    PUBLIC_REPORT_LENGTHS,
     REPORT_CALIBRATION_BASIS_REL,
     report_calibration_expected_controls,
     validate_report_calibration_artifact,
@@ -106,6 +107,24 @@ INTERNAL_PATTERNS = (
 )
 
 CONFIDENCE_LABEL_RE = re.compile(r"\[(?:FAKT|INTERPRETACE|ODHAD|NEOV[EĚ]R[EŘ]NO|K RU[CČ]N[IÍ] KONTROLE)\]")
+CLEAN_DEFAULT_MAX_DEFENSE_QUESTIONS = 5
+CLEAN_REPORT_LENGTH_BUDGETS = {
+    "compact": {"nonempty_lines": 120, "words": 1800},
+    "standard": {"nonempty_lines": 170, "words": 2600},
+    "extended": {"nonempty_lines": 230, "words": 3600},
+}
+CLEAN_AUDIT_TABLE_HEADER_RE = re.compile(
+    r"^\|.*(?:confidence|evidence|severity|risk|source|stav|závažnost|zavaznost|důkaz|dukaz|riziko).*\|$",
+    re.IGNORECASE | re.MULTILINE,
+)
+CLEAN_TABLE_SEPARATOR_RE = re.compile(r"^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$", re.MULTILINE)
+CLEAN_INTERNAL_HEADING_RE = re.compile(
+    r"^##+\s+(?:"
+    r"Synthesis Handoff|Review Handoff|Trace|Evidence Ledger|Claim Ledger|Checked Scope|"
+    r"Evidence Source Matrix|Report Quality Controls|Pre-submission|Internal Checks|Interní kontroly"
+    r")\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 POINT_RE = re.compile(r"\b(?:Body|Bodové hodnocení)\s*:\s*(\d{1,3})\b", re.IGNORECASE)
 GRADE_RE = re.compile(r"\b(?:Známka|Navržená známka)\s*:\s*([A-F])\b", re.IGNORECASE)
 SOURCE_PATH_RE = re.compile(r"<!--\s*source_materials_path:\s*([^>]+?)\s*-->")
@@ -119,6 +138,7 @@ SOURCE_METADATA_COMMENT_RE = re.compile(
     r"|source_report_calibration_(?:basis_(?:path|sha256)|preference_ids|expected_controls)):.*?-->\s*$",
     re.MULTILINE,
 )
+ANY_SOURCE_METADATA_COMMENT_RE = re.compile(r"^<!--\s*source_[a-z0-9_]+:\s*.*?-->\s*$", re.MULTILINE)
 OPEN_CALIBRATION_PATTERNS = (
     r"\bpracovn[ií]\s+draft\b",
     r"\bk\s+ru[cč]n[ií]\s+kalibraci\b",
@@ -215,13 +235,15 @@ def sha256_file(path: Path) -> str:
 
 
 def strip_metadata_comments(text: str) -> str:
-    return re.sub(
-        r"^<!--\s*(?:source_(?:materials|trace)_(?:path|sha256)"
-        r"|source_report_calibration_(?:basis_(?:path|sha256)|preference_ids|expected_controls)):.*?-->\s*\n?",
-        "",
-        text,
-        flags=re.MULTILINE,
-    )
+    return re.sub(SOURCE_METADATA_COMMENT_RE.pattern + r"\n?", "", text, flags=re.MULTILINE)
+
+
+def unsupported_source_metadata_comments(text: str) -> list[str]:
+    comments: list[str] = []
+    for line in text.splitlines():
+        if ANY_SOURCE_METADATA_COMMENT_RE.match(line) and not SOURCE_METADATA_COMMENT_RE.match(line):
+            comments.append(line.strip())
+    return comments
 
 
 def validate_trace_metadata(text: str, trace_path: Path, _path_arg: str, errors: list[str]) -> None:
@@ -378,7 +400,75 @@ def is_open_calibration_text(value: str) -> bool:
 
 
 def defense_question_count(section: str) -> int:
-    return sum(1 for line in section.splitlines() if "?" in line)
+    return len(re.findall(r"\?", section))
+
+
+def declared_defense_question_max(expected_report_controls: dict[str, object] | None) -> int | None:
+    if not expected_report_controls:
+        return None
+    question_bounds = expected_report_controls.get("defense_question_count")
+    if not isinstance(question_bounds, dict):
+        return None
+    maximum = question_bounds.get("max")
+    if isinstance(maximum, int) and not isinstance(maximum, bool):
+        return maximum
+    return None
+
+
+def public_report_length_text(public_text: str) -> str:
+    return public_text.split(PRIVATE_COMMENT_HEADING, 1)[0].rstrip()
+
+
+def validate_clean_report_shape(
+    public_text: str,
+    *,
+    question_count: int,
+    expected_report_controls: dict[str, object] | None,
+    expected_report_controls_source: str,
+    errors: list[str],
+) -> None:
+    if (
+        declared_defense_question_max(expected_report_controls) is None
+        and question_count > CLEAN_DEFAULT_MAX_DEFENSE_QUESTIONS
+    ):
+        errors.append(
+            "clean opponent report proposal has excessive defense questions: "
+            f"expected at most {CLEAN_DEFAULT_MAX_DEFENSE_QUESTIONS}, got {question_count}"
+        )
+    if CLEAN_AUDIT_TABLE_HEADER_RE.search(public_text) and CLEAN_TABLE_SEPARATOR_RE.search(public_text):
+        errors.append("clean opponent report proposal must not contain audit-style evidence/risk tables")
+    for match in CLEAN_INTERNAL_HEADING_RE.finditer(public_text):
+        heading = match.group(0).strip()
+        errors.append(f"clean opponent report proposal must not contain internal-only heading: {heading}")
+
+    if not expected_report_controls:
+        return
+    length_class = expected_report_controls.get("public_report_length")
+    if length_class is None:
+        return
+    if length_class not in PUBLIC_REPORT_LENGTHS:
+        errors.append(
+            "public report length control must be one of " f"{', '.join(sorted(PUBLIC_REPORT_LENGTHS))}: {length_class}"
+        )
+        return
+    budget = CLEAN_REPORT_LENGTH_BUDGETS.get(str(length_class))
+    if budget is None:
+        return
+    length_text = public_report_length_text(public_text)
+    nonempty_lines = sum(1 for line in length_text.splitlines() if line.strip())
+    words = len(re.findall(r"\S+", length_text))
+    if nonempty_lines > budget["nonempty_lines"]:
+        errors.append(
+            "clean opponent report proposal exceeds "
+            f"{expected_report_controls_source} public_report_length={length_class}: "
+            f"expected at most {budget['nonempty_lines']} non-empty lines, got {nonempty_lines}"
+        )
+    if words > budget["words"]:
+        errors.append(
+            "clean opponent report proposal exceeds "
+            f"{expected_report_controls_source} public_report_length={length_class}: "
+            f"expected at most {budget['words']} words, got {words}"
+        )
 
 
 def validate_expected_report_controls(
@@ -507,7 +597,7 @@ def check_text(
             errors.append(f"empty report section: {heading}")
 
     if mode == "clean":
-        if SOURCE_METADATA_COMMENT_RE.search(text):
+        if ANY_SOURCE_METADATA_COMMENT_RE.search(text):
             errors.append("clean opponent report proposal must not contain source metadata comments")
         for heading in CLEAN_FORBIDDEN_HEADINGS:
             if heading in lines:
@@ -520,6 +610,10 @@ def check_text(
     for pattern in INTERNAL_PATTERNS:
         if re.search(pattern, public_text, re.IGNORECASE):
             errors.append(f"internal workflow path or artifact leaked into report draft: {pattern}")
+
+    if mode == "canonical":
+        for comment in unsupported_source_metadata_comments(text):
+            errors.append(f"unsupported source metadata comment in opponent report draft: {comment}")
 
     if CONFIDENCE_LABEL_RE.search(public_text):
         errors.append("internal confidence labels must be rewritten into normal opponent-report prose")
@@ -537,6 +631,14 @@ def check_text(
     question_count = defense_question_count(questions)
     if "?" not in questions:
         errors.append("defense questions section must contain at least one explicit question")
+    if mode == "clean":
+        validate_clean_report_shape(
+            public_text,
+            question_count=question_count,
+            expected_report_controls=expected_report_controls,
+            expected_report_controls_source=expected_report_controls_source,
+            errors=errors,
+        )
 
     points_section = section_text(lines, "## 11. Body a známka")
     points = [int(match.group(1)) for match in POINT_RE.finditer(points_section)]

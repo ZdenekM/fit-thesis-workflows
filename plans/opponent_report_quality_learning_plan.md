@@ -863,6 +863,22 @@ Discarded as case-specific:
   they are explicit profile/operator preferences. Omen MCP semantic search
   found the intended touched symbols; Omen MCP complexity returned zero files
   for this repo path, so reproducible closeout used `pants run :omen`.
+- 2026-05-20: Slice 4 started. Scope is packet, draft, clean-export/checker,
+  and opponent-report-review guidance integration for the stronger trace
+  contract; no concrete case outputs under `cases/` will be edited.
+- 2026-05-20: Slice 4 implemented and agent-reviewed. The slice routes the new
+  report-quality controls through existing opponent packets, common briefing,
+  trace-bound draft generation, clean report checks, docs, and skills. Agent
+  findings fixed before commit: Theses Checker provenance stays only in the
+  trace-owned technical-report-scope basis rather than direct report metadata;
+  clean question limits use a default structural excessive-count guard only
+  when no calibration max is declared; public report length excludes the
+  private student comment; multi-question single-line formatting, word-only
+  length overflow, invalid checker-summary packet status, unsupported
+  `source_*` metadata, and private-comment length isolation now have tests.
+  Omen MCP semantic search found the new clean-report validation symbol; Omen
+  MCP complexity again returned zero files for the repo path, so reproducible
+  closeout used `pants run :omen`.
 
 ## Decision Log
 
@@ -1019,6 +1035,25 @@ pants run :omen                           # passed; existing hotspot report, no 
 git diff --check                          # passed
 scripts/check-private                     # passed
 scripts/check-scripts                     # passed
+```
+
+No concrete case output under `cases/` has been edited.
+
+Slice 4 checks after packet/draft/export/checker integration, agent review, and
+fixes:
+
+```bash
+PANTS_CONCURRENT=false pants test tests/test_opponent_packets.py tests/test_draft_opponent_report.py tests/test_export_opponent_report.py tests/test_opponent_report.py tests/test_review_wave_gate.py
+# passed
+PANTS_CONCURRENT=false pants lint src/thesis_review_workflow/opponent_packets.py src/thesis_review_workflow/review_packets.py src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py tests/test_opponent_packets.py tests/test_opponent_report.py tests/test_export_opponent_report.py
+# passed
+PANTS_CONCURRENT=false pants check src/thesis_review_workflow/opponent_packets.py src/thesis_review_workflow/review_packets.py src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py
+# passed
+scripts/smoke-opponent-closeout           # passed
+scripts/smoke-review-manifest             # passed
+scripts/smoke-opponent-report             # passed
+scripts/smoke-export-opponent-report      # passed
+PANTS_CONCURRENT=false pants run :omen    # passed; existing hotspot report, no critical exit
 ```
 
 No concrete case output under `cases/` has been edited.

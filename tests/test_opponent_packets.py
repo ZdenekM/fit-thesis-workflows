@@ -10,6 +10,7 @@ from thesis_review_workflow.submission_bundle import (
     build_submission_bundle_inventory,
     write_submission_bundle_inventory,
 )
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
@@ -152,6 +153,43 @@ def write_report_calibration_basis(round_dir: Path) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def write_theses_checker_summary(round_dir: Path) -> None:
+    source = round_dir / "notes" / "theses-checker-output.txt"
+    pdf = round_dir / "inputs" / "thesis.pdf"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    pdf.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("Normostrany: 42.5\n", encoding="utf-8")
+    pdf.write_bytes(b"%PDF synthetic\n")
+    payload = {
+        "schema_version": "theses-checker-summary-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-20T00:00:00Z",
+        "captured_at": "2026-05-20T00:00:00Z",
+        "producer_type": "deterministic_helper",
+        "producer_role": "record-theses-checker-summary",
+        "producer_agent": "record-theses-checker-summary",
+        "source_refs": ["notes/theses-checker-output.txt", "inputs/thesis.pdf"],
+        "source_artifact": {
+            "path": "notes/theses-checker-output.txt",
+            "sha256": sha256_path(source),
+            "kind": "copied_text",
+        },
+        "checked_pdf": {
+            "path": "inputs/thesis.pdf",
+            "sha256": sha256_path(pdf),
+        },
+        "normostrany": 42.5,
+        "status": "within_required_range",
+        "thresholds": {"minimum": 30, "recommended_minimum": 35},
+        "checker_timestamp": None,
+        "limitations": [],
+    }
+    path = round_dir / THESES_CHECKER_SUMMARY_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def sha256_path(path: Path) -> str:
     import hashlib
 
@@ -228,17 +266,19 @@ def test_common_briefing_surfaces_report_calibration_basis_and_sources(tmp_path:
         encoding="utf-8",
     )
     write_report_calibration_basis(round_dir)
+    write_theses_checker_summary(round_dir)
 
     generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
 
     briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
     snapshot_refs = {item["path"]: item for item in briefing["snapshot_refs"]}
     calibration_sources = {item["path"]: item for item in briefing["report_calibration_sources"]}
-    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(
-        encoding="utf-8"
-    )
+    advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
+    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(encoding="utf-8")
 
     assert snapshot_refs[REPORT_CALIBRATION_BASIS_REL]["status"] == "current"
+    assert snapshot_refs[THESES_CHECKER_SUMMARY_REL]["status"] == "current"
+    assert advisory[THESES_CHECKER_SUMMARY_REL]["status"] == "current"
     assert calibration_sources["notes/opponent-report-operator-feedback.md"]["status"] == "present"
     assert calibration_sources["notes/opponent-report-review-intake.md"]["status"] == "missing"
     assert calibration_sources["work/operation_log.jsonl"]["status"] == "missing"
@@ -248,10 +288,10 @@ def test_common_briefing_surfaces_report_calibration_basis_and_sources(tmp_path:
     assert "## Report Calibration Basis" in packet
     assert "Start from `work/report_calibration_basis.json` when present" in packet
     assert "Do not infer reviewer preferences from free-form profile, note, or report prose" in packet
+    assert "Theses Checker summary" in packet
+    assert "not new packet roles" in packet
 
-    briefing["report_calibration_sources"].append(
-        {"path": "notes/random-operator-feedback.md", "status": "missing"}
-    )
+    briefing["report_calibration_sources"].append({"path": "notes/random-operator-feedback.md", "status": "missing"})
     errors = validate_common_briefing_payload(
         briefing,
         COMMON_BRIEFING_REL,
@@ -275,12 +315,28 @@ def test_common_briefing_marks_wrong_profile_report_calibration_basis_invalid(tm
 
     briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
     snapshot_refs = {item["path"]: item for item in briefing["snapshot_refs"]}
-    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(
-        encoding="utf-8"
-    )
+    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(encoding="utf-8")
 
     assert snapshot_refs[REPORT_CALIBRATION_BASIS_REL]["status"] == "invalid"
     assert f"`{REPORT_CALIBRATION_BASIS_REL}` (invalid" in packet
+
+
+def test_common_briefing_marks_invalid_theses_checker_summary_invalid(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    write_theses_checker_summary(round_dir)
+    (round_dir / THESES_CHECKER_SUMMARY_REL).write_text('{"schema_version": "wrong"}\n', encoding="utf-8")
+
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    snapshot_refs = {item["path"]: item for item in briefing["snapshot_refs"]}
+    advisory = {item["path"]: item for item in briefing["advisory_artifacts"]}
+
+    assert snapshot_refs[THESES_CHECKER_SUMMARY_REL]["status"] == "invalid"
+    assert advisory[THESES_CHECKER_SUMMARY_REL]["status"] == "invalid"
 
 
 def test_generate_packets_emits_code_and_structured_optional_packets_only_when_triggered(tmp_path: Path) -> None:
@@ -490,6 +546,17 @@ def test_packet_includes_synthesis_review_contract(tmp_path: Path) -> None:
     assert "Run an independent thesis-opponent-materials-review pass" in text
     assert "work/oponent_podklady_draft.md" in text
     assert "Recommended model: `gpt-5.5`" in text
+
+
+def test_report_review_packet_starts_from_trace_controls_and_synthesis_handoffs(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    role = next(item for item in PACKET_ROLES if item.key == "report_review")
+
+    text = render_packet("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir, role)
+
+    assert "trace report-quality controls" in text
+    assert "`## Synthesis Handoff`" in text
+    assert THESES_CHECKER_SUMMARY_REL in text
 
 
 def test_packet_lists_input_directories(tmp_path: Path) -> None:

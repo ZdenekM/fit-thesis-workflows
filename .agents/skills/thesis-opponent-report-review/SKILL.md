@@ -28,6 +28,7 @@ notes/opponent-report-review-intake.md
 work/oponent_posudek_draft.md
 work/opponent_report_trace.json
 work/report_calibration_basis.json
+work/theses_checker_summary.json
 work/muj_posudek_draft.md
 ```
 
@@ -84,8 +85,15 @@ Review the report as a report, not as the student's thesis. Check:
    comment against `expected_report_controls`, and state whether any profile
    preferences were intentionally not applied with current-case evidence or
    operator instruction.
-11. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
-12. Whether report-facing prose leaks internal packet paths, manifest hashes,
+11. Whether `work/opponent_report_trace.json` carries the report-quality
+    controls needed for the clean proposal: assignment coverage, rubric
+    alignment, checked scope, claim ledger, evidence-source matrix,
+    Theses Checker or typed technical-report-scope basis, strength/grade
+    tension, defense-question strategy, uncertainty, and materiality-bound
+    contribution, scaling, citation, third-party/authorship, media, deployment,
+    technical-difficulty, or result-usability refs when relevant.
+12. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
+13. Whether report-facing prose leaks internal packet paths, manifest hashes,
     private URLs, raw PR metadata, review-thread details, local workspace paths,
     or generated-draft state. Remove those classes of internal evidence from the
     report text and convert them into evidence-backed conclusions, limitations,
@@ -115,8 +123,10 @@ wrong defense-question count, or unjustified non-application of a structured
 preference must be reported as calibration-basis drift and should reopen the
 calibration/report route rather than be treated as a local text edit.
 
-When evidence artifacts include `## Synthesis Handoff`, use that handoff as the
-first entrypoint for report risk, suggested rewrite, confidence/limitation, and
+Before reopening full evidence artifacts, start from `outputs/oponent_posudek_navrh.md`,
+then the report-quality sections in `work/opponent_report_trace.json`, then any
+available `## Synthesis Handoff` sections. Use the handoff as the first
+entrypoint for report risk, suggested rewrite, confidence/limitation, and
 point/grade consistency impact. Open the full evidence only for material
 verification, contradiction checks, or contested report wording.
 

@@ -13,17 +13,17 @@ from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, va
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULES_REL, validate_evidence_capsules_payload
 from thesis_review_workflow.paths import is_safe_round_relative_path
-from thesis_review_workflow.review_materiality import (
-    is_materiality_decision_path,
-    unresolved_required_next_actions,
-    validate_review_materiality_artifact,
-)
 from thesis_review_workflow.report_calibration import (
     REPORT_CALIBRATION_BASIS_REL,
     effective_reviewer_profile,
     is_report_calibration_source_path,
     report_calibration_source_paths,
     validate_report_calibration_artifact,
+)
+from thesis_review_workflow.review_materiality import (
+    is_materiality_decision_path,
+    unresolved_required_next_actions,
+    validate_review_materiality_artifact,
 )
 from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
@@ -33,6 +33,10 @@ from thesis_review_workflow.submission_bundle import (
     SUBMISSION_BUNDLE_VISIBILITY_REFS,
     render_submission_bundle_visibility_markdown,
     submission_bundle_visibility_lines,
+)
+from thesis_review_workflow.theses_checker_summary import (
+    THESES_CHECKER_SUMMARY_REL,
+    validate_theses_checker_summary_artifact,
 )
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
@@ -68,6 +72,7 @@ SNAPSHOT_SOURCE_PATHS = (
     "outputs/github_code_intake.md",
     "outputs/oponent_podklady_revidovane.md",
     REPORT_CALIBRATION_BASIS_REL,
+    THESES_CHECKER_SUMMARY_REL,
     "work/opponent_report_trace.json",
     "work/oponent_posudek_draft.md",
     "work/supervisor_report_feedback_history.json",
@@ -137,6 +142,7 @@ COMMON_BRIEFING_ADVISORY_ARTIFACTS = tuple(
             "outputs/typography_formal_review.md",
             "outputs/revision_diff.md",
             REPORT_CALIBRATION_BASIS_REL,
+            THESES_CHECKER_SUMMARY_REL,
             "work/supervisor_report_trace.json",
             "work/vedouci_posudek_draft.md",
             "outputs/vedouci_posudek_revidovany.md",
@@ -233,6 +239,14 @@ def rel_status(
             round_id=round_id,
             expected_reviewer_profile_id=expected_profile_id,
             expected_profile_source_paths=expected_profile_sources,
+        )
+        return "invalid" if errors else "current"
+    if rel_path == THESES_CHECKER_SUMMARY_REL:
+        errors = validate_theses_checker_summary_artifact(
+            round_dir,
+            rel_path,
+            case_id=case_id,
+            round_id=round_id,
         )
         return "invalid" if errors else "current"
     if rel_path == REUSE_INDEX_REL:
@@ -705,7 +719,9 @@ def build_common_briefing_payload(
         ],
         "snapshot_refs": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
-            for rel_path in scoped_common_briefing_refs(SNAPSHOT_SOURCE_PATHS, exclude_refs=excluded_refs) + review_records
+            for rel_path in (
+                scoped_common_briefing_refs(SNAPSHOT_SOURCE_PATHS, exclude_refs=excluded_refs) + review_records
+            )
         ],
         "materiality_refs": [
             artifact_record(
@@ -798,9 +814,7 @@ def validate_common_briefing_payload(
         errors.append(f"{rel_path}: workflow_profile must be non-empty str when present")
     report_calibration_scope = loaded.get("report_calibration_scope", "opponent_report")
     if report_calibration_scope not in REPORT_CALIBRATION_SCOPES:
-        errors.append(
-            f"{rel_path}: report_calibration_scope must be one of {sorted(REPORT_CALIBRATION_SCOPES)}"
-        )
+        errors.append(f"{rel_path}: report_calibration_scope must be one of {sorted(REPORT_CALIBRATION_SCOPES)}")
     for field in (
         "common_constraints",
         "available_round_inputs",
@@ -911,7 +925,9 @@ def _validate_report_calibration_source_records(
 def _validate_report_calibration_absent(loaded: dict[str, object], rel_path: str, errors: list[str]) -> None:
     sources = loaded.get("report_calibration_sources")
     if isinstance(sources, list) and sources:
-        errors.append(f"{rel_path}: report_calibration_sources must be empty when report_calibration_scope is not_applicable")
+        errors.append(
+            f"{rel_path}: report_calibration_sources must be empty when report_calibration_scope is not_applicable"
+        )
     for field in ("report_calibration_sources", "snapshot_refs", "advisory_artifacts", "context_handoffs"):
         value = loaded.get(field)
         if not isinstance(value, list):

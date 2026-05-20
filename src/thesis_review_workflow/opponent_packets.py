@@ -27,6 +27,7 @@ from thesis_review_workflow.review_packets import (
     write_common_briefing,
     write_text_if_changed,
 )
+from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_EXTRACTED_TEXT_REL,
@@ -63,6 +64,7 @@ ADVISORY_ARTIFACTS = (
     THESES_SIMILARITY_REVIEW_REL,
     "outputs/revision_diff.md",
     REPORT_CALIBRATION_BASIS_REL,
+    THESES_CHECKER_SUMMARY_REL,
 )
 
 PACKET_ROLES = (
@@ -310,6 +312,7 @@ PACKET_ROLES = (
             "outputs/typography_formal_review.md",
             THESES_SIMILARITY_REVIEW_REL,
             REPORT_CALIBRATION_BASIS_REL,
+            THESES_CHECKER_SUMMARY_REL,
         ),
         constraints=(
             "Do not manufacture certainty; lower confidence or mark manual checks when evidence is incomplete.",
@@ -418,6 +421,8 @@ PACKET_ROLES = (
         focus=(
             "reviewed-materials path and hash",
             "report calibration basis path, hash, and applied preference mapping when present",
+            "assignment, checked-scope, claim-ledger, evidence-source, and FIT IS rubric controls",
+            "Theses Checker summary binding or explicit typed limitation for technical-report scope",
             "IS-item formulations",
             "defense questions",
             "uncertainty ledger and manual checks",
@@ -429,6 +434,7 @@ PACKET_ROLES = (
             "work/opponent_calibration_use.json",
             "work/opponent_calibration_advisory.json",
             "work/opponent_report_revision_request.json",
+            THESES_CHECKER_SUMMARY_REL,
             "work/opponent_report_trace.json",
         ),
         constraints=(
@@ -474,11 +480,14 @@ PACKET_ROLES = (
             "work/oponent_posudek_draft.md",
             "work/opponent_report_trace.json",
             REPORT_CALIBRATION_BASIS_REL,
+            THESES_CHECKER_SUMMARY_REL,
             "work/reviews/opponent_report_review.json",
         ),
         constraints=(
             "Use `outputs/oponent_posudek_navrh.md` as the normal report-review basis; open the canonical "
             "draft only for trace/provenance checks.",
+            "Start from the clean proposal, the trace report-quality controls, and `## Synthesis Handoff` "
+            "sections before reopening full evidence artifacts.",
             "Treat `work/report_calibration_basis.json` as a primary structured input when present. Separate "
             "ordinary prose defects from calibration-basis drift, missing/stale basis state, or unjustified "
             "non-application of profile preferences.",
@@ -555,6 +564,13 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             "- Use reviewed-materials and trace hashes from structured artifacts when report readiness depends on "
             "freshness.",
             "- Defense questions must point back to assignment, thesis, code, or reviewed-material evidence.",
+            "- Route report-quality controls through existing role-owned artifacts first: assignment coverage, "
+            "checked scope, claim ledger, evidence-source matrix, quantitative/scaling findings, "
+            "third-party/authorship, contribution-boundary, citation, media, deployment, technical-difficulty, "
+            "uncertainty, Theses Checker summary, and report calibration are inputs to the trace and review, "
+            "not new packet roles.",
+            "- Clean IS prose must stay compact. Keep audit tables, confidence labels, local paths, hashes, "
+            "and private checklist detail in internal artifacts or the canonical pre-submission checklist.",
             "",
             "## Open Full Artifacts Only If Needed",
             "",

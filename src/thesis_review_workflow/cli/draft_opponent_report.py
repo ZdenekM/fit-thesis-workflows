@@ -211,6 +211,71 @@ def trace_uncertainty_items(trace: dict[str, Any]) -> list[str]:
     return result
 
 
+def trace_report_quality_checks(trace: dict[str, Any]) -> list[str]:
+    """Render internal checklist items from structured trace controls only."""
+    checks: list[str] = []
+    if isinstance(trace.get("checked_scope"), list):
+        checks.append(
+            "Ověřit, že veřejné formulace odpovídají skutečně zkontrolovanému rozsahu; "
+            "neověřené nebo pouze vzorkované části ponechat v opatrném znění."
+        )
+    if isinstance(trace.get("report_claim_ledger"), list) or isinstance(trace.get("evidence_source_matrix"), list):
+        checks.append(
+            "Ověřit, že každé veřejné tvrzení má odpovídající záznam o tvrzení a zdrojovou oporu; "
+            "do čistého posudku nepřenášet interní cesty, hashe ani auditní metadata."
+        )
+    claim_modes = {
+        item.get("public_wording_mode")
+        for item in trace.get("report_claim_ledger", [])
+        if isinstance(item, dict) and isinstance(item.get("public_wording_mode"), str)
+    }
+    if claim_modes.intersection({"cautious_not_evidenced", "manual_check", "defense_question", "internal_only"}):
+        checks.append(
+            "Zachovat opatrné nebo interní-only znění u tvrzení, která trace neoznačuje jako přímo "
+            "podložená pro veřejný text."
+        )
+    if isinstance(trace.get("technical_report_scope_basis"), dict):
+        checks.append(
+            "Ověřit, že hodnocení rozsahu technické zprávy vychází z validovaného Theses Checker "
+            "souhrnu nebo z výslovně přijaté limitace."
+        )
+    if isinstance(trace.get("assignment_fulfillment_map"), dict):
+        checks.append(
+            "Ověřit, že formulace ke splnění zadání odpovídá mapě zadávacích bodů a nesměšuje "
+            "splnění zadání s obecnou kvalitou realizace."
+        )
+    if isinstance(trace.get("rubric_alignment"), list):
+        checks.append(
+            "Ověřit, že každá položka FIT IS rubriky řeší vlastní kritérium a neopírá se o cizí "
+            "rubrikovou kategorii."
+        )
+    if isinstance(trace.get("strength_grade_tension"), dict):
+        checks.append(
+            "Ověřit, že silné stránky, limitující faktory, body, známka a neveřejný komentář "
+            "nejsou ve vzájemném rozporu."
+        )
+    if isinstance(trace.get("defense_question_strategy"), list):
+        checks.append(
+            "Ověřit, že otázky k obhajobě jsou jednofokusové, navázané na důležitou mezeru "
+            "nebo napětí a nejsou náhradou za veřejné hodnocení."
+        )
+
+    materiality_checks = (
+        ("evaluation_claim_review", "evaluační a metrická tvrzení"),
+        ("scaling_claim_review", "tvrzení o škálování"),
+        ("third_party_authorship_review", "hranice cizích komponent a autorství"),
+        ("contribution_boundary_review", "hranice vlastního přínosu"),
+        ("citation_support_review", "oporu citací pro tvrzení"),
+        ("deployment_readiness", "stav nasazení nebo použitelnosti v cílovém prostředí"),
+        ("technical_difficulty_breakdown", "rozpad technické náročnosti"),
+        ("result_usability_level", "využitelnost výsledku"),
+    )
+    for field, label in materiality_checks:
+        if isinstance(trace.get(field), dict):
+            checks.append(f"Zohlednit strukturovanou kontrolu pro {label}; veřejný text držet u doloženého dopadu.")
+    return checks
+
+
 def advisory_reproducibility_note(round_dir: Path) -> str | None:
     path = round_dir / CODE_REPRO_REL
     if not path.is_file():
@@ -269,6 +334,7 @@ def build_report(
     items = trace_items_by_id(trace)
     questions = trace_text_items(trace, "defense_questions", "question")
     checks = trace_text_items(trace, "pre_submission_checks", "instruction")
+    checks.extend(trace_report_quality_checks(trace))
     uncertainty_items = trace_uncertainty_items(trace)
     created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 

@@ -128,12 +128,10 @@ placeholdery a úniky interních absolutních cest. Nejsou to judgment enginy.
 ## Report Quality Controls
 
 Oponentské podklady mají před psaním posudku uchovat jen reportově relevantní
-syntézu. Detailní evidence zůstává v role-owned výstupech. Dokud samostatná
-schema slice nezavede další validované trace kontroly, berte níže uvedené body
-jako semantické povinnosti skillů a review smyčky, ne jako požadavek na nová
-nevalidovaná pole v `work/opponent_report_trace.json`. Jakmile trace pole
-existuje, má nést jen kompaktní odkazy, wording mode, materiality rozhodnutí,
-kontroly a typovaná omezení, ne kopie role evidence.
+syntézu. Detailní evidence zůstává v role-owned výstupech. Validované
+report-quality kontroly v `work/opponent_report_trace.json` nesmí nahradit
+role-owned evidence; nesou jen kompaktní odkazy, wording mode, materiality
+rozhodnutí, kontroly a typovaná omezení, ne kopie role evidence.
 
 Při syntéze a review posudku kontrolujte zejména:
 
@@ -294,7 +292,9 @@ připravit `work/opponent_report_trace.json`: strukturované mapování položek
 IS, otázek k obhajobě, ručních kontrol a nejistot na aktuální revidované
 podklady. `scripts/draft-opponent-report` pak z tohoto trace vytvoří
 trace-bound `work/oponent_posudek_draft.md`, ale tento draft není finální
-posudek.
+posudek. Jeho privátní checklist nese trace-derived kontroly checked scope,
+claim/source ledgeru, claim wording, Theses Checker nebo technického rozsahu a
+materiality-bound témat; čistý IS návrh je nesmí kopírovat.
 
 `scripts/check-opponent-report --mode canonical` projde až po lidské kalibraci
 bodů, známky a formulací. Ověřuje strukturální tvar draftu, hash trace, hash
@@ -302,7 +302,11 @@ revidovaných podkladů a bezpečnost veřejného textu; neporovnává volný te
 materiálů a posudku tokenově. `scripts/export-opponent-report` potom vytvoří
 `outputs/oponent_posudek_navrh.md`, odstraní pouze source metadata, úvodní
 statusové řádky a privátní checklist a spustí i clean kontrolu. Report-review
-agenti mají číst clean návrh jako primární text.
+agenti mají číst clean návrh jako primární text a před otevíráním plných
+evidence artefaktů začínat od trace report-quality kontrol a dostupných
+`## Synthesis Handoff` sekcí. Clean kontrola hlídá jen strukturu, délkovou
+třídu, počet otázek, interní sekce, auditní tabulky a úniky metadat; nehodnotí
+semantickou kvalitu posudku.
 
 Finální oponentský gate:
 
