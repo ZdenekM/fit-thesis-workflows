@@ -31,7 +31,12 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
-from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL, round_uses_report_calibration_basis
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    report_calibration_check_required,
+    report_calibration_check_targets,
+    round_uses_report_calibration_basis,
+)
 from thesis_review_workflow.review_approvals import (
     is_review_approval_path,
     load_review_approval,
@@ -297,6 +302,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return {"work/quantitative_claims.json"}
     if name == "check-literature-citation-review":
         return {"outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL}
+    if name == "check-report-calibration":
+        return set(report_calibration_check_targets(round_dir))
     if name in {"check-opponent-report", "check-opponent-report:canonical"}:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if round_uses_report_calibration_basis(round_dir):
@@ -466,6 +473,8 @@ def required_checks(paths: set[str], round_dir: Path, manifest: dict[str, Any]) 
         required.update({"check-round-ready", "check-opponent-materials", "check-opponent-report:canonical"})
     if "outputs/oponent_posudek_navrh.md" in paths or "outputs/feedback_k_posudku.md" in paths:
         required.update({"check-opponent-report:canonical", "check-opponent-report:clean"})
+    if report_calibration_check_required(round_dir):
+        required.add("check-report-calibration")
     if "outputs/figure_media_review.md" in paths:
         required.add("check-figure-media-review")
     if "outputs/literature_citation_review.md" in paths:

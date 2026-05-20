@@ -27,6 +27,7 @@ outputs/oponent_posudek_navrh.md
 notes/opponent-report-review-intake.md
 work/oponent_posudek_draft.md
 work/opponent_report_trace.json
+work/report_calibration_basis.json
 work/muj_posudek_draft.md
 ```
 
@@ -76,8 +77,15 @@ Review the report as a report, not as the student's thesis. Check:
    the prose: assignment difficulty selection, assignment-fulfillment selection,
    technical-report-scope selection, and point values for presentation, formal
    quality, literature work, and implementation output.
-10. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
-11. Whether report-facing prose leaks internal packet paths, manifest hashes,
+10. When `work/report_calibration_basis.json` is present, whether the report
+   applies the structured reviewer-profile and operator-calibration decisions:
+   name which applied preferences affected the public report, check IS
+   selections, grade/points, report length, defense-question count, and private
+   comment against `expected_report_controls`, and state whether any profile
+   preferences were intentionally not applied with current-case evidence or
+   operator instruction.
+11. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
+12. Whether report-facing prose leaks internal packet paths, manifest hashes,
    private URLs, raw PR metadata, review-thread details, local workspace paths,
    or generated-draft state. Remove those classes of internal evidence from the
    report text and convert them into evidence-backed conclusions, limitations,
@@ -88,9 +96,18 @@ Do not soften the report automatically. The goal is accuracy, fairness, evidence
 Before reviewing the report, first run `scripts/check-opponent-report --mode
 canonical <case-id> [round-id]`, then `scripts/export-opponent-report <case-id>
 [round-id]`, then `scripts/check-opponent-report --mode clean <case-id>
-[round-id]`. Treat failures as draft/export issues to fix or explicitly return
-to the user before IS submission. Do not review an uncalibrated helper draft as
-if it were a final human report.
+[round-id]`. If `work/report_calibration_basis.json` is present or the trace
+binds it, also run `scripts/check-report-calibration <case-id> [round-id]`.
+Treat failures as draft/export/calibration issues to fix or explicitly return to
+the user before IS submission. Do not review an uncalibrated helper draft as if
+it were a final human report.
+
+Separate prose-review findings from calibration-basis drift. A wording, tone, or
+evidence-support problem belongs in the prose sections. A stale/missing
+calibration basis, mismatched expected IS control, inconsistent points/grade,
+wrong defense-question count, or unjustified non-application of a structured
+preference must be reported as calibration-basis drift and should reopen the
+calibration/report route rather than be treated as a local text edit.
 
 When evidence artifacts include `## Synthesis Handoff`, use that handoff as the
 first entrypoint for report risk, suggested rewrite, confidence/limitation, and
@@ -101,7 +118,7 @@ verification, contradiction checks, or contested report wording.
 
 This skill is the independent review pass for a human-drafted or exported opponent report. If agent authorization is missing, ask before writing final sendable review feedback. Reviewer agents should not directly edit `outputs/oponent_posudek_navrh.md` unless the parent explicitly assigns a rewrite artifact; the normal correction path is feedback or revision-request evidence, followed by parent/human updates to the canonical draft, re-export, and a fresh independent review. If an agent does rewrite report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
-After writing or revising `outputs/feedback_k_posudku.md`, use `scripts/write-review-approval --profile opponent-report-review` to write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Include `check-opponent-report:canonical`, `check-opponent-report:clean`, and `check-review-wave.opponent-report.draft` in observed checks when the clean proposal comes from the canonical draft. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
+After writing or revising `outputs/feedback_k_posudku.md`, use `scripts/write-review-approval --profile opponent-report-review` to write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Include `check-opponent-report:canonical`, `check-opponent-report:clean`, and `check-review-wave.opponent-report.draft` in observed checks when the clean proposal comes from the canonical draft. Include `check-report-calibration` as well when the reviewed basis is a report bound to `work/report_calibration_basis.json`. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
 
 After actual IS submission, record the public PDF export with `scripts/record-submitted-opponent-report --pdf <pdf> --public-text-file <public-transcript.md> --recorded-by <name> <case-id> [round-id]`. The public transcript should preserve the clean-report Markdown sections; if omitted, the helper only attempts raw `pdftotext -layout` and must not treat an unparsed IS PDF layout as archive-ready. The command may write a non-archive-ready capture when public text differs from the reviewed clean proposal. If the difference is a bounded non-material IS-entry edit, record every changed public section with `scripts/record-submitted-report-delta`; changes to selectbox values, category points, overall points/grade, or defense questions reopen this review path instead of being accepted as archive drift. The private student comment remains bound to the reviewed clean proposal; do not infer it from the public PDF export.
 
@@ -168,15 +185,22 @@ Write `outputs/feedback_k_posudku.md`:
 
 ## 7. Konzistence bodu, znamky a slovniho hodnoceni
 
-## 8. Co v posudku chybi
+## 8. Kontrola kalibracniho zakladu
 
-## 9. Otazky k obhajobe
+Rozdelte sem tri otazky: ktere aplikovane preference ovlivnily verejny
+posudek; zda vybery IS, znamka/body, delka posudku, otazky a neverejny komentar
+odpovidaji `work/report_calibration_basis.json`; a ktere preference nebyly
+aplikovany vcetne dolozeneho duvodu.
 
-## 10. Prioritni upravy pred odevzdanim
+## 9. Co v posudku chybi
 
-## 11. Cilene navrhy preformulovani
+## 10. Otazky k obhajobe
 
-## 12. Finalni checklist pred vlozenim do IS
+## 11. Prioritni upravy pred odevzdanim
+
+## 12. Cilene navrhy preformulovani
+
+## 13. Finalni checklist pred vlozenim do IS
 ```
 
 IS items to check:

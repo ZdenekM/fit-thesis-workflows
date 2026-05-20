@@ -23,6 +23,7 @@ from thesis_review_workflow.review_approvals import (
     ReviewApprovalProfile,
     build_review_approval_payload,
     require_review_approval_path,
+    required_checks_for_review_approval,
     resolve_review_basis,
     validate_review_approval_artifact,
 )
@@ -113,13 +114,14 @@ def profile_from_args(args: argparse.Namespace, round_dir: Path) -> tuple[str, s
     if args.reviewer_role and args.reviewer_role != profile.reviewer_role:
         raise ValueError(f"{args.profile} reviewer role must be {profile.reviewer_role}")
     reviewer_role = args.reviewer_role or profile.reviewer_role
+    required_checks = required_checks_for_review_approval(profile, round_dir, review_basis)
     return (
         approval_path,
         profile.workflow_profile,
         reviewed_artifact,
         review_basis,
         reviewer_role,
-        profile.required_checks,
+        required_checks,
     )
 
 

@@ -997,6 +997,7 @@ expect_success "opponent review materiality is ready before report review packet
 expect_success "opponent report review role plan" \
   "$repo_root/scripts/prepare-review-round" --profile opponent_report_review "$case_id" round-a
 grep -Fq "outputs/oponent_posudek_navrh.md" "$round_dir/work/opponent_packets/report_review.md"
+grep -Fq "work/report_calibration_basis.json" "$round_dir/work/opponent_packets/report_review.md"
 expect_success "generated report draft wave passes before final review" \
   "$repo_root/scripts/check-review-wave" --workflow opponent_report --wave draft "$case_id" round-a
 register_report_review_role_outputs "$case_id" round-a
@@ -1010,6 +1011,7 @@ expect_success "write opponent report review approval" \
   --reviewer-agent smoke-report-reviewer \
   --check check-opponent-report:canonical \
   --check check-opponent-report:clean \
+  --check check-report-calibration \
   --check check-review-wave.opponent-report.draft \
   --limitation "Synthetic smoke review only." \
   --notes "Synthetic independent report-review approval." \

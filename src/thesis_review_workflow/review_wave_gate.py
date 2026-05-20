@@ -11,6 +11,7 @@ from typing import Any
 from thesis_review_workflow import agent_coverage
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import report_calibration_check_required
 from thesis_review_workflow.review_approvals import require_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.review_materiality import unresolved_required_next_actions
 
@@ -508,6 +509,7 @@ def validate_approval_record(
 def validate_expected_output(
     root: Path,
     round_dir: Path,
+    spec: WaveSpec,
     expected: ExpectedOutput,
     *,
     case_id: str,
@@ -522,7 +524,12 @@ def validate_expected_output(
     check_handoff(round_dir, selected_path, expected, result, require_handoffs=require_handoffs)
     check_whitespace(round_dir, paths_for_hygiene(selected_path, expected), expected.role, result)
     validate_approval_record(round_dir, expected, selected_path, result, case_id=case_id, round_id=round_id)
-    for check in expected.checks:
+    checks = list(expected.checks)
+    if report_calibration_check_required_for_wave(round_dir, spec) and not any(
+        check.args and check.args[0] == "check-report-calibration" for check in checks
+    ):
+        checks.append(_check("check-report-calibration"))
+    for check in checks:
         rendered = render_check_args(check.args, case_id=case_id, round_id=round_id, selected_path=selected_path)
         run_check_command(
             root,
@@ -534,6 +541,16 @@ def validate_expected_output(
             result=result,
         )
     return result
+
+
+def report_calibration_check_required_for_wave(round_dir: Path, spec: WaveSpec) -> bool:
+    workflow = spec.workflow.replace("-", "_")
+    wave = spec.wave.replace("-", "_")
+    return (
+        workflow in {"opponent_report", "opponent_report_review"}
+        and wave in {"draft", "final"}
+        and (report_calibration_check_required(round_dir))
+    )
 
 
 def validate_wave(
@@ -553,6 +570,7 @@ def validate_wave(
             validate_expected_output(
                 root,
                 round_dir,
+                spec,
                 expected,
                 case_id=case_id,
                 round_id=round_id,

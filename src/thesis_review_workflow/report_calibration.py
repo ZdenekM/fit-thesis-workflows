@@ -13,6 +13,11 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPORT_CALIBRATION_BASIS_REL = "work/report_calibration_basis.json"
 REPORT_CALIBRATION_BASIS_SCHEMA = "report-calibration-basis-v1"
+REPORT_CALIBRATION_BOUND_REPORT_RELS = (
+    "work/oponent_posudek_draft.md",
+    "outputs/oponent_posudek_navrh.md",
+)
+REPORT_CALIBRATION_REVIEW_OUTPUT_REL = "outputs/feedback_k_posudku.md"
 REPORT_CALIBRATION_SOURCE_PATHS = (
     "notes/opponent-report-operator-feedback.md",
     "notes/opponent-report-review-intake.md",
@@ -107,6 +112,46 @@ def round_uses_report_calibration_basis(round_dir: Path) -> bool:
         trace.get("report_calibration_basis_path") == REPORT_CALIBRATION_BASIS_REL
         or trace.get("report_calibration_basis_sha256") is not None
     )
+
+
+def report_calibration_check_required(round_dir: Path) -> bool:
+    if not round_uses_report_calibration_basis(round_dir):
+        return False
+    return any(
+        (round_dir / rel_path).is_file()
+        for rel_path in (*REPORT_CALIBRATION_BOUND_REPORT_RELS, REPORT_CALIBRATION_REVIEW_OUTPUT_REL)
+    )
+
+
+def report_calibration_review_basis_bound(round_dir: Path, rel_path: str) -> bool:
+    return round_uses_report_calibration_basis(round_dir) and rel_path in REPORT_CALIBRATION_BOUND_REPORT_RELS
+
+
+def report_calibration_check_targets(round_dir: Path) -> list[str]:
+    targets = [REPORT_CALIBRATION_BASIS_REL]
+    for rel_path in REPORT_CALIBRATION_BOUND_REPORT_RELS:
+        if (round_dir / rel_path).is_file():
+            targets.append(rel_path)
+    return targets
+
+
+def report_calibration_dependency_files(round_dir: Path) -> list[tuple[str, Path]]:
+    try:
+        loaded = json.loads((round_dir / REPORT_CALIBRATION_BASIS_REL).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(loaded, dict):
+        return []
+    repo_root = _repo_root_for_round(round_dir)
+    paths: list[tuple[str, Path]] = []
+    if repo_root is not None:
+        for rel_path in profile_source_paths(loaded):
+            if _is_allowed_profile_path(rel_path):
+                paths.append((f"repo:{rel_path}", repo_root / rel_path))
+    for rel_path in report_calibration_source_refs(loaded):
+        if _is_allowed_round_ref(rel_path):
+            paths.append((f"round:{rel_path}", round_dir / rel_path))
+    return paths
 
 
 def validate_report_calibration_artifact(

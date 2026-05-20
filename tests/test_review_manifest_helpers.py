@@ -421,6 +421,43 @@ def test_init_manifest_opponent_report_check_targets_report_calibration_basis(tm
     assert "work/report_calibration_basis.json" in opponent_report["target_artifacts"]
 
 
+def test_init_manifest_adds_report_calibration_check_for_bound_report(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    clean = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    profile = round_dir.parents[3] / "profiles" / "default.md"
+    note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    for path, text in (
+        (draft, "# Draft\n"),
+        (clean, "# Clean\n"),
+        (basis, "{}\n"),
+        (profile, "# Profile\n"),
+        (note, "# Operator note\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/oponent_posudek_navrh.md", "outputs/feedback_k_posudku.md"},
+        round_dir,
+        {},
+    )
+
+    calibration = next(item for item in checks if item["check"] == "check-report-calibration")
+
+    assert calibration["target_artifacts"] == [
+        "work/report_calibration_basis.json",
+        "work/oponent_posudek_draft.md",
+        "outputs/oponent_posudek_navrh.md",
+    ]
+    assert calibration["command"] == "check-report-calibration case-a round-a"
+
+
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
@@ -578,6 +615,51 @@ def test_review_manifest_requires_report_calibration_basis_target_when_trace_bou
     assert (
         "helper_checks check-opponent-report:clean: missing required target artifact "
         "work/report_calibration_basis.json" in errors
+    )
+
+
+def test_review_manifest_requires_report_calibration_check_targets(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    clean = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    for path, text in (
+        (basis, "{}\n"),
+        (draft, "# Draft\n"),
+        (clean, "# Clean report\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-report-calibration",
+                "command": "check-report-calibration case-a round-a",
+                "target_artifacts": ["work/report_calibration_basis.json"],
+                "target_sha256": {"work/report_calibration_basis.json": sha256_file(basis)},
+                "status": "passed",
+                "checked_at": "2026-05-20T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-report-calibration"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-report-calibration: missing required target artifact "
+        "work/oponent_posudek_draft.md" in errors
+    )
+    assert (
+        "helper_checks check-report-calibration: missing required target artifact "
+        "outputs/oponent_posudek_navrh.md" in errors
     )
 
 

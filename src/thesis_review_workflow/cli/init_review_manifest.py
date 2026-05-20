@@ -36,7 +36,13 @@ from thesis_review_workflow.commands import canonical_command_text, repo_command
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
-from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL, round_uses_report_calibration_basis
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    report_calibration_check_required,
+    report_calibration_check_targets,
+    report_calibration_dependency_files,
+    round_uses_report_calibration_basis,
+)
 from thesis_review_workflow.review_manifest import (
     apply_artifact_dependency_refs,
     apply_artifact_registration_sidecars,
@@ -159,6 +165,8 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
                 )
             )
         hashes.update(hash_tree("round:extracted/submitted_reports", round_dir / "extracted" / "submitted_reports"))
+    if base_check_name == "check-report-calibration":
+        hashes.update(hash_existing_paths(report_calibration_dependency_files(round_dir)))
     if base_check_name == "check-supervisor-report":
         hashes.update(hash_tree("round:work/review_deltas", round_dir / "work" / "review_deltas"))
     return hashes
@@ -487,6 +495,12 @@ def required_checks(
             "check-opponent-report:clean",
             f"check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md {case_id} {round_id}",
             targets,
+        )
+    if report_calibration_check_required(round_dir):
+        add(
+            "check-report-calibration",
+            f"check-report-calibration {case_id} {round_id}",
+            report_calibration_check_targets(round_dir),
         )
     if "outputs/figure_media_review.md" in artifact_paths:
         add(

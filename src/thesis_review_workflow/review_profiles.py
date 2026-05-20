@@ -120,7 +120,10 @@ WORKFLOW_REVIEW_PROFILES: tuple[WorkflowReviewProfile, ...] = (
             "check-opponent-materials",
             "check-opponent-report --mode canonical",
         ),
-        readiness_wording="opponent materials are ready after reviewed materials and opponent trace gates pass",
+        readiness_wording=(
+            "opponent materials are ready after reviewed materials, opponent trace gates, and applicable "
+            "report-calibration gates pass"
+        ),
     ),
     WorkflowReviewProfile(
         profile_id="opponent_materials",
@@ -141,7 +144,10 @@ WORKFLOW_REVIEW_PROFILES: tuple[WorkflowReviewProfile, ...] = (
             "check-opponent-materials",
             "check-opponent-report --mode canonical",
         ),
-        readiness_wording="opponent-materials operator surface maps to the canonical opponent_review profile",
+        readiness_wording=(
+            "opponent-materials operator surface maps to the canonical opponent_review profile, including "
+            "applicable report-calibration gates before trace/report use"
+        ),
     ),
     WorkflowReviewProfile(
         profile_id="opponent_report_review",
@@ -167,7 +173,10 @@ WORKFLOW_REVIEW_PROFILES: tuple[WorkflowReviewProfile, ...] = (
             "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md",
             *COMMON_CLOSEOUT_GATES,
         ),
-        readiness_wording="opponent report review is ready after report-review approval and opponent-report gates pass",
+        readiness_wording=(
+            "opponent report review is ready after report-review approval, opponent-report gates, and any "
+            "applicable report-calibration gate pass"
+        ),
     ),
 )
 

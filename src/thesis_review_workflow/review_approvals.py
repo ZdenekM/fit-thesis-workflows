@@ -10,6 +10,10 @@ from typing import Any
 
 from thesis_review_workflow.artifact_registry import output_spec
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    report_calibration_check_targets,
+    report_calibration_review_basis_bound,
+)
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_REVIEW_APPROVAL_REL,
@@ -24,6 +28,7 @@ FINAL_REVIEW_SCOPES = {"sendable_final", "standalone_final"}
 OBSERVED_ONLY_REQUIRED_CHECKS = {
     "check-review-wave.opponent-report.draft",
 }
+REPORT_CALIBRATION_REQUIRED_CHECK = "check-report-calibration"
 
 
 @dataclass(frozen=True)
@@ -207,7 +212,24 @@ def validate_required_checks(
     return errors
 
 
+def required_checks_for_review_approval(
+    profile: ReviewApprovalProfile,
+    round_dir: Path,
+    review_basis_path: str,
+) -> tuple[str, ...]:
+    checks = list(profile.required_checks)
+    if (
+        profile.profile == "opponent-report-review"
+        and report_calibration_review_basis_bound(round_dir, review_basis_path)
+        and REPORT_CALIBRATION_REQUIRED_CHECK not in checks
+    ):
+        checks.append(REPORT_CALIBRATION_REQUIRED_CHECK)
+    return tuple(checks)
+
+
 def required_helper_targets_for_approval(name: str, round_dir: Path, approval_path: str) -> set[str]:
+    if name == REPORT_CALIBRATION_REQUIRED_CHECK:
+        return set(report_calibration_check_targets(round_dir))
     if name in {"check-opponent-report", "check-opponent-report:canonical"}:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if (
@@ -462,6 +484,15 @@ def validate_review_approval_payload(
         for index, item in enumerate(checks_observed, start=1):
             if not isinstance(item, str) or not item.strip():
                 errors.append(f"{rel_path}: checks_observed item {index} must be a non-empty string")
+        profile = canonical_profile_for_artifact(reviewed_path) if reviewed_path else None
+        review_basis = payload.get("review_basis_path")
+        if profile is not None and isinstance(review_basis, str):
+            required_checks = required_checks_for_review_approval(profile, round_dir, review_basis)
+            if (
+                REPORT_CALIBRATION_REQUIRED_CHECK in required_checks
+                and REPORT_CALIBRATION_REQUIRED_CHECK not in checks_observed
+            ):
+                errors.append(f"{rel_path}: missing required observed check: {REPORT_CALIBRATION_REQUIRED_CHECK}")
     limitations = payload.get("limitations")
     if not isinstance(limitations, list):
         errors.append(f"{rel_path}: limitations must be a list")
@@ -513,9 +544,12 @@ def validate_review_approval_with_manifest(
             choices = ", ".join(profile.review_basis_candidates)
             errors.append(f"{rel_path}: review_basis_path must be one of: {choices}")
         checks = string_list(payload.get("checks_observed"))
+        required_checks = required_checks_for_review_approval(
+            profile, round_dir, basis if isinstance(basis, str) else ""
+        )
         errors.extend(
             validate_required_checks(
-                required_checks=profile.required_checks,
+                required_checks=required_checks,
                 checks_observed=checks,
                 rel_path=rel_path,
                 round_dir=round_dir,

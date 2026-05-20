@@ -739,6 +739,32 @@ git diff --check
   `pants test tests/test_draft_opponent_report.py tests/test_opponent_report.py tests/test_export_opponent_report.py tests/test_submitted_reports.py tests/test_review_manifest_helpers.py`,
   `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
   overall score 90.86, 180 files analyzed, and no smells.
+- 2026-05-20: Slice 5 implementation completed. Serena symbol navigation was
+  used on `review_approvals.py`, `review_profiles.py`, `review_wave_gate.py`,
+  `write_review_approval.py`, `init_review_manifest.py`,
+  `check_review_manifest.py`, `report_calibration.py`, and
+  `opponent_packets.py` before edits. `work/report_calibration_basis.json` is
+  now a primary opponent-report-review input; report-review packets and skill
+  instructions require reviewers to identify applied preferences, validate
+  structured expected controls, justify non-applied profile preferences, and
+  distinguish prose issues from calibration-basis drift. Approval records,
+  manifest helper checks, and wave gates now require `check-report-calibration`
+  only for calibration-bound report draft/review paths; reviewed-materials-only
+  closeout remains outside that gate. Subagent findings were patched: final
+  wave approval validation now rejects a calibration-bound report-review
+  approval missing observed `check-report-calibration`; `docs/opponent-review-workflow.md`
+  and `docs/agent-profile-matrix.md` now document the conditional gate; and the
+  smoke path records the new observed check. Omen MCP file/root-scoped
+  `repomap`, `complexity`, and `deadcode` again returned zero files/symbols for
+  non-empty touched roots, so this remains a typed MCP path/index limitation;
+  repo-scoped semantic search found the new approval, manifest, and wave-gate
+  symbols. Checks passed: `scripts/smoke-opponent-report`,
+  `scripts/smoke-review-manifest`, `scripts/check-private`,
+  `scripts/check-scripts`,
+  `pants check src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/review_approvals.py src/thesis_review_workflow/cli/write_review_approval.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/review_wave_gate.py src/thesis_review_workflow/review_profiles.py src/thesis_review_workflow/opponent_packets.py tests/test_review_approvals.py tests/test_review_manifest_helpers.py tests/test_review_wave_gate.py tests/test_agent_profile_contracts.py`,
+  `pants test tests/test_review_approvals.py tests/test_review_manifest_helpers.py tests/test_review_wave_gate.py tests/test_agent_profile_contracts.py`,
+  `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
+  overall score 90.91, 180 files analyzed, and no smells.
 
 ## Decision Log
 

@@ -461,6 +461,9 @@ PACKET_ROLES = (
         expected_output="outputs/feedback_k_posudku.md",
         mission="Review the clean IS-entry opponent-report proposal before IS submission.",
         focus=(
+            "applied reviewer-profile and operator-calibration preferences that affected the public report",
+            "basis consistency for IS selections, grade/points, report length, defense questions, and private comment",
+            "explicitly justified profile preferences that were not applied",
             "point/comment consistency",
             "evidence and tone defensibility",
             "manual checks before submission",
@@ -476,6 +479,9 @@ PACKET_ROLES = (
         constraints=(
             "Use `outputs/oponent_posudek_navrh.md` as the normal report-review basis; open the canonical "
             "draft only for trace/provenance checks.",
+            "Treat `work/report_calibration_basis.json` as a primary structured input when present. Separate "
+            "ordinary prose defects from calibration-basis drift, missing/stale basis state, or unjustified "
+            "non-application of profile preferences.",
             "Do not review an uncalibrated helper draft as final human report text.",
             "If an agent rewrites report prose, run a fresh independent report review.",
         ),

@@ -259,6 +259,126 @@ def test_write_review_approval_prefers_clean_opponent_report_basis(tmp_path: Pat
     ]
 
 
+def test_write_review_approval_requires_report_calibration_check_for_bound_report(tmp_path: Path, monkeypatch) -> None:
+    round_dir = make_case(tmp_path)
+    root = round_dir.parents[3]
+    monkeypatch.setattr(write_review_approval, "repo_root", lambda: root)
+    review_output = round_dir / "outputs" / "feedback_k_posudku.md"
+    clean_basis = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    canonical_draft = round_dir / "work" / "oponent_posudek_draft.md"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    calibration_basis = round_dir / "work" / "report_calibration_basis.json"
+    for path, text in (
+        (review_output, "# Report review\n"),
+        (clean_basis, "# Clean report proposal\n"),
+        (canonical_draft, "# Canonical draft\n"),
+        (materials, "# Reviewed materials\n"),
+        (calibration_basis, "{}\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+    common_helpers = [
+        helper_check_record(
+            "check-opponent-report:canonical",
+            round_dir,
+            [
+                "work/opponent_report_trace.json",
+                "outputs/oponent_podklady_revidovane.md",
+                "work/oponent_posudek_draft.md",
+                "work/report_calibration_basis.json",
+            ],
+        ),
+        helper_check_record(
+            "check-opponent-report:clean",
+            round_dir,
+            [
+                "work/opponent_report_trace.json",
+                "outputs/oponent_podklady_revidovane.md",
+                "outputs/oponent_posudek_navrh.md",
+                "work/report_calibration_basis.json",
+            ],
+        ),
+        helper_check_record(
+            "check-report-calibration",
+            round_dir,
+            [
+                "work/report_calibration_basis.json",
+                "work/oponent_posudek_draft.md",
+                "outputs/oponent_posudek_navrh.md",
+            ],
+        ),
+    ]
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "artifacts": [
+                {
+                    "path": "outputs/feedback_k_posudku.md",
+                    "review_scope": "standalone_final",
+                    "generated_by": [{"role": "thesis-opponent-report-review", "agent": "generator-agent"}],
+                }
+            ],
+            "helper_checks": common_helpers,
+        },
+    )
+
+    missing_result = write_review_approval.main(
+        [
+            "--profile",
+            "opponent-report-review",
+            "--reviewer-agent",
+            "review-agent",
+            "--check",
+            "check-opponent-report:canonical",
+            "--check",
+            "check-opponent-report:clean",
+            "--check",
+            "check-review-wave.opponent-report.draft",
+            "--timestamp",
+            "2026-05-11T12:00:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+    assert missing_result == 1
+    assert not (round_dir / "work" / "reviews" / "opponent_report_review.json").exists()
+
+    result = write_review_approval.main(
+        [
+            "--profile",
+            "opponent-report-review",
+            "--reviewer-agent",
+            "review-agent",
+            "--check",
+            "check-opponent-report:canonical",
+            "--check",
+            "check-opponent-report:clean",
+            "--check",
+            "check-report-calibration",
+            "--check",
+            "check-review-wave.opponent-report.draft",
+            "--timestamp",
+            "2026-05-11T12:00:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    payload = json.loads((round_dir / "work" / "reviews" / "opponent_report_review.json").read_text())
+    assert payload["checks_observed"] == [
+        "check-opponent-report:canonical",
+        "check-opponent-report:clean",
+        "check-report-calibration",
+        "check-review-wave.opponent-report.draft",
+    ]
+
+
 def test_review_approval_requires_mode_specific_opponent_report_targets(tmp_path: Path) -> None:
     round_dir = make_case(tmp_path)
     clean_basis = round_dir / "outputs" / "oponent_posudek_navrh.md"

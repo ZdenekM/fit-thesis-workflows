@@ -160,7 +160,11 @@ metadata do manifestu; pozdější úprava revidovaného artefaktu nebo review b
 pak spadne jako stale hash.
 Pro `opponent_report_review` musí observed checks obsahovat
 `check-opponent-report:canonical`, `check-opponent-report:clean` a
-`check-review-wave.opponent-report.draft`; finální
+`check-review-wave.opponent-report.draft`. Pokud je review basis navázaná na
+`work/report_calibration_basis.json`, musí záznam obsahovat také
+`check-report-calibration`; manifest a wave gate tento helper přidávají jen pro
+kalibrovaný draft/review report, ne pro reviewed-materials-only closeout.
+Finální
 `check-review-wave --workflow opponent_report_review --wave final` běží až nad
 hotovým approval recordem, takže se do approval recordu nezapisuje jako jeho
 vstupní podmínka.

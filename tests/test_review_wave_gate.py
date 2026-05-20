@@ -2,7 +2,7 @@ import json
 import zipfile
 from pathlib import Path
 
-from thesis_review_workflow import agent_coverage
+from thesis_review_workflow import agent_coverage, review_wave_gate
 from thesis_review_workflow.review_approvals import sha256_file
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_wave_gate import (
@@ -319,6 +319,161 @@ def test_builtin_profiles_keep_draft_and_post_review_gates_separate() -> None:
     assert report_final.outputs[0].checks[0].args == ("check-supervisor-report", "--require-reviewed")
     assert report_final.outputs[0].approval_record is not None
     assert report_final.outputs[0].approval_record.path == "work/reviews/supervisor_report_review.json"
+
+
+def test_wave_gate_runs_report_calibration_check_for_bound_report(monkeypatch, tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    for path, text in (
+        (draft, "# Draft\n"),
+        (basis, "{}\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="not_material",
+                scope="synthetic",
+                impact="none",
+                reason="no visual evidence in this synthetic wave",
+                source_refs=("workflow-profile:opponent_review",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-20T00:00:00Z",
+    )
+    seen: list[tuple[str, ...]] = []
+
+    def fake_run_check_command(root, args, *, case_id, round_id, role, required, result):
+        seen.append(tuple(args))
+        result.passed.append(f"{role}: checker passed: {' '.join(args)}")
+
+    monkeypatch.setattr(review_wave_gate, "run_check_command", fake_run_check_command)
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-report", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert result.errors == []
+    assert ("check-opponent-report", "--mode", "canonical") in seen
+    assert ("check-report-calibration",) in seen
+
+
+def test_report_review_final_wave_requires_observed_report_calibration_check(monkeypatch, tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    report_review = round_dir / "outputs" / "feedback_k_posudku.md"
+    clean = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    approval = round_dir / "work" / "reviews" / "opponent_report_review.json"
+    for path, text in (
+        (report_review, "# Report Review\n"),
+        (clean, "# Clean Report\n"),
+        (draft, "# Draft\n"),
+        (basis, "{}\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+
+    def write_approval(checks: list[str]) -> None:
+        write_json(
+            approval,
+            {
+                "workflow_profile": "opponent_report_review",
+                "reviewer_role": "thesis-opponent-report-review",
+                "reviewer_agent": "review-agent",
+                "verdict": "approved",
+                "blocking_findings_count": 0,
+                "reviewed_artifact_path": "outputs/feedback_k_posudku.md",
+                "reviewed_artifact_sha256": sha256_file(report_review),
+                "review_basis_path": "outputs/oponent_posudek_navrh.md",
+                "review_basis_sha256": sha256_file(clean),
+                "checks_observed": checks,
+                "limitations": [],
+                "timestamp": "2026-05-20T00:00:00Z",
+            },
+        )
+
+    def fake_check_agent_coverage(round_dir, spec, *, case_id, round_id, result):
+        result.passed.append("agent coverage skipped by focused test")
+
+    def fake_run_check_command(root, args, *, case_id, round_id, role, required, result):
+        seen.append(tuple(args))
+        result.passed.append(f"{role}: checker passed: {' '.join(args)}")
+
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="not_material",
+                scope="synthetic",
+                impact="none",
+                reason="no visual evidence in this synthetic wave",
+                source_refs=("workflow-profile:opponent_review",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-20T00:00:00Z",
+    )
+    monkeypatch.setattr(review_wave_gate, "check_agent_coverage", fake_check_agent_coverage)
+    monkeypatch.setattr(review_wave_gate, "run_check_command", fake_run_check_command)
+
+    seen: list[tuple[str, ...]] = []
+    write_approval(
+        [
+            "check-opponent-report:canonical",
+            "check-opponent-report:clean",
+            "check-review-wave.opponent-report.draft",
+        ]
+    )
+    missing = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-report-review", "final"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("missing required observed check: check-report-calibration" in error for error in missing.errors)
+
+    seen = []
+    write_approval(
+        [
+            "check-opponent-report:canonical",
+            "check-opponent-report:clean",
+            "check-report-calibration",
+            "check-review-wave.opponent-report.draft",
+        ]
+    )
+    passed = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-report-review", "final"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert passed.errors == []
+    assert ("check-report-calibration",) in seen
 
 
 def test_wave_gate_blocks_unresolved_materiality_next_actions(tmp_path: Path) -> None:
