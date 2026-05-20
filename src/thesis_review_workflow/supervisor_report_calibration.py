@@ -1,4 +1,10 @@
-"""Structural contracts for private supervisor-report calibration artifacts."""
+"""Structural contracts for private supervisor-report calibration artifacts.
+
+These artifacts are separate from the opponent-report-only
+``work/report_calibration_basis.json`` contract. Supervisor report calibration
+continues to use the trace-bound profile, checklist, use, and advisory files
+under the paths declared in this module.
+"""
 
 from __future__ import annotations
 

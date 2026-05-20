@@ -147,7 +147,8 @@ def common_briefing_refresh_blockers(round_dir: Path, *, case_id: str, round_id:
     if not isinstance(existing, dict):
         return [f"{COMMON_BRIEFING_REL}: common briefing must be a JSON object"]
 
-    current = build_common_briefing_payload(case_id, round_id, round_dir)
+    workflow_profile = common_briefing_workflow_profile(existing)
+    current = build_common_briefing_payload(case_id, round_id, round_dir, workflow_profile=workflow_profile)
     existing_hashes = collect_hash_records(existing)
     current_hashes = collect_hash_records(current)
     blockers: list[str] = []
@@ -166,13 +167,31 @@ def common_briefing_refresh_blockers(round_dir: Path, *, case_id: str, round_id:
     return blockers
 
 
+def common_briefing_workflow_profile(existing: dict[str, object]) -> str | None:
+    value = existing.get("workflow_profile")
+    if isinstance(value, str) and value:
+        return value
+    if existing.get("report_calibration_scope") == "not_applicable":
+        return "supervisor_report"
+    return None
+
+
 def refresh_common_briefing(round_dir: Path, *, case_id: str, round_id: str, generated_at: str) -> tuple[str, str]:
+    workflow_profile: str | None = None
+    path = round_dir / COMMON_BRIEFING_REL
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{COMMON_BRIEFING_REL}: invalid JSON: {exc.msg}") from exc
+        if not isinstance(existing, dict):
+            raise ValueError(f"{COMMON_BRIEFING_REL}: common briefing must be a JSON object")
+        workflow_profile = common_briefing_workflow_profile(existing)
     blockers = common_briefing_refresh_blockers(round_dir, case_id=case_id, round_id=round_id)
     if blockers:
         raise ValueError("\n".join(blockers))
-    path = round_dir / COMMON_BRIEFING_REL
     before = sha256_file(path) if path.is_file() else ""
-    write_common_briefing(case_id, round_id, generated_at, round_dir)
+    write_common_briefing(case_id, round_id, generated_at, round_dir, workflow_profile=workflow_profile)
     errors = validate_common_briefing_artifact(round_dir, case_id=case_id, round_id=round_id)
     if errors:
         raise ValueError("\n".join(errors))

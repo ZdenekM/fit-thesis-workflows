@@ -9,6 +9,17 @@ rules such as privacy, evidence requirements, assignment/deadline gates,
 student feedback language checks, or the rule that unchecked work must be
 described as unchecked.
 
+## Report Calibration Boundary
+
+`work/report_calibration_basis.json` is currently the structured application
+contract for opponent reports only. Its payload must declare
+`calibration_scope: opponent_report`; it is not a supervisor-report input and
+does not mean supervisor-report support has landed.
+
+Supervisor reports keep their separate trace, confirmation, review, and
+optional supervisor-report calibration contracts. Revisit convergence only
+after both workflows have been exercised enough to justify one shared contract.
+
 ## Public And Private Profiles
 
 The public repository tracks only:

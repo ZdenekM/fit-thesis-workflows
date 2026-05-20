@@ -5,6 +5,8 @@ from pathlib import Path
 from thesis_review_workflow.cli import prepare_supervisor_report_packets
 from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, validate_common_briefing_payload
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.submission_bundle import (
     build_submission_bundle_inventory,
     write_submission_bundle_inventory,
@@ -199,6 +201,53 @@ def test_supervisor_report_packets_show_report_artifact_hashes(tmp_path: Path) -
     text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
 
     assert "`work/supervisor_report_trace.json` (invalid, sha256=" in text
+
+
+def test_supervisor_report_packets_do_not_surface_opponent_report_calibration_basis(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    basis = round_dir / REPORT_CALIBRATION_BASIS_REL
+    basis.write_text('{"schema_version": "report-calibration-basis-v1"}\n', encoding="utf-8")
+    (round_dir / "notes" / "opponent-report-operator-feedback.md").write_text(
+        "# Opponent report operator feedback\n",
+        encoding="utf-8",
+    )
+
+    generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+
+    text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+
+    assert REPORT_CALIBRATION_BASIS_REL not in text
+    assert briefing["workflow_profile"] == "supervisor_report"
+    assert briefing["report_calibration_scope"] == "not_applicable"
+    assert briefing["report_calibration_sources"] == []
+    for field in ("snapshot_refs", "advisory_artifacts", "context_handoffs"):
+        assert REPORT_CALIBRATION_BASIS_REL not in {item["path"] for item in briefing[field]}
+
+
+def test_supervisor_report_common_briefing_rejects_calibration_sources_when_not_applicable(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    briefing["report_calibration_sources"] = [
+        {
+            "path": "notes/opponent-report-operator-feedback.md",
+            "status": "missing",
+        }
+    ]
+
+    errors = validate_common_briefing_payload(
+        briefing,
+        COMMON_BRIEFING_REL,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert (
+        "work/common_briefing.json: report_calibration_sources must be empty when "
+        "report_calibration_scope is not_applicable"
+    ) in errors
 
 
 def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality(tmp_path: Path, monkeypatch) -> None:

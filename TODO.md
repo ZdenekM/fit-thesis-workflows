@@ -2,6 +2,10 @@
 
 ## P0 - Workflow Reliability
 
+- [ ] Implement the opponent-report reviewer-profile application contract from `plans/reviewer_profile_application_plan.md`.
+   - Current workflows can validate and pass profile files as context, but they do not reliably force profile/operator preferences to be selected, applied, and checked in report trace/draft/review.
+   - Add a case-local opponent-report calibration-basis artifact and structural checks for expected IS values, grade/point bands, defense-question count, and stale profile/operator-note hashes.
+   - Keep semantic preference selection in authorized human/agent review; deterministic helpers must validate the resulting structured contract, not infer meaning from profile prose.
 - [ ] Add native Windows runtime proof for packaged workflow launchers.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.
@@ -61,6 +65,10 @@
 
 ## P2 - Later Automation
 
+- [ ] Audit reviewer-profile and operator-calibration application contracts for the rest of the pipeline after opponent-report V1 lands.
+   - Start with supervisor reports, then decide whether supervisor feedback, opponent materials, and final artifact review outputs need similar explicit applied-preference artifacts or only clearer packet/review instructions.
+   - Do not assume `work/report_calibration_basis.json` should become a generic artifact automatically; compare workflow-specific traces, confirmation gates, review loops, and privacy boundaries first.
+   - Keep semantic preference selection in authorized human/agent review and keep deterministic helpers limited to structured values, hashes, paths, allowed enums, and stale-input checks.
 - [ ] Revisit supervisor/opponent calibration convergence after both V1 workflows are exercised.
    - Keep the current supervisor-report calibration private, optional, hash-bound, and supervisor-specific until there is evidence that a generic reviewer-report calibration subsystem would simplify rather than blur the workflows.
    - Compare artifact names, schemas, anti-overfit review, and applicability/advisory behavior before merging the concepts.

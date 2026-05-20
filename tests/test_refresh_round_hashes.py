@@ -8,6 +8,7 @@ from thesis_review_workflow.review_packets import (
     validate_common_briefing_artifact,
     write_common_briefing,
 )
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 
 
 def make_round(tmp_path: Path) -> tuple[Path, Path]:
@@ -47,6 +48,43 @@ def test_refresh_round_hashes_updates_common_briefing_after_note_edit(tmp_path: 
     payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
     assignment = next(item for item in payload["base_inputs"] if item["path"] == "notes/assignment.md")
     assert assignment["sha256"] == sha256_file(round_dir / "notes" / "assignment.md")
+
+
+def test_refresh_round_hashes_preserves_supervisor_report_common_briefing_scope(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    basis = round_dir / REPORT_CALIBRATION_BASIS_REL
+    basis.parent.mkdir(parents=True, exist_ok=True)
+    basis.write_text('{"schema_version": "report-calibration-basis-v1"}\n', encoding="utf-8")
+    write_common_briefing(
+        "case-a",
+        "round-a",
+        "2026-05-18T10:00:00Z",
+        round_dir,
+        workflow_profile="supervisor_report",
+    )
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n\nEdited note.\n", encoding="utf-8")
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    assert validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a") == []
+    payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    assert payload["workflow_profile"] == "supervisor_report"
+    assert payload["report_calibration_scope"] == "not_applicable"
+    assert payload["report_calibration_sources"] == []
+    for field in ("snapshot_refs", "advisory_artifacts", "context_handoffs"):
+        assert REPORT_CALIBRATION_BASIS_REL not in {item["path"] for item in payload[field]}
 
 
 def test_refresh_round_hashes_updates_report_calibration_source_refs(tmp_path: Path, monkeypatch) -> None:

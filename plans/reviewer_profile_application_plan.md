@@ -765,6 +765,40 @@ git diff --check
   `pants test tests/test_review_approvals.py tests/test_review_manifest_helpers.py tests/test_review_wave_gate.py tests/test_agent_profile_contracts.py`,
   `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
   overall score 90.91, 180 files analyzed, and no smells.
+- 2026-05-20: Slice 6 implemented and reviewed. Serena preflight was refreshed
+  after context compaction (`initial_instructions`, project activation, current
+  config), and symbol navigation was used on
+  `check_supervisor_report.py`, `supervisor_report_calibration.py`,
+  `review_packets.py`, `supervisor_report_packets.py`,
+  `review_round_closeout.py`, and `refresh_round_hashes.py`. The V1 boundary is
+  now explicit in the supervisor-report skills, profile docs, and code
+  docstrings: `work/report_calibration_basis.json` is opponent-report-only and
+  supervisor reports remain bound through
+  `work/supervisor_report_trace.json`,
+  `work/supervisor_report_confirmation.json`, review approvals, and optional
+  supervisor-report calibration artifacts. Subagent findings were patched
+  rather than carried forward: supervisor-report packets no longer surface the
+  opponent-only calibration basis, generated common briefings for
+  `supervisor_report` use `report_calibration_scope: not_applicable`,
+  `review-round-closeout --profile supervisor_report` preserves that scope, and
+  `refresh-round-hashes` preserves the workflow scope of an existing common
+  briefing. The `not_applicable` validator now rejects both the basis path and
+  any non-empty `report_calibration_sources`; tests cover packet generation,
+  closeout refresh, refresh-round-hashes, and the negative validator case.
+  `TODO.md` keeps the future convergence audit as open P2 work and the temporary
+  implementation TODO is worded as opponent-report-specific so it does not imply
+  supervisor support landed. Omen MCP remained path-blind for specific touched
+  files (`repomap`/`complexity` returned zero files), but file-filtered semantic
+  search found the changed common-briefing, supervisor-report packet, refresh,
+  and test symbols; this is recorded as a scoped MCP path/index limitation, not
+  quality evidence. Checks passed:
+  `scripts/smoke-supervisor-report`, `scripts/smoke-opponent-packets`,
+  `scripts/smoke-refresh-round-hashes`, `scripts/smoke-review-manifest`,
+  `scripts/check-private`, `scripts/check-scripts`,
+  `pants check src/thesis_review_workflow/review_packets.py src/thesis_review_workflow/supervisor_report_packets.py src/thesis_review_workflow/cli/review_round_closeout.py src/thesis_review_workflow/cli/refresh_round_hashes.py src/thesis_review_workflow/cli/check_supervisor_report.py src/thesis_review_workflow/supervisor_report_calibration.py tests/test_supervisor_report_packets.py tests/test_review_round_closeout.py tests/test_refresh_round_hashes.py tests/test_supervisor_report.py tests/test_supervisor_report_calibration.py tests/test_agent_profile_contracts.py tests/test_opponent_packets.py`,
+  `pants test tests/test_supervisor_report_packets.py tests/test_review_round_closeout.py tests/test_refresh_round_hashes.py tests/test_supervisor_report.py tests/test_supervisor_report_calibration.py tests/test_agent_profile_contracts.py tests/test_opponent_packets.py`,
+  `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
+  overall score 91.02, 180 files analyzed, and no smells.
 
 ## Decision Log
 

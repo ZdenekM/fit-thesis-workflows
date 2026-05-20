@@ -1,4 +1,10 @@
-"""Validate supervisor-report trace, draft, reviewed output, and confirmation."""
+"""Validate supervisor-report trace, draft, reviewed output, and confirmation.
+
+Supervisor reports intentionally do not consume
+``work/report_calibration_basis.json``. That artifact is scoped to opponent
+reports; supervisor reports stay bound through the supervisor trace,
+confirmation, and supervisor-report calibration artifacts.
+"""
 
 from __future__ import annotations
 

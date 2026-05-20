@@ -36,6 +36,13 @@ outputs/vedouci_posudek_revidovany.md
 work/reviews/supervisor_report_review.json
 ```
 
+Boundary: `work/report_calibration_basis.json` is the current V1 application
+contract for opponent reports only (`calibration_scope: opponent_report`).
+Supervisor-report review must not require or interpret it. Review the
+supervisor report through `work/supervisor_report_trace.json`, the draft and
+reviewed report artifacts, `work/supervisor_report_confirmation.json` when
+present, and optional supervisor-report calibration artifacts.
+
 ## Process
 
 Before reviewing or rewriting a report, confirm explicit agent authorization in

@@ -17,6 +17,7 @@ from thesis_review_workflow.review_packets import (
     omen_advisory_section,
     path_list,
     prune_inactive_packets,
+    REPORT_CALIBRATION_BASIS_REL,
     reusable_handoff_refs_section,
     role_is_active,
     sha256_file,
@@ -443,7 +444,12 @@ def render_packet(
             round_id=round_id,
             workflow_profile="supervisor_report",
         ),
-        reusable_handoff_refs_section(round_dir, case_id=case_id, round_id=round_id),
+        reusable_handoff_refs_section(
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            exclude_refs=(REPORT_CALIBRATION_BASIS_REL,),
+        ),
     ]
     if role.key == "code_quality":
         optional_sections.append(omen_advisory_section(round_dir))
@@ -538,7 +544,7 @@ def generate_packets(
 ) -> list[Path]:
     packet_dir = round_dir / PACKET_DIR_REL
     packet_dir.mkdir(parents=True, exist_ok=True)
-    write_common_briefing(case_id, round_id, generated_at, round_dir)
+    write_common_briefing(case_id, round_id, generated_at, round_dir, workflow_profile="supervisor_report")
     prune_inactive_packets(packet_dir, PACKET_ROLES, round_dir, case_id=case_id, round_id=round_id)
     written: list[Path] = []
     for role in PACKET_ROLES:

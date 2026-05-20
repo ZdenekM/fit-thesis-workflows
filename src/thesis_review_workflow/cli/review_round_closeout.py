@@ -202,9 +202,15 @@ def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, pro
     )
 
 
-def common_briefing_refresh_step(round_dir: Path, *, case_id: str, round_id: str) -> Step:
+def common_briefing_refresh_step(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    workflow_profile: str | None = None,
+) -> Step:
     try:
-        write_common_briefing(case_id, round_id, now_utc(), round_dir)
+        write_common_briefing(case_id, round_id, now_utc(), round_dir, workflow_profile=workflow_profile)
     except (OSError, ValueError) as exc:
         return Step(
             label="Common briefing refresh after materiality",
@@ -270,7 +276,14 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
             )
         )
     if profile.effective_materiality_profile:
-        steps.append(common_briefing_refresh_step(round_dir, case_id=case_id, round_id=round_id))
+        steps.append(
+            common_briefing_refresh_step(
+                round_dir,
+                case_id=case_id,
+                round_id=round_id,
+                workflow_profile="supervisor_report" if profile_id == "supervisor_report" else None,
+            )
+        )
     steps.append(role_plan_refresh_step(root, case_id=case_id, round_id=round_id, profile_id=profile_id))
     steps.append(
         run_step(root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", case_id, round_id])

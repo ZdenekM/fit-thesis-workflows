@@ -115,11 +115,19 @@ def test_closeout_refreshes_common_briefing_after_effective_materiality(monkeypa
         commands.append((label, command))
         return Step(label=label, command=command, returncode=0, output="ok")
 
-    def fake_write_common_briefing(case_id: str, round_id: str, generated_at: str, target_round_dir: Path) -> Path:
+    def fake_write_common_briefing(
+        case_id: str,
+        round_id: str,
+        generated_at: str,
+        target_round_dir: Path,
+        *,
+        workflow_profile: str | None = None,
+    ) -> Path:
         assert case_id == "case-a"
         assert round_id == "round-a"
         assert generated_at
         assert target_round_dir == round_dir
+        assert workflow_profile is None
         events.append("common_briefing")
         return target_round_dir / "work" / "common_briefing.json"
 
@@ -180,6 +188,7 @@ def test_review_round_closeout_delegates_supervisor_report_after_shared_current_
     round_dir.mkdir(parents=True)
     events: list[str] = []
     commands: dict[str, list[str]] = {}
+    common_briefing_workflow_profiles: list[str | None] = []
 
     def fake_run_step(root_path: Path, label: str, command: list[str]) -> Step:
         events.append(label)
@@ -187,11 +196,11 @@ def test_review_round_closeout_delegates_supervisor_report_after_shared_current_
         return Step(label=label, command=command, returncode=0, output="ok")
 
     monkeypatch.setattr(review_round_closeout, "run_step", fake_run_step)
-    monkeypatch.setattr(
-        review_round_closeout,
-        "write_common_briefing",
-        lambda *args, **kwargs: round_dir / "work/common_briefing.json",
-    )
+    def fake_write_common_briefing(*args, **kwargs) -> Path:
+        common_briefing_workflow_profiles.append(kwargs.get("workflow_profile"))
+        return round_dir / "work/common_briefing.json"
+
+    monkeypatch.setattr(review_round_closeout, "write_common_briefing", fake_write_common_briefing)
     monkeypatch.setattr(
         review_round_closeout,
         "role_plan_step",
@@ -212,6 +221,7 @@ def test_review_round_closeout_delegates_supervisor_report_after_shared_current_
 
     assert [step.returncode for step in steps] == [0] * len(steps)
     assert "Current evidence snapshot refresh" in events
+    assert common_briefing_workflow_profiles == ["supervisor_report"]
     assert steps[0].label == "Free-space preflight"
     assert any(step.label == "Review role plan refresh" for step in steps)
     assert commands["Delegated profile closeout: supervisor-report-closeout"] == [

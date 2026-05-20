@@ -38,6 +38,16 @@ work/vedouci_posudek_draft.md
 outputs/vedouci_posudek_revidovany.md
 ```
 
+Boundary: `work/report_calibration_basis.json` is the current V1 application
+contract for opponent reports only (`calibration_scope: opponent_report`).
+Supervisor reports must not read or update it. They stay bound through
+`work/supervisor_report_trace.json`,
+`work/supervisor_report_confirmation.json`, and the optional
+supervisor-report calibration artifacts under
+`work/calibration/supervisor_report/`,
+`work/supervisor_report_calibration_use.json`, and
+`work/supervisor_report_calibration_advisory.json`.
+
 `notes/supervisor-report-operator-input.md` is authoritative for student
 activity, independence, consultation, communication, preparedness, completion
 timing, grade/points calibration, and the private student comment. If the

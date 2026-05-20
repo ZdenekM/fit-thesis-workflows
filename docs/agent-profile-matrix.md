@@ -23,6 +23,13 @@ Profile terms are intentionally separate:
 - reviewer preference profiles calibrate personal style and assessment
   preferences for the current supervisor or opponent.
 
+The V1 `work/report_calibration_basis.json` application contract is scoped to
+opponent reports only (`calibration_scope: opponent_report`). Supervisor report
+workflows continue to use their supervisor-report trace, confirmation, review,
+and optional supervisor-report calibration artifacts; do not route the
+opponent-report `check-report-calibration` gate into supervisor report
+closeout until a separate convergence slice explicitly changes that contract.
+
 Role skills should point here instead of redefining those categories.
 
 Command routing: `scripts/<tool>` examples in this document are Linux/dev

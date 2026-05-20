@@ -152,6 +152,7 @@ COMMON_BRIEFING_ADVISORY_ARTIFACTS = tuple(
     )
 )
 RECORD_STATUSES = {"present", "missing", "invalid", "current"}
+REPORT_CALIBRATION_SCOPES = {"opponent_report", "not_applicable"}
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -487,9 +488,25 @@ def context_handoff_records(round_dir: Path, *, case_id: str, round_id: str) -> 
     return records
 
 
-def reusable_handoff_refs_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
+def scoped_reusable_handoff_refs(*, exclude_refs: tuple[str, ...] = ()) -> tuple[str, ...]:
+    excluded = set(exclude_refs)
+    return tuple(rel_path for rel_path in REUSABLE_HANDOFF_REFS if rel_path not in excluded)
+
+
+def scoped_common_briefing_refs(paths: tuple[str, ...], *, exclude_refs: tuple[str, ...] = ()) -> tuple[str, ...]:
+    excluded = set(exclude_refs)
+    return tuple(rel_path for rel_path in paths if rel_path not in excluded)
+
+
+def reusable_handoff_refs_section(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    exclude_refs: tuple[str, ...] = (),
+) -> str:
     lines = ["## Reusable Handoff Refs", ""]
-    for rel_path in REUSABLE_HANDOFF_REFS:
+    for rel_path in scoped_reusable_handoff_refs(exclude_refs=exclude_refs):
         record = artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
         hash_text = f", sha256={record['sha256']}" if "sha256" in record else ""
         lines.append(f"- `{rel_path}` ({record['status']}{hash_text})")
@@ -640,9 +657,14 @@ def build_common_briefing_payload(
     case_id: str,
     round_id: str,
     round_dir: Path,
+    *,
+    workflow_profile: str | None = None,
 ) -> dict[str, object]:
     case_dir = round_dir.parents[1]
     repo_root = round_dir.parents[3]
+    report_calibration_applicable = workflow_profile != "supervisor_report"
+    excluded_refs = () if report_calibration_applicable else (REPORT_CALIBRATION_BASIS_REL,)
+    report_calibration_sources = report_calibration_source_paths(round_dir) if report_calibration_applicable else ()
     review_records = tuple(
         path.relative_to(round_dir).as_posix()
         for path in sorted((round_dir / "work" / "reviews").glob("*.json"))
@@ -653,6 +675,8 @@ def build_common_briefing_payload(
         "schema_version": COMMON_BRIEFING_SCHEMA_VERSION,
         "case_id": case_id,
         "round_id": round_id,
+        "workflow_profile": workflow_profile or "shared",
+        "report_calibration_scope": "opponent_report" if report_calibration_applicable else "not_applicable",
         "common_constraints": list(COMMON_CONSTRAINTS),
         "common_inputs": [artifact_record(case_dir, rel_path) for rel_path in CASE_INPUTS],
         "reviewer_profile_inputs": [artifact_record(repo_root, rel_path) for rel_path in PROFILE_INPUTS],
@@ -673,7 +697,7 @@ def build_common_briefing_payload(
         "submission_bundle_visibility": submission_bundle_visibility_lines(round_dir, include_absent=False),
         "report_calibration_sources": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
-            for rel_path in report_calibration_source_paths(round_dir)
+            for rel_path in report_calibration_sources
         ],
         "prepared_code_roots": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
@@ -681,7 +705,7 @@ def build_common_briefing_payload(
         ],
         "snapshot_refs": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
-            for rel_path in SNAPSHOT_SOURCE_PATHS + review_records
+            for rel_path in scoped_common_briefing_refs(SNAPSHOT_SOURCE_PATHS, exclude_refs=excluded_refs) + review_records
         ],
         "materiality_refs": [
             artifact_record(
@@ -701,7 +725,7 @@ def build_common_briefing_payload(
                 round_id=round_id,
                 validate_round_artifact=True,
             )
-            for rel_path in COMMON_BRIEFING_ADVISORY_ARTIFACTS
+            for rel_path in scoped_common_briefing_refs(COMMON_BRIEFING_ADVISORY_ARTIFACTS, exclude_refs=excluded_refs)
         ],
         "context_handoffs": context_handoff_records(round_dir, case_id=case_id, round_id=round_id),
         "open_full_artifact_triggers": [
@@ -720,8 +744,10 @@ def write_common_briefing(
     round_id: str,
     generated_at: str,
     round_dir: Path,
+    *,
+    workflow_profile: str | None = None,
 ) -> Path:
-    payload = build_common_briefing_payload(case_id, round_id, round_dir)
+    payload = build_common_briefing_payload(case_id, round_id, round_dir, workflow_profile=workflow_profile)
     path = round_dir / COMMON_BRIEFING_REL
     write_json_if_semantically_changed(path, payload, generated_at=generated_at)
     return path
@@ -767,6 +793,14 @@ def validate_common_briefing_payload(
     for field in ("case_id", "round_id", "generated_at"):
         if not isinstance(loaded.get(field), str) or not loaded[field]:
             errors.append(f"{rel_path}: {field} must be non-empty str")
+    workflow_profile = loaded.get("workflow_profile")
+    if workflow_profile is not None and (not isinstance(workflow_profile, str) or not workflow_profile):
+        errors.append(f"{rel_path}: workflow_profile must be non-empty str when present")
+    report_calibration_scope = loaded.get("report_calibration_scope", "opponent_report")
+    if report_calibration_scope not in REPORT_CALIBRATION_SCOPES:
+        errors.append(
+            f"{rel_path}: report_calibration_scope must be one of {sorted(REPORT_CALIBRATION_SCOPES)}"
+        )
     for field in (
         "common_constraints",
         "available_round_inputs",
@@ -790,9 +824,12 @@ def validate_common_briefing_payload(
         ("context_handoffs", round_dir),
     ):
         _validate_record_list(loaded.get(field), f"{rel_path}: {field}", base, errors)
-    _validate_report_calibration_source_records(
-        loaded.get("report_calibration_sources"), rel_path, round_dir, errors
-    )
+    if report_calibration_scope == "not_applicable":
+        _validate_report_calibration_absent(loaded, rel_path, errors)
+    else:
+        _validate_report_calibration_source_records(
+            loaded.get("report_calibration_sources"), rel_path, round_dir, errors
+        )
     return errors
 
 
@@ -869,6 +906,24 @@ def _validate_report_calibration_source_records(
     for path in sorted(actual_paths.difference(expected_paths)):
         if is_report_calibration_source_path(path):
             errors.append(f"{rel_path}: report_calibration_sources includes stale or unavailable source {path}")
+
+
+def _validate_report_calibration_absent(loaded: dict[str, object], rel_path: str, errors: list[str]) -> None:
+    sources = loaded.get("report_calibration_sources")
+    if isinstance(sources, list) and sources:
+        errors.append(f"{rel_path}: report_calibration_sources must be empty when report_calibration_scope is not_applicable")
+    for field in ("report_calibration_sources", "snapshot_refs", "advisory_artifacts", "context_handoffs"):
+        value = loaded.get(field)
+        if not isinstance(value, list):
+            continue
+        for index, item in enumerate(value, start=1):
+            if not isinstance(item, dict):
+                continue
+            if item.get("path") == REPORT_CALIBRATION_BASIS_REL:
+                errors.append(
+                    f"{rel_path}: {field} item {index}: "
+                    f"{REPORT_CALIBRATION_BASIS_REL} is not applicable for this workflow"
+                )
 
 
 def current_evidence_snapshot_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
