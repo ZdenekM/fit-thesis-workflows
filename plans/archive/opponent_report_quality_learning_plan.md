@@ -1,6 +1,6 @@
 # Opponent Report Quality Learning Plan
 
-Status: active
+Status: done
 Created: 2026-05-20
 
 ## Goal
@@ -1116,3 +1116,9 @@ git diff --check                          # passed
 ```
 
 No concrete case output under `cases/` has been edited.
+
+Archive decision:
+
+- completed plan moved to `plans/archive/opponent_report_quality_learning_plan.md`
+  after all slices, agent reviews, fixes, and final local checks passed;
+- no residual TODO was copied into `TODO.md` because the plan scope is complete.
