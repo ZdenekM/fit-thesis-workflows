@@ -835,6 +835,14 @@ Discarded as case-specific:
   meta-learning promotion. The template now also names secondary routing for
   current-case report correction, current report calibration, private profile
   preference, historical calibration, public workflow rule, or no promotion.
+- 2026-05-20: Slice 2 started. Scope is limited to skill/rubric/workflow-doc
+  instruction upgrades; `AGENTS.md` and concrete case outputs remain untouched.
+- 2026-05-20: Slice 2 implemented and agent-reviewed. Initial review found
+  duplicated report-quality checklists across skills/docs and guidance that
+  implied future trace/checker contracts already existed. The fix keeps the
+  canonical checklist in `docs/opponent-review-workflow.md`, makes the three
+  opponent skills reference it with role-specific obligations, and softens
+  FIT Theses Checker wording to apply when a validated summary exists.
 
 ## Decision Log
 
@@ -953,6 +961,14 @@ rg -n "[<]synthetic|[<]round|[<]case|case-specific term[s]|not necessar[y]" \
 ```
 
 Slice 1 checks after template implementation and review fixes:
+
+```bash
+git diff --check                  # passed
+scripts/check-private             # passed
+scripts/check-scripts             # passed
+```
+
+Slice 2 checks after skill/doc implementation and review fixes:
 
 ```bash
 git diff --check                  # passed

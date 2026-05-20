@@ -125,6 +125,44 @@ scripts/check-theses-similarity-report <case-id> [round-id]
 Validátory hlídají tvar, konkrétní evidence odkazy, omezení, review status,
 placeholdery a úniky interních absolutních cest. Nejsou to judgment enginy.
 
+## Report Quality Controls
+
+Oponentské podklady mají před psaním posudku uchovat jen reportově relevantní
+syntézu. Detailní evidence zůstává v role-owned výstupech. Dokud samostatná
+schema slice nezavede další validované trace kontroly, berte níže uvedené body
+jako semantické povinnosti skillů a review smyčky, ne jako požadavek na nová
+nevalidovaná pole v `work/opponent_report_trace.json`. Jakmile trace pole
+existuje, má nést jen kompaktní odkazy, wording mode, materiality rozhodnutí,
+kontroly a typovaná omezení, ne kopie role evidence.
+
+Při syntéze a review posudku kontrolujte zejména:
+
+- splnění zadání po bodech, pokud je zadání dostupné;
+- rozdíl mezi "není doloženo v dostupných materiálech" a "nebylo provedeno";
+- co testy, experimenty a uživatelské studie skutečně podporují, včetně
+  chybějících úloh, instrukcí, pořadí, metrik, datové granularity a nejistoty;
+- silná slova jako efektivita, přesnost, použitelnost, intuitivnost, inovace,
+  škálovatelnost, robustnost a praktická nasaditelnost proti metrice,
+  komparátoru, boundary/stress testu, run/demo důkazu nebo explicitnímu
+  změkčení;
+- zdroj implementačních tvrzení: text práce, statická kontrola kódu, build/run
+  evidence, demo, média, README/config, nebo limitace;
+- rozdíl mezi vlastním přínosem studenta a knihovnami, frameworky, platformami,
+  assety, šablonami, generated code, AI assistance nebo tutorialy;
+- literaturu nejen jako tematickou bibliografii, ale i podle nejbližších
+  srovnatelných prací/nástrojů a podpory konkrétních citovaných tvrzení;
+- technickou náročnost podle integrace, algoritmické originality,
+  implementační hloubky, platformního rizika, evaluační náročnosti a domény;
+- úroveň výsledku jako demonstrátor, prototyp, pilotní nástroj,
+  prakticky nasaditelný nástroj nebo jiný dobře doložený stav;
+- silné stránky proti limitům tak, aby text odpovídal bodům a známce;
+- otázky k obhajobě jako jednotlivé, zodpověditelné a diagnostické otázky.
+
+Čistý návrh posudku má zůstat kompaktní. Tabulky ledgerů, dlouhé checklisty,
+raw code diagnostics, citation inventories, experiment-protocol inventories,
+interní cesty, hashe a packet detaily patří do interních podkladů nebo
+privátního pre-submission checklistu, ne do veřejných polí IS.
+
 ## Provenance
 
 Po dokončení dílčího výstupu ho lze zapsat průběžně:

@@ -86,10 +86,16 @@ Review the report as a report, not as the student's thesis. Check:
    operator instruction.
 11. Whether selected rewrites would improve fairness, precision, or tone without rewriting the whole report.
 12. Whether report-facing prose leaks internal packet paths, manifest hashes,
-   private URLs, raw PR metadata, review-thread details, local workspace paths,
-   or generated-draft state. Remove those classes of internal evidence from the
-   report text and convert them into evidence-backed conclusions, limitations,
-   or manual checks.
+    private URLs, raw PR metadata, review-thread details, local workspace paths,
+    or generated-draft state. Remove those classes of internal evidence from the
+    report text and convert them into evidence-backed conclusions, limitations,
+    or manual checks.
+
+Apply `docs/opponent-review-workflow.md#report-quality-controls` at the report
+boundary. In this review skill, the role-specific obligation is to check that
+the clean IS proposal is compact, fair, evidence-backed, aligned with points and
+grade, free of internal audit detail, and consistent with the private student
+comment and defense questions.
 
 Do not soften the report automatically. The goal is accuracy, fairness, evidence, and consistency.
 
