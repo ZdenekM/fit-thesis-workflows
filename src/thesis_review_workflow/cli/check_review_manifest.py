@@ -31,6 +31,7 @@ from thesis_review_workflow.commands import repo_command_environment, resolve_re
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL, round_uses_report_calibration_basis
 from thesis_review_workflow.review_approvals import (
     is_review_approval_path,
     load_review_approval,
@@ -298,6 +299,8 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return {"outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL}
     if name in {"check-opponent-report", "check-opponent-report:canonical"}:
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
+        if round_uses_report_calibration_basis(round_dir):
+            targets.add(REPORT_CALIBRATION_BASIS_REL)
         if (
             (round_dir / "work" / "oponent_posudek_draft.md").is_file()
             or (round_dir / "outputs" / "oponent_posudek_navrh.md").is_file()
@@ -306,11 +309,14 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
             targets.add("work/oponent_posudek_draft.md")
         return targets
     if name == "check-opponent-report:clean":
-        return {
+        targets = {
             "work/opponent_report_trace.json",
             "outputs/oponent_podklady_revidovane.md",
             "outputs/oponent_posudek_navrh.md",
         }
+        if round_uses_report_calibration_basis(round_dir):
+            targets.add(REPORT_CALIBRATION_BASIS_REL)
+        return targets
     if name == "check-supervisor-report":
         targets = {"work/supervisor_report_trace.json", "outputs/vedouci_posudek_revidovany.md"}
         if (round_dir / "work" / "vedouci_posudek_draft.md").is_file():

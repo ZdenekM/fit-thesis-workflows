@@ -8,6 +8,9 @@ def calibrated_canonical_report() -> str:
 <!-- source_trace_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->
 <!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->
 <!-- source_materials_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -->
+<!-- source_report_calibration_basis_path: work/report_calibration_basis.json -->
+<!-- source_report_calibration_basis_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc -->
+<!-- source_report_calibration_preference_ids: opponent.assignment_difficulty.stack_not_enough -->
 # Návrh oponentského posudku
 
 Datum přípravy draftu: 2026-05-18T00:00:00Z
@@ -99,6 +102,8 @@ def test_clean_export_text_strips_metadata_intro_status_and_private_checklist() 
 
     assert "source_trace_path" not in exported
     assert "source_materials_sha256" not in exported
+    assert "source_report_calibration" not in exported
+    assert "report_calibration_basis" not in exported
     assert "Datum přípravy draftu:" not in exported
     assert "Stav: připraveno" not in exported
     assert "## 12. Před odevzdáním" not in exported

@@ -26,6 +26,7 @@ from thesis_review_workflow.submitted_reports import (
     build_opponent_submitted_report_payload,
     build_supervisor_submitted_report_payload,
     opponent_public_report_text,
+    opponent_report_calibration_drift,
     validate_submitted_opponent_report_record,
     validate_submitted_report_record,
 )
@@ -219,6 +220,70 @@ def write_opponent_approval(round_dir: Path) -> None:
     approval_path.write_text(json.dumps(approval, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def write_opponent_report_calibration_basis(round_dir: Path, *, grade: str = "B", points_min: int = 80) -> None:
+    operator_rel = "notes/opponent-report-operator-feedback.md"
+    operator = round_dir / operator_rel
+    operator.parent.mkdir(parents=True, exist_ok=True)
+    operator.write_text("# Operator feedback\n\nUse calibrated report controls.\n", encoding="utf-8")
+    basis = {
+        "schema_version": "report-calibration-basis-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "workflow_profile": "opponent_review",
+        "operator_surface": "opponent_materials",
+        "wave_workflow": "opponent_report",
+        "generated_at": "2026-05-18T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-opponent-materials-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Synthetic calibration fixture.",
+        "source_refs": [operator_rel],
+        "profile_sources": [
+            {"path": "profiles/default.md", "sha256": "1" * 64, "sections_used": ["Opponent Report Style"]}
+        ],
+        "operator_calibration_sources": [
+            {"path": operator_rel, "sha256": sha256_file(operator), "purpose": "report calibration"}
+        ],
+        "related_calibration_artifacts": [],
+        "applied_preferences": [
+            {
+                "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+                "source_keys": ["profile:profiles/default.md", f"operator:{operator_rel}"],
+                "applies_to": ["assignment_difficulty", "overall_grade", "defense_questions"],
+                "instruction": "Keep report values aligned with the calibrated report controls.",
+                "priority": "must",
+                "status": "applied",
+                "decision_reason": "Synthetic test calibration.",
+            }
+        ],
+        "expected_report_controls": {
+            "is_select_values": {
+                "Náročnost zadání": "obtížnější zadání",
+                "Rozsah splnění požadavků zadání": "zadání splněno s drobnými výhradami",
+                "Rozsah technické zprávy": "je v obvyklém rozmezí",
+            },
+            "overall_grade": grade,
+            "overall_points_interval": [points_min, points_min + 4],
+            "defense_question_count": {"min": 1, "max": 3},
+            "private_comment_required": True,
+        },
+        "limitations": [],
+    }
+    basis_path = round_dir / "work" / "report_calibration_basis.json"
+    basis_path.parent.mkdir(parents=True, exist_ok=True)
+    basis_path.write_text(json.dumps(basis, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    trace = {
+        "report_calibration_basis_path": "work/report_calibration_basis.json",
+        "report_calibration_basis_sha256": sha256_file(basis_path),
+    }
+    (round_dir / "work" / "opponent_report_trace.json").write_text(
+        json.dumps(trace, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def make_submitted_opponent_round(tmp_path: Path, *, submitted_text: str | None = None) -> Path:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     clean = round_dir / OPPONENT_REPORT_CLEAN_REL
@@ -373,6 +438,197 @@ def test_submitted_opponent_report_record_binds_clean_review_approval_pdf_and_pu
         )
         == []
     )
+
+
+def test_submitted_opponent_report_record_binds_report_calibration_basis(tmp_path: Path) -> None:
+    round_dir = make_submitted_opponent_round(tmp_path)
+    write_opponent_report_calibration_basis(round_dir)
+
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+
+    assert payload["report_calibration_basis_path"] == "work/report_calibration_basis.json"
+    assert payload["report_calibration_controls_match"] is True
+    assert payload["report_calibration_reviewed_drift"] == []
+    assert payload["report_calibration_submitted_drift"] == []
+    assert payload["submitted_public_private_comment_present"] is False
+    assert payload["reviewed_private_student_comment_present"] is True
+    assert "work/report_calibration_basis.json" in payload["source_refs"]
+    assert (
+        validate_submitted_opponent_report_record(
+            payload,
+            round_dir=round_dir,
+            case_id="case-a",
+            round_id="round-a",
+        )
+        == []
+    )
+
+
+def test_submitted_opponent_report_rejects_calibration_drift_even_when_clean_and_submitted_match(
+    tmp_path: Path,
+) -> None:
+    round_dir = make_submitted_opponent_round(tmp_path)
+    write_opponent_report_calibration_basis(round_dir, grade="C", points_min=70)
+
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+
+    assert payload["public_text_normalized_match"] is True
+    assert payload["field_values_match"] is True
+    assert payload["report_calibration_controls_match"] is False
+    assert "overall_grade" in payload["report_calibration_reviewed_drift"]
+    errors = validate_submitted_opponent_report_record(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert any("submitted report values drift from report calibration basis" in error for error in errors)
+
+
+def test_submitted_opponent_report_validation_recomputes_calibration_hash_and_private_comment_state(
+    tmp_path: Path,
+) -> None:
+    round_dir = make_submitted_opponent_round(tmp_path)
+    write_opponent_report_calibration_basis(round_dir)
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+    payload["report_calibration_basis_sha256"] = "0" * 64
+    payload["reviewed_private_student_comment_present"] = False
+
+    errors = validate_submitted_opponent_report_record(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        rel_path=OPPONENT_REPORT_SUBMITTED_RECORD_REL,
+    )
+
+    assert f"{OPPONENT_REPORT_SUBMITTED_RECORD_REL}: report_calibration_basis_sha256 is stale" in errors
+    assert f"{OPPONENT_REPORT_SUBMITTED_RECORD_REL}: reviewed_private_student_comment_present is stale" in errors
+
+
+def test_submitted_opponent_report_rejects_private_comment_leak_in_public_text(tmp_path: Path) -> None:
+    clean = opponent_report_text()
+    submitted = (
+        opponent_public_report_text(clean)
+        + "\n## Komentář pro studenta (neveřejná část)\n\nTento text nemá být v odevzdaném veřejném exportu.\n"
+    )
+    round_dir = make_submitted_opponent_round(tmp_path, submitted_text=submitted)
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+
+    assert payload["submitted_public_private_comment_present"] is True
+    assert payload["field_values_match"] is False
+    errors = validate_submitted_opponent_report_record(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert any("submitted public text must not contain private student comment heading" in error for error in errors)
+    assert any("submitted public text field values do not match reviewed report basis" in error for error in errors)
+
+
+def test_submitted_opponent_report_rejects_public_calibration_leak_without_path_prefix(tmp_path: Path) -> None:
+    submitted = opponent_public_report_text(opponent_report_text()).replace(
+        "Práci doporučuji k obhajobě.",
+        "Práci doporučuji k obhajobě. Viz Report_Calibration_Basis.json, "
+        "SOURCE_REPORT_CALIBRATION_BASIS_PATH a PROFILES/LOCAL/DEFAULT.MD.",
+    )
+    round_dir = make_submitted_opponent_round(tmp_path, submitted_text=submitted)
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+
+    errors = validate_submitted_opponent_report_record(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        require_archive_ready=False,
+    )
+
+    assert any("report_calibration_basis" in error for error in errors)
+    assert any("source_report_calibration" in error for error in errors)
+    assert any("profiles/" in error for error in errors)
+
+
+def test_submitted_opponent_report_rejects_uppercase_public_hash_leak(tmp_path: Path) -> None:
+    submitted = opponent_public_report_text(opponent_report_text()).replace(
+        "Práci doporučuji k obhajobě.",
+        "Práci doporučuji k obhajobě. ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD.",
+    )
+    round_dir = make_submitted_opponent_round(tmp_path, submitted_text=submitted)
+    payload = build_opponent_submitted_report_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        submitted_at="2026-05-18T00:00:00Z",
+        recorded_by="operator",
+    )
+
+    errors = validate_submitted_opponent_report_record(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        require_archive_ready=False,
+    )
+
+    assert any("0-9a-f" in error for error in errors)
+
+
+def test_opponent_report_calibration_drift_tracks_structural_controls() -> None:
+    values = {
+        "select_fields": {"Náročnost zadání": "průměrně obtížné zadání"},
+        "overall_points": 85,
+        "grade": "B",
+        "defense_questions": [],
+        "private_student_comment_present": False,
+    }
+    controls = {
+        "is_select_values": {"Náročnost zadání": "obtížnější zadání"},
+        "overall_grade": "C",
+        "overall_points_interval": [70, 79],
+        "defense_question_count": {"min": 1, "max": 2},
+        "private_comment_required": True,
+    }
+
+    drift = opponent_report_calibration_drift(values, controls)
+
+    assert drift == [
+        "defense_question_count",
+        "is_select_values.Náročnost zadání",
+        "overall_grade",
+        "overall_points_interval",
+        "private_comment_required",
+    ]
 
 
 def test_submitted_opponent_report_diff_requires_accepted_delta_for_archive_readiness(tmp_path: Path) -> None:

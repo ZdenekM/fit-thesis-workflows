@@ -706,6 +706,39 @@ git diff --check
   `scripts/check-scripts`, `git diff --check`, and `pants run :omen`.
   Repo-level Omen reported grade A, overall score 90.85, 180 files analyzed,
   and no smells.
+- 2026-05-20: Slice 4 implemented. `draft-opponent-report` now copies
+  trace-bound report-calibration metadata into canonical draft source comments,
+  `check-opponent-report` validates `expected_report_controls` from
+  `work/report_calibration_basis.json` against structural report fields, and
+  `export-opponent-report` strips calibration metadata before clean export.
+  Submitted opponent-report capture now records a calibration snapshot and
+  treats IS selections, category points, overall points/grade, defense
+  questions, private-comment presence, and calibration-control drift as
+  review-reopening structural changes. Review-manifest helper targets and
+  dependencies now include `work/report_calibration_basis.json` when the round
+  is trace-bound to it.
+- 2026-05-20: Slice 4 review and closeout completed. Serena symbol navigation
+  was used on `draft_opponent_report.py`, `check_opponent_report.py`,
+  `export_opponent_report.py`, and `submitted_reports.py` before edits. Omen
+  MCP file/root-scoped `repomap`, `complexity`, and `deadcode` returned zero
+  files for specific touched roots, so that remains a typed MCP path/index
+  limitation; repo-scoped semantic search did locate the touched calibration
+  metadata, expected-control, submitted-report, and manifest-target symbols,
+  and repo-scoped deadcode found no dead definitions. Subagent findings were
+  patched: expected-grade validation now reads the canonical points/grade
+  section instead of matching arbitrary prose; submitted public text cannot
+  carry the private student-comment section; public leak checks are
+  case-insensitive for calibration/profile/hash markers; draft missing-basis
+  failures are clean errors; and manifest helper target/dependency hashes bind
+  the calibration basis. Post-fix checks passed:
+  `scripts/smoke-export-opponent-report`, `scripts/smoke-opponent-report`,
+  `scripts/smoke-record-submitted-opponent-report`,
+  `scripts/smoke-review-manifest`, `scripts/check-private`,
+  `scripts/check-scripts`,
+  `pants check src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py src/thesis_review_workflow/cli/export_opponent_report.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/submitted_reports.py src/thesis_review_workflow/submitted_report_deltas.py tests/test_draft_opponent_report.py tests/test_opponent_report.py tests/test_export_opponent_report.py tests/test_submitted_reports.py tests/test_review_manifest_helpers.py`,
+  `pants test tests/test_draft_opponent_report.py tests/test_opponent_report.py tests/test_export_opponent_report.py tests/test_submitted_reports.py tests/test_review_manifest_helpers.py`,
+  `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
+  overall score 90.86, 180 files analyzed, and no smells.
 
 ## Decision Log
 

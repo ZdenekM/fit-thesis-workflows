@@ -20,6 +20,11 @@ from thesis_review_workflow.cli.context import (
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.markdown_utils import section_text as markdown_section_text
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    report_calibration_expected_controls,
+    validate_report_calibration_artifact,
+)
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 from thesis_review_workflow.submitted_reports import (
     OPPONENT_REPORT_SUBMITTED_RECORD_REL,
@@ -92,6 +97,10 @@ INTERNAL_PATTERNS = (
     r"\bcode_quality_review\.md\b",
     r"\bfigure_media_review\.md\b",
     r"\btypography_formal_review\.md\b",
+    r"\breport_calibration_basis\.json\b",
+    r"\breport[-_ ]calibration[-_ ]basis(?:\b|_)",
+    r"\breviewer profile\b",
+    r"\bsource_report_calibration(?:\b|_)",
     r"\b[0-9a-f]{64}\b",
     r"\b(?:approval record|helper[- ]check|workflow profile|review basis|review manifest|agent coverage)\b",
 )
@@ -103,7 +112,13 @@ SOURCE_PATH_RE = re.compile(r"<!--\s*source_materials_path:\s*([^>]+?)\s*-->")
 SOURCE_SHA_RE = re.compile(r"<!--\s*source_materials_sha256:\s*([0-9a-f]{64})\s*-->")
 TRACE_PATH_RE = re.compile(r"<!--\s*source_trace_path:\s*([^>]+?)\s*-->")
 TRACE_SHA_RE = re.compile(r"<!--\s*source_trace_sha256:\s*([0-9a-f]{64})\s*-->")
-SOURCE_METADATA_COMMENT_RE = re.compile(r"^<!--\s*source_(?:materials|trace)_(?:path|sha256):.*?-->\s*$", re.MULTILINE)
+CALIBRATION_PATH_RE = re.compile(r"<!--\s*source_report_calibration_basis_path:\s*([^>]+?)\s*-->")
+CALIBRATION_SHA_RE = re.compile(r"<!--\s*source_report_calibration_basis_sha256:\s*([0-9a-f]{64})\s*-->")
+SOURCE_METADATA_COMMENT_RE = re.compile(
+    r"^<!--\s*(?:source_(?:materials|trace)_(?:path|sha256)"
+    r"|source_report_calibration_(?:basis_(?:path|sha256)|preference_ids|expected_controls)):.*?-->\s*$",
+    re.MULTILINE,
+)
 OPEN_CALIBRATION_PATTERNS = (
     r"\bpracovn[ií]\s+draft\b",
     r"\bk\s+ru[cč]n[ií]\s+kalibraci\b",
@@ -201,7 +216,8 @@ def sha256_file(path: Path) -> str:
 
 def strip_metadata_comments(text: str) -> str:
     return re.sub(
-        r"^<!--\s*source_(?:materials|trace)_(?:path|sha256):.*?-->\s*\n?",
+        r"^<!--\s*(?:source_(?:materials|trace)_(?:path|sha256)"
+        r"|source_report_calibration_(?:basis_(?:path|sha256)|preference_ids|expected_controls)):.*?-->\s*\n?",
         "",
         text,
         flags=re.MULTILINE,
@@ -236,6 +252,78 @@ def validate_source_metadata(text: str, materials_path: Path, _path_arg: str, er
         errors.append("missing source materials sha256 metadata comment")
     elif sha_match and materials_path.is_file() and sha_match.group(1) != sha256_file(materials_path):
         errors.append("opponent report draft is stale: reviewed opponent materials hash changed")
+
+
+def load_json_object(path: Path, label: str, errors: list[str]) -> dict[str, object] | None:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        errors.append(f"missing required JSON artifact: {label}")
+        return None
+    except json.JSONDecodeError as exc:
+        errors.append(f"{label}: invalid JSON: {exc.msg}")
+        return None
+    if not isinstance(loaded, dict):
+        errors.append(f"{label}: JSON artifact must be an object")
+        return None
+    return loaded
+
+
+def load_bound_report_calibration_basis(
+    round_dir: Path,
+    trace: dict[str, object] | None,
+    *,
+    case_id: str,
+    round_id: str,
+    errors: list[str],
+) -> dict[str, object] | None:
+    if not isinstance(trace, dict):
+        return None
+    basis_path = trace.get("report_calibration_basis_path")
+    basis_hash = trace.get("report_calibration_basis_sha256")
+    if basis_path is None and basis_hash is None:
+        return None
+    if basis_path != REPORT_CALIBRATION_BASIS_REL:
+        errors.append(f"report calibration basis path must be {REPORT_CALIBRATION_BASIS_REL}")
+        return None
+    basis_file = round_dir / REPORT_CALIBRATION_BASIS_REL
+    if not isinstance(basis_hash, str) or not basis_file.is_file() or basis_hash != sha256_file(basis_file):
+        errors.append("report calibration basis hash is stale or missing")
+        return None
+    errors.extend(
+        validate_report_calibration_artifact(
+            round_dir,
+            REPORT_CALIBRATION_BASIS_REL,
+            case_id=case_id,
+            round_id=round_id,
+        )
+    )
+    return load_json_object(basis_file, REPORT_CALIBRATION_BASIS_REL, errors)
+
+
+def validate_calibration_metadata(text: str, trace: dict[str, object] | None, errors: list[str]) -> None:
+    path_match = CALIBRATION_PATH_RE.search(text)
+    sha_match = CALIBRATION_SHA_RE.search(text)
+    if not isinstance(trace, dict):
+        return
+    trace_path = trace.get("report_calibration_basis_path")
+    trace_sha = trace.get("report_calibration_basis_sha256")
+    if trace_path is None and trace_sha is None:
+        if path_match or sha_match:
+            errors.append(
+                "draft contains report calibration metadata but trace has no report calibration basis binding"
+            )
+        return
+    if not path_match:
+        errors.append("missing report calibration basis path metadata comment")
+    elif path_match.group(1).strip() != trace_path:
+        errors.append(
+            "report calibration basis path metadata must match trace binding, " f"got {path_match.group(1).strip()}"
+        )
+    if not sha_match:
+        errors.append("missing report calibration basis sha256 metadata comment")
+    elif sha_match.group(1) != trace_sha:
+        errors.append("opponent report draft is stale: report calibration basis hash changed")
 
 
 def run_round_ready(root: Path, case_id: str, round_id: str, errors: list[str]) -> None:
@@ -289,6 +377,115 @@ def is_open_calibration_text(value: str) -> bool:
     return any(re.search(pattern, value, re.IGNORECASE) for pattern in OPEN_CALIBRATION_PATTERNS)
 
 
+def defense_question_count(section: str) -> int:
+    return sum(1 for line in section.splitlines() if "?" in line)
+
+
+def validate_expected_report_controls(
+    expected_controls: dict[str, object],
+    *,
+    source_label: str = "report calibration basis",
+    form_fields: dict[str, str],
+    points: list[int],
+    grades: list[str],
+    question_count: int,
+    private_comment_nonspace_chars: int,
+    errors: list[str],
+    notes: list[str],
+    allow_draft_calibration_pending: bool,
+) -> None:
+    is_select_values = expected_controls.get("is_select_values")
+    if isinstance(is_select_values, dict):
+        for field, expected in is_select_values.items():
+            if not isinstance(field, str) or not isinstance(expected, str):
+                continue
+            actual = form_fields.get(field)
+            if actual == expected:
+                continue
+            message = (
+                f"IS form selection for {field} does not match {source_label}: "
+                f"expected {expected}, got {actual or '<missing>'}"
+            )
+            if not actual or is_open_calibration_text(actual):
+                record_draft_calibration_issue(
+                    message,
+                    errors,
+                    notes,
+                    allow_draft_calibration_pending=allow_draft_calibration_pending,
+                )
+            else:
+                errors.append(message)
+
+    expected_grade = expected_controls.get("overall_grade")
+    if isinstance(expected_grade, str):
+        if not grades:
+            record_draft_calibration_issue(
+                f"overall grade does not match {source_label}: expected {expected_grade}, got <missing>",
+                errors,
+                notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
+        elif len(grades) != 1:
+            errors.append(
+                f"overall grade does not match {source_label}: expected one canonical grade {expected_grade}, "
+                f"got {', '.join(grades)}"
+            )
+        elif expected_grade != grades[0]:
+            errors.append(f"overall grade does not match {source_label}: expected {expected_grade}, got {grades[0]}")
+
+    interval = expected_controls.get("overall_points_interval")
+    if (
+        isinstance(interval, list)
+        and len(interval) == 2
+        and all(isinstance(item, int) and not isinstance(item, bool) for item in interval)
+    ):
+        if not points:
+            record_draft_calibration_issue(
+                f"overall points do not match {source_label}: expected {interval[0]}-{interval[1]}, got <missing>",
+                errors,
+                notes,
+                allow_draft_calibration_pending=allow_draft_calibration_pending,
+            )
+        else:
+            low, high = interval
+            if len(points) != 1:
+                errors.append(
+                    f"overall points do not match {source_label}: expected one canonical value {low}-{high}, "
+                    f"got {', '.join(str(point) for point in points)}"
+                )
+            for point_value in points:
+                if point_value < low or point_value > high:
+                    errors.append(
+                        f"overall points do not match {source_label}: " f"expected {low}-{high}, got {point_value}"
+                    )
+
+    question_bounds = expected_controls.get("defense_question_count")
+    if isinstance(question_bounds, dict):
+        minimum = question_bounds.get("min")
+        maximum = question_bounds.get("max")
+        if isinstance(minimum, int) and not isinstance(minimum, bool) and question_count < minimum:
+            errors.append(
+                f"defense question count does not match {source_label}: "
+                f"expected at least {minimum}, got {question_count}"
+            )
+        if isinstance(maximum, int) and not isinstance(maximum, bool) and question_count > maximum:
+            errors.append(
+                f"defense question count does not match {source_label}: "
+                f"expected at most {maximum}, got {question_count}"
+            )
+
+    if (
+        expected_controls.get("private_comment_required") is True
+        and private_comment_nonspace_chars < PRIVATE_COMMENT_MIN_NONSPACE_CHARS
+    ):
+        record_draft_calibration_issue(
+            f"private student comment required by {source_label} is missing or too short",
+            errors,
+            notes,
+            allow_draft_calibration_pending=allow_draft_calibration_pending,
+        )
+
+
 def check_text(
     text: str,
     public_text: str,
@@ -297,6 +494,8 @@ def check_text(
     mode: str = "canonical",
     allow_draft_calibration_pending: bool = False,
     draft_calibration_notes: list[str] | None = None,
+    expected_report_controls: dict[str, object] | None = None,
+    expected_report_controls_source: str = "report calibration basis",
 ) -> None:
     draft_calibration_notes = draft_calibration_notes if draft_calibration_notes is not None else []
     lines = text.splitlines()
@@ -335,11 +534,13 @@ def check_text(
             )
 
     questions = section_text(lines, "## 10. Otázky k obhajobě")
+    question_count = defense_question_count(questions)
     if "?" not in questions:
         errors.append("defense questions section must contain at least one explicit question")
 
-    points = [int(match.group(1)) for match in POINT_RE.finditer(public_text)]
-    grades = [match.group(1).upper() for match in GRADE_RE.finditer(public_text)]
+    points_section = section_text(lines, "## 11. Body a známka")
+    points = [int(match.group(1)) for match in POINT_RE.finditer(points_section)]
+    grades = [match.group(1).upper() for match in GRADE_RE.finditer(points_section)]
     if not points:
         record_draft_calibration_issue(
             "concrete numeric point value is required before the report draft can pass",
@@ -413,6 +614,19 @@ def check_text(
             errors.append(f"invalid IS form point value for {field}: {field_value}")
         elif parsed < 0 or parsed > 100:
             errors.append(f"IS form point value outside 0-100 range for {field}: {parsed}")
+    if expected_report_controls:
+        validate_expected_report_controls(
+            expected_report_controls,
+            source_label=expected_report_controls_source,
+            form_fields=form_fields,
+            points=points,
+            grades=grades,
+            question_count=question_count,
+            private_comment_nonspace_chars=private_comment_nonspace_chars,
+            errors=errors,
+            notes=draft_calibration_notes,
+            allow_draft_calibration_pending=allow_draft_calibration_pending,
+        )
 
 
 def main(argv: list[str]) -> int:
@@ -459,6 +673,21 @@ def main(argv: list[str]) -> int:
         round_id=round_id,
     )
     errors.extend(trace_errors)
+    trace = load_json_object(round_dir / TRACE_REL, TRACE_REL.as_posix(), errors)
+    basis = load_bound_report_calibration_basis(
+        round_dir,
+        trace,
+        case_id=args.case_id,
+        round_id=round_id,
+        errors=errors,
+    )
+    expected_controls = report_calibration_expected_controls(basis) if basis is not None else {}
+    basis_hash = trace.get("report_calibration_basis_sha256") if isinstance(trace, dict) else None
+    expected_controls_source = (
+        f"{REPORT_CALIBRATION_BASIS_REL} sha256={basis_hash}"
+        if isinstance(basis_hash, str)
+        else "report calibration basis"
+    )
 
     draft_path = round_dir / path_arg
     draft_exists = draft_path.is_file()
@@ -480,6 +709,7 @@ def main(argv: list[str]) -> int:
         if args.mode == "canonical":
             validate_trace_metadata(text, trace_path, path_arg, errors)
             validate_source_metadata(text, materials_path, path_arg, errors)
+            validate_calibration_metadata(text, trace, errors)
             public_text = strip_metadata_comments(text)
         check_text(
             text,
@@ -488,6 +718,8 @@ def main(argv: list[str]) -> int:
             mode=args.mode,
             allow_draft_calibration_pending=args.allow_draft_calibration_pending,
             draft_calibration_notes=draft_calibration_notes,
+            expected_report_controls=expected_controls,
+            expected_report_controls_source=expected_controls_source,
         )
 
     submitted_record_path = round_dir / OPPONENT_REPORT_SUBMITTED_RECORD_REL

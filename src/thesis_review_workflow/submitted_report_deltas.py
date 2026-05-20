@@ -20,6 +20,7 @@ from thesis_review_workflow.submitted_reports import (
     normalize_report_text,
     opponent_public_report_text,
     opponent_public_section_diffs,
+    opponent_report_field_values_match,
     opponent_report_values,
     sha256_text,
     validate_submitted_opponent_report_record,
@@ -50,14 +51,7 @@ def _field_values_match(clean_text: str, submitted_text: str) -> tuple[bool, lis
     errors.extend(f"submitted public text {error}" for error in submitted_errors)
     if errors:
         return False, errors
-    return (
-        clean_values["select_fields"] == submitted_values["select_fields"]
-        and clean_values["point_fields"] == submitted_values["point_fields"]
-        and clean_values["overall_points"] == submitted_values["overall_points"]
-        and clean_values["grade"] == submitted_values["grade"]
-        and clean_values["defense_questions"] == submitted_values["defense_questions"],
-        [],
-    )
+    return opponent_report_field_values_match(clean_values, submitted_values), []
 
 
 def build_opponent_submitted_report_delta_payload(
@@ -136,7 +130,10 @@ def build_opponent_submitted_report_delta_payload(
         for section in requested_sections
     ]
     all_diffs_classified = set(diffs_by_section) == set(requested_sections)
-    ready_with_deltas = field_values_match and all_diffs_classified and materiality == "non_material"
+    calibration_controls_match = submitted_record.get("report_calibration_controls_match", True) is True
+    ready_with_deltas = (
+        field_values_match and calibration_controls_match and all_diffs_classified and materiality == "non_material"
+    )
     return {
         "schema_version": SUBMITTED_REPORT_DELTAS_SCHEMA,
         "case_id": case_id,
@@ -176,6 +173,7 @@ def build_opponent_submitted_report_delta_payload(
         "current_public_text_diff_count": len(current_diffs),
         "all_current_public_text_diffs_classified": all_diffs_classified,
         "field_values_match": field_values_match,
+        "report_calibration_controls_match": calibration_controls_match,
         "ready_for_archive_with_deltas": ready_with_deltas,
     }
 
@@ -328,6 +326,7 @@ def _validate_recomputed_deltas(
         "current_public_text_diffs": current_diffs,
         "current_public_text_diff_count": len(current_diffs),
         "field_values_match": field_values_match,
+        "report_calibration_controls_match": submitted_record.get("report_calibration_controls_match", True) is True,
     }
     for field, expected in expected_values.items():
         if loaded.get(field) != expected:
@@ -391,11 +390,14 @@ def _validate_recomputed_deltas(
         errors.append(f"{rel_path}: delta_count is stale")
     if loaded.get("all_current_public_text_diffs_classified") != all_classified:
         errors.append(f"{rel_path}: all_current_public_text_diffs_classified is stale")
-    expected_ready = field_values_match and all_classified and not material_delta
+    calibration_controls_match = submitted_record.get("report_calibration_controls_match", True) is True
+    expected_ready = field_values_match and calibration_controls_match and all_classified and not material_delta
     if loaded.get("ready_for_archive_with_deltas") != expected_ready:
         errors.append(f"{rel_path}: ready_for_archive_with_deltas is stale")
     if require_archive_ready and material_delta:
         errors.append(f"{rel_path}: material submitted-report delta reopens opponent report review")
+    if require_archive_ready and not calibration_controls_match:
+        errors.append(f"{rel_path}: report calibration drift reopens opponent report review")
 
 
 def load_opponent_submitted_report_deltas(round_dir: Path) -> dict[str, Any]:

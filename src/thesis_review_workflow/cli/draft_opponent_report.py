@@ -25,6 +25,12 @@ from thesis_review_workflow.opponent_calibration import (
     validate_opponent_calibration_artifact,
 )
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    report_calibration_applied_preference_ids,
+    report_calibration_expected_control_keys,
+    validate_report_calibration_artifact,
+)
 from thesis_review_workflow.structured_evidence import validate_structured_evidence_artifact
 
 MATERIALS_REL = Path("outputs/oponent_podklady_revidovane.md")
@@ -107,6 +113,30 @@ def load_valid_trace(round_dir: Path, case_id: str, round_id: str) -> dict[str, 
             f"authorized opponent-report-trace reviewer before drafting.\n{detail}"
         )
     return load_json_object(round_dir / TRACE_REL, TRACE_REL.as_posix())
+
+
+def load_bound_report_calibration_basis(
+    round_dir: Path, trace: dict[str, Any], case_id: str, round_id: str
+) -> dict[str, Any] | None:
+    basis_path = trace.get("report_calibration_basis_path")
+    basis_hash = trace.get("report_calibration_basis_sha256")
+    if basis_path is None and basis_hash is None:
+        return None
+    if basis_path != REPORT_CALIBRATION_BASIS_REL:
+        raise SystemExit(f"Invalid report calibration basis path in trace: {basis_path!r}")
+    basis_file = round_dir / REPORT_CALIBRATION_BASIS_REL
+    if not isinstance(basis_hash, str) or not basis_file.is_file() or basis_hash != sha256_file(basis_file):
+        raise SystemExit("Invalid report calibration basis binding in trace: stale or missing hash")
+    errors = validate_report_calibration_artifact(
+        round_dir,
+        REPORT_CALIBRATION_BASIS_REL,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        detail = "\n".join(f"ERROR: {error}" for error in errors)
+        raise SystemExit("Invalid `work/report_calibration_basis.json`; refresh it before drafting.\n" f"{detail}")
+    return load_json_object(round_dir / REPORT_CALIBRATION_BASIS_REL, REPORT_CALIBRATION_BASIS_REL)
 
 
 def validate_current_case_calibration(round_dir: Path, case_id: str, round_id: str) -> str | None:
@@ -232,6 +262,8 @@ def build_report(
     *,
     trace_hash: str,
     materials_hash: str,
+    report_calibration_basis: dict[str, Any] | None = None,
+    report_calibration_basis_hash: str | None = None,
     advisory_notes: list[str] | None = None,
 ) -> str:
     items = trace_items_by_id(trace)
@@ -240,11 +272,36 @@ def build_report(
     uncertainty_items = trace_uncertainty_items(trace)
     created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
+    calibration_comments: list[str] = []
+    calibration_checks: list[str] = []
+    if report_calibration_basis is not None:
+        preference_ids = report_calibration_applied_preference_ids(report_calibration_basis)
+        expected_controls = sorted(report_calibration_expected_control_keys(report_calibration_basis))
+        calibration_comments.extend(
+            [
+                f"<!-- source_report_calibration_basis_path: {REPORT_CALIBRATION_BASIS_REL} -->",
+                f"<!-- source_report_calibration_basis_sha256: {report_calibration_basis_hash or ''} -->",
+            ]
+        )
+        if preference_ids:
+            calibration_comments.append(
+                "<!-- source_report_calibration_preference_ids: " + ", ".join(preference_ids) + " -->"
+            )
+        if expected_controls:
+            calibration_comments.append(
+                "<!-- source_report_calibration_expected_controls: " + ", ".join(expected_controls) + " -->"
+            )
+            calibration_checks.append(
+                "Ověřit, že výběry IS, body, známka, počet otázek a neveřejný komentář "
+                "odpovídají strukturované reportové kalibraci."
+            )
+
     lines = [
         f"<!-- source_trace_path: {TRACE_REL.as_posix()} -->",
         f"<!-- source_trace_sha256: {trace_hash} -->",
         f"<!-- source_materials_path: {MATERIALS_REL.as_posix()} -->",
         f"<!-- source_materials_sha256: {materials_hash} -->",
+        *calibration_comments,
         "# Návrh oponentského posudku",
         "",
         f"Datum přípravy draftu: {created}",
@@ -290,6 +347,8 @@ def build_report(
     )
     for check in checks:
         lines.append(f"- {check}")
+    for check in calibration_checks:
+        lines.append(f"- {check}")
     for uncertainty in uncertainty_items:
         lines.append(f"- Zohlednit strukturovaný uncertainty ledger: {uncertainty}")
     for note in advisory_notes or []:
@@ -319,6 +378,7 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"Missing reviewed opponent materials: {MATERIALS_REL.as_posix()}")
     trace_path = round_dir / TRACE_REL
     trace = load_valid_trace(round_dir, args.case_id, round_id)
+    report_calibration_basis = load_bound_report_calibration_basis(round_dir, trace, args.case_id, round_id)
     if not isinstance(trace.get("calibration_context"), dict):
         validate_current_case_calibration(round_dir, args.case_id, round_id)
     draft_path = round_dir / DRAFT_REL
@@ -338,6 +398,10 @@ def main(argv: list[str]) -> int:
             trace,
             trace_hash=sha256_file(trace_path),
             materials_hash=sha256_file(materials_path),
+            report_calibration_basis=report_calibration_basis,
+            report_calibration_basis_hash=(
+                sha256_file(round_dir / REPORT_CALIBRATION_BASIS_REL) if report_calibration_basis is not None else None
+            ),
             advisory_notes=advisory_notes,
         ),
         encoding="utf-8",

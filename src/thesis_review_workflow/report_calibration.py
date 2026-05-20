@@ -93,6 +93,22 @@ def is_report_calibration_basis_path(rel_path: str) -> bool:
     return rel_path == REPORT_CALIBRATION_BASIS_REL
 
 
+def round_uses_report_calibration_basis(round_dir: Path) -> bool:
+    if (round_dir / REPORT_CALIBRATION_BASIS_REL).is_file():
+        return True
+    trace_path = round_dir / "work" / "opponent_report_trace.json"
+    try:
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(trace, dict):
+        return False
+    return (
+        trace.get("report_calibration_basis_path") == REPORT_CALIBRATION_BASIS_REL
+        or trace.get("report_calibration_basis_sha256") is not None
+    )
+
+
 def validate_report_calibration_artifact(
     round_dir: Path,
     rel_path: Path | str = REPORT_CALIBRATION_BASIS_REL,
@@ -169,7 +185,9 @@ def validate_report_calibration_payload(
     _require_enum(loaded, "wave_workflow", WAVE_WORKFLOWS, rel_path, errors)
     _require_id(loaded, "reviewer_profile_id", rel_path, errors)
 
-    _validate_round_refs(loaded.get("source_refs"), f"{rel_path}: source_refs", round_dir, require_existing_refs, errors)
+    _validate_round_refs(
+        loaded.get("source_refs"), f"{rel_path}: source_refs", round_dir, require_existing_refs, errors
+    )
     _validate_profile_sources(loaded.get("profile_sources"), rel_path, round_dir, require_existing_refs, errors)
     _validate_expected_profile_sources(
         loaded,
@@ -257,9 +275,7 @@ def report_calibration_applied_preference_ids(payload: dict[str, Any]) -> list[s
         {
             item["preference_id"]
             for item in values
-            if isinstance(item, dict)
-            and isinstance(item.get("preference_id"), str)
-            and item.get("status") == "applied"
+            if isinstance(item, dict) and isinstance(item.get("preference_id"), str) and item.get("status") == "applied"
         }
     )
 
@@ -269,6 +285,13 @@ def report_calibration_expected_control_keys(payload: dict[str, Any]) -> set[str
     if not isinstance(controls, dict):
         return set()
     return {key for key in controls if key in EXPECTED_REPORT_CONTROL_KEYS}
+
+
+def report_calibration_expected_controls(payload: dict[str, Any]) -> dict[str, Any]:
+    controls = payload.get("expected_report_controls")
+    if not isinstance(controls, dict):
+        return {}
+    return {key: controls[key] for key in sorted(EXPECTED_REPORT_CONTROL_KEYS) if key in controls}
 
 
 def report_calibration_related_artifact_hashes(payload: dict[str, Any]) -> dict[str, str]:
@@ -306,13 +329,7 @@ def profile_source_paths(payload: dict[str, Any]) -> list[str]:
     values = payload.get("profile_sources")
     if not isinstance(values, list):
         return []
-    return sorted(
-        {
-            item["path"]
-            for item in values
-            if isinstance(item, dict) and isinstance(item.get("path"), str)
-        }
-    )
+    return sorted({item["path"] for item in values if isinstance(item, dict) and isinstance(item.get("path"), str)})
 
 
 def _validate_profile_sources(
@@ -378,7 +395,9 @@ def _validate_operator_sources(
         _require_sha(item, "sha256", prefix, errors)
         _require_nonempty_string(item, "purpose", prefix, errors)
         if isinstance(path, str) and _is_allowed_operator_source(path):
-            _validate_round_file_hash(round_dir, path, item.get("sha256"), f"{prefix}: sha256", require_existing_refs, errors)
+            _validate_round_file_hash(
+                round_dir, path, item.get("sha256"), f"{prefix}: sha256", require_existing_refs, errors
+            )
 
 
 def _validate_related_artifacts(
@@ -404,7 +423,9 @@ def _validate_related_artifacts(
         _require_sha(item, "sha256", prefix, errors)
         _require_nonempty_string(item, "relationship", prefix, errors)
         if isinstance(path, str) and path in RELATED_CALIBRATION_ARTIFACT_PATHS:
-            _validate_round_file_hash(round_dir, path, item.get("sha256"), f"{prefix}: sha256", require_existing_refs, errors)
+            _validate_round_file_hash(
+                round_dir, path, item.get("sha256"), f"{prefix}: sha256", require_existing_refs, errors
+            )
 
 
 def _declared_source_keys(loaded: dict[str, Any]) -> set[str]:
@@ -512,7 +533,9 @@ def _validate_expected_controls(value: Any, rel_path: str, errors: list[str]) ->
         else:
             for field, selection in is_select_values.items():
                 if field not in IS_SELECT_VALUES:
-                    errors.append(f"{rel_path}: expected_report_controls.is_select_values has unknown IS field: {field}")
+                    errors.append(
+                        f"{rel_path}: expected_report_controls.is_select_values has unknown IS field: {field}"
+                    )
                     continue
                 if selection not in IS_SELECT_VALUES[field]:
                     errors.append(
@@ -549,9 +572,13 @@ def _validate_expected_controls(value: Any, rel_path: str, errors: list[str]) ->
             minimum = question_count.get("min")
             maximum = question_count.get("max")
             if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 0:
-                errors.append(f"{rel_path}: expected_report_controls.defense_question_count.min must be non-negative int")
+                errors.append(
+                    f"{rel_path}: expected_report_controls.defense_question_count.min must be non-negative int"
+                )
             if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 0:
-                errors.append(f"{rel_path}: expected_report_controls.defense_question_count.max must be non-negative int")
+                errors.append(
+                    f"{rel_path}: expected_report_controls.defense_question_count.max must be non-negative int"
+                )
             if (
                 isinstance(minimum, int)
                 and not isinstance(minimum, bool)

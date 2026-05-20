@@ -195,8 +195,89 @@ Nejlepe obhajitelny interval je 76-82 bodu.
 EOF
 }
 
+write_report_calibration_basis() {
+  python3 - "$repo_root" "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+repo_root = pathlib.Path(sys.argv[1])
+round_dir = pathlib.Path(sys.argv[2])
+case_id = sys.argv[3]
+round_id = sys.argv[4]
+
+
+def sha(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+operator = round_dir / "notes/opponent-report-operator-feedback.md"
+operator.parent.mkdir(parents=True, exist_ok=True)
+operator.write_text("# Operator feedback\n\nUse calibrated report controls.\n", encoding="utf-8")
+profile_sources = []
+for rel in ("profiles/default.md", "profiles/local/default.md"):
+    path = repo_root / rel
+    if path.is_file():
+        profile_sources.append({"path": rel, "sha256": sha(path), "sections_used": ["Opponent Report Style"]})
+
+payload = {
+    "schema_version": "report-calibration-basis-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "calibration_scope": "opponent_report",
+    "reviewer_profile_id": "default",
+    "workflow_profile": "opponent_review",
+    "operator_surface": "opponent_materials",
+    "wave_workflow": "opponent_report",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-opponent-materials-reviewer",
+    "producer_agent": "smoke-calibration-agent",
+    "authorization_note": "Smoke test uses a synthetic report calibration basis.",
+    "source_refs": ["notes/opponent-report-operator-feedback.md"],
+    "profile_sources": profile_sources,
+    "operator_calibration_sources": [
+        {
+            "path": "notes/opponent-report-operator-feedback.md",
+            "sha256": sha(operator),
+            "purpose": "report calibration",
+        }
+    ],
+    "related_calibration_artifacts": [],
+    "applied_preferences": [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "source_keys": ["profile:profiles/default.md", "operator:notes/opponent-report-operator-feedback.md"],
+            "applies_to": ["assignment_difficulty", "overall_grade", "defense_questions"],
+            "instruction": "Keep report controls aligned with current evidence.",
+            "priority": "must",
+            "status": "applied",
+            "decision_reason": "Synthetic smoke calibration.",
+        }
+    ],
+    "expected_report_controls": {
+        "is_select_values": {
+            "Náročnost zadání": "obtížnější zadání",
+            "Rozsah splnění požadavků zadání": "zadání splněno s drobnými výhradami",
+            "Rozsah technické zprávy": "je v obvyklém rozmezí",
+        },
+        "overall_grade": "B",
+        "overall_points_interval": [80, 84],
+        "defense_question_count": {"min": 1, "max": 3},
+        "private_comment_required": True,
+    },
+    "limitations": [],
+}
+(round_dir / "work/report_calibration_basis.json").write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
+}
+
 write_trace() {
-  python3 - "$round_dir/work/opponent_report_trace.json" "$case_id" "$round_id" "$round_dir/outputs/oponent_podklady_revidovane.md" <<'PY'
+  python3 - "$round_dir/work/opponent_report_trace.json" "$case_id" "$round_id" "$round_dir/outputs/oponent_podklady_revidovane.md" "$round_dir/work/report_calibration_basis.json" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -206,7 +287,9 @@ path = pathlib.Path(sys.argv[1])
 case_id = sys.argv[2]
 round_id = sys.argv[3]
 materials_path = pathlib.Path(sys.argv[4])
+basis_path = pathlib.Path(sys.argv[5])
 materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
+basis_hash = hashlib.sha256(basis_path.read_bytes()).hexdigest()
 formulations = {
     "assignment_difficulty": ("Náročnost zadání", "Zadani hodnotim jako stredne narocne."),
     "assignment_fulfillment": ("Rozsah splnění požadavků zadání", "Zadani bylo naplneno s vyhradami."),
@@ -227,13 +310,31 @@ payload = {
     "producer_role": "opponent-report-trace-reviewer",
     "producer_agent": "smoke-trace-agent",
     "authorization_note": "Smoke test uses a synthetic agent-authored fixture.",
-    "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+    "source_refs": ["outputs/oponent_podklady_revidovane.md", "work/report_calibration_basis.json"],
     "source_materials_path": "outputs/oponent_podklady_revidovane.md",
     "source_materials_sha256": materials_hash,
     "trace_review_status": "accepted",
     "reviewer_role": "independent-opponent-report-trace-reviewer",
     "reviewed_at": "2026-05-18T00:00:01Z",
-    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+    "trace_generated_from": ["outputs/oponent_podklady_revidovane.md", "work/report_calibration_basis.json"],
+    "report_calibration_basis_path": "work/report_calibration_basis.json",
+    "report_calibration_basis_sha256": basis_hash,
+    "calibration_preference_ids": ["opponent.assignment_difficulty.stack_not_enough"],
+    "calibration_preference_applications": [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "target_is_item_ids": ["assignment_difficulty"],
+            "target_defense_question_ids": ["D1"],
+            "target_report_controls": [
+                "is_select_values",
+                "overall_grade",
+                "overall_points_interval",
+                "defense_question_count",
+                "private_comment_required",
+            ],
+            "rationale": "Synthetic trace applies the structured calibration basis.",
+        }
+    ],
     "is_items": [
         {
             "item_id": item_id,
@@ -281,6 +382,7 @@ calibrate_draft() {
 
 write_valid_materials
 expect_success "reviewed materials are valid" "$repo_root/scripts/check-opponent-materials" "$case_id" "$round_id"
+write_report_calibration_basis
 write_trace
 expect_success "draft helper writes canonical report draft" "$repo_root/scripts/draft-opponent-report" "$case_id" "$round_id"
 draft="$round_dir/work/oponent_posudek_draft.md"

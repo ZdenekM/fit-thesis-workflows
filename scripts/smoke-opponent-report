@@ -960,6 +960,7 @@ import sys
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 checks = {check["check"]: check for check in manifest["helper_checks"]}
 assert checks["check-opponent-report:canonical"]["status"] == "passed", checks["check-opponent-report:canonical"]
+assert "work/report_calibration_basis.json" in checks["check-opponent-report:canonical"]["target_artifacts"], checks["check-opponent-report:canonical"]
 support = {item["path"] for item in manifest["supporting_work_artifacts"]}
 assert "work/oponent_posudek_draft.md" in support, support
 PY

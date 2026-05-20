@@ -6,6 +6,7 @@ from thesis_review_workflow.cli.check_opponent_report import (
     DEFAULT_DRAFT,
     check_text,
     strip_metadata_comments,
+    validate_calibration_metadata,
     validate_trace_metadata,
 )
 from thesis_review_workflow.cli.draft_opponent_report import build_report
@@ -81,6 +82,36 @@ def test_build_report_uses_structured_trace_without_fallback_prose() -> None:
     assert "Z dostupných revidovaných podkladů není pro tuto položku" not in report
 
 
+def test_build_report_copies_report_calibration_metadata_comments() -> None:
+    basis = {
+        "applied_preferences": [
+            {"preference_id": "opponent.assignment_difficulty.stack_not_enough", "status": "applied"}
+        ],
+        "expected_report_controls": {
+            "overall_grade": "B",
+            "overall_points_interval": [80, 84],
+            "defense_question_count": {"min": 1, "max": 3},
+        },
+    }
+
+    report = build_report(
+        trace_payload(),
+        trace_hash="a" * 64,
+        materials_hash="b" * 64,
+        report_calibration_basis=basis,
+        report_calibration_basis_hash="c" * 64,
+    )
+
+    assert "<!-- source_report_calibration_basis_path: work/report_calibration_basis.json -->" in report
+    assert "<!-- source_report_calibration_basis_sha256: " + "c" * 64 + " -->" in report
+    assert (
+        "<!-- source_report_calibration_preference_ids: opponent.assignment_difficulty.stack_not_enough -->" in report
+    )
+    stripped = strip_metadata_comments(report)
+    assert "report_calibration_basis" not in stripped
+    assert "source_report_calibration" not in stripped
+
+
 def test_trace_metadata_validation_detects_stale_trace(tmp_path: Path) -> None:
     trace_path = tmp_path / "opponent_report_trace.json"
     trace_path.write_text('{"version": 1}\n', encoding="utf-8")
@@ -116,6 +147,8 @@ def test_strip_metadata_comments_removes_trace_and_materials_paths() -> None:
         "<!-- source_trace_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n"
         "<!-- source_materials_path: outputs/oponent_podklady_revidovane.md -->\n"
         "<!-- source_materials_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -->\n"
+        "<!-- source_report_calibration_basis_path: work/report_calibration_basis.json -->\n"
+        "<!-- source_report_calibration_basis_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc -->\n"
         "# Návrh oponentského posudku\n"
     )
 
@@ -123,7 +156,27 @@ def test_strip_metadata_comments_removes_trace_and_materials_paths() -> None:
 
     assert "work/" not in stripped
     assert "outputs/" not in stripped
+    assert "report_calibration" not in stripped
     assert stripped.startswith("# Návrh")
+
+
+def test_calibration_metadata_validation_requires_trace_bound_comments() -> None:
+    text = (
+        "<!-- source_report_calibration_basis_path: work/report_calibration_basis.json -->\n"
+        "<!-- source_report_calibration_basis_sha256: " + "a" * 64 + " -->\n"
+    )
+    trace: dict[str, object] = {
+        "report_calibration_basis_path": "work/report_calibration_basis.json",
+        "report_calibration_basis_sha256": "a" * 64,
+    }
+    errors: list[str] = []
+
+    validate_calibration_metadata(text, trace, errors)
+
+    assert errors == []
+
+    validate_calibration_metadata(text.replace("a" * 64, "b" * 64), trace, errors)
+    assert any("report calibration basis hash changed" in error for error in errors)
 
 
 def calibrated_report_text() -> str:
@@ -246,6 +299,15 @@ def test_check_text_clean_mode_rejects_hashes_and_workflow_mechanics() -> None:
     assert any("approval record" in error for error in errors)
 
 
+def test_check_text_rejects_leaked_report_calibration_in_clean_report() -> None:
+    text = clean_report_text() + "\nReport calibration basis: work/report_calibration_basis.json\n"
+    errors: list[str] = []
+
+    check_text(text, text, errors, mode="clean")
+
+    assert any("report_calibration_basis" in error for error in errors)
+
+
 def test_check_text_canonical_mode_requires_private_checklist() -> None:
     errors: list[str] = []
 
@@ -352,3 +414,52 @@ def test_check_text_rejects_duplicate_is_form_fields() -> None:
     check_text(text, text, errors)
 
     assert "duplicate IS form field: Rozsah splnění požadavků zadání" in errors
+
+
+def test_check_text_validates_expected_report_controls() -> None:
+    expected_controls = {
+        "is_select_values": {
+            "Náročnost zadání": "obtížnější zadání",
+            "Rozsah splnění požadavků zadání": "zadání splněno s drobnými výhradami",
+        },
+        "overall_grade": "C",
+        "overall_points_interval": [70, 79],
+        "defense_question_count": {"min": 1, "max": 2},
+        "private_comment_required": True,
+    }
+    errors: list[str] = []
+
+    check_text(calibrated_report_text(), calibrated_report_text(), errors, expected_report_controls=expected_controls)
+
+    assert errors == []
+
+    mismatched = calibrated_report_text().replace("Navržená známka: C", "Navržená známka: B")
+    mismatched = mismatched.replace("Bodové hodnocení: 75 bodů", "Bodové hodnocení: 85 bodů")
+    errors = []
+    check_text(
+        mismatched,
+        mismatched,
+        errors,
+        expected_report_controls=expected_controls,
+        expected_report_controls_source="work/report_calibration_basis.json sha256=" + "a" * 64,
+    )
+
+    assert any("overall grade does not match work/report_calibration_basis.json" in error for error in errors)
+    assert any("overall points do not match work/report_calibration_basis.json" in error for error in errors)
+
+
+def test_check_text_validates_only_canonical_grade_section_against_expected_controls() -> None:
+    text = calibrated_report_text().replace("Navržená známka: C", "Navržená známka: D")
+    text = text.replace(
+        "## 1. Náročnost zadání\n\nText.", "## 1. Náročnost zadání\n\nZnámka: C v této větě není celkové hodnocení."
+    )
+    errors: list[str] = []
+
+    check_text(
+        text,
+        text,
+        errors,
+        expected_report_controls={"overall_grade": "C"},
+    )
+
+    assert any("overall grade does not match report calibration basis: expected C, got D" in error for error in errors)

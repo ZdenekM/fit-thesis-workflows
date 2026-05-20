@@ -54,6 +54,19 @@ def test_helper_dependency_hashes_normalize_opponent_report_modes_for_submitted_
         assert "round:extracted/submitted_reports:opponent_report.txt" in hashes
 
 
+def test_helper_dependency_hashes_include_report_calibration_basis_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    basis.parent.mkdir(parents=True)
+    basis.write_text("{}\n", encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+
+    hashes = helper_dependency_hashes(round_dir, "check-opponent-report:canonical")
+
+    assert hashes["round:work/report_calibration_basis.json"] == sha256_file(basis)
+
+
 def write_claim_review_basis(round_dir: Path, *, draft_ref: str = "work/feedback_student_draft.md") -> None:
     draft = round_dir / draft_ref
     evidence = round_dir / "extracted" / "thesis.txt"
@@ -387,6 +400,27 @@ def test_init_manifest_opponent_report_check_does_not_target_review_output(tmp_p
     )
 
 
+def test_init_manifest_opponent_report_check_targets_report_calibration_basis(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+    basis.write_text("{}\n", encoding="utf-8")
+
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/oponent_podklady_revidovane.md", "outputs/feedback_k_posudku.md"},
+        round_dir,
+        {},
+    )
+
+    opponent_report = next(item for item in checks if item["check"] == "check-opponent-report:canonical")
+
+    assert "work/report_calibration_basis.json" in opponent_report["target_artifacts"]
+
+
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
@@ -495,6 +529,55 @@ def test_review_manifest_requires_clean_opponent_report_target(tmp_path: Path) -
     assert (
         "helper_checks check-opponent-report:clean: missing required target artifact "
         "outputs/oponent_podklady_revidovane.md" in errors
+    )
+
+
+def test_review_manifest_requires_report_calibration_basis_target_when_trace_bound(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    materials = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    proposal = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    basis = round_dir / "work" / "report_calibration_basis.json"
+    materials.parent.mkdir(parents=True)
+    trace.parent.mkdir(parents=True)
+    proposal.parent.mkdir(parents=True, exist_ok=True)
+    basis.parent.mkdir(parents=True, exist_ok=True)
+    materials.write_text("# Reviewed materials\n", encoding="utf-8")
+    trace.write_text('{"report_calibration_basis_path": "work/report_calibration_basis.json"}\n', encoding="utf-8")
+    proposal.write_text("# Clean report proposal\n", encoding="utf-8")
+    basis.write_text("{}\n", encoding="utf-8")
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-report:clean",
+                "command": "check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md case-a round-a",
+                "target_artifacts": [
+                    "work/opponent_report_trace.json",
+                    "outputs/oponent_podklady_revidovane.md",
+                    "outputs/oponent_posudek_navrh.md",
+                ],
+                "target_sha256": {
+                    "work/opponent_report_trace.json": sha256_file(trace),
+                    "outputs/oponent_podklady_revidovane.md": sha256_file(materials),
+                    "outputs/oponent_posudek_navrh.md": sha256_file(proposal),
+                },
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-report:clean"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert (
+        "helper_checks check-opponent-report:clean: missing required target artifact "
+        "work/report_calibration_basis.json" in errors
     )
 
 

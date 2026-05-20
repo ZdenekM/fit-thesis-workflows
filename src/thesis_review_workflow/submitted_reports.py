@@ -14,6 +14,11 @@ from typing import Any
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.markdown_utils import section_text
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    report_calibration_expected_controls,
+    validate_report_calibration_artifact,
+)
 from thesis_review_workflow.supervisor_report import (
     SUPERVISOR_REPORT_CONFIRMATION_REL,
     SUPERVISOR_REPORT_REVIEWED_REL,
@@ -33,6 +38,7 @@ SUPPORTED_REPORT_KINDS = {REPORT_KIND_SUPERVISOR, REPORT_KIND_OPPONENT}
 OPPONENT_REPORT_CLEAN_REL = "outputs/oponent_posudek_navrh.md"
 OPPONENT_REPORT_REVIEW_REL = "outputs/feedback_k_posudku.md"
 OPPONENT_REPORT_APPROVAL_REL = "work/reviews/opponent_report_review.json"
+OPPONENT_REPORT_TRACE_REL = "work/opponent_report_trace.json"
 OPPONENT_REPORT_SUBMITTED_RECORD_REL = "work/submitted_reports/opponent_report.json"
 OPPONENT_REPORT_SUBMITTED_PDF_REL = "work/submitted_reports/opponent_report.pdf"
 OPPONENT_REPORT_SUBMITTED_TEXT_REL = "extracted/submitted_reports/opponent_report.txt"
@@ -108,6 +114,10 @@ OPPONENT_PUBLIC_FORBIDDEN_PATTERNS = (
     r"\bcode_quality_review\.md\b",
     r"\bfigure_media_review\.md\b",
     r"\btypography_formal_review\.md\b",
+    r"\breport_calibration_basis\.json\b",
+    r"\breport[-_ ]calibration[-_ ]basis(?:\b|_)",
+    r"\breviewer profile\b",
+    r"\bsource_report_calibration(?:\b|_)",
     r"\b[0-9a-f]{64}\b",
     r"\b(?:approval record|helper[- ]check|workflow profile|review basis|review manifest|agent coverage)\b",
 )
@@ -364,6 +374,7 @@ def opponent_report_values(text: str, *, require_private_comment: bool = True) -
             "defense_questions": questions,
             "defense_questions_text": questions_text,
             "private_student_comment": private_comment.strip(),
+            "private_student_comment_present": bool(private_comment.strip()),
         },
         errors,
     )
@@ -372,8 +383,10 @@ def opponent_report_values(text: str, *, require_private_comment: bool = True) -
 def public_text_safety_errors(text: str, rel_path: str) -> list[str]:
     errors: list[str] = []
     for pattern in OPPONENT_PUBLIC_FORBIDDEN_PATTERNS:
-        if re.search(pattern, text):
+        if re.search(pattern, text, re.IGNORECASE):
             errors.append(f"{rel_path}: submitted public text contains internal/workflow pattern {pattern}")
+    if OPPONENT_REPORT_PRIVATE_HEADING in text.splitlines():
+        errors.append(f"{rel_path}: submitted public text must not contain private student comment heading")
     return errors
 
 
@@ -436,6 +449,121 @@ def load_opponent_approval(round_dir: Path) -> dict[str, Any]:
     return approval
 
 
+def opponent_report_field_values_match(clean_values: dict[str, Any], submitted_values: dict[str, Any]) -> bool:
+    return bool(
+        clean_values["select_fields"] == submitted_values["select_fields"]
+        and clean_values["point_fields"] == submitted_values["point_fields"]
+        and clean_values["overall_points"] == submitted_values["overall_points"]
+        and clean_values["grade"] == submitted_values["grade"]
+        and clean_values["defense_questions"] == submitted_values["defense_questions"]
+        and clean_values["defense_questions_text"] == submitted_values["defense_questions_text"]
+        and submitted_values.get("private_student_comment_present") is False
+    )
+
+
+def opponent_report_calibration_drift(values: dict[str, Any], expected_controls: dict[str, Any]) -> list[str]:
+    drift: list[str] = []
+    is_select_values = expected_controls.get("is_select_values")
+    if isinstance(is_select_values, dict):
+        select_fields = values.get("select_fields")
+        select_fields = select_fields if isinstance(select_fields, dict) else {}
+        for field, expected in is_select_values.items():
+            if isinstance(field, str) and isinstance(expected, str) and select_fields.get(field) != expected:
+                drift.append(f"is_select_values.{field}")
+    expected_grade = expected_controls.get("overall_grade")
+    if isinstance(expected_grade, str) and values.get("grade") != expected_grade:
+        drift.append("overall_grade")
+    interval = expected_controls.get("overall_points_interval")
+    if (
+        isinstance(interval, list)
+        and len(interval) == 2
+        and all(isinstance(item, int) and not isinstance(item, bool) for item in interval)
+    ):
+        points = values.get("overall_points")
+        if not isinstance(points, int) or points < interval[0] or points > interval[1]:
+            drift.append("overall_points_interval")
+    question_count = expected_controls.get("defense_question_count")
+    if isinstance(question_count, dict):
+        minimum = question_count.get("min")
+        maximum = question_count.get("max")
+        questions = values.get("defense_questions")
+        count = len(questions) if isinstance(questions, list) else 0
+        if isinstance(minimum, int) and not isinstance(minimum, bool) and count < minimum:
+            drift.append("defense_question_count")
+        if isinstance(maximum, int) and not isinstance(maximum, bool) and count > maximum:
+            drift.append("defense_question_count")
+    if (
+        expected_controls.get("private_comment_required") is True
+        and values.get("private_student_comment_present") is not True
+    ):
+        drift.append("private_comment_required")
+    return sorted(dict.fromkeys(drift))
+
+
+def _load_bound_opponent_report_calibration(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    trace_path = round_dir / OPPONENT_REPORT_TRACE_REL
+    if not trace_path.is_file():
+        return None, {}
+    trace = load_json_object(trace_path, OPPONENT_REPORT_TRACE_REL)
+    basis_path = trace.get("report_calibration_basis_path")
+    basis_hash = trace.get("report_calibration_basis_sha256")
+    if basis_path is None and basis_hash is None:
+        return None, {}
+    if basis_path != REPORT_CALIBRATION_BASIS_REL:
+        raise ValueError(
+            f"{OPPONENT_REPORT_TRACE_REL}: report_calibration_basis_path must be {REPORT_CALIBRATION_BASIS_REL}"
+        )
+    basis_file = round_dir / REPORT_CALIBRATION_BASIS_REL
+    if not basis_file.is_file():
+        raise ValueError(f"missing report calibration basis: {REPORT_CALIBRATION_BASIS_REL}")
+    if not isinstance(basis_hash, str) or basis_hash != sha256_file(basis_file):
+        raise ValueError(f"{OPPONENT_REPORT_TRACE_REL}: report_calibration_basis_sha256 is stale")
+    errors = validate_report_calibration_artifact(
+        round_dir,
+        REPORT_CALIBRATION_BASIS_REL,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if errors:
+        raise ValueError("; ".join(errors))
+    basis = load_json_object(basis_file, REPORT_CALIBRATION_BASIS_REL)
+    return basis, report_calibration_expected_controls(basis)
+
+
+def opponent_report_calibration_snapshot(
+    round_dir: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    clean_values: dict[str, Any],
+    submitted_values: dict[str, Any],
+) -> dict[str, Any]:
+    basis, expected_controls = _load_bound_opponent_report_calibration(
+        round_dir,
+        case_id=case_id,
+        round_id=round_id,
+    )
+    if basis is None:
+        return {}
+    clean_drift = opponent_report_calibration_drift(clean_values, expected_controls)
+    submitted_expected_controls = dict(expected_controls)
+    submitted_expected_controls.pop("private_comment_required", None)
+    submitted_drift = opponent_report_calibration_drift(submitted_values, submitted_expected_controls)
+    return {
+        "report_calibration_basis_path": REPORT_CALIBRATION_BASIS_REL,
+        "report_calibration_basis_sha256": sha256_file(round_dir / REPORT_CALIBRATION_BASIS_REL),
+        "report_calibration_expected_controls": expected_controls,
+        "report_calibration_reviewed_drift": clean_drift,
+        "report_calibration_submitted_drift": submitted_drift,
+        "report_calibration_controls_match": not clean_drift and not submitted_drift,
+    }
+
+
 def build_opponent_submitted_report_payload(
     round_dir: Path,
     *,
@@ -472,16 +600,17 @@ def build_opponent_submitted_report_payload(
         raise ValueError("; ".join(f"{public_text_rel}: {error}" for error in submitted_errors))
     normalized_projection = normalize_report_text(public_projection)
     normalized_submitted = normalize_report_text(submitted_text)
-    compared_fields = (
-        clean_values["select_fields"] == submitted_values["select_fields"]
-        and clean_values["point_fields"] == submitted_values["point_fields"]
-        and clean_values["overall_points"] == submitted_values["overall_points"]
-        and clean_values["grade"] == submitted_values["grade"]
-        and clean_values["defense_questions"] == submitted_values["defense_questions"]
-        and clean_values["defense_questions_text"] == submitted_values["defense_questions_text"]
+    compared_fields = opponent_report_field_values_match(clean_values, submitted_values)
+    calibration_snapshot = opponent_report_calibration_snapshot(
+        round_dir,
+        case_id=case_id,
+        round_id=round_id,
+        clean_values=clean_values,
+        submitted_values=submitted_values,
     )
+    calibration_controls_match = calibration_snapshot.get("report_calibration_controls_match", True) is True
     public_match = normalized_projection == normalized_submitted
-    return {
+    payload = {
         "schema_version": SUBMITTED_REPORT_SCHEMA,
         "case_id": case_id,
         "round_id": round_id,
@@ -530,13 +659,22 @@ def build_opponent_submitted_report_payload(
         "reviewed_defense_questions_text": clean_values["defense_questions_text"],
         "private_student_comment_path": OPPONENT_REPORT_CLEAN_REL,
         "private_student_comment_sha256": sha256_text(clean_values["private_student_comment"]),
+        "submitted_public_private_comment_present": submitted_values["private_student_comment_present"],
+        "reviewed_private_student_comment_present": clean_values["private_student_comment_present"],
         "public_text_projection_kind": "opponent-clean-markdown-public-v1",
         "public_text_section_diffs": opponent_public_section_diffs(public_projection, submitted_text),
         "submitted_report_deltas_path": OPPONENT_REPORT_DELTAS_REL,
         "public_text_normalized_match": public_match,
         "field_values_match": compared_fields,
-        "ready_for_archive": public_match and compared_fields,
+        "ready_for_archive": public_match and compared_fields and calibration_controls_match,
     }
+    payload["source_refs"].extend(
+        ref
+        for ref in (OPPONENT_REPORT_TRACE_REL, REPORT_CALIBRATION_BASIS_REL)
+        if calibration_snapshot and (round_dir / ref).is_file()
+    )
+    payload.update(calibration_snapshot)
+    return payload
 
 
 def validate_submitted_report_record(
@@ -641,6 +779,14 @@ def validate_submitted_opponent_report_record(
     approval_path = _validate_hash_bound_path(
         loaded, rel_path, round_dir, "approval_record_path", "approval_record_sha256", errors
     )
+    calibration_path = _validate_optional_hash_bound_path(
+        loaded,
+        rel_path,
+        round_dir,
+        "report_calibration_basis_path",
+        "report_calibration_basis_sha256",
+        errors,
+    )
     if submitted_pdf_path is not None and submitted_pdf_path.suffix.casefold() != ".pdf":
         errors.append(f"{rel_path}: submitted_pdf_path must point to a PDF")
     if loaded.get("reviewed_report_path") != OPPONENT_REPORT_CLEAN_REL:
@@ -649,6 +795,8 @@ def validate_submitted_opponent_report_record(
         errors.append(f"{rel_path}: review_output_path must be {OPPONENT_REPORT_REVIEW_REL}")
     if loaded.get("approval_record_path") != OPPONENT_REPORT_APPROVAL_REL:
         errors.append(f"{rel_path}: approval_record_path must be {OPPONENT_REPORT_APPROVAL_REL}")
+    if calibration_path is not None and loaded.get("report_calibration_basis_path") != REPORT_CALIBRATION_BASIS_REL:
+        errors.append(f"{rel_path}: report_calibration_basis_path must be {REPORT_CALIBRATION_BASIS_REL}")
     if not isinstance(loaded.get("recorded_by"), str) or not str(loaded.get("recorded_by")).strip():
         errors.append(f"{rel_path}: recorded_by must be a non-empty string")
     if submitted_text_path is not None:
@@ -667,6 +815,8 @@ def validate_submitted_opponent_report_record(
             reviewed_path=reviewed_path,
             review_output_path=review_output_path,
             approval_path=approval_path,
+            case_id=case_id,
+            round_id=round_id,
             errors=errors,
         )
     archive_ready_with_deltas = False
@@ -687,6 +837,8 @@ def validate_submitted_opponent_report_record(
         errors.append(f"{rel_path}: submitted public text does not match reviewed public report projection")
     if require_archive_ready and loaded.get("field_values_match") is not True:
         errors.append(f"{rel_path}: submitted public text field values do not match reviewed report basis")
+    if require_archive_ready and loaded.get("report_calibration_controls_match") is False:
+        errors.append(f"{rel_path}: submitted report values drift from report calibration basis")
     if require_archive_ready and loaded.get("ready_for_archive") is not True and not archive_ready_with_deltas:
         errors.append(f"{rel_path}: ready_for_archive must be true")
     if require_archive_ready and loaded.get("grade") != loaded.get("reviewed_grade"):
@@ -744,6 +896,22 @@ def _validate_hash_bound_path(
         errors.append(f"{rel_path}: {hash_field} is stale for {path_value}")
         return None
     return path
+
+
+def _validate_optional_hash_bound_path(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path,
+    path_field: str,
+    hash_field: str,
+    errors: list[str],
+) -> Path | None:
+    if path_field not in loaded and hash_field not in loaded:
+        return None
+    if path_field not in loaded or hash_field not in loaded:
+        errors.append(f"{rel_path}: {path_field} and {hash_field} must be recorded together")
+        return None
+    return _validate_hash_bound_path(loaded, rel_path, round_dir, path_field, hash_field, errors)
 
 
 def _validate_recomputed_submitted_report_state(
@@ -806,6 +974,8 @@ def _validate_recomputed_submitted_opponent_report_state(
     reviewed_path: Path,
     review_output_path: Path,
     approval_path: Path,
+    case_id: str | None,
+    round_id: str | None,
     errors: list[str],
 ) -> None:
     submitted_text = submitted_text_path.read_text(encoding="utf-8")
@@ -824,14 +994,19 @@ def _validate_recomputed_submitted_opponent_report_state(
         return
     normalized_submitted = normalize_report_text(submitted_text)
     normalized_projection = normalize_report_text(public_projection)
-    field_values_match = (
-        clean_values["select_fields"] == submitted_values["select_fields"]
-        and clean_values["point_fields"] == submitted_values["point_fields"]
-        and clean_values["overall_points"] == submitted_values["overall_points"]
-        and clean_values["grade"] == submitted_values["grade"]
-        and clean_values["defense_questions"] == submitted_values["defense_questions"]
-        and clean_values["defense_questions_text"] == submitted_values["defense_questions_text"]
-    )
+    field_values_match = opponent_report_field_values_match(clean_values, submitted_values)
+    calibration_snapshot: dict[str, Any] = {}
+    if case_id is not None and round_id is not None:
+        try:
+            calibration_snapshot = opponent_report_calibration_snapshot(
+                round_dir,
+                case_id=case_id,
+                round_id=round_id,
+                clean_values=clean_values,
+                submitted_values=submitted_values,
+            )
+        except ValueError as exc:
+            errors.append(f"{rel_path}: {exc}")
     if loaded.get("submitted_public_text_normalized_sha256") != sha256_text(normalized_submitted):
         errors.append(f"{rel_path}: submitted_public_text_normalized_sha256 is stale")
     if loaded.get("reviewed_public_text_normalized_sha256") != sha256_text(normalized_projection):
@@ -842,7 +1017,10 @@ def _validate_recomputed_submitted_opponent_report_state(
         errors.append(f"{rel_path}: public_text_normalized_match is stale")
     if loaded.get("field_values_match") != field_values_match:
         errors.append(f"{rel_path}: field_values_match is stale")
-    if loaded.get("ready_for_archive") != (normalized_submitted == normalized_projection and field_values_match):
+    calibration_controls_match = calibration_snapshot.get("report_calibration_controls_match", True) is True
+    if loaded.get("ready_for_archive") != (
+        normalized_submitted == normalized_projection and field_values_match and calibration_controls_match
+    ):
         errors.append(f"{rel_path}: ready_for_archive is stale")
     expected_fields = {
         "grade": submitted_values["grade"],
@@ -858,10 +1036,17 @@ def _validate_recomputed_submitted_opponent_report_state(
         "defense_questions_text": submitted_values["defense_questions_text"],
         "reviewed_defense_questions_text": clean_values["defense_questions_text"],
         "private_student_comment_sha256": sha256_text(clean_values["private_student_comment"]),
+        "submitted_public_private_comment_present": submitted_values["private_student_comment_present"],
+        "reviewed_private_student_comment_present": clean_values["private_student_comment_present"],
         "public_text_section_diffs": opponent_public_section_diffs(public_projection, submitted_text),
         "approval_reviewed_artifact_sha256": approval["reviewed_artifact_sha256"],
         "approval_review_basis_sha256": approval["review_basis_sha256"],
     }
+    expected_fields.update(calibration_snapshot)
+    if not calibration_snapshot and (
+        "report_calibration_basis_path" in loaded or "report_calibration_basis_sha256" in loaded
+    ):
+        errors.append(f"{rel_path}: report calibration basis binding is stale or no longer present")
     for field, expected in expected_fields.items():
         if loaded.get(field) != expected:
             errors.append(f"{rel_path}: {field} is stale")

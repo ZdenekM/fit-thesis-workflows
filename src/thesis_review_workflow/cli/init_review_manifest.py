@@ -36,6 +36,7 @@ from thesis_review_workflow.commands import canonical_command_text, repo_command
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL, round_uses_report_calibration_basis
 from thesis_review_workflow.review_manifest import (
     apply_artifact_dependency_refs,
     apply_artifact_registration_sidecars,
@@ -151,6 +152,12 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
     if base_check_name in {"check-opponent-report", "check-supervisor-report"}:
         hashes.update(hash_tree("round:work/submitted_reports", round_dir / "work" / "submitted_reports"))
     if base_check_name == "check-opponent-report":
+        if round_uses_report_calibration_basis(round_dir):
+            hashes.update(
+                hash_existing_paths(
+                    [("round:work/report_calibration_basis.json", round_dir / REPORT_CALIBRATION_BASIS_REL)]
+                )
+            )
         hashes.update(hash_tree("round:extracted/submitted_reports", round_dir / "extracted" / "submitted_reports"))
     if base_check_name == "check-supervisor-report":
         hashes.update(hash_tree("round:work/review_deltas", round_dir / "work" / "review_deltas"))
@@ -455,6 +462,8 @@ def required_checks(
             ["outputs/oponent_podklady_revidovane.md"],
         )
         targets = ["work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"]
+        if round_uses_report_calibration_basis(round_dir):
+            targets.append(REPORT_CALIBRATION_BASIS_REL)
         if (
             (round_dir / "work" / "oponent_posudek_draft.md").is_file()
             or "outputs/oponent_posudek_navrh.md" in artifact_paths
@@ -472,6 +481,8 @@ def required_checks(
             "outputs/oponent_podklady_revidovane.md",
             "outputs/oponent_posudek_navrh.md",
         ]
+        if round_uses_report_calibration_basis(round_dir):
+            targets.append(REPORT_CALIBRATION_BASIS_REL)
         add(
             "check-opponent-report:clean",
             f"check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md {case_id} {round_id}",
