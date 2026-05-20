@@ -9,6 +9,16 @@ from typing import Any
 
 from thesis_review_workflow.artifact_validation import sha256_file, validate_common_artifact_fields
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    EXPECTED_REPORT_CONTROL_KEYS,
+    REPORT_CALIBRATION_BASIS_REL,
+    effective_reviewer_profile,
+    report_calibration_applied_preference_ids,
+    report_calibration_expected_control_keys,
+    report_calibration_related_artifact_hashes,
+    report_calibration_source_paths,
+    validate_report_calibration_artifact,
+)
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
 from thesis_review_workflow.theses_similarity import (
     CURRENT_SUBMISSION_MATCH_STATUSES,
@@ -69,6 +79,8 @@ OVERCLAIM_RISK_STATUSES = {"low", "moderate", "high", "not_applicable", "not_ver
 OPPONENT_TRACE_REVIEW_STATUSES = {"accepted"}
 OPPONENT_TRACE_UNCERTAINTY_STATUSES = {"carried_to_report", "accepted_missing", "not_applicable"}
 OPPONENT_TRACE_ANTI_OVERFIT_STATUSES = {"reviewed", "reviewed_with_notes", "not_applicable"}
+OPPONENT_TRACE_CALIBRATION_TARGET_CONTROLS = EXPECTED_REPORT_CONTROL_KEYS
+OPPONENT_TRACE_CALIBRATION_LIMITATION_TYPE = "no_applicable_profile_or_operator_calibration"
 SUPERVISOR_FEEDBACK_HISTORY_STATUSES = {
     "absent",
     "present",
@@ -108,6 +120,7 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "work/feedback_student_draft.md",
     "outputs/oponent_podklady.md",
     "outputs/oponent_podklady_revidovane.md",
+    REPORT_CALIBRATION_BASIS_REL,
     "work/oponent_podklady_draft.md",
     "work/opponent_report_trace.json",
     "work/oponent_posudek_draft.md",
@@ -266,6 +279,7 @@ def validate_structured_evidence_artifact(
     case_id: str | None = None,
     round_id: str | None = None,
     require_existing_refs: bool = True,
+    require_report_calibration: bool = True,
 ) -> list[str]:
     rel = rel_path.as_posix() if isinstance(rel_path, Path) else rel_path
     path_errors = validate_structured_evidence_rel_path(rel)
@@ -290,6 +304,7 @@ def validate_structured_evidence_artifact(
         case_id=case_id,
         round_id=round_id,
         require_existing_refs=require_existing_refs,
+        require_report_calibration=require_report_calibration,
     )
 
 
@@ -301,6 +316,7 @@ def validate_structured_evidence_payload(
     case_id: str | None = None,
     round_id: str | None = None,
     require_existing_refs: bool = True,
+    require_report_calibration: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     path_errors = validate_structured_evidence_rel_path(rel_path)
@@ -318,7 +334,15 @@ def validate_structured_evidence_payload(
     elif rel_path == QUANTITATIVE_CLAIMS_REL:
         _validate_quantitative_claims(loaded, rel_path, errors)
     elif rel_path == OPPONENT_REPORT_TRACE_REL:
-        _validate_opponent_report_trace(loaded, rel_path, round_dir, case_id, round_id, errors)
+        _validate_opponent_report_trace(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id,
+            round_id,
+            errors,
+            require_report_calibration=require_report_calibration,
+        )
     elif rel_path == SUPERVISOR_REPORT_FEEDBACK_HISTORY_REL:
         _validate_supervisor_report_feedback_history(loaded, rel_path, round_dir, errors)
     elif rel_path == SUPERVISOR_REPORT_TRACE_REL:
@@ -438,6 +462,8 @@ def _validate_opponent_report_trace(
     case_id: str | None,
     round_id: str | None,
     errors: list[str],
+    *,
+    require_report_calibration: bool = True,
 ) -> None:
     _require_nonempty_string(loaded, "source_materials_path", rel_path, errors)
     if loaded.get("source_materials_path") != "outputs/oponent_podklady_revidovane.md":
@@ -508,6 +534,38 @@ def _validate_opponent_report_trace(
             round_id,
             errors,
         )
+    if require_report_calibration and _report_calibration_basis_required(loaded, round_dir):
+        if "report_calibration_limitation" in loaded:
+            errors.append(
+                f"{rel_path}: report_calibration_limitation cannot be recorded together with "
+                "report_calibration_basis binding"
+            )
+        basis_payload = _validate_report_calibration_basis_binding(
+            loaded,
+            rel_path,
+            round_dir,
+            case_id,
+            round_id,
+            errors,
+        )
+        if isinstance(basis_payload, dict):
+            _validate_trace_calibration_preferences(loaded, basis_payload, rel_path, errors)
+            if "calibration_context" in loaded:
+                _validate_calibration_context_basis_relationship(
+                    loaded.get("calibration_context"),
+                    basis_payload,
+                    rel_path,
+                    errors,
+                )
+                _validate_calibration_context_control_conflicts(
+                    loaded.get("calibration_context"),
+                    basis_payload,
+                    rel_path,
+                    round_dir,
+                    errors,
+                )
+    elif require_report_calibration and "report_calibration_limitation" in loaded:
+        _validate_report_calibration_limitation(loaded.get("report_calibration_limitation"), rel_path, round_dir, errors)
 
 
 def _validate_supervisor_report_feedback_history(
@@ -1081,6 +1139,418 @@ def _validate_calibration_context(
             errors.append(f"{prefix}: anti_overfit_reviewer_agent or anti_overfit_human_note must be recorded")
         _require_nonempty_string(value, "reviewed_at", prefix, errors)
     _require_list(value, "limitations", prefix, errors)
+
+
+def _report_calibration_basis_required(loaded: dict[str, Any], round_dir: Path | None) -> bool:
+    if (
+        "report_calibration_basis_path" in loaded
+        or "report_calibration_basis_sha256" in loaded
+        or "calibration_preference_ids" in loaded
+        or "calibration_preference_applications" in loaded
+    ):
+        return True
+    if round_dir is None:
+        return False
+    if (round_dir / REPORT_CALIBRATION_BASIS_REL).is_file():
+        return True
+    if "report_calibration_limitation" in loaded:
+        return False
+    return _round_has_report_calibration_context(round_dir)
+
+
+def _round_has_report_calibration_context(round_dir: Path) -> bool:
+    _, profile_sources, _ = _effective_reviewer_profile_context(round_dir)
+    return bool(profile_sources)
+
+
+def _existing_report_calibration_source_paths(round_dir: Path) -> tuple[str, ...]:
+    return tuple(rel_path for rel_path in report_calibration_source_paths(round_dir) if (round_dir / rel_path).is_file())
+
+
+def _effective_reviewer_profile_context(round_dir: Path) -> tuple[str | None, list[str] | None, list[str]]:
+    if len(round_dir.parents) < 4:
+        return None, None, []
+    case_md = round_dir.parents[1] / "case.md"
+    repo_root = round_dir.parents[3]
+    if not case_md.is_file() or not (repo_root / "profiles").is_dir():
+        return None, None, []
+    profile_id, profile_sources, profile_errors = effective_reviewer_profile(case_md, repo_root)
+    return profile_id, profile_sources, profile_errors
+
+
+def _repo_root_from_round_context(round_dir: Path) -> Path | None:
+    if len(round_dir.parents) >= 4:
+        repo_root = round_dir.parents[3]
+        if (repo_root / "profiles").is_dir():
+            return repo_root
+    return None
+
+
+def _validate_report_calibration_basis_binding(
+    loaded: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    case_id: str | None,
+    round_id: str | None,
+    errors: list[str],
+) -> dict[str, Any] | None:
+    _validate_expected_hash_binding(
+        loaded,
+        rel_path,
+        round_dir,
+        errors,
+        path_field="report_calibration_basis_path",
+        hash_field="report_calibration_basis_sha256",
+        expected_path=REPORT_CALIBRATION_BASIS_REL,
+    )
+    _require_source_ref_contains(loaded, "source_refs", REPORT_CALIBRATION_BASIS_REL, rel_path, errors)
+    _require_source_ref_contains(loaded, "trace_generated_from", REPORT_CALIBRATION_BASIS_REL, rel_path, errors)
+    if round_dir is None:
+        return None
+    expected_profile_id, expected_profile_sources, profile_errors = _effective_reviewer_profile_context(round_dir)
+    errors.extend(f"{rel_path}: {error}" for error in profile_errors)
+    errors.extend(
+        validate_report_calibration_artifact(
+            round_dir,
+            REPORT_CALIBRATION_BASIS_REL,
+            case_id=case_id,
+            round_id=round_id,
+            expected_reviewer_profile_id=expected_profile_id,
+            expected_profile_source_paths=expected_profile_sources,
+        )
+    )
+    path = round_dir / REPORT_CALIBRATION_BASIS_REL
+    try:
+        loaded_basis = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded_basis if isinstance(loaded_basis, dict) else None
+
+
+def _validate_report_calibration_limitation(
+    value: Any,
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    prefix = f"{rel_path}: report_calibration_limitation"
+    if not isinstance(value, dict):
+        errors.append(f"{prefix} must be object")
+        return
+    _require_enum(value, "type", {OPPONENT_TRACE_CALIBRATION_LIMITATION_TYPE}, prefix, errors)
+    _require_enum(value, "calibration_scope", {"opponent_report"}, prefix, errors)
+    _require_enum(value, "assessed_by", {"agent", "human"}, prefix, errors)
+    _require_nonempty_string(value, "assessor_role", prefix, errors)
+    _require_nonempty_string(value, "assessed_at", prefix, errors)
+    _require_nonempty_string(value, "rationale", prefix, errors)
+    expected_profile_id: str | None = None
+    expected_profile_sources: list[str] | None = None
+    if round_dir is not None:
+        expected_profile_id, expected_profile_sources, profile_errors = _effective_reviewer_profile_context(round_dir)
+        errors.extend(f"{prefix}: {error}" for error in profile_errors)
+    if expected_profile_id is not None and value.get("reviewer_profile_id") != expected_profile_id:
+        errors.append(f"{prefix}: reviewer_profile_id does not match case Reviewer profile")
+    elif expected_profile_id is None:
+        _require_nonempty_string(value, "reviewer_profile_id", prefix, errors)
+    _validate_report_calibration_limitation_profile_sources(
+        value.get("profile_sources"),
+        prefix,
+        round_dir,
+        expected_profile_sources,
+        errors,
+    )
+    _validate_report_calibration_limitation_operator_sources(
+        value.get("operator_calibration_sources"),
+        prefix,
+        round_dir,
+        errors,
+    )
+
+
+def _validate_report_calibration_limitation_profile_sources(
+    value: Any,
+    prefix: str,
+    round_dir: Path | None,
+    expected_profile_sources: list[str] | None,
+    errors: list[str],
+) -> None:
+    sources = value
+    if not isinstance(sources, list):
+        errors.append(f"{prefix}: profile_sources must be list")
+        return
+    repo_root = _repo_root_from_round_context(round_dir) if round_dir is not None else None
+    expected = set(expected_profile_sources or [])
+    seen: dict[str, str] = {}
+    for index, item in enumerate(sources, start=1):
+        item_prefix = f"{prefix}: profile_sources item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{item_prefix} must be object")
+            continue
+        path = item.get("path")
+        digest = item.get("sha256")
+        if not isinstance(path, str) or not path:
+            errors.append(f"{item_prefix}: path must be non-empty str")
+            continue
+        if expected and path not in expected:
+            errors.append(f"{item_prefix}: path is not an effective reviewer profile source")
+        if path in seen:
+            errors.append(f"{item_prefix}: duplicate profile source {path}")
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            errors.append(f"{item_prefix}: sha256 must be a 64-character hex string")
+        else:
+            seen[path] = digest
+            if repo_root is not None and path in expected:
+                profile_path = repo_root / path
+                if profile_path.is_file() and sha256_file(profile_path) != digest:
+                    errors.append(f"{item_prefix}: sha256 is stale for {path}")
+    for path in sorted(expected.difference(seen)):
+        errors.append(f"{prefix}: profile_sources missing effective reviewer profile source {path}")
+
+
+def _validate_report_calibration_limitation_operator_sources(
+    value: Any,
+    prefix: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    sources = value
+    if not isinstance(sources, list):
+        errors.append(f"{prefix}: operator_calibration_sources must be list")
+        return
+    expected = set(_existing_report_calibration_source_paths(round_dir)) if round_dir is not None else set()
+    seen: dict[str, str] = {}
+    for index, item in enumerate(sources, start=1):
+        item_prefix = f"{prefix}: operator_calibration_sources item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{item_prefix} must be object")
+            continue
+        path = item.get("path")
+        digest = item.get("sha256")
+        if not isinstance(path, str) or not path:
+            errors.append(f"{item_prefix}: path must be non-empty str")
+            continue
+        if expected and path not in expected:
+            errors.append(f"{item_prefix}: path is not a current registered operator calibration source")
+        if path in seen:
+            errors.append(f"{item_prefix}: duplicate operator calibration source {path}")
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            errors.append(f"{item_prefix}: sha256 must be a 64-character hex string")
+        else:
+            seen[path] = digest
+            if round_dir is not None and path in expected:
+                source_path = round_dir / path
+                if source_path.is_file() and sha256_file(source_path) != digest:
+                    errors.append(f"{item_prefix}: sha256 is stale for {path}")
+    for path in sorted(expected.difference(seen)):
+        errors.append(f"{prefix}: operator_calibration_sources missing current registered source {path}")
+
+
+def _validate_trace_calibration_preferences(
+    loaded: dict[str, Any],
+    basis_payload: dict[str, Any],
+    rel_path: str,
+    errors: list[str],
+) -> None:
+    declared = _require_nonempty_string_list(loaded, "calibration_preference_ids", rel_path, errors)
+    basis_ids = set(report_calibration_applied_preference_ids(basis_payload))
+    for preference_id in declared:
+        if preference_id not in basis_ids:
+            errors.append(f"{rel_path}: calibration_preference_ids includes unknown or unapplied preference {preference_id}")
+    applications = loaded.get("calibration_preference_applications")
+    if not isinstance(applications, list):
+        errors.append(f"{rel_path}: calibration_preference_applications must be list")
+        return
+    if not applications:
+        errors.append(f"{rel_path}: calibration_preference_applications must not be empty")
+    question_ids = _trace_question_ids(loaded)
+    applied_ids: set[str] = set()
+    mapped_controls: set[str] = set()
+    for index, item in enumerate(applications, start=1):
+        prefix = f"{rel_path}: calibration_preference_applications item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        mapped_preference_id = item.get("preference_id")
+        if not isinstance(mapped_preference_id, str) or not mapped_preference_id:
+            errors.append(f"{prefix}: preference_id must be non-empty str")
+        else:
+            applied_ids.add(mapped_preference_id)
+            if mapped_preference_id not in declared:
+                errors.append(f"{prefix}: preference_id must be listed in calibration_preference_ids")
+        target_is = _validate_trace_target_list(item, "target_is_item_ids", prefix, errors)
+        target_questions = _validate_trace_target_list(item, "target_defense_question_ids", prefix, errors)
+        target_controls = _validate_trace_target_list(item, "target_report_controls", prefix, errors)
+        for target in target_is:
+            if target not in REQUIRED_OPPONENT_IS_ITEM_IDS:
+                errors.append(f"{prefix}: target_is_item_ids contains unknown IS item id {target}")
+        for target in target_questions:
+            if target not in question_ids:
+                errors.append(f"{prefix}: target_defense_question_ids contains unknown question id {target}")
+        for target in target_controls:
+            if target not in OPPONENT_TRACE_CALIBRATION_TARGET_CONTROLS:
+                errors.append(f"{prefix}: target_report_controls contains unknown control {target}")
+            else:
+                mapped_controls.add(target)
+        if not target_is and not target_questions and not target_controls:
+            errors.append(f"{prefix}: at least one trace target must be recorded")
+        _require_nonempty_string(item, "rationale", prefix, errors)
+    for preference_id in sorted(set(declared).difference(applied_ids)):
+        errors.append(f"{rel_path}: calibration_preference_applications missing preference {preference_id}")
+    required_controls = report_calibration_expected_control_keys(basis_payload)
+    for control in sorted(required_controls.difference(mapped_controls)):
+        errors.append(f"{rel_path}: calibration_preference_applications missing expected report control {control}")
+
+
+def _validate_calibration_context_control_conflicts(
+    value: Any,
+    basis_payload: dict[str, Any],
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    if not isinstance(value, dict) or round_dir is None:
+        return
+    basis_controls = basis_payload.get("expected_report_controls")
+    if not isinstance(basis_controls, dict):
+        return
+    for source_path, controls in _calibration_context_expected_controls(value, round_dir):
+        for key, expected_value in basis_controls.items():
+            if key in controls and controls[key] != expected_value:
+                errors.append(
+                    f"{rel_path}: calibration_context {source_path} expected_report_controls.{key} "
+                    "conflicts with report_calibration_basis"
+                )
+
+
+def _validate_calibration_context_basis_relationship(
+    value: Any,
+    basis_payload: dict[str, Any],
+    rel_path: str,
+    errors: list[str],
+) -> None:
+    if not isinstance(value, dict):
+        return
+    related_hashes = report_calibration_related_artifact_hashes(basis_payload)
+    for path_field, hash_field, expected_path in (
+        ("calibration_use_path", "calibration_use_sha256", OPPONENT_CALIBRATION_USE_REL),
+        ("calibration_advisory_path", "calibration_advisory_sha256", OPPONENT_CALIBRATION_ADVISORY_REL),
+    ):
+        if value.get(path_field) != expected_path:
+            continue
+        context_hash = value.get(hash_field)
+        basis_hash = related_hashes.get(expected_path)
+        if basis_hash is None:
+            errors.append(
+                f"{rel_path}: report_calibration_basis related_calibration_artifacts must include "
+                f"{expected_path} when calibration_context uses it"
+            )
+        elif isinstance(context_hash, str) and basis_hash != context_hash:
+            errors.append(
+                f"{rel_path}: report_calibration_basis related_calibration_artifacts hash for "
+                f"{expected_path} must match calibration_context"
+            )
+
+
+def _calibration_context_expected_controls(value: dict[str, Any], round_dir: Path) -> list[tuple[str, dict[str, Any]]]:
+    paths: list[str] = []
+    for field in (
+        "calibration_use_path",
+        "calibration_advisory_path",
+        "revision_request_path",
+    ):
+        candidate = value.get(field)
+        if isinstance(candidate, str) and _is_allowed_round_ref(candidate):
+            paths.append(candidate)
+    controls_by_path: list[tuple[str, dict[str, Any]]] = []
+    for rel_path in sorted(dict.fromkeys(paths)):
+        path = round_dir / rel_path
+        if not path.is_file():
+            continue
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(loaded, dict):
+            continue
+        controls = loaded.get("expected_report_controls")
+        if isinstance(controls, dict):
+            controls_by_path.append((rel_path, controls))
+    return controls_by_path
+
+
+def _trace_question_ids(loaded: dict[str, Any]) -> set[str]:
+    values = loaded.get("defense_questions")
+    if not isinstance(values, list):
+        return set()
+    return {
+        item["question_id"]
+        for item in values
+        if isinstance(item, dict) and isinstance(item.get("question_id"), str)
+    }
+
+
+def _validate_trace_target_list(
+    value: dict[str, Any],
+    field: str,
+    prefix: str,
+    errors: list[str],
+) -> list[str]:
+    items = value.get(field)
+    if not isinstance(items, list):
+        errors.append(f"{prefix}: {field} must be list")
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(items, start=1):
+        if not isinstance(item, str) or not item:
+            errors.append(f"{prefix}: {field} item {index} must be non-empty str")
+            continue
+        if item in seen:
+            errors.append(f"{prefix}: {field} item {index} duplicates {item}")
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _require_source_ref_contains(
+    loaded: dict[str, Any],
+    field: str,
+    expected: str,
+    rel_path: str,
+    errors: list[str],
+) -> None:
+    value = loaded.get(field)
+    if not isinstance(value, list):
+        return
+    if expected not in value:
+        errors.append(f"{rel_path}: {field} must include {expected}")
+
+
+def _require_nonempty_string_list(
+    loaded: dict[str, Any],
+    field: str,
+    rel_path: str,
+    errors: list[str],
+) -> list[str]:
+    values = loaded.get(field)
+    if not isinstance(values, list):
+        errors.append(f"{rel_path}: {field} must be list")
+        return []
+    if not values:
+        errors.append(f"{rel_path}: {field} must not be empty")
+    result: list[str] = []
+    seen: set[str] = set()
+    for index, value in enumerate(values, start=1):
+        if not isinstance(value, str) or not value:
+            errors.append(f"{rel_path}: {field} item {index} must be non-empty str")
+            continue
+        if value in seen:
+            errors.append(f"{rel_path}: {field} item {index} duplicates {value}")
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _validate_expected_hash_binding(

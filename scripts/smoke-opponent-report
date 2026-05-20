@@ -149,6 +149,94 @@ Nejlepe obhajitelny interval je 76-82 bodu.
 EOF
 }
 
+write_report_calibration_basis() {
+  local case_id="$1"
+  local round_id="${2:-round-a}"
+  local round_dir="$repo_root/cases/$case_id/rounds/$round_id"
+  python3 - "$repo_root" "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+repo_root = pathlib.Path(sys.argv[1])
+round_dir = pathlib.Path(sys.argv[2])
+case_id = sys.argv[3]
+round_id = sys.argv[4]
+
+
+def sha(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+operator = round_dir / "notes/opponent-report-operator-feedback.md"
+operator.parent.mkdir(parents=True, exist_ok=True)
+operator.write_text("# Opponent Report Operator Feedback\n\nUse the calibrated IS values and compact questions.\n", encoding="utf-8")
+
+profile_sources = []
+for rel in ("profiles/default.md", "profiles/local/default.md"):
+    path = repo_root / rel
+    if path.is_file():
+        profile_sources.append({"path": rel, "sha256": sha(path), "sections_used": ["Opponent Report Style"]})
+
+payload = {
+    "schema_version": "report-calibration-basis-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "calibration_scope": "opponent_report",
+    "reviewer_profile_id": "default",
+    "workflow_profile": "opponent_review",
+    "operator_surface": "opponent_materials",
+    "wave_workflow": "opponent_report",
+    "generated_at": "2026-05-07T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-opponent-materials-reviewer",
+    "producer_agent": "smoke-calibration-agent",
+    "authorization_note": "Smoke test uses a synthetic report calibration basis.",
+    "source_refs": ["notes/opponent-report-operator-feedback.md"],
+    "profile_sources": profile_sources,
+    "operator_calibration_sources": [
+        {
+            "path": "notes/opponent-report-operator-feedback.md",
+            "sha256": sha(operator),
+            "purpose": "report calibration",
+        }
+    ],
+    "related_calibration_artifacts": [],
+    "applied_preferences": [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "source_keys": [
+                "profile:profiles/default.md",
+                "operator:notes/opponent-report-operator-feedback.md",
+            ],
+            "applies_to": ["assignment_difficulty", "defense_questions", "overall_grade"],
+            "instruction": "Keep assignment difficulty, questions, and grade controls calibrated to current evidence.",
+            "priority": "must",
+            "status": "applied",
+            "decision_reason": "Synthetic smoke calibration.",
+        }
+    ],
+    "expected_report_controls": {
+        "is_select_values": {
+            "Náročnost zadání": "obtížnější zadání",
+            "Rozsah splnění požadavků zadání": "zadání splněno s drobnými výhradami",
+            "Rozsah technické zprávy": "je v obvyklém rozmezí",
+        },
+        "overall_grade": "B",
+        "overall_points_interval": [80, 84],
+        "defense_question_count": {"min": 1, "max": 3},
+        "public_report_length": "compact",
+        "private_comment_required": True,
+    },
+    "limitations": [],
+}
+path = round_dir / "work/report_calibration_basis.json"
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+}
+
 expect_success() {
   local name="$1"
   shift
@@ -539,6 +627,7 @@ path = pathlib.Path(sys.argv[1])
 case_id = sys.argv[2]
 round_id = sys.argv[3]
 materials_path = pathlib.Path(sys.argv[4])
+round_dir = materials_path.parents[1]
 materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
 formulations = {
     "assignment_difficulty": ("Náročnost zadání", "Zadani hodnotim jako stredne narocne."),
@@ -618,6 +707,29 @@ payload = {
     ],
     "limitations": [],
 }
+basis_path = round_dir / "work/report_calibration_basis.json"
+if basis_path.is_file():
+    payload["source_refs"].append("work/report_calibration_basis.json")
+    payload["trace_generated_from"].append("work/report_calibration_basis.json")
+    payload["report_calibration_basis_path"] = "work/report_calibration_basis.json"
+    payload["report_calibration_basis_sha256"] = hashlib.sha256(basis_path.read_bytes()).hexdigest()
+    payload["calibration_preference_ids"] = ["opponent.assignment_difficulty.stack_not_enough"]
+    payload["calibration_preference_applications"] = [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "target_is_item_ids": ["assignment_difficulty", "assignment_fulfillment", "technical_report_scope"],
+            "target_defense_question_ids": ["D1", "D2", "D3"],
+            "target_report_controls": [
+                "is_select_values",
+                "overall_grade",
+                "overall_points_interval",
+                "defense_question_count",
+                "public_report_length",
+                "private_comment_required",
+            ],
+            "rationale": "Synthetic trace applies the report calibration basis before drafting.",
+        }
+    ]
 path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 }
@@ -689,7 +801,9 @@ advisory = {
     "reviewer_profile_gate": {"required": True, "satisfied_by_historical_calibration": False},
 }
 write_json("work/opponent_calibration_advisory.json", advisory)
-write_text("notes/opponent-report-operator-feedback.md", "# Operator feedback\n\nTighten grading and add a reproducibility check.\n")
+operator_note = round_dir / "notes/opponent-report-operator-feedback.md"
+if not operator_note.is_file():
+    write_text("notes/opponent-report-operator-feedback.md", "# Operator feedback\n\nTighten grading and add a reproducibility check.\n")
 write_text("outputs/reference_report_comparison.md", "# Reference report comparison\n\nSynthetic no-profile comparison.\n")
 write_text("outputs/opponent_reading_packet.md", "# Opponent reading packet\n\nSynthetic packet.\n")
 copy_file("work/opponent_report_trace.json", "work/opponent_report_revision_sources/opponent_report_trace.json")
@@ -773,6 +887,24 @@ def sha(rel: str) -> str:
 
 
 trace = json.loads(trace_path.read_text(encoding="utf-8"))
+basis_path = round_dir / "work/report_calibration_basis.json"
+if basis_path.is_file():
+    basis = json.loads(basis_path.read_text(encoding="utf-8"))
+    related = [
+        item
+        for item in basis.get("related_calibration_artifacts", [])
+        if not (isinstance(item, dict) and item.get("path") == "work/opponent_calibration_advisory.json")
+    ]
+    related.append(
+        {
+            "path": "work/opponent_calibration_advisory.json",
+            "sha256": sha("work/opponent_calibration_advisory.json"),
+            "relationship": "calibration_context_source",
+        }
+    )
+    basis["related_calibration_artifacts"] = related
+    basis_path.write_text(json.dumps(basis, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    trace["report_calibration_basis_sha256"] = sha("work/report_calibration_basis.json")
 trace["calibration_context"] = {
     "calibration_advisory_path": "work/opponent_calibration_advisory.json",
     "calibration_advisory_sha256": sha("work/opponent_calibration_advisory.json"),
@@ -809,6 +941,7 @@ write_valid_materials "$round_dir/outputs/oponent_podklady_revidovane.md"
 expect_success "reviewed materials are valid" "$repo_root/scripts/check-opponent-materials" "$case_id" round-a
 expect_failure "draft helper requires report trace" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
 expect_output "opponent_report_trace"
+write_report_calibration_basis "$case_id" round-a
 write_report_trace "$case_id" round-a
 expect_success "draft helper writes report draft" "$repo_root/scripts/draft-opponent-report" "$case_id" round-a
 expect_failure "generated report draft requires human calibration" "$repo_root/scripts/check-opponent-report" "$case_id" round-a

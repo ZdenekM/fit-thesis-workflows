@@ -268,6 +268,7 @@ import sys
 round_dir = pathlib.Path(sys.argv[1])
 case_id = sys.argv[2]
 round_id = sys.argv[3]
+repo_root = round_dir.parents[3]
 
 materials = """# Revidovane podklady pro oponentsky posudek
 
@@ -404,6 +405,22 @@ trace = {
         {"check_id": "C1", "instruction": "Zkontrolovat body a znamku.", "evidence_refs": ["outputs/oponent_podklady_revidovane.md"]}
     ],
     "uncertainty_items": [],
+    "report_calibration_limitation": {
+        "type": "no_applicable_profile_or_operator_calibration",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "assessed_by": "agent",
+        "assessor_role": "package-smoke-trace-reviewer",
+        "assessed_at": "2026-05-18T00:00:01Z",
+        "profile_sources": [
+            {
+                "path": "profiles/default.md",
+                "sha256": hashlib.sha256((repo_root / "profiles/default.md").read_bytes()).hexdigest(),
+            }
+        ],
+        "operator_calibration_sources": [],
+        "rationale": "Package smoke fixture records that no synthetic profile-specific calibration is applied.",
+    },
     "limitations": [],
 }
 trace_path = round_dir / "work" / "opponent_report_trace.json"

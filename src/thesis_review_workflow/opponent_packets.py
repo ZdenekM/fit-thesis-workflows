@@ -417,6 +417,7 @@ PACKET_ROLES = (
         mission="Prepare or refresh the structured opponent report trace from reviewed materials.",
         focus=(
             "reviewed-materials path and hash",
+            "report calibration basis path, hash, and applied preference mapping when present",
             "IS-item formulations",
             "defense questions",
             "uncertainty ledger and manual checks",
@@ -425,17 +426,33 @@ PACKET_ROLES = (
             "outputs/oponent_podklady_revidovane.md",
             "work/reviews/opponent_materials_review.json",
             REPORT_CALIBRATION_BASIS_REL,
+            "work/opponent_calibration_use.json",
+            "work/opponent_calibration_advisory.json",
+            "work/opponent_report_revision_request.json",
             "work/opponent_report_trace.json",
         ),
         constraints=(
             "Packetization must not replace the trace with prose summaries.",
+            "If `work/report_calibration_basis.json` is present, bind it in the trace with path, sha256, "
+            "`calibration_preference_ids`, and `calibration_preference_applications` mapping preferences to "
+            "affected IS items, defense questions, or report controls. The preference-to-target mapping must come "
+            "from the semantic materials review or human-authored calibration basis, not from this mechanical helper.",
+            "If no profile-specific or operator-calibration preference applies, record the structured "
+            "`report_calibration_limitation` with current profile/operator source hashes instead of omitting "
+            "calibration silently.",
+            "If historical/reference calibration or a report revision request influenced the report, preserve the "
+            "existing `calibration_context`; the report calibration basis must also list the acyclic related "
+            "calibration artifact that supplied it.",
             "Do not treat a report draft as ready without current trace validation.",
         ),
         activation="check",
         activation_check=("check-review-wave", "--workflow", "opponent_materials", "--wave", "reviewed"),
         model=MECHANICAL_MODEL,
         reasoning=MECHANICAL_REASONING,
-        model_note="Mechanical helper role; Spark is acceptable only for trace/status assembly checked by validators.",
+        model_note=(
+            "Mechanical helper role; Spark is acceptable only for trace/status assembly checked by validators, "
+            "not for deciding grading/report calibration semantics."
+        ),
     ),
     PacketRole(
         key="report_review",

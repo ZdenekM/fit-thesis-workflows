@@ -1069,6 +1069,7 @@ def _validate_trace_snapshot(
             round_dir=round_dir,
             case_id=case_id,
             round_id=round_id,
+            require_report_calibration=False,
         )
     )
 
@@ -1241,6 +1242,7 @@ def _validate_current_case_trace(
             rel_path,
             case_id=case_id,
             round_id=round_id,
+            require_report_calibration=False,
         )
     )
 

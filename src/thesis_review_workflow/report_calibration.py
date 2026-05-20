@@ -29,6 +29,14 @@ PREFERENCE_PRIORITIES = {"must", "should", "advisory"}
 PREFERENCE_STATUSES = {"applied", "not_applicable", "conflict"}
 PUBLIC_REPORT_LENGTHS = {"compact", "standard", "extended"}
 GRADES = {"A", "B", "C", "D", "E", "F"}
+EXPECTED_REPORT_CONTROL_KEYS = {
+    "is_select_values",
+    "overall_grade",
+    "overall_points_interval",
+    "defense_question_count",
+    "public_report_length",
+    "private_comment_required",
+}
 GRADE_POINT_BANDS = {
     "A": (90, 100),
     "B": (80, 89),
@@ -239,6 +247,43 @@ def report_calibration_source_refs(payload: dict[str, Any]) -> list[str]:
             if isinstance(item, dict) and isinstance(item.get("path"), str):
                 refs.append(item["path"])
     return sorted(dict.fromkeys(refs))
+
+
+def report_calibration_applied_preference_ids(payload: dict[str, Any]) -> list[str]:
+    values = payload.get("applied_preferences")
+    if not isinstance(values, list):
+        return []
+    return sorted(
+        {
+            item["preference_id"]
+            for item in values
+            if isinstance(item, dict)
+            and isinstance(item.get("preference_id"), str)
+            and item.get("status") == "applied"
+        }
+    )
+
+
+def report_calibration_expected_control_keys(payload: dict[str, Any]) -> set[str]:
+    controls = payload.get("expected_report_controls")
+    if not isinstance(controls, dict):
+        return set()
+    return {key for key in controls if key in EXPECTED_REPORT_CONTROL_KEYS}
+
+
+def report_calibration_related_artifact_hashes(payload: dict[str, Any]) -> dict[str, str]:
+    values = payload.get("related_calibration_artifacts")
+    if not isinstance(values, list):
+        return {}
+    return {
+        item["path"]: item["sha256"]
+        for item in values
+        if isinstance(item, dict)
+        and isinstance(item.get("path"), str)
+        and isinstance(item.get("sha256"), str)
+        and item["path"] in RELATED_CALIBRATION_ARTIFACT_PATHS
+        and SHA256_RE.fullmatch(item["sha256"])
+    }
 
 
 def is_report_calibration_source_path(rel_path: str) -> bool:
@@ -455,18 +500,10 @@ def _validate_expected_controls(value: Any, rel_path: str, errors: list[str]) ->
     if not isinstance(value, dict):
         errors.append(f"{rel_path}: expected_report_controls must be object")
         return
-    known_keys = {
-        "is_select_values",
-        "overall_grade",
-        "overall_points_interval",
-        "defense_question_count",
-        "public_report_length",
-        "private_comment_required",
-    }
-    unknown = sorted(set(value).difference(known_keys))
+    unknown = sorted(set(value).difference(EXPECTED_REPORT_CONTROL_KEYS))
     for key in unknown:
         errors.append(f"{rel_path}: expected_report_controls has unknown key: {key}")
-    if not any(key in value for key in known_keys):
+    if not any(key in value for key in EXPECTED_REPORT_CONTROL_KEYS):
         errors.append(f"{rel_path}: expected_report_controls must contain at least one known control")
     is_select_values = value.get("is_select_values")
     if is_select_values is not None:

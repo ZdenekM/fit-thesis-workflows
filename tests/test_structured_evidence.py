@@ -14,6 +14,7 @@ from thesis_review_workflow.structured_evidence import (
     current_evidence_default_source_refs,
     validate_structured_evidence_artifact,
 )
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
 
 
@@ -550,6 +551,141 @@ def trace_payload(source_hash: str) -> dict[str, object]:
     }
 
 
+def report_calibration_basis_payload(round_dir: Path, *, grade: str = "B") -> dict[str, object]:
+    operator_rel = "notes/opponent-report-operator-feedback.md"
+    write_text(round_dir, operator_rel, "# Operator report calibration\n")
+    controls: dict[str, object] = {
+        "is_select_values": {"Náročnost zadání": "obtížnější zadání"},
+        "overall_grade": grade,
+        "overall_points_interval": [80, 84] if grade == "B" else [65, 74],
+        "defense_question_count": {"min": 1, "max": 3},
+        "private_comment_required": True,
+    }
+    return {
+        **common_fields("report-calibration-basis-v1"),
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "workflow_profile": "opponent_review",
+        "operator_surface": "opponent_materials",
+        "wave_workflow": "opponent_report",
+        "source_refs": [operator_rel],
+        "profile_sources": [
+            {
+                "path": "profiles/default.md",
+                "sha256": "1" * 64,
+                "sections_used": ["Opponent Report Style"],
+            }
+        ],
+        "operator_calibration_sources": [
+            {
+                "path": operator_rel,
+                "sha256": sha256_file(round_dir / operator_rel),
+                "purpose": "report calibration",
+            }
+        ],
+        "related_calibration_artifacts": [],
+        "applied_preferences": [
+            {
+                "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+                "source_keys": ["profile:profiles/default.md", f"operator:{operator_rel}"],
+                "applies_to": ["assignment_difficulty"],
+                "instruction": "Do not overstate routine stack difficulty.",
+                "priority": "must",
+                "status": "applied",
+                "decision_reason": "Synthetic operator calibration fixture.",
+            }
+        ],
+        "expected_report_controls": controls,
+        "limitations": [],
+    }
+
+
+def write_report_calibration_basis(round_dir: Path, *, grade: str = "B") -> None:
+    write_json(round_dir / REPORT_CALIBRATION_BASIS_REL, report_calibration_basis_payload(round_dir, grade=grade))
+
+
+def add_report_calibration_related_artifact(
+    round_dir: Path,
+    rel_path: str,
+    *,
+    relationship: str = "calibration_context_source",
+) -> None:
+    path = round_dir / REPORT_CALIBRATION_BASIS_REL
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    related = payload.setdefault("related_calibration_artifacts", [])
+    assert isinstance(related, list)
+    related.append(
+        {
+            "path": rel_path,
+            "sha256": sha256_file(round_dir / rel_path),
+            "relationship": relationship,
+        }
+    )
+    write_json(path, payload)
+
+
+def create_profile_case_round(tmp_path: Path) -> Path:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    create_round_refs(round_dir)
+    (repo_root / "src" / "thesis_review_workflow").mkdir(parents=True)
+    (repo_root / "profiles").mkdir(parents=True)
+    (repo_root / "profiles" / "default.md").write_text("# Default reviewer profile\n", encoding="utf-8")
+    (repo_root / "cases" / "case-a" / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    return round_dir
+
+
+def report_calibration_limitation_payload(round_dir: Path) -> dict[str, object]:
+    repo_root = round_dir.parents[3]
+    return {
+        "type": "no_applicable_profile_or_operator_calibration",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "assessed_by": "agent",
+        "assessor_role": "thesis-opponent-materials-review",
+        "assessed_at": "2026-05-07T00:02:00Z",
+        "profile_sources": [
+            {
+                "path": "profiles/default.md",
+                "sha256": sha256_file(repo_root / "profiles" / "default.md"),
+            }
+        ],
+        "operator_calibration_sources": [],
+        "rationale": "Synthetic reviewer found no applicable profile-specific or operator-calibration preference.",
+    }
+
+
+def bind_report_calibration_basis(payload: dict[str, object], round_dir: Path) -> None:
+    source_refs = payload.get("source_refs")
+    trace_generated_from = payload.get("trace_generated_from")
+    source_ref_values = [ref for ref in source_refs if isinstance(ref, str)] if isinstance(source_refs, list) else []
+    trace_generated_values = (
+        [ref for ref in trace_generated_from if isinstance(ref, str)]
+        if isinstance(trace_generated_from, list)
+        else []
+    )
+    payload["source_refs"] = [*source_ref_values, REPORT_CALIBRATION_BASIS_REL]
+    payload["trace_generated_from"] = [*trace_generated_values, REPORT_CALIBRATION_BASIS_REL]
+    payload["report_calibration_basis_path"] = REPORT_CALIBRATION_BASIS_REL
+    payload["report_calibration_basis_sha256"] = sha256_file(round_dir / REPORT_CALIBRATION_BASIS_REL)
+    payload["calibration_preference_ids"] = ["opponent.assignment_difficulty.stack_not_enough"]
+    payload["calibration_preference_applications"] = [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "target_is_item_ids": ["assignment_difficulty"],
+            "target_defense_question_ids": ["D1"],
+            "target_report_controls": [
+                "is_select_values",
+                "overall_grade",
+                "overall_points_interval",
+                "defense_question_count",
+                "private_comment_required",
+            ],
+            "rationale": "Synthetic trace applies the structured calibration basis.",
+        }
+    ]
+
+
 def supervisor_feedback_history_payload(round_dir: Path, status: str = "evidenced_response") -> dict[str, object]:
     feedback = write_text(round_dir, "outputs/feedback_student.md", "# Feedback\n")
     revision = write_text(round_dir, "outputs/revision_diff.md", "# Revision\n")
@@ -783,7 +919,10 @@ def test_validate_supervisor_report_confirmation_rejects_stale_reviewed_hash(tmp
 
 def trace_calibration_context(round_dir: Path) -> dict[str, object]:
     materials_hash = sha256_file(round_dir / "outputs/oponent_podklady_revidovane.md")
-    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, trace_payload(materials_hash))
+    trace = trace_payload(materials_hash)
+    if (round_dir / REPORT_CALIBRATION_BASIS_REL).is_file():
+        bind_report_calibration_basis(trace, round_dir)
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, trace)
     trace_hash = sha256_file(round_dir / OPPONENT_REPORT_TRACE_REL)
     advisory = {
         **calibration_common_fields("opponent-calibration-advisory-v1"),
@@ -800,7 +939,9 @@ def trace_calibration_context(round_dir: Path) -> dict[str, object]:
         "reviewer_profile_gate": {"required": True, "satisfied_by_historical_calibration": False},
     }
     write_json(round_dir / "work/opponent_calibration_advisory.json", advisory)
-    feedback = write_text(round_dir, "notes/opponent-report-operator-feedback.md", "# Operator feedback\n")
+    feedback = round_dir / "notes/opponent-report-operator-feedback.md"
+    if not feedback.is_file():
+        feedback = write_text(round_dir, "notes/opponent-report-operator-feedback.md", "# Operator feedback\n")
     comparison = write_text(round_dir, "outputs/reference_report_comparison.md")
     packet = write_text(round_dir, "outputs/opponent_reading_packet.md")
     trace_snapshot = copy_round_file(
@@ -905,6 +1046,123 @@ def test_validate_opponent_report_trace_accepts_complete_payload(tmp_path: Path)
     )
 
     assert errors == []
+
+
+def test_validate_opponent_report_trace_accepts_report_calibration_basis_binding(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    bind_report_calibration_basis(payload, round_dir)
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_report_trace_requires_binding_when_basis_exists(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("report_calibration_basis_path must be work/report_calibration_basis.json" in error for error in errors)
+    assert any("calibration_preference_ids must be list" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_requires_basis_in_profile_case_without_limitation(tmp_path: Path) -> None:
+    round_dir = create_profile_case_round(tmp_path)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("report_calibration_basis_path must be work/report_calibration_basis.json" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_accepts_typed_no_applicable_calibration_limitation(
+    tmp_path: Path,
+) -> None:
+    round_dir = create_profile_case_round(tmp_path)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["report_calibration_limitation"] = report_calibration_limitation_payload(round_dir)
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_report_trace_rejects_stale_calibration_limitation_profile_hash(
+    tmp_path: Path,
+) -> None:
+    round_dir = create_profile_case_round(tmp_path)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    payload["report_calibration_limitation"] = report_calibration_limitation_payload(round_dir)
+    (round_dir.parents[3] / "profiles" / "default.md").write_text("# Changed profile\n", encoding="utf-8")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("profile_sources item 1: sha256 is stale for profiles/default.md" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_rejects_stale_report_calibration_basis_hash(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    bind_report_calibration_basis(payload, round_dir)
+    write_text(round_dir, REPORT_CALIBRATION_BASIS_REL, "{}\n")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("report_calibration_basis_sha256 is stale" in error for error in errors)
+
+
+def test_validate_opponent_report_trace_requires_calibration_preference_mapping(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir)
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    bind_report_calibration_basis(payload, round_dir)
+    payload["calibration_preference_ids"] = ["opponent.unknown"]
+    payload["calibration_preference_applications"] = [
+        {
+            "preference_id": "opponent.unknown",
+            "target_is_item_ids": [],
+            "target_defense_question_ids": ["missing-question"],
+            "target_report_controls": ["overall_grade"],
+            "rationale": "Synthetic invalid mapping.",
+        }
+    ]
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any("unknown or unapplied preference opponent.unknown" in error for error in errors)
+    assert any("unknown question id missing-question" in error for error in errors)
+    assert any("missing expected report control defense_question_count" in error for error in errors)
 
 
 def test_validate_opponent_report_trace_requires_unique_anchored_is_items(tmp_path: Path) -> None:
@@ -1022,6 +1280,75 @@ def test_validate_opponent_report_trace_accepts_calibration_context_hash_binding
 
     assert errors == []
 
+
+def test_validate_opponent_report_trace_accepts_basis_and_calibration_context_relationship(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir, grade="B")
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    context = trace_calibration_context(round_dir)
+    add_report_calibration_related_artifact(round_dir, "work/opponent_calibration_advisory.json")
+    bind_report_calibration_basis(payload, round_dir)
+    payload["calibration_context"] = context
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+
+
+def test_validate_opponent_report_trace_requires_basis_related_artifact_for_calibration_context(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir, grade="B")
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    context = trace_calibration_context(round_dir)
+    bind_report_calibration_basis(payload, round_dir)
+    payload["calibration_context"] = context
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, OPPONENT_REPORT_TRACE_REL)
+
+    assert any(
+        "related_calibration_artifacts must include work/opponent_calibration_advisory.json" in error
+        for error in errors
+    )
+
+
+def test_validate_opponent_report_trace_rejects_conflicting_calibration_controls(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    create_round_refs(round_dir)
+    write_report_calibration_basis(round_dir, grade="B")
+    payload = trace_payload(sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md"))
+    context = trace_calibration_context(round_dir)
+    revision_path = round_dir / "work/opponent_report_revision_request.json"
+    revision = json.loads(revision_path.read_text(encoding="utf-8"))
+    revision["expected_report_controls"] = {"overall_grade": "D"}
+    write_json(revision_path, revision)
+    context["revision_request_sha256"] = sha256_file(revision_path)
+    add_report_calibration_related_artifact(round_dir, "work/opponent_calibration_advisory.json")
+    bind_report_calibration_basis(payload, round_dir)
+    payload["calibration_context"] = context
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+
+    errors = validate_structured_evidence_artifact(
+        round_dir,
+        OPPONENT_REPORT_TRACE_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any(
+        "expected_report_controls.overall_grade conflicts with report_calibration_basis" in error
+        for error in errors
+    )
 
 def test_validate_opponent_report_trace_rejects_stale_calibration_context_source(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"

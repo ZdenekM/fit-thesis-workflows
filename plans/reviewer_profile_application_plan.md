@@ -671,6 +671,41 @@ git diff --check
   `pants test tests/test_opponent_packets.py tests/test_work_artifacts.py tests/test_refresh_round_hashes.py tests/test_report_calibration.py`,
   `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
   overall score 90.88, 180 files analyzed, and no smells.
+- 2026-05-20: Slice 3 implemented. Bound
+  `work/opponent_report_trace.json` to `work/report_calibration_basis.json`
+  through path/hash fields, required applied preference IDs, and
+  `calibration_preference_applications` mapping preferences to IS items,
+  defense questions, and expected report controls. Added structural
+  `report_calibration_limitation` for the explicit no-applicable-calibration
+  path when an effective profile exists but no profile/operator preference is
+  applicable. Preserved existing `calibration_context` semantics and added
+  conflict checks against basis `expected_report_controls`.
+- 2026-05-20: Slice 3 review and closeout completed. Serena symbol navigation
+  was used on `structured_evidence.py` and `report_calibration.py` during the
+  validator changes. Omen MCP file-scoped `repomap` and complexity checks still
+  returned zero files for specific touched Python files; repo-root `repomap`
+  and HyDE semantic search located the relevant strict trace-validation symbols,
+  so file-scoped results were treated as an MCP path/index limitation and not
+  as quality evidence. Subagent findings were patched: trace validation now
+  requires a calibration basis in real profile-backed rounds unless the trace
+  records a hash-bound typed limitation; skills and packets say the semantic
+  reviewer/human owns preference-to-target mapping; existing
+  `calibration_context` must be preserved when historical/reference calibration
+  influenced the report; the basis must list the acyclic related
+  `opponent_calibration_use` or `opponent_calibration_advisory` artifact; and
+  `scripts/smoke-package-workflow-tools` now records an explicit synthetic
+  no-applicable-calibration limitation. The validator deliberately does not
+  require `work/opponent_report_revision_request.json` under basis
+  `related_calibration_artifacts`, because the basis can influence the trace
+  snapshot that the revision request later hash-binds; enforcing that
+  relationship would create a hash cycle. Post-fix checks passed:
+  `pants check src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/opponent_calibration.py src/thesis_review_workflow/opponent_packets.py tests/test_structured_evidence.py`,
+  `pants test tests/test_structured_evidence.py tests/test_opponent_calibration.py tests/test_opponent_report.py tests/test_workflow_python_contracts.py tests/test_check_scripts_contracts.py`,
+  `scripts/smoke-opponent-report`, `scripts/smoke-report-calibration`,
+  `scripts/smoke-package-workflow-tools`, `scripts/check-private`,
+  `scripts/check-scripts`, `git diff --check`, and `pants run :omen`.
+  Repo-level Omen reported grade A, overall score 90.85, 180 files analyzed,
+  and no smells.
 
 ## Decision Log
 
