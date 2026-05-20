@@ -148,6 +148,13 @@ agenty. Nálezy promítni přes canonical/export route, nebo mi vrať blokujíc�
 připomínky, pokud by přepsání obešlo trace-bound draft.
 ```
 
+Pokud k posudku doplníte pozdní kalibrační připomínku, například ke známce,
+bodům, formulaci otázky nebo soukromému komentáři pro studenta, agent nemá jen
+upravit čistý výstup. Nejprve se musí obnovit nebo zapsat
+`work/report_calibration_basis.json`, potom podle dopadu aktualizovat
+`work/opponent_report_trace.json`, znovu vygenerovat canonical draft, vyexportovat
+clean návrh a spustit nové nezávislé review.
+
 ### Samostatná kontrola kódu
 
 ```text
@@ -613,6 +620,11 @@ musí approval record odpovídat aktuálnímu souboru, jinak je review neplatné
 Pokud je korekce zároveň kalibrace stylu, soukromého reviewer profilu nebo
 obecného workflow pravidla, pořád patří do stejné delta cesty; přesný command
 contract a privátní-profile hranice vlastní `docs/workflow-command-surface.md`.
+U oponentského posudku je rozdíl mezi čtyřmi stavy: reviewer profile existuje,
+profile je jen dostupný v common briefing jako kontext, profile/operator
+preference byly výslovně aplikované v `work/report_calibration_basis.json`, a
+report text prošel `check-report-calibration` plus canonical/clean kontrolami.
+Jen poslední dva stavy dokazují aplikaci konkrétních kalibračních preferencí.
 Po skutečném vložení oponentského posudku do IS zaznamenejte veřejný PDF export
 přes `record-submitted-opponent-report`. Když se veřejný text liší od
 revidovaného clean návrhu jen nemateriálně, klasifikujte rozdíl přes
@@ -843,6 +855,12 @@ profiles/local/<profile-id>.md
 Profily jsou preference, ne tvrdá workflow pravidla. Nemohou přepsat soukromí,
 evidenční požadavky, readiness gate, jazyk výstupu ani povinnost říct, co nebylo
 ověřeno.
+Profile v `case.md` a common briefingu znamená dostupný kontext, ne automatickou
+aplikaci. U V1 oponentského posudku se aplikace profilu nebo operator
+kalibrace prokazuje až strukturovaným `work/report_calibration_basis.json`
+se scope `opponent_report` a navazujícími kontrolami report trace, draftu,
+exportu a nezávislého review. Posudky vedoucího používají vlastní
+trace/confirmation/supervisor-report calibration kontrakty.
 Lokální profile audity jsou soukromé a opt-in; veřejný repozitář může obsahovat
 jen redigovaný odkaz přes review delta, ne obsah soukromého profilu.
 

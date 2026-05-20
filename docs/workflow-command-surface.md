@@ -107,6 +107,20 @@ hashes after operator-note or approval-record edits. It currently refreshes
 `work/review_deltas/*.json`, report text, grades, verdicts, private comments,
 or semantic findings; material report changes still go through
 `record-review-delta` and the relevant independent review loop.
+When refreshing an existing supervisor-report common briefing, it preserves the
+stored `workflow_profile` / `report_calibration_scope` boundary and must not
+reintroduce the opponent-report `work/report_calibration_basis.json` into
+supervisor-report handoffs.
+
+`check-report-calibration` is the deterministic checker for the opponent-report
+reviewer-profile application basis. It validates structured JSON, hashes,
+profile/operator source records, expected IS values, grade/point intervals,
+defense-question count, private-comment requirement, and stale-input state. It
+does not interpret free-form profile prose. The helper is required when an
+opponent report trace, draft, clean export, or independent report-review basis
+is bound to `work/report_calibration_basis.json`. It is not a supervisor-report
+gate; supervisor reports use their own trace, confirmation, review, and
+optional supervisor-report calibration artifacts.
 
 On Linux development checkouts the POSIX `scripts/<tool>` wrappers are fine for
 quick use. On Windows, do not run or click extensionless `scripts/<tool>` files:

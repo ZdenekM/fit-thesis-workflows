@@ -2,10 +2,6 @@
 
 ## P0 - Workflow Reliability
 
-- [ ] Implement the opponent-report reviewer-profile application contract from `plans/reviewer_profile_application_plan.md`.
-   - Current workflows can validate and pass profile files as context, but they do not reliably force profile/operator preferences to be selected, applied, and checked in report trace/draft/review.
-   - Add a case-local opponent-report calibration-basis artifact and structural checks for expected IS values, grade/point bands, defense-question count, and stale profile/operator-note hashes.
-   - Keep semantic preference selection in authorized human/agent review; deterministic helpers must validate the resulting structured contract, not infer meaning from profile prose.
 - [ ] Add native Windows runtime proof for packaged workflow launchers.
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.

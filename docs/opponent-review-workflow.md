@@ -185,6 +185,38 @@ Kalibrační výstupy `outputs/reference_report_comparison.md` a
 vyžaduje vlastní nezávislý review záznam a aktuální reviewed hash; nesmí být jen
 implicitně pokryté pozdější syntézou.
 
+## Reviewer Profile Application States
+
+Reviewer profile can be present in several different senses, and only the later
+ones prove application in the opponent report:
+
+- `case.md` names a reviewer profile and `scripts/check-reviewer-profile`
+  proves that the profile file exists and is safe to use;
+- `work/common_briefing.json` lists the profile as context for role agents;
+- `work/report_calibration_basis.json` records the actual profile/operator
+  preferences selected for the current opponent report, including hashes,
+  `calibration_scope: opponent_report`, applied preference IDs, and structured
+  expected report controls;
+- `check-report-calibration`, `check-opponent-report --mode canonical`,
+  `export-opponent-report`, clean report checks, and independent report review
+  prove that the trace/draft/export/review path consumed the current structured
+  basis.
+
+Do not treat profile availability alone as evidence that preferences were
+applied. Deterministic helpers validate only structured values, hashes, paths,
+enums, and stale-input checks; semantic preference selection stays with the
+authorized human or agent review step.
+
+When late operator calibration feedback arrives after a draft exists, update or
+write `work/report_calibration_basis.json` first. Then refresh
+`work/opponent_report_trace.json` if the structured IS values, grade/points,
+defense questions, private comment, or report controls changed; regenerate the
+canonical draft with `draft-opponent-report --force`; rerun canonical checks;
+export a clean report; refresh the manifest; and rerun independent opponent
+report review. If the feedback is not applicable, record a typed limitation
+with current profile/operator source hashes instead of leaving an ambiguous
+profile-context-only state.
+
 Po přečtení podkladů a draftu může oponent zapsat připomínky do
 `notes/opponent-report-operator-feedback.md`. Autorizovaný agent nebo člověk je
 potom převede do `work/opponent_report_revision_request.json`: typovaného

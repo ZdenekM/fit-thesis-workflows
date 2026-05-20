@@ -20,6 +20,18 @@ Supervisor reports keep their separate trace, confirmation, review, and
 optional supervisor-report calibration contracts. Revisit convergence only
 after both workflows have been exercised enough to justify one shared contract.
 
+For opponent reports, distinguish four states:
+
+- the reviewer profile file exists and passes `scripts/check-reviewer-profile`;
+- the profile is listed in `work/common_briefing.json`, which makes it context
+  for agents but does not prove application;
+- `work/report_calibration_basis.json` records which profile or operator
+  preferences were applied, with hashes, `calibration_scope:
+  opponent_report`, and structured expected report controls;
+- report text passed the calibration-aware checks, including
+  `scripts/check-report-calibration`, canonical/clean opponent-report checks,
+  and the independent review gate when the report basis is calibration-bound.
+
 ## Public And Private Profiles
 
 The public repository tracks only:

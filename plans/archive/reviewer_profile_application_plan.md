@@ -1,6 +1,6 @@
 # Reviewer Profile Application Contract Plan
 
-Status: active
+Status: done
 Created: 2026-05-20
 
 ## Goal
@@ -799,6 +799,23 @@ git diff --check
   `pants test tests/test_supervisor_report_packets.py tests/test_review_round_closeout.py tests/test_refresh_round_hashes.py tests/test_supervisor_report.py tests/test_supervisor_report_calibration.py tests/test_agent_profile_contracts.py tests/test_opponent_packets.py`,
   `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
   overall score 91.02, 180 files analyzed, and no smells.
+- 2026-05-20: Slice 7 implemented and reviewed. README, profile docs,
+  opponent-review workflow docs, command-surface docs, TODO, and this plan now
+  distinguish four states: profile exists, profile is available as common
+  briefing context, preferences are applied through
+  `work/report_calibration_basis.json`, and report text passed calibration-aware
+  checks. Late operator calibration feedback is documented as a structured path:
+  update/write the basis, refresh trace when controls changed, regenerate the
+  canonical draft, export clean report, refresh manifest, and rerun independent
+  opponent-report review. Serena `search_for_pattern` over README/docs/skills/
+  profiles/TODO/this plan found the relevant `report_calibration_basis`,
+  `check-report-calibration`, and reviewer-profile references; the result was
+  too broad for direct use, so the edit used narrower shell reads for the
+  specific operator surfaces. Subagent review findings were handled: the active
+  TODO implementation item was removed only as part of final archive closeout,
+  while the P2 follow-up audit remains open. Slice checks passed:
+  `scripts/check-private`, `scripts/check-scripts`,
+  `scripts/smoke-report-calibration`, and `git diff --check`.
 
 ## Decision Log
 
@@ -824,6 +841,45 @@ git diff --check
 
 ## Final Audit
 
-Whole-plan final audit not run yet. Slice-level closeouts are recorded in
-`Progress`; this plan remains active until all slices are implemented, reviewed,
-verified, committed, and archived.
+Final audit completed on 2026-05-20.
+
+Commands run and passed:
+
+- `scripts/check-private`
+- `scripts/check-scripts`
+- `scripts/smoke-report-calibration`
+- `scripts/smoke-opponent-packets`
+- `scripts/smoke-refresh-round-hashes`
+- `scripts/smoke-opponent-report`
+- `scripts/smoke-export-opponent-report`
+- `scripts/smoke-record-submitted-opponent-report`
+- `scripts/smoke-review-manifest`
+- `scripts/smoke-supervisor-report`
+- `pants check src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/cli/check_report_calibration.py src/thesis_review_workflow/review_packets.py src/thesis_review_workflow/opponent_packets.py src/thesis_review_workflow/cli/refresh_round_hashes.py src/thesis_review_workflow/structured_evidence.py src/thesis_review_workflow/opponent_calibration.py src/thesis_review_workflow/cli/draft_opponent_report.py src/thesis_review_workflow/cli/check_opponent_report.py src/thesis_review_workflow/cli/export_opponent_report.py src/thesis_review_workflow/cli/init_review_manifest.py src/thesis_review_workflow/cli/check_review_manifest.py src/thesis_review_workflow/submitted_reports.py src/thesis_review_workflow/submitted_report_deltas.py src/thesis_review_workflow/review_approvals.py src/thesis_review_workflow/cli/write_review_approval.py src/thesis_review_workflow/review_wave_gate.py src/thesis_review_workflow/review_profiles.py src/thesis_review_workflow/cli/check_supervisor_report.py src/thesis_review_workflow/supervisor_report_calibration.py src/thesis_review_workflow/supervisor_report_packets.py src/thesis_review_workflow/cli/review_round_closeout.py tests/test_report_calibration.py tests/test_work_artifacts.py tests/test_check_private.py tests/test_check_scripts_contracts.py tests/test_opponent_packets.py tests/test_refresh_round_hashes.py tests/test_structured_evidence.py tests/test_opponent_calibration.py tests/test_opponent_report.py tests/test_workflow_python_contracts.py tests/test_draft_opponent_report.py tests/test_export_opponent_report.py tests/test_submitted_reports.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_review_wave_gate.py tests/test_agent_profile_contracts.py tests/test_supervisor_report_packets.py tests/test_review_round_closeout.py tests/test_supervisor_report.py tests/test_supervisor_report_calibration.py`
+- `pants test tests/test_report_calibration.py tests/test_work_artifacts.py tests/test_check_private.py tests/test_check_scripts_contracts.py tests/test_opponent_packets.py tests/test_refresh_round_hashes.py tests/test_structured_evidence.py tests/test_opponent_calibration.py tests/test_opponent_report.py tests/test_workflow_python_contracts.py tests/test_draft_opponent_report.py tests/test_export_opponent_report.py tests/test_submitted_reports.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_review_wave_gate.py tests/test_agent_profile_contracts.py tests/test_supervisor_report_packets.py tests/test_review_round_closeout.py tests/test_supervisor_report.py tests/test_supervisor_report_calibration.py`
+- `pants run :omen` - grade A, overall score 91.02, 180 files analyzed, 0 smells. Hotspots are existing repo-level complexity/churn signals, not blocking Slice 7 closeout.
+- `git diff --check`
+- Post-archive verification: `git diff --check`, `scripts/check-private`,
+  `scripts/check-scripts`, and
+  `git status --short --untracked-files=all` after moving the plan to
+  `plans/archive/`. Status showed only this slice's staged/unstaged work plus
+  the pre-existing unrelated local edits in `AGENTS.md` and
+  `docs/dev-hygiene.md`.
+
+Skipped checks: none.
+
+Residual risks and follow-up:
+
+- Omen MCP remained path/index limited for file-scoped `repomap`/`complexity`
+  on several touched files during the rollout; repo-scoped semantic search and
+  reproducible `pants run :omen` were used as recorded slice evidence.
+- `TODO.md` keeps the P2 audit for broader reviewer-profile/operator-
+  calibration application contracts. This is the deliberate future convergence
+  point for supervisor reports and other workflows; V1 remains
+  opponent-report-only.
+- The worktree still contains pre-existing unrelated local edits in
+  `AGENTS.md` and `docs/dev-hygiene.md`; they were not staged or changed by
+  this plan closeout.
+
+Archive decision: complete. Move this plan to `plans/archive/` and keep
+`TODO.md` limited to remaining open work.
