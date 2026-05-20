@@ -893,6 +893,20 @@ Discarded as case-specific:
   recurring private phrasing, and case-derived lessons belong in ignored local
   profiles or round-scoped calibration/review artifacts. Agent review found no
   follow-up findings.
+- 2026-05-20: Slice 6 started. Scope is an end-to-end synthetic proof over
+  existing smoke/tests only; synthetic data must remain obviously artificial,
+  case-neutral, and expressed through the existing trace, checker summary,
+  calibration, draft/export, manifest, and smoke paths.
+- 2026-05-20: Slice 6 implemented and agent-reviewed. The synthetic
+  end-to-end proof now exercises trace-derived report-quality checklist routing
+  for evaluation, scaling, third-party/authorship, contribution boundary,
+  citation support, technical difficulty, result usability, and deployment
+  readiness; separates thesis text, static code, run/demo, and inventoried-only
+  media evidence classes through concrete synthetic refs; and asserts that the
+  canonical draft carries internal checks while the clean export strips them.
+  Review found one coverage gap in smoke assertions for technical difficulty
+  and result-usability checklist routes; both assertions were added and
+  `scripts/smoke-opponent-report` was rerun successfully.
 
 ## Decision Log
 
@@ -1081,6 +1095,24 @@ PANTS_CONCURRENT=false pants test tests/test_report_calibration.py tests/test_op
 # passed
 git diff --check                                          # passed
 scripts/check-scripts                                     # passed
+```
+
+No concrete case output under `cases/` has been edited.
+
+Slice 6 checks after synthetic proof update, agent review, and fixes:
+
+```bash
+PANTS_CONCURRENT=false pants test src/thesis_review_workflow:: tests::
+# passed
+PANTS_CONCURRENT=false pants lint tests/test_opponent_report.py
+# passed
+scripts/smoke-theses-checker-summary      # passed
+scripts/smoke-opponent-report             # passed
+scripts/smoke-opponent-closeout           # passed
+scripts/smoke-report-calibration          # passed
+scripts/check-private                     # passed
+scripts/check-scripts                     # passed
+git diff --check                          # passed
 ```
 
 No concrete case output under `cases/` has been edited.

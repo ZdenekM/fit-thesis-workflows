@@ -328,6 +328,15 @@ round_id = sys.argv[3]
 materials_path = pathlib.Path(sys.argv[4])
 round_dir = materials_path.parents[1]
 repo_root = round_dir.parents[3]
+for rel_path, text in {
+    "extracted/thesis.txt": "Synthetic extracted thesis text with generic implementation and evaluation claims.\n",
+    "notes/static-code-evidence.md": "Synthetic static-code evidence note.\n",
+    "notes/run-demo-evidence.md": "Synthetic run/demo evidence limitation note.\n",
+    "notes/media-inventory.md": "Synthetic media inventory note: screenshot is inventoried only.\n",
+}.items():
+    evidence_path = round_dir / rel_path
+    evidence_path.parent.mkdir(parents=True, exist_ok=True)
+    evidence_path.write_text(text, encoding="utf-8")
 materials_hash = hashlib.sha256(materials_path.read_bytes()).hexdigest()
 profile_sources = [
     {
@@ -418,6 +427,16 @@ payload = {
     "limitations": [],
 }
 claim_id = "claim-overall"
+
+def materiality_ref(summary):
+    return {
+        "summary": summary,
+        "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+        "wording_mode": "manual_check",
+        "materiality_reason": "Synthetic closeout fixture exercises report-bound materiality routing.",
+        "limitations": ["Synthetic closeout fixture only."],
+    }
+
 payload.update(
     {
         "assignment_fulfillment_map": {
@@ -468,6 +487,31 @@ payload.update(
                 "source_class": "reviewed_materials",
                 "support_mode": "supports",
                 "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "thesis_text",
+                "support_mode": "partially_supports",
+                "source_refs": ["extracted/thesis.txt"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "submitted_code_static",
+                "support_mode": "limits",
+                "source_refs": ["notes/static-code-evidence.md"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "build_run_demo",
+                "support_mode": "not_checked",
+                "source_refs": ["notes/run-demo-evidence.md"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "media_visual",
+                "support_mode": "not_available",
+                "source_refs": ["notes/media-inventory.md"],
+                "media_status": "inventoried_only",
             }
         ],
         "technical_report_scope_basis": {
@@ -496,6 +540,30 @@ payload.update(
             }
             for item in payload["defense_questions"]
         ],
+        "evaluation_claim_review": materiality_ref(
+            "Partial evaluation evidence exists, but repeatability fields and metric definitions are limited."
+        ),
+        "scaling_claim_review": materiality_ref(
+            "Scaling and performance wording needs stress, boundary, or comparator evidence."
+        ),
+        "third_party_authorship_review": materiality_ref(
+            "Third-party libraries, assets, AI assistance, generated code, and licenses need internal checks."
+        ),
+        "contribution_boundary_review": materiality_ref(
+            "Student contribution must stay separated from framework and library behavior."
+        ),
+        "citation_support_review": materiality_ref(
+            "Citation support is checked separately from bibliography relevance."
+        ),
+        "technical_difficulty_breakdown": materiality_ref(
+            "Difficulty is split into integration, algorithmic, platform, domain, and evaluation dimensions."
+        ),
+        "result_usability_level": materiality_ref(
+            "Result usability is calibrated as demonstrator, prototype, pilot tool, or deployable tool."
+        ),
+        "deployment_readiness": materiality_ref(
+            "Deployment readiness depends on build, install, run, environment, docs, and demo limitations."
+        ),
     }
 )
 path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

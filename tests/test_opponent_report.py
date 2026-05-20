@@ -10,6 +10,7 @@ from thesis_review_workflow.cli.check_opponent_report import (
     validate_trace_metadata,
 )
 from thesis_review_workflow.cli.draft_opponent_report import build_report
+from thesis_review_workflow.cli.export_opponent_report import clean_export_text
 
 IS_IDS = (
     "assignment_difficulty",
@@ -31,6 +32,13 @@ def sha256_file(path: Path) -> str:
 def opponent_report_quality_controls(*, question_ids: tuple[str, ...] = ("D1",)) -> dict[str, object]:
     evidence_ref = "outputs/oponent_podklady_revidovane.md"
     claim_id = "claim-overall"
+    optional_ref = {
+        "summary": "Synthetic reviewed materials require compact cautious report wording.",
+        "evidence_refs": [evidence_ref],
+        "wording_mode": "manual_check",
+        "materiality_reason": "The topic can affect an IS report section or defense question.",
+        "limitations": ["Synthetic fixture only."],
+    }
     return {
         "assignment_fulfillment_map": {
             "source_refs": [evidence_ref],
@@ -80,7 +88,32 @@ def opponent_report_quality_controls(*, question_ids: tuple[str, ...] = ("D1",))
                 "source_class": "reviewed_materials",
                 "support_mode": "supports",
                 "source_refs": [evidence_ref],
-            }
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "thesis_text",
+                "support_mode": "partially_supports",
+                "source_refs": ["extracted/thesis.txt"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "submitted_code_static",
+                "support_mode": "limits",
+                "source_refs": ["notes/static-code-evidence.md"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "build_run_demo",
+                "support_mode": "not_checked",
+                "source_refs": ["notes/run-demo-evidence.md"],
+            },
+            {
+                "claim_id": claim_id,
+                "source_class": "media_visual",
+                "support_mode": "not_available",
+                "source_refs": ["notes/media-inventory.md"],
+                "media_status": "inventoried_only",
+            },
         ],
         "technical_report_scope_basis": {
             "status": "operator_accepted_limitation",
@@ -108,6 +141,44 @@ def opponent_report_quality_controls(*, question_ids: tuple[str, ...] = ("D1",))
             }
             for question_id in question_ids
         ],
+        "evaluation_claim_review": {
+            **optional_ref,
+            "summary": (
+                "Partial evaluation evidence exists, but repeatability fields and metric definitions are limited."
+            ),
+        },
+        "scaling_claim_review": {
+            **optional_ref,
+            "summary": "Scaling and performance language requires stress, boundary, or comparator evidence.",
+        },
+        "third_party_authorship_review": {
+            **optional_ref,
+            "summary": (
+                "Third-party libraries, assets, AI assistance, and generated code need internal authorship checks."
+            ),
+        },
+        "contribution_boundary_review": {
+            **optional_ref,
+            "summary": "Student contribution should be separated from framework and library behavior.",
+        },
+        "citation_support_review": {
+            **optional_ref,
+            "summary": "Citation support must be checked separately from bibliography relevance.",
+        },
+        "technical_difficulty_breakdown": {
+            **optional_ref,
+            "summary": (
+                "Technical difficulty is split across integration, algorithmic, platform, and evaluation dimensions."
+            ),
+        },
+        "result_usability_level": {
+            **optional_ref,
+            "summary": "Result usability is calibrated as demonstrator, prototype, pilot tool, or deployable tool.",
+        },
+        "deployment_readiness": {
+            **optional_ref,
+            "summary": "Deployment readiness depends on build, install, run, environment, docs, and demo limitations.",
+        },
     }
 
 
@@ -165,9 +236,29 @@ def test_build_report_uses_structured_trace_without_fallback_prose() -> None:
     assert "každé veřejné tvrzení má odpovídající záznam o tvrzení" in report
     assert "FIT IS rubriky řeší vlastní kritérium" in report
     assert "Theses Checker souhrnu nebo z výslovně přijaté limitace" in report
+    assert "strukturovanou kontrolu pro evaluační a metrická tvrzení" in report
+    assert "strukturovanou kontrolu pro tvrzení o škálování" in report
+    assert "strukturovanou kontrolu pro hranice cizích komponent a autorství" in report
+    assert "strukturovanou kontrolu pro hranice vlastního přínosu" in report
+    assert "strukturovanou kontrolu pro oporu citací pro tvrzení" in report
+    assert "strukturovanou kontrolu pro rozpad technické náročnosti" in report
+    assert "strukturovanou kontrolu pro využitelnost výsledku" in report
+    assert "strukturovanou kontrolu pro stav nasazení nebo použitelnosti v cílovém prostředí" in report
     assert "U1: Runtime was not fully verified.; stav: carried_to_report" in report
     assert "pokyn: Preserve cautious wording in the overall assessment." in report
     assert "Z dostupných revidovaných podkladů není pro tuto položku" not in report
+
+
+def test_clean_export_removes_trace_quality_checklist_detail() -> None:
+    report = build_report(trace_payload(), trace_hash="a" * 64, materials_hash="b" * 64)
+    clean = clean_export_text(report)
+
+    assert "## 12. Před odevzdáním" not in clean
+    assert "strukturovanou kontrolu pro" not in clean
+    assert "každé veřejné tvrzení má odpovídající záznam" not in clean
+    assert "source_trace_path" not in clean
+    assert "work/" not in clean
+    assert "Formulation for overall_assessment." in clean
 
 
 def test_build_report_copies_report_calibration_metadata_comments() -> None:
