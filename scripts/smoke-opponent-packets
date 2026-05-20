@@ -61,6 +61,11 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 EOF
 printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
 printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
+cat >"$round_dir/notes/opponent-report-operator-feedback.md" <<'EOF'
+# Opponent Report Operator Feedback
+
+Synthetic calibration source note.
+EOF
 python3 - "$round_dir/work/assignment_coverage_agent.json" "$case_id" "$round_id" <<'PY'
 import json
 import pathlib
@@ -117,7 +122,12 @@ grep -Fq "Common briefing: \`work/common_briefing.json\`" "$packet_dir/text_stru
 grep -Fq '"path": "case.md"' "$common_briefing"
 grep -Fq '"path": "profiles/default.md"' "$common_briefing"
 grep -Fq '"path": "work/assignment_coverage_agent.json"' "$common_briefing"
+grep -Fq '"path": "work/report_calibration_basis.json"' "$common_briefing"
+grep -Fq '"report_calibration_sources"' "$common_briefing"
+grep -Fq '"path": "notes/opponent-report-operator-feedback.md"' "$common_briefing"
 grep -Fq "inputs/submitted-src/" "$common_briefing"
+grep -Fq "## Report Calibration Basis" "$packet_dir/text_structure_assignment.md"
+grep -Fq 'Start from `work/report_calibration_basis.json` when present' "$packet_dir/text_structure_assignment.md"
 grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
 grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"

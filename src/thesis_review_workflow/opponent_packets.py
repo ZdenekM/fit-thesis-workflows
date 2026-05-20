@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_packets import (
     COMMON_BRIEFING_REL,
     COMMON_CONSTRAINTS,
@@ -16,6 +17,7 @@ from thesis_review_workflow.review_packets import (
     omen_advisory_section,
     path_list,
     prune_inactive_packets,
+    report_calibration_basis_section,
     reusable_handoff_refs_section,
     role_is_active,
     sha256_file,
@@ -60,6 +62,7 @@ ADVISORY_ARTIFACTS = (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_REVIEW_REL,
     "outputs/revision_diff.md",
+    REPORT_CALIBRATION_BASIS_REL,
 )
 
 PACKET_ROLES = (
@@ -306,6 +309,7 @@ PACKET_ROLES = (
             "outputs/literature_citation_review.md",
             "outputs/typography_formal_review.md",
             THESES_SIMILARITY_REVIEW_REL,
+            REPORT_CALIBRATION_BASIS_REL,
         ),
         constraints=(
             "Do not manufacture certainty; lower confidence or mark manual checks when evidence is incomplete.",
@@ -396,6 +400,7 @@ PACKET_ROLES = (
             "work/oponent_podklady_draft.md",
             "outputs/oponent_podklady.md",
             "work/reviews/opponent_materials_review.json",
+            REPORT_CALIBRATION_BASIS_REL,
         ),
         constraints=(
             "Start from a non-empty draft/materials artifact that passed the relevant shape gate.",
@@ -419,6 +424,7 @@ PACKET_ROLES = (
         role_inputs=(
             "outputs/oponent_podklady_revidovane.md",
             "work/reviews/opponent_materials_review.json",
+            REPORT_CALIBRATION_BASIS_REL,
             "work/opponent_report_trace.json",
         ),
         constraints=(
@@ -447,6 +453,7 @@ PACKET_ROLES = (
             "outputs/oponent_posudek_navrh.md",
             "work/oponent_posudek_draft.md",
             "work/opponent_report_trace.json",
+            REPORT_CALIBRATION_BASIS_REL,
             "work/reviews/opponent_report_review.json",
         ),
         constraints=(
@@ -473,6 +480,7 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             round_id=round_id,
             workflow_profile="opponent_review",
         ),
+        report_calibration_basis_section(round_dir, case_id=case_id, round_id=round_id),
         reusable_handoff_refs_section(round_dir, case_id=case_id, round_id=round_id),
     ]
     if role.key == "code_quality":

@@ -49,6 +49,72 @@ def test_refresh_round_hashes_updates_common_briefing_after_note_edit(tmp_path: 
     assert assignment["sha256"] == sha256_file(round_dir / "notes" / "assignment.md")
 
 
+def test_refresh_round_hashes_updates_report_calibration_source_refs(tmp_path: Path, monkeypatch) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    feedback = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    feedback.write_text("# Operator calibration\n\nInitial.\n", encoding="utf-8")
+    review_delta = round_dir / "work" / "review_deltas" / "report-calibration.json"
+    review_delta.parent.mkdir(parents=True)
+    review_delta.write_text('{"schema_version":"review-delta-v1","state":"initial"}\n', encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-18T10:00:00Z", round_dir)
+    feedback.write_text("# Operator calibration\n\nEdited.\n", encoding="utf-8")
+    review_delta.write_text('{"schema_version":"review-delta-v1","state":"edited"}\n', encoding="utf-8")
+
+    stale_errors = validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a")
+    assert any("sha256 is stale for notes/opponent-report-operator-feedback.md" in error for error in stale_errors)
+    assert any("sha256 is stale for work/review_deltas/report-calibration.json" in error for error in stale_errors)
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    assert validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a") == []
+    payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    sources = {item["path"]: item for item in payload["report_calibration_sources"]}
+    assert sources["notes/opponent-report-operator-feedback.md"]["sha256"] == sha256_file(feedback)
+    assert sources["work/review_deltas/report-calibration.json"]["sha256"] == sha256_file(review_delta)
+
+
+def test_refresh_round_hashes_detects_new_report_calibration_delta_after_briefing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    write_common_briefing("case-a", "round-a", "2026-05-18T10:00:00Z", round_dir)
+    review_delta = round_dir / "work" / "review_deltas" / "report-calibration.json"
+    review_delta.parent.mkdir(parents=True)
+    review_delta.write_text('{"schema_version":"review-delta-v1","state":"new"}\n', encoding="utf-8")
+
+    stale_errors = validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a")
+    assert any(
+        "report_calibration_sources missing current source work/review_deltas/report-calibration.json" in error
+        for error in stale_errors
+    )
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    assert validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a") == []
+    payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    sources = {item["path"]: item for item in payload["report_calibration_sources"]}
+    assert sources["work/review_deltas/report-calibration.json"]["sha256"] == sha256_file(review_delta)
+
+
 def test_refresh_round_hashes_does_not_modify_approval_records(tmp_path: Path, monkeypatch) -> None:
     root, round_dir = make_round(tmp_path)
     monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)

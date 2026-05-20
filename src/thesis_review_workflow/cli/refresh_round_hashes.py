@@ -17,6 +17,10 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    is_report_calibration_source_path,
+)
 from thesis_review_workflow.review_packets import (
     COMMON_BRIEFING_REL,
     build_common_briefing_payload,
@@ -30,7 +34,11 @@ from thesis_review_workflow.submission_bundle import (
 )
 
 REFRESHABLE_COMMON_BRIEFING_REFS = ("notes/", "work/reviews/")
-REFRESHABLE_COMMON_BRIEFING_EXACT_REFS = (CURRENT_EVIDENCE_SNAPSHOT_REL, *SUBMISSION_BUNDLE_VISIBILITY_REFS)
+REFRESHABLE_COMMON_BRIEFING_EXACT_REFS = (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    REPORT_CALIBRATION_BASIS_REL,
+    *SUBMISSION_BUNDLE_VISIBILITY_REFS,
+)
 REFRESHABLE_COMMON_BRIEFING_JSON_PREFIXES = ("work/review_materiality/",)
 MATERIALIZED_CODE_WORKSPACE_REFS = {
     "work/code_workspace.md",
@@ -98,6 +106,8 @@ def is_refreshable_common_briefing_ref(ref: str, *, round_dir: Path | None = Non
     notes_prefix, reviews_prefix = REFRESHABLE_COMMON_BRIEFING_REFS
     if ref in REFRESHABLE_COMMON_BRIEFING_EXACT_REFS:
         return True
+    if is_report_calibration_source_path(ref):
+        return True
     if round_dir is not None and ref in materialized_input_refs(round_dir):
         return True
     if (
@@ -149,7 +159,7 @@ def common_briefing_refresh_blockers(round_dir: Path, *, case_id: str, round_id:
             blockers.append(
                 f"{COMMON_BRIEFING_REL}: refusing to refresh hash for {ref}; "
                 "refresh-round-hashes only refreshes notes/*, work/reviews/*.json, current evidence, "
-                "materiality, and submission-bundle visibility snapshots. "
+                "materiality, report-calibration source refs, and submission-bundle visibility snapshots. "
                 "For report text, review outputs, evidence artifacts, or materiality inputs, record a review delta "
                 "or rerun the relevant review/check instead."
             )

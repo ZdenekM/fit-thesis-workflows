@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from thesis_review_workflow.cli.context import (
     repo_root,
@@ -13,9 +12,9 @@ from thesis_review_workflow.cli.context import (
     resolve_round,
     validate_id,
 )
-from thesis_review_workflow.cli.check_reviewer_profile import profile_values
 from thesis_review_workflow.report_calibration import (
     REPORT_CALIBRATION_BASIS_REL,
+    effective_reviewer_profile,
     validate_report_calibration_artifact,
 )
 
@@ -28,34 +27,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("case_id")
     parser.add_argument("round_id", nargs="?")
     return parser
-
-
-def effective_reviewer_profile(case_md: Path, root: Path) -> tuple[str, list[str], list[str]]:
-    errors: list[str] = []
-    values = profile_values(case_md)
-    if len(values) > 1:
-        return "", [], [f"{case_md}: duplicate Reviewer profile fields"]
-    configured = values[0] if values else "default"
-    configured = configured or "default"
-    relative_files = ["profiles/default.md"]
-    if configured == "default":
-        profile_id = "default"
-        if (root / "profiles" / "local" / "default.md").is_file():
-            relative_files.append("profiles/local/default.md")
-    elif configured.startswith("local/"):
-        profile_id = configured.removeprefix("local/")
-        try:
-            validate_id("profile-id", profile_id)
-        except ValueError as exc:
-            errors.append(str(exc))
-        relative_files.append(f"profiles/local/{profile_id}.md")
-    else:
-        errors.append(f"{case_md}: Reviewer profile must be default or local/<profile-id>")
-        profile_id = configured
-    for rel_path in relative_files:
-        if not (root / rel_path).is_file():
-            errors.append(f"{case_md}: missing effective reviewer profile source {rel_path}")
-    return profile_id, relative_files, errors
 
 
 def main(argv: list[str] | None = None) -> int:

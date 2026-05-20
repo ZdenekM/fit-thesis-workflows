@@ -3,8 +3,9 @@ import zipfile
 from pathlib import Path
 
 from thesis_review_workflow.opponent_packets import PACKET_ROLES, generate_packets, render_packet
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
-from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL
+from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, validate_common_briefing_payload
 from thesis_review_workflow.submission_bundle import (
     build_submission_bundle_inventory,
     write_submission_bundle_inventory,
@@ -84,6 +85,79 @@ def write_quantitative_claims(round_dir: Path) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def write_report_calibration_basis(round_dir: Path) -> None:
+    repo_root = round_dir.parents[3]
+    profile = repo_root / "profiles" / "default.md"
+    operator_note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text("# Default profile\n", encoding="utf-8")
+    operator_note.parent.mkdir(parents=True, exist_ok=True)
+    operator_note.write_text("# Operator report calibration\n", encoding="utf-8")
+    payload = {
+        "schema_version": "report-calibration-basis-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "workflow_profile": "opponent_review",
+        "operator_surface": "opponent_materials",
+        "wave_workflow": "opponent_report",
+        "generated_at": "2026-05-20T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-opponent-materials-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Synthetic test authorization.",
+        "source_refs": ["notes/opponent-report-operator-feedback.md"],
+        "profile_sources": [
+            {
+                "path": "profiles/default.md",
+                "sha256": sha256_path(profile),
+                "sections_used": ["Opponent Report Style"],
+            }
+        ],
+        "operator_calibration_sources": [
+            {
+                "path": "notes/opponent-report-operator-feedback.md",
+                "sha256": sha256_path(operator_note),
+                "purpose": "report calibration",
+            }
+        ],
+        "related_calibration_artifacts": [],
+        "applied_preferences": [
+            {
+                "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+                "source_keys": [
+                    "profile:profiles/default.md",
+                    "operator:notes/opponent-report-operator-feedback.md",
+                ],
+                "applies_to": ["assignment_difficulty"],
+                "instruction": "Use the structured calibration basis.",
+                "priority": "must",
+                "status": "applied",
+                "decision_reason": "Synthetic fixture.",
+            }
+        ],
+        "expected_report_controls": {
+            "is_select_values": {"Náročnost zadání": "průměrně obtížné zadání"},
+            "overall_grade": "D",
+            "overall_points_interval": [65, 74],
+            "defense_question_count": {"min": 1, "max": 3},
+            "public_report_length": "compact",
+            "private_comment_required": True,
+        },
+        "limitations": [],
+    }
+    path = round_dir / REPORT_CALIBRATION_BASIS_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def sha256_path(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def write_materiality(round_dir: Path, role: str) -> None:
     write_materiality_decisions(
         round_dir,
@@ -136,6 +210,77 @@ def test_generate_packets_writes_all_role_files(tmp_path: Path) -> None:
     assert profile_inputs["profiles/default.md"]["status"] == "present"
     assert advisory["work/assignment_coverage_agent.json"]["status"] == "present"
     assert str(tmp_path) not in text
+
+
+def test_common_briefing_surfaces_report_calibration_basis_and_sources(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / "work" / "review_deltas").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    (round_dir / "notes" / "random-operator-feedback.md").write_text(
+        "# Not a registered report-calibration source\n",
+        encoding="utf-8",
+    )
+    (round_dir / "work" / "review_deltas" / "report-calibration.json").write_text(
+        '{"schema_version":"review-delta-v1"}\n',
+        encoding="utf-8",
+    )
+    write_report_calibration_basis(round_dir)
+
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    snapshot_refs = {item["path"]: item for item in briefing["snapshot_refs"]}
+    calibration_sources = {item["path"]: item for item in briefing["report_calibration_sources"]}
+    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert snapshot_refs[REPORT_CALIBRATION_BASIS_REL]["status"] == "current"
+    assert calibration_sources["notes/opponent-report-operator-feedback.md"]["status"] == "present"
+    assert calibration_sources["notes/opponent-report-review-intake.md"]["status"] == "missing"
+    assert calibration_sources["work/operation_log.jsonl"]["status"] == "missing"
+    assert calibration_sources["work/opponent_report_revision_request.json"]["status"] == "missing"
+    assert calibration_sources["work/review_deltas/report-calibration.json"]["status"] == "present"
+    assert "notes/random-operator-feedback.md" not in calibration_sources
+    assert "## Report Calibration Basis" in packet
+    assert "Start from `work/report_calibration_basis.json` when present" in packet
+    assert "Do not infer reviewer preferences from free-form profile, note, or report prose" in packet
+
+    briefing["report_calibration_sources"].append(
+        {"path": "notes/random-operator-feedback.md", "status": "missing"}
+    )
+    errors = validate_common_briefing_payload(
+        briefing,
+        COMMON_BRIEFING_REL,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert any("path is not a registered report calibration source" in error for error in errors)
+
+
+def test_common_briefing_marks_wrong_profile_report_calibration_basis_invalid(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir.parents[1] / "case.md").write_text("Reviewer profile: local/other\n", encoding="utf-8")
+    (repo_root / "profiles" / "local").mkdir(parents=True)
+    (repo_root / "profiles" / "local" / "other.md").write_text("# Other profile\n", encoding="utf-8")
+    write_report_calibration_basis(round_dir)
+
+    generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
+
+    briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
+    snapshot_refs = {item["path"]: item for item in briefing["snapshot_refs"]}
+    packet = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert snapshot_refs[REPORT_CALIBRATION_BASIS_REL]["status"] == "invalid"
+    assert f"`{REPORT_CALIBRATION_BASIS_REL}` (invalid" in packet
 
 
 def test_generate_packets_emits_code_and_structured_optional_packets_only_when_triggered(tmp_path: Path) -> None:

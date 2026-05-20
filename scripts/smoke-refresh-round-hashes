@@ -48,6 +48,15 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 
 Initial note.
 EOF
+cat >"$round_dir/notes/opponent-report-operator-feedback.md" <<'EOF'
+# Opponent Report Operator Feedback
+
+Initial calibration note.
+EOF
+mkdir -p "$round_dir/work/review_deltas"
+cat >"$round_dir/work/review_deltas/report-calibration.json" <<'EOF'
+{"schema_version":"review-delta-v1","state":"initial"}
+EOF
 
 PYTHONPATH="$repo_root/src" python3 - "$case_id" "$round_id" "$round_dir" <<'PY'
 import pathlib
@@ -63,6 +72,14 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 
 Edited note.
 EOF
+cat >"$round_dir/notes/opponent-report-operator-feedback.md" <<'EOF'
+# Opponent Report Operator Feedback
+
+Edited calibration note.
+EOF
+cat >"$round_dir/work/review_deltas/report-calibration.json" <<'EOF'
+{"schema_version":"review-delta-v1","state":"edited"}
+EOF
 
 PYTHONPATH="$repo_root/src" python3 - "$round_dir" <<'PY'
 import pathlib
@@ -72,6 +89,8 @@ from thesis_review_workflow.review_packets import validate_common_briefing_artif
 round_dir = pathlib.Path(sys.argv[1])
 errors = validate_common_briefing_artifact(round_dir, case_id=round_dir.parents[1].name, round_id=round_dir.name)
 assert any("sha256 is stale for notes/assignment.md" in error for error in errors), errors
+assert any("sha256 is stale for notes/opponent-report-operator-feedback.md" in error for error in errors), errors
+assert any("sha256 is stale for work/review_deltas/report-calibration.json" in error for error in errors), errors
 PY
 
 expect_success "refresh round hashes" "$repo_root/scripts/refresh-round-hashes" \

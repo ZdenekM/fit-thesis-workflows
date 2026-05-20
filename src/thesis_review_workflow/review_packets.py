@@ -18,6 +18,13 @@ from thesis_review_workflow.review_materiality import (
     unresolved_required_next_actions,
     validate_review_materiality_artifact,
 )
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    effective_reviewer_profile,
+    is_report_calibration_source_path,
+    report_calibration_source_paths,
+    validate_report_calibration_artifact,
+)
 from thesis_review_workflow.structured_evidence import (
     STRUCTURED_EVIDENCE_SCHEMAS,
     validate_structured_evidence_artifact,
@@ -60,6 +67,7 @@ SNAPSHOT_SOURCE_PATHS = (
     *SUBMISSION_BUNDLE_VISIBILITY_REFS,
     "outputs/github_code_intake.md",
     "outputs/oponent_podklady_revidovane.md",
+    REPORT_CALIBRATION_BASIS_REL,
     "work/opponent_report_trace.json",
     "work/oponent_posudek_draft.md",
     "work/supervisor_report_feedback_history.json",
@@ -99,6 +107,7 @@ REUSABLE_HANDOFF_REFS = (
     REUSE_INDEX_REL,
     EVIDENCE_CAPSULES_REL,
     CLAIM_REVIEW_BASIS_REL,
+    REPORT_CALIBRATION_BASIS_REL,
     QUANTITATIVE_CLAIMS_REL,
 )
 COMMON_BRIEFING_BASE_INPUTS = (
@@ -127,6 +136,7 @@ COMMON_BRIEFING_ADVISORY_ARTIFACTS = tuple(
             "outputs/figure_media_review.md",
             "outputs/typography_formal_review.md",
             "outputs/revision_diff.md",
+            REPORT_CALIBRATION_BASIS_REL,
             "work/supervisor_report_trace.json",
             "work/vedouci_posudek_draft.md",
             "outputs/vedouci_posudek_revidovany.md",
@@ -204,6 +214,24 @@ def rel_status(
             validate_claim_review_basis_payload,
             case_id=case_id,
             round_id=round_id,
+        )
+        return "invalid" if errors else "current"
+    if rel_path == REPORT_CALIBRATION_BASIS_REL:
+        expected_profile_id: str | None = None
+        expected_profile_sources: list[str] | None = None
+        if case_id is not None:
+            expected_profile_id, expected_profile_sources, profile_errors = effective_reviewer_profile(
+                round_dir.parents[1] / "case.md",
+                round_dir.parents[3],
+            )
+            if profile_errors:
+                return "invalid"
+        errors = validate_report_calibration_artifact(
+            round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            expected_reviewer_profile_id=expected_profile_id,
+            expected_profile_source_paths=expected_profile_sources,
         )
         return "invalid" if errors else "current"
     if rel_path == REUSE_INDEX_REL:
@@ -643,6 +671,10 @@ def build_common_briefing_payload(
         "extracted_text_refs": extracted_text_paths(round_dir),
         "previous_feedback_refs": previous_feedback_index(round_dir),
         "submission_bundle_visibility": submission_bundle_visibility_lines(round_dir, include_absent=False),
+        "report_calibration_sources": [
+            artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
+            for rel_path in report_calibration_source_paths(round_dir)
+        ],
         "prepared_code_roots": [
             artifact_record(round_dir, rel_path, case_id=case_id, round_id=round_id, validate_round_artifact=True)
             for rel_path in CODE_WORKSPACE_PATHS
@@ -750,6 +782,7 @@ def validate_common_briefing_payload(
         ("common_inputs", round_dir.parents[1] if round_dir is not None else None),
         ("reviewer_profile_inputs", round_dir.parents[3] if round_dir is not None else None),
         ("base_inputs", round_dir),
+        ("report_calibration_sources", round_dir),
         ("prepared_code_roots", round_dir),
         ("snapshot_refs", round_dir),
         ("materiality_refs", round_dir),
@@ -757,6 +790,9 @@ def validate_common_briefing_payload(
         ("context_handoffs", round_dir),
     ):
         _validate_record_list(loaded.get(field), f"{rel_path}: {field}", base, errors)
+    _validate_report_calibration_source_records(
+        loaded.get("report_calibration_sources"), rel_path, round_dir, errors
+    )
     return errors
 
 
@@ -804,6 +840,37 @@ def _validate_record_list(value: object, prefix: str, base_dir: Path | None, err
                 errors.append(f"{item_prefix}: sha256 is stale for {path_value}")
 
 
+def _validate_report_calibration_source_records(
+    value: object,
+    rel_path: str,
+    round_dir: Path | None,
+    errors: list[str],
+) -> None:
+    if not isinstance(value, list):
+        return
+    actual_paths: set[str] = set()
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, dict):
+            continue
+        path_value = item.get("path")
+        if not isinstance(path_value, str):
+            continue
+        actual_paths.add(path_value)
+        if isinstance(path_value, str) and not is_report_calibration_source_path(path_value):
+            errors.append(
+                f"{rel_path}: report_calibration_sources item {index}: "
+                "path is not a registered report calibration source"
+            )
+    if round_dir is None:
+        return
+    expected_paths = set(report_calibration_source_paths(round_dir))
+    for path in sorted(expected_paths.difference(actual_paths)):
+        errors.append(f"{rel_path}: report_calibration_sources missing current source {path}")
+    for path in sorted(actual_paths.difference(expected_paths)):
+        if is_report_calibration_source_path(path):
+            errors.append(f"{rel_path}: report_calibration_sources includes stale or unavailable source {path}")
+
+
 def current_evidence_snapshot_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
     review_records = tuple(
         path.relative_to(round_dir).as_posix()
@@ -841,6 +908,25 @@ def omen_advisory_section(round_dir: Path) -> str:
             "If Omen MCP returns zero files for a non-empty prepared code root, treat it as a tool/path limitation. "
             "If Omen was run, map its signals back to concrete code evidence and thesis defensibility before "
             "using them.",
+            "",
+        ]
+    )
+
+
+def report_calibration_basis_section(round_dir: Path, *, case_id: str, round_id: str) -> str:
+    return "\n".join(
+        [
+            "## Report Calibration Basis",
+            "",
+            status_list(round_dir, (REPORT_CALIBRATION_BASIS_REL,), case_id=case_id, round_id=round_id),
+            "Start from `work/report_calibration_basis.json` when present. If report calibration is applicable "
+            "and the basis is missing, stale, or invalid, refresh it or record a typed limitation before "
+            "downstream report trace, draft, export, or review work.",
+            "",
+            "Registered calibration source refs:",
+            hash_status_list(round_dir, report_calibration_source_paths(round_dir), case_id=case_id, round_id=round_id),
+            "These source refs are structural availability/hash inputs only. Do not infer reviewer preferences "
+            "from free-form profile, note, or report prose in deterministic helpers.",
             "",
         ]
     )

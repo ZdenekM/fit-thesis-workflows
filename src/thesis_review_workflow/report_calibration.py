@@ -13,6 +13,13 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPORT_CALIBRATION_BASIS_REL = "work/report_calibration_basis.json"
 REPORT_CALIBRATION_BASIS_SCHEMA = "report-calibration-basis-v1"
+REPORT_CALIBRATION_SOURCE_PATHS = (
+    "notes/opponent-report-operator-feedback.md",
+    "notes/opponent-report-review-intake.md",
+    "work/operation_log.jsonl",
+    "work/opponent_report_revision_request.json",
+)
+REPORT_CALIBRATION_REVIEW_DELTA_DIR = "work/review_deltas"
 
 CALIBRATION_SCOPE = "opponent_report"
 WORKFLOW_PROFILES = {"opponent_review", "opponent_materials", "opponent_report_review"}
@@ -65,12 +72,7 @@ IS_SELECT_VALUES = {
 }
 
 ROUND_SOURCE_PREFIXES = ("inputs/", "extracted/", "notes/", "work/", "outputs/")
-OPERATOR_CALIBRATION_EXACT_PATHS = {
-    "notes/opponent-report-operator-feedback.md",
-    "notes/opponent-report-review-intake.md",
-    "work/operation_log.jsonl",
-    "work/opponent_report_revision_request.json",
-}
+OPERATOR_CALIBRATION_EXACT_PATHS = set(REPORT_CALIBRATION_SOURCE_PATHS)
 RELATED_CALIBRATION_ARTIFACT_PATHS = {
     "work/opponent_calibration_use.json",
     "work/opponent_calibration_advisory.json",
@@ -189,6 +191,41 @@ def validate_report_calibration_payload(
     return errors
 
 
+def reviewer_profile_values(case_md: Path) -> list[str]:
+    values: list[str] = []
+    for line in case_md.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip().lower() == "reviewer profile":
+            values.append(value.strip())
+    return values
+
+
+def effective_reviewer_profile(case_md: Path, repo_root: Path) -> tuple[str, list[str], list[str]]:
+    values = reviewer_profile_values(case_md)
+    if len(values) > 1:
+        return "", [], [f"{case_md}: duplicate Reviewer profile fields"]
+    configured = values[0] if values else "default"
+    configured = configured or "default"
+    relative_files = ["profiles/default.md"]
+    errors: list[str] = []
+    if configured == "default":
+        profile_id = "default"
+        if (repo_root / "profiles" / "local" / "default.md").is_file():
+            relative_files.append("profiles/local/default.md")
+    elif configured.startswith("local/"):
+        profile_id = configured.removeprefix("local/")
+        if not is_valid_id(profile_id) or ".." in profile_id:
+            errors.append(f"{case_md}: Reviewer profile must be default or local/<profile-id>")
+        relative_files.append(f"profiles/local/{profile_id}.md")
+    else:
+        errors.append(f"{case_md}: Reviewer profile must be default or local/<profile-id>")
+        profile_id = configured
+    for rel_path in relative_files:
+        if not (repo_root / rel_path).is_file():
+            errors.append(f"{case_md}: missing effective reviewer profile source {rel_path}")
+    return profile_id, relative_files, errors
+
+
 def report_calibration_source_refs(payload: dict[str, Any]) -> list[str]:
     refs: list[str] = []
     source_refs = payload.get("source_refs")
@@ -202,6 +239,22 @@ def report_calibration_source_refs(payload: dict[str, Any]) -> list[str]:
             if isinstance(item, dict) and isinstance(item.get("path"), str):
                 refs.append(item["path"])
     return sorted(dict.fromkeys(refs))
+
+
+def is_report_calibration_source_path(rel_path: str) -> bool:
+    return rel_path in OPERATOR_CALIBRATION_EXACT_PATHS or _is_allowed_review_delta_source(rel_path)
+
+
+def report_calibration_source_paths(round_dir: Path) -> tuple[str, ...]:
+    review_delta_paths: list[str] = []
+    review_delta_dir = round_dir / REPORT_CALIBRATION_REVIEW_DELTA_DIR
+    if review_delta_dir.is_dir():
+        review_delta_paths = [
+            path.relative_to(round_dir).as_posix()
+            for path in sorted(review_delta_dir.glob("*.json"))
+            if path.is_file() and _is_allowed_review_delta_source(path.relative_to(round_dir).as_posix())
+        ]
+    return tuple(dict.fromkeys((*REPORT_CALIBRATION_SOURCE_PATHS, *review_delta_paths)))
 
 
 def profile_source_paths(payload: dict[str, Any]) -> list[str]:
@@ -511,6 +564,10 @@ def _is_allowed_operator_source(value: str) -> bool:
         return False
     if value in OPERATOR_CALIBRATION_EXACT_PATHS:
         return True
+    return _is_allowed_review_delta_source(value)
+
+
+def _is_allowed_review_delta_source(value: str) -> bool:
     if not value.startswith("work/review_deltas/") or not value.endswith(".json"):
         return False
     name = value.removeprefix("work/review_deltas/")

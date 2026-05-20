@@ -642,6 +642,35 @@ git diff --check
   recovered after indexing through semantic search over
   `report_calibration.py` and `check_report_calibration.py`; repo-level Omen
   reported grade A, overall score 90.88, 180 files analyzed, and no smells.
+- 2026-05-20: Slice 2 implemented. Added
+  `work/report_calibration_basis.json` to common briefing snapshot/advisory
+  records and reusable handoff refs, added explicit structural
+  `report_calibration_sources` for
+  `notes/opponent-report-operator-feedback.md`,
+  `notes/opponent-report-review-intake.md`, `work/operation_log.jsonl`,
+  `work/opponent_report_revision_request.json`, and
+  `work/review_deltas/*.json`, and updated opponent packets so agents start
+  from the basis when present and must refresh it or record a typed limitation
+  when unavailable. `refresh-round-hashes` now refreshes registered
+  calibration-source hashes without blessing semantic report/output edits.
+- 2026-05-20: Slice 2 review and closeout completed. Serena symbol navigation
+  was used for `review_packets.py`, `opponent_packets.py`, and
+  `refresh_round_hashes.py` before edits. Omen MCP file-scoped `repomap` and
+  semantic search returned zero results for touched files, so that was recorded
+  as a path/index limitation; repo-root `repomap` and HyDE semantic search then
+  found the touched `rel_status`, `validate_common_briefing_payload`,
+  `_validate_report_calibration_source_records`, and
+  `check_report_calibration.main` symbols. Subagent findings were patched:
+  `report_calibration_sources` validation now rejects unregistered paths,
+  requires the current dynamic `work/review_deltas/*.json` set, and packet
+  status validates the basis against the effective Reviewer profile from
+  `case.md`. Post-fix checks passed: `scripts/smoke-opponent-packets`,
+  `scripts/smoke-refresh-round-hashes`, `scripts/smoke-report-calibration`,
+  `scripts/check-private`, `scripts/check-scripts`,
+  `pants check src/thesis_review_workflow/report_calibration.py src/thesis_review_workflow/review_packets.py src/thesis_review_workflow/opponent_packets.py src/thesis_review_workflow/cli/refresh_round_hashes.py src/thesis_review_workflow/cli/check_report_calibration.py tests/test_opponent_packets.py tests/test_refresh_round_hashes.py`,
+  `pants test tests/test_opponent_packets.py tests/test_work_artifacts.py tests/test_refresh_round_hashes.py tests/test_report_calibration.py`,
+  `git diff --check`, and `pants run :omen`. Repo-level Omen reported grade A,
+  overall score 90.88, 180 files analyzed, and no smells.
 
 ## Decision Log
 
