@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_ROLE_PLAN_SCHEMA,
@@ -26,10 +27,74 @@ def collect_hash(path: Path) -> str:
     return sha256_file(path)
 
 
+def report_calibration_payload(round_dir: Path) -> dict[str, object]:
+    profile = round_dir.parents[3] / "profiles" / "default.md"
+    operator = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    return {
+        "schema_version": "report-calibration-basis-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "workflow_profile": "opponent_review",
+        "operator_surface": "opponent_materials",
+        "wave_workflow": "opponent_report",
+        "generated_at": "2026-05-20T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-opponent-materials-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Synthetic test authorization.",
+        "source_refs": ["notes/opponent-report-operator-feedback.md"],
+        "profile_sources": [
+            {
+                "path": "profiles/default.md",
+                "sha256": sha256_file(profile),
+                "sections_used": ["Opponent Report Style"],
+            }
+        ],
+        "operator_calibration_sources": [
+            {
+                "path": "notes/opponent-report-operator-feedback.md",
+                "sha256": sha256_file(operator),
+                "purpose": "report calibration",
+            }
+        ],
+        "related_calibration_artifacts": [],
+        "applied_preferences": [
+            {
+                "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+                "source_keys": [
+                    "profile:profiles/default.md",
+                    "operator:notes/opponent-report-operator-feedback.md",
+                ],
+                "applies_to": ["assignment_difficulty"],
+                "instruction": "Use the structured calibration basis.",
+                "priority": "must",
+                "status": "applied",
+                "decision_reason": "Synthetic fixture.",
+            }
+        ],
+        "expected_report_controls": {
+            "is_select_values": {"Náročnost zadání": "průměrně obtížné zadání"},
+            "overall_grade": "D",
+            "overall_points_interval": [65, 74],
+            "defense_question_count": {"min": 1, "max": 3},
+            "public_report_length": "compact",
+            "private_comment_required": True,
+        },
+        "limitations": [],
+    }
+
+
 def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_path: Path) -> None:
-    round_dir = tmp_path / "round"
+    repo = tmp_path / "repo"
+    (repo / "src" / "thesis_review_workflow").mkdir(parents=True)
+    (repo / "profiles").mkdir(parents=True)
+    (repo / "profiles" / "default.md").write_text("# Default profile\n", encoding="utf-8")
+    round_dir = repo / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
     (round_dir / "notes" / "assignment.md").write_text("# Assignment\n", encoding="utf-8")
+    (round_dir / "notes" / "opponent-report-operator-feedback.md").write_text("# Operator feedback\n", encoding="utf-8")
     (round_dir / "extracted").mkdir(parents=True)
     (round_dir / "extracted" / "thesis.txt").write_text("Thesis text.\n", encoding="utf-8")
     (round_dir / "work" / "code").mkdir(parents=True)
@@ -105,6 +170,7 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
             "limitations": [],
         },
     )
+    write_json(round_dir / REPORT_CALIBRATION_BASIS_REL, report_calibration_payload(round_dir))
     packet = round_dir / "work" / "opponent_packets" / "synthesis.md"
     packet.parent.mkdir(parents=True, exist_ok=True)
     packet.write_text("# Packet\n", encoding="utf-8")
@@ -125,6 +191,8 @@ def test_collect_supporting_work_artifacts_records_known_json_and_packet(tmp_pat
     assert by_path["work/theses_similarity/intake.json"]["schema_version"] == "theses-similarity-intake-v1"
     assert by_path["work/theses_similarity/intake.json"]["producer_role"] == "import-theses-report"
     assert by_path["work/code_quality_omen.json"]["kind"] == "structured_data"
+    assert by_path[REPORT_CALIBRATION_BASIS_REL]["schema_version"] == "report-calibration-basis-v1"
+    assert by_path[REPORT_CALIBRATION_BASIS_REL]["producer_role"] == "thesis-opponent-materials-reviewer"
     assert by_path["work/opponent_packets/synthesis.md"]["kind"] == "text"
     assert by_path["work/supervisor_packets/text_assignment.md"]["kind"] == "text"
     assert by_path["work/supervisor_report_packets/trace.md"]["kind"] == "text"

@@ -19,6 +19,7 @@ python_source(name="check_opponent_calibration_profile", source="check_opponent_
 python_source(name="check_opponent_materials", source="check_opponent_materials.py")
 python_source(name="check_opponent_report", source="check_opponent_report.py")
 python_source(name="check_private", source="check_private.py")
+python_source(name="check_report_calibration", source="check_report_calibration.py")
 python_source(name="check_review_manifest", source="check_review_manifest.py")
 python_source(name="check_review_materiality", source="check_review_materiality.py")
 python_source(name="check_review_wave", source="check_review_wave.py")

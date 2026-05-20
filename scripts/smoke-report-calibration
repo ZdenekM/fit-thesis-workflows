@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__report_calibration_smoke_$$"
+round_id="round-a"
+case_dir="$repo_root/cases/$case_id"
+round_dir="$case_dir/rounds/$round_id"
+
+cleanup() {
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+
+mkdir -p "$round_dir/notes" "$round_dir/work" "$round_dir/outputs"
+printf "%s\n" "$round_id" >"$case_dir/current-round.txt"
+cat >"$case_dir/case.md" <<'EOF'
+# Synthetic report calibration smoke
+
+Work type: bachelor thesis
+Academic year: 2025/2026
+Reviewer profile: default
+Student feedback language: cs
+EOF
+printf "# Assignment\n" >"$round_dir/notes/assignment.md"
+printf "# Operator feedback\n" >"$round_dir/notes/opponent-report-operator-feedback.md"
+printf "# Reviewed opponent materials\n" >"$round_dir/outputs/oponent_podklady_revidovane.md"
+
+python3 - "$repo_root" "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+round_dir = Path(sys.argv[2])
+case_id = sys.argv[3]
+round_id = sys.argv[4]
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+operator_rel = "notes/opponent-report-operator-feedback.md"
+profile_sources = [
+    {
+        "path": "profiles/default.md",
+        "sha256": sha(repo_root / "profiles/default.md"),
+        "sections_used": ["Opponent Report Style"],
+    }
+]
+local_default = repo_root / "profiles/local/default.md"
+if local_default.is_file():
+    profile_sources.append(
+        {
+            "path": "profiles/local/default.md",
+            "sha256": sha(local_default),
+            "sections_used": ["Opponent Report Style"],
+        }
+    )
+payload = {
+    "schema_version": "report-calibration-basis-v1",
+    "case_id": case_id,
+    "round_id": round_id,
+    "calibration_scope": "opponent_report",
+    "reviewer_profile_id": "default",
+    "workflow_profile": "opponent_review",
+    "operator_surface": "opponent_materials",
+    "wave_workflow": "opponent_report",
+    "generated_at": "2026-05-20T00:00:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-opponent-materials-reviewer",
+    "producer_agent": "agent-a",
+    "authorization_note": "Synthetic smoke authorization.",
+    "source_refs": [operator_rel, "outputs/oponent_podklady_revidovane.md"],
+    "profile_sources": profile_sources,
+    "operator_calibration_sources": [
+        {
+            "path": operator_rel,
+            "sha256": sha(round_dir / operator_rel),
+            "purpose": "report calibration",
+        }
+    ],
+    "related_calibration_artifacts": [],
+    "applied_preferences": [
+        {
+            "preference_id": "opponent.assignment_difficulty.stack_not_enough",
+            "source_keys": ["profile:profiles/default.md", f"operator:{operator_rel}"],
+            "applies_to": ["assignment_difficulty"],
+            "instruction": "Do not derive report calibration from free-form profile prose.",
+            "priority": "must",
+            "status": "applied",
+            "decision_reason": "Synthetic operator feedback marks this preference applicable.",
+        }
+    ],
+    "expected_report_controls": {
+        "is_select_values": {
+            "Náročnost zadání": "průměrně obtížné zadání",
+            "Rozsah splnění požadavků zadání": "zadání splněno s vážnějšími výhradami",
+        },
+        "overall_grade": "D",
+        "overall_points_interval": [65, 74],
+        "defense_question_count": {"min": 1, "max": 3},
+        "public_report_length": "compact",
+        "private_comment_required": True,
+    },
+    "limitations": [],
+}
+(round_dir / "work/report_calibration_basis.json").write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
+
+"$repo_root/scripts/check-report-calibration" "$case_id" "$round_id"
+
+printf "\nlate calibration edit\n" >>"$round_dir/notes/opponent-report-operator-feedback.md"
+if "$repo_root/scripts/check-report-calibration" "$case_id" "$round_id" >/tmp/check-report-calibration.out 2>&1; then
+  echo "Expected stale operator hash to fail" >&2
+  exit 1
+fi
+grep -Fq "hash is stale for notes/opponent-report-operator-feedback.md" /tmp/check-report-calibration.out
+rm -f /tmp/check-report-calibration.out
+
+echo "Report calibration smoke passed"

@@ -29,6 +29,7 @@ WORKFLOW_COMMAND_MODULES = {
     "check-opponent-materials": "thesis_review_workflow.cli.check_opponent_materials",
     "check-opponent-report": "thesis_review_workflow.cli.check_opponent_report",
     "check-private": "thesis_review_workflow.cli.check_private",
+    "check-report-calibration": "thesis_review_workflow.cli.check_report_calibration",
     "check-review-manifest": "thesis_review_workflow.cli.check_review_manifest",
     "check-review-materiality": "thesis_review_workflow.cli.check_review_materiality",
     "check-review-wave": "thesis_review_workflow.cli.check_review_wave",

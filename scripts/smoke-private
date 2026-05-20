@@ -311,6 +311,13 @@ expect_failure_contains \
   "$repo_root/scripts/check-private"
 rm -f "$repo_root/tmp-feedback-smoke/opponent_report_revision_request.json"
 
+make_untracked_file "tmp-feedback-smoke/report_calibration_basis.json"
+expect_failure_contains \
+  "report calibration basis outside cases fails" \
+  "Potential private thesis artifacts" \
+  "$repo_root/scripts/check-private"
+rm -f "$repo_root/tmp-feedback-smoke/report_calibration_basis.json"
+
 make_untracked_file "tmp-feedback-smoke/opponent_calibration_refresh_eligibility.json"
 expect_failure_contains \
   "opponent calibration refresh eligibility outside cases fails" \

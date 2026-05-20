@@ -10,3 +10,8 @@ def test_theses_similarity_artifacts_are_private() -> None:
     assert PRIVATE_MARKDOWN_RE.search("outputs/theses_similarity_review.md")
     assert is_sensitive_artifact("inputs/theses_similarity/report.pdf")
     assert is_sensitive_artifact("extracted/theses_similarity/report.txt")
+
+
+def test_report_calibration_basis_is_private() -> None:
+    assert is_sensitive_artifact("work/report_calibration_basis.json")
+    assert is_sensitive_artifact("cases/case-a/rounds/round-a/work/report_calibration_basis.json")

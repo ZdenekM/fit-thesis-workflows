@@ -33,6 +33,13 @@ from thesis_review_workflow.opponent_calibration import (
     validate_opponent_calibration_artifact,
 )
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_BASIS_REL,
+    REPORT_CALIBRATION_BASIS_SCHEMA,
+    is_report_calibration_basis_path,
+    validate_report_calibration_artifact,
+    validate_report_calibration_payload,
+)
 from thesis_review_workflow.review_approvals import is_review_approval_path, validate_review_approval_artifact
 from thesis_review_workflow.review_delta import is_review_delta_artifact, validate_review_delta_record
 from thesis_review_workflow.review_packets import (
@@ -93,6 +100,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     COMMON_BRIEFING_REL: {COMMON_BRIEFING_SCHEMA_VERSION},
     EVIDENCE_CAPSULES_REL: {EVIDENCE_CAPSULE_SCHEMA},
     CLAIM_REVIEW_BASIS_REL: {CLAIM_REVIEW_BASIS_SCHEMA},
+    REPORT_CALIBRATION_BASIS_REL: {REPORT_CALIBRATION_BASIS_SCHEMA},
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
     SUBMISSION_BUNDLE_INVENTORY_REL: {SUBMISSION_BUNDLE_INVENTORY_SCHEMA},
@@ -123,6 +131,11 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type]] = {
     COMMON_BRIEFING_REL: {"common_inputs": list, "context_handoffs": list},
     EVIDENCE_CAPSULES_REL: {"capsules": list},
     CLAIM_REVIEW_BASIS_REL: {"claims": list},
+    REPORT_CALIBRATION_BASIS_REL: {
+        "profile_sources": list,
+        "applied_preferences": list,
+        "expected_report_controls": dict,
+    },
     SUBMISSION_BUNDLE_INVENTORY_REL: {"source_bundles": list, "candidates": list, "skipped_entries": list},
     SUBMISSION_BUNDLE_MATERIALIZATION_REL: {"materializations": list},
     THESES_SIMILARITY_INTAKE_REL: {
@@ -155,6 +168,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     COMMON_BRIEFING_REL,
     EVIDENCE_CAPSULES_REL,
     CLAIM_REVIEW_BASIS_REL,
+    REPORT_CALIBRATION_BASIS_REL,
     SUBMISSION_BUNDLE_INVENTORY_REL,
     SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
     SUBMISSION_BUNDLE_MATERIALIZATION_REL,
@@ -429,6 +443,15 @@ def validate_supporting_work_artifacts(
                     round_id=round_id,
                 )
             )
+        elif is_report_calibration_basis_path(rel_path):
+            errors.extend(
+                validate_report_calibration_artifact(
+                    round_dir,
+                    rel_path,
+                    case_id=case_id,
+                    round_id=round_id,
+                )
+            )
     return errors
 
 
@@ -496,6 +519,16 @@ def validate_json_work_artifact(
     elif rel_path == CLAIM_REVIEW_BASIS_REL:
         errors.extend(
             validate_claim_review_basis_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == REPORT_CALIBRATION_BASIS_REL:
+        errors.extend(
+            validate_report_calibration_payload(
                 loaded,
                 rel_path,
                 round_dir=round_dir,
