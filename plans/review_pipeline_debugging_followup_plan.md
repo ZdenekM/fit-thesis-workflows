@@ -440,7 +440,7 @@ ensure the existing `TODO.md` items still name them accurately.
 | Plan intake and current-diff review | done | Serena `initial_instructions` read; Serena scoped plan-heading search succeeded. Omen not applicable because the first commit changed docs/profile text only. | `scripts/check-private`, `scripts/check-scripts`, and `git diff --check` passed before commit `58ffbf5`. |
 | Plan review repair | done | Serena scoped plan search used; no Python changes yet, so Omen not applicable. | `scripts/check-private`, `scripts/check-scripts`, and `git diff --check` passed. |
 | Slice 1 | done | Serena inspected `structured_evidence.py`, `literature_source_acquisition.py`, and `theses_similarity.py`. Omen MCP returned zero files for scoped module/package paths but repo-root repomap worked and highlighted `structured_evidence.py`; reproducible `pants run :omen` passed with the existing grade-A baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` hit unrelated baseline formatter/lint changes outside Slice 1, so it was not used as slice evidence. |
-| Slice 2 | pending | Record before commit. | Pending. |
+| Slice 2 | done | Serena inspected `review_materiality.py` and `review_wave_gate.py`. Omen MCP returned zero files for the scoped module path but repo-root repomap worked; reproducible `pants run :omen` passed with grade A / 90.48 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` again hit unrelated baseline formatter/lint changes outside Slice 2, so targeted lint is the slice evidence. |
 | Slice 3 | pending | Record before commit. | Pending. |
 | Slice 4 | pending | Record before commit. | Pending. |
 | Slice 5 | pending | Record before commit. | Pending. |
@@ -464,6 +464,10 @@ ensure the existing `TODO.md` items still name them accurately.
   unchangedness from free text or implicit rehashing.
 - 2026-05-21: Operator-facing recovery commands must remain logical workflow
   command names and respect the packaged Windows launcher boundary.
+- 2026-05-21: Slice 2 keeps silent no-concern Theses.cz assessments as a
+  draft/trace waiting state only for synthesis workflows that can later bind
+  reviewed manifest coverage; other workflows still require the role review or
+  a typed limitation.
 
 ## Final Audit
 

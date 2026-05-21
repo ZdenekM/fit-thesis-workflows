@@ -643,12 +643,30 @@ def check_materiality_next_actions(
     for error in errors:
         result.errors.append(f"materiality next actions: {error}")
     for action in actions:
+        if materiality_action_waits_for_reviewed_synthesis(action, spec):
+            result.passed.append(
+                "materiality next action waiting for reviewed synthesis: "
+                f"{action.get('role')} has present no-concern evidence"
+            )
+            continue
         result.errors.append(
             "materiality next action unresolved: "
             f"{action.get('role')} requires {action.get('required_artifact_path')}: {action.get('reason')}"
         )
     if not errors and not actions:
         result.passed.append("materiality next actions clear")
+
+
+def materiality_action_waits_for_reviewed_synthesis(action: dict[str, Any], spec: WaveSpec) -> bool:
+    if action.get("role") != "theses_similarity":
+        return False
+    if action.get("state") != "silent_no_concern_waiting_for_reviewed_synthesis":
+        return False
+    workflow = spec.workflow.replace("-", "_")
+    wave = spec.wave.replace("-", "_")
+    if wave not in {"trace", "draft"}:
+        return False
+    return workflow in {"supervisor_report", "opponent_materials", "opponent_report"}
 
 
 def materiality_profile_for_wave(spec: WaveSpec) -> str | None:

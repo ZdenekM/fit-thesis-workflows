@@ -102,7 +102,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
     for action in next_actions:
-        print(f"! next action {action['role']}: {action['required_artifact_path']} - {action['reason']}")
+        state = action.get("state", "unknown")
+        print(f"! next action {action['role']} [{state}]: {action['required_artifact_path']} - {action['reason']}")
     for path in written:
         print(f"Wrote {rel_repo(root, path)}")
     print("Review materiality check passed")

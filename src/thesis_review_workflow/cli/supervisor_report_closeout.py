@@ -81,7 +81,11 @@ def materiality_next_actions_step(round_dir: Path, *, case_id: str, round_id: st
     if actions:
         lines = [
             "Unresolved required final materiality next actions:",
-            *[f"- {action['role']}: {action['required_artifact_path']} - {action['reason']}" for action in actions],
+            *[
+                f"- {action['role']} [{action.get('state', 'unknown')}]: "
+                f"{action['required_artifact_path']} - {action['reason']}"
+                for action in actions
+            ],
             "Resolve each action with a current artifact, synthesis-covered evidence, or a typed accepted limitation.",
         ]
         return Step(label="Final materiality next actions", command=command, returncode=1, output="\n".join(lines))

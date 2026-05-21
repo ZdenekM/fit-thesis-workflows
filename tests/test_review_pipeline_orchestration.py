@@ -30,8 +30,67 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     validate_review_run_trace_payload,
     validate_role_plan_for_closeout,
 )
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+    THESES_SIMILARITY_SILENT_USED_FINDINGS,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
+    for rel_path, content in (
+        (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
+        (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Synthetic extracted similarity text.\n"),
+        (
+            THESES_SIMILARITY_INTAKE_REL,
+            json.dumps({"matched_passages": [{"passage_id": "passage-1"}]}).encode("utf-8"),
+        ),
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
+    write_json(
+        round_dir / THESES_SIMILARITY_ASSESSMENT_REL,
+        {
+            "schema_version": "theses-similarity-assessment-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-12T00:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "thesis-theses-similarity-review",
+            "producer_agent": "agent-sim",
+            "authorization_note": "Authorized in current request.",
+            "source_refs": refs,
+            "source_sha256": {ref: review_materiality.sha256_file(round_dir / ref) for ref in refs},
+            "current_submission_match": "matched",
+            "judgments": [
+                {
+                    "judgment_id": "S1",
+                    "source_ids": [1],
+                    "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
+                    "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
+                    "category": "no_material_concern",
+                    "rationale": "Synthetic no-concern structured judgment.",
+                    "confidence": "high",
+                    "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
+                    "synthesis_action": "silent",
+                    "requires_reviewer_verification": False,
+                    "limitations": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
 
 
 def test_workflow_profile_registry_shape_and_approval_names() -> None:
@@ -834,6 +893,43 @@ def test_materiality_next_action_states_distinguish_present_artifact_gaps(tmp_pa
 
     assert synthesis_state == "present_but_not_synthesis_covered"
     assert standalone_state == "present_but_not_standalone_reviewed"
+
+
+def test_review_role_plan_preserves_materiality_waiting_state(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    write_silent_theses_similarity_assessment(round_dir)
+    decisions, errors, phase = review_materiality.build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+    )
+    assert errors == []
+    review_materiality.write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    [action] = payload["materiality_next_actions"]
+    assert action["role"] == "theses_similarity"
+    assert action["materiality_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
+    assert action["next_action_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
+    assert action["required_artifact_path"] == "outputs/oponent_podklady_revidovane.md"
+    assert THESES_SIMILARITY_SILENT_USED_FINDINGS in action["command"]
 
 
 def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:

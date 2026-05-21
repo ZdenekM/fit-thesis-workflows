@@ -754,6 +754,7 @@ def materiality_next_action_records(
         if not isinstance(action, dict):
             continue
         required_path = str(action.get("required_artifact_path", ""))
+        materiality_state = str(action.get("state", ""))
         status = artifact_next_action_state(
             round_dir,
             required_path,
@@ -765,6 +766,7 @@ def materiality_next_action_records(
             {
                 "role": str(action.get("role", "")),
                 "status": str(action.get("status", "")),
+                "materiality_state": materiality_state,
                 "next_action_state": status,
                 "required_artifact_path": required_path,
                 "command": str(action.get("command", "")),
@@ -782,6 +784,9 @@ def artifact_next_action_state(
     round_id: str,
     action: dict[str, Any] | None = None,
 ) -> str:
+    explicit_state = str(action.get("state", "")) if isinstance(action, dict) else ""
+    if explicit_state and explicit_state != "missing_artifact":
+        return explicit_state
     if not is_safe_round_relative_path(rel_path):
         return "invalid_artifact"
     status = rel_status(round_dir, rel_path, case_id=case_id, round_id=round_id)

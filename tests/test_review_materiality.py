@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
+    QUANTITATIVE_CLAIMS_REL,
     build_materiality_decisions,
     load_review_materiality_index,
     sha256_file,
@@ -717,6 +718,16 @@ def test_final_supervisor_report_silent_similarity_assessment_needs_synthesis_ma
     index_path = round_dir / "work" / "review_materiality" / "supervisor_report" / "index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
     assert [item["role"] for item in index["next_actions"]] == ["theses_similarity"]
+    [theses_action] = index["next_actions"]
+    assert theses_action["state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
+    assert theses_action["required_artifact_path"] == "outputs/vedouci_posudek_revidovany.md"
+    assert theses_action["skill"] == "thesis-supervisor-report-review"
+    assert "waiting for reviewed synthesis" in theses_action["reason"]
+    assert THESES_SIMILARITY_SILENT_USED_FINDINGS in theses_action["command"]
+    theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+    assert theses["fresh_review_required"] is False
+    assert theses["coverage_satisfied_by"] == "not_satisfied"
+    assert theses["coverage_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
 
     assessment_path = round_dir / THESES_SIMILARITY_ASSESSMENT_REL
     write_reviewed_supervisor_report_manifest(
@@ -776,6 +787,14 @@ def test_final_opponent_review_silent_similarity_assessment_needs_synthesis_mark
     index_path = round_dir / "work" / "review_materiality" / "opponent_review" / "index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
     assert [item["role"] for item in index["next_actions"]] == ["theses_similarity"]
+    [theses_action] = index["next_actions"]
+    assert theses_action["state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
+    assert theses_action["required_artifact_path"] == "outputs/oponent_podklady_revidovane.md"
+    assert theses_action["skill"] == "thesis-opponent-materials-review"
+    theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+    assert theses["fresh_review_required"] is False
+    assert theses["coverage_satisfied_by"] == "not_satisfied"
+    assert theses["coverage_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
 
     assessment_path = round_dir / THESES_SIMILARITY_ASSESSMENT_REL
     write_reviewed_opponent_materials_manifest(
@@ -807,6 +826,39 @@ def test_final_opponent_review_silent_similarity_assessment_needs_synthesis_mark
     )
     assert errors == []
     assert unresolved == []
+
+
+def test_supervisor_feedback_silent_similarity_assessment_still_requires_role_review(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_silent_theses_similarity_assessment(round_dir)
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    [theses_action] = [item for item in index["next_actions"] if item["role"] == "theses_similarity"]
+    theses = next(item for item in index["decisions"] if item["role"] == "theses_similarity")
+    assert theses_action["state"] == "present_not_synthesis_covered"
+    assert theses_action["required_artifact_path"] == THESES_SIMILARITY_REVIEW_REL
+    assert theses_action["skill"] == "thesis-theses-similarity-review"
+    assert theses["fresh_review_required"] is True
+    assert theses["coverage_satisfied_by"] == "not_satisfied"
+    assert theses["coverage_state"] == "not_satisfied"
 
 
 def test_material_quantitative_next_action_resolves_after_current_handoff_exists(tmp_path: Path) -> None:
@@ -1060,6 +1112,155 @@ def test_materiality_index_rejects_inconsistent_coverage_state(tmp_path: Path) -
 
     assert unresolved == []
     assert any("coverage_state must match coverage_satisfied_by=current_handoff" in error for error in errors)
+
+
+def test_materiality_index_reports_contradictory_stored_next_action(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / QUANTITATIVE_CLAIMS_REL, quantitative_claims_payload())
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert index["next_actions"] == []
+    index["next_actions"].append(
+        {
+            "role": "quantitative_claims",
+            "workflow_profile": "supervisor_feedback",
+            "status": "unresolved",
+            "severity": "required",
+            "required_artifact_path": QUANTITATIVE_CLAIMS_REL.as_posix(),
+            "reason": "Synthetic stale action.",
+            "command": "Run an authorized thesis-quantitative-claims-review, then check-evaluation-claims.",
+            "skill": "thesis-quantitative-claims-review",
+            "source_refs": ["inputs/results.csv"],
+            "source_sha256": {"inputs/results.csv": sha256_file(round_dir / "inputs" / "results.csv")},
+            "typed_limitation_scope": "quantitative_claims",
+            "limitations": [],
+            "state": "missing_artifact",
+        }
+    )
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert unresolved == []
+    assert any(
+        "next_actions item 1 for quantitative_claims contradicts decision coverage_state=current_handoff" in error
+        for error in errors
+    )
+
+
+def test_materiality_index_ignores_resolved_stored_next_action(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    (round_dir / "inputs").mkdir()
+    (round_dir / "inputs" / "results.csv").write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    write_json(round_dir / QUANTITATIVE_CLAIMS_REL, quantitative_claims_payload())
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+    index_path = round_dir / "work" / "review_materiality" / "supervisor_feedback" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["next_actions"].append(
+        {
+            "role": "quantitative_claims",
+            "workflow_profile": "supervisor_feedback",
+            "status": "resolved_by_artifact",
+            "severity": "required",
+            "required_artifact_path": QUANTITATIVE_CLAIMS_REL.as_posix(),
+            "reason": "Synthetic historical action.",
+            "command": "Run an authorized thesis-quantitative-claims-review, then check-evaluation-claims.",
+            "skill": "thesis-quantitative-claims-review",
+            "source_refs": ["inputs/results.csv"],
+            "source_sha256": {"inputs/results.csv": sha256_file(round_dir / "inputs" / "results.csv")},
+            "typed_limitation_scope": "quantitative_claims",
+            "limitations": [],
+            "state": "missing_artifact",
+        }
+    )
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert unresolved == []
+    assert errors == []
+
+
+def test_materiality_index_reports_same_role_next_action_state_drift(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    report = round_dir / THESES_SIMILARITY_REPORT_REL
+    report.parent.mkdir(parents=True)
+    report.write_bytes(b"%PDF synthetic\n")
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase=phase,
+        generated_at="2026-05-12T00:00:00Z",
+    )
+    write_silent_theses_similarity_assessment(round_dir)
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="opponent_review",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert [item["role"] for item in unresolved] == ["theses_similarity"]
+    assert unresolved[0]["state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
+    assert any(
+        "next_actions item 1 for theses_similarity is stale: stored state=missing_artifact "
+        "current state=silent_no_concern_waiting_for_reviewed_synthesis" in error
+        for error in errors
+    )
 
 
 def test_material_quantitative_next_action_stays_unresolved_when_source_hash_changes(tmp_path: Path) -> None:

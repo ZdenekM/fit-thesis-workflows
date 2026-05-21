@@ -1050,8 +1050,9 @@ def materiality_next_actions_section(
             required = action.get("required_artifact_path", "unknown")
             command = action.get("command", "not recorded")
             reason = action.get("reason", "not recorded")
+            state = action.get("state", "unknown")
             limitation = action.get("typed_limitation_scope", "not recorded")
-            lines.append(f"- `{role}` requires `{required}`: {reason}")
+            lines.append(f"- `{role}` [{state}] requires `{required}`: {reason}")
             lines.append(f"  Command/skill: {command}")
             lines.append(f"  Typed limitation scope if unavailable: `{limitation}`")
     lines.extend(

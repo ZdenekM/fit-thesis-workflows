@@ -11,7 +11,12 @@ from thesis_review_workflow.review_wave_gate import (
     materiality_profile_for_wave,
     validate_wave,
 )
-from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL
+from thesis_review_workflow.theses_similarity import (
+    THESES_SIMILARITY_ASSESSMENT_REL,
+    THESES_SIMILARITY_EXTRACTED_TEXT_REL,
+    THESES_SIMILARITY_INTAKE_REL,
+    THESES_SIMILARITY_REPORT_REL,
+)
 
 
 def make_round(tmp_path: Path) -> Path:
@@ -23,6 +28,53 @@ def make_round(tmp_path: Path) -> Path:
 def write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
+    for rel_path, content in (
+        (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
+        (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Synthetic extracted similarity text.\n"),
+        (
+            THESES_SIMILARITY_INTAKE_REL,
+            json.dumps({"matched_passages": [{"passage_id": "passage-1"}]}).encode("utf-8"),
+        ),
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
+    write_json(
+        round_dir / THESES_SIMILARITY_ASSESSMENT_REL,
+        {
+            "schema_version": "theses-similarity-assessment-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-12T00:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "thesis-theses-similarity-review",
+            "producer_agent": "agent-sim",
+            "authorization_note": "Authorized in current request.",
+            "source_refs": refs,
+            "source_sha256": {ref: sha256_file(round_dir / ref) for ref in refs},
+            "current_submission_match": "matched",
+            "judgments": [
+                {
+                    "judgment_id": "S1",
+                    "source_ids": [1],
+                    "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
+                    "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
+                    "category": "no_material_concern",
+                    "rationale": "Synthetic no-concern structured judgment.",
+                    "confidence": "high",
+                    "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
+                    "synthesis_action": "silent",
+                    "requires_reviewer_verification": False,
+                    "limitations": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
 
 
 def test_custom_wave_requires_nonempty_output_and_handoff(tmp_path: Path) -> None:
@@ -557,6 +609,80 @@ def test_wave_gate_blocks_unresolved_theses_similarity_next_action(tmp_path: Pat
         )
 
         assert any("materiality next action unresolved: theses_similarity requires" in error for error in result.errors)
+
+
+def test_draft_wave_allows_silent_similarity_assessment_waiting_for_reviewed_synthesis(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    output = round_dir / "work" / "oponent_podklady_draft.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Synthetic opponent materials\n", encoding="utf-8")
+    write_silent_theses_similarity_assessment(round_dir)
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="theses_similarity",
+                recommendation="material",
+                scope="theses_similarity_report_evidence",
+                impact="report defensibility",
+                reason="Theses.cz assessment is present and records no material concern.",
+                source_refs=(THESES_SIMILARITY_ASSESSMENT_REL,),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-materials", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert not any("materiality next action unresolved: theses_similarity requires" in error for error in result.errors)
+    assert any("waiting for reviewed synthesis" in item for item in result.passed)
+
+
+def test_reviewed_wave_blocks_silent_similarity_assessment_without_reviewed_synthesis(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Synthetic reviewed opponent materials\n", encoding="utf-8")
+    write_silent_theses_similarity_assessment(round_dir)
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="theses_similarity",
+                recommendation="material",
+                scope="theses_similarity_report_evidence",
+                impact="report defensibility",
+                reason="Theses.cz assessment is present and records no material concern.",
+                source_refs=(THESES_SIMILARITY_ASSESSMENT_REL,),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-12T00:00:00Z",
+    )
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-materials", "reviewed"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("materiality next action unresolved: theses_similarity requires" in error for error in result.errors)
+    assert any("waiting for reviewed synthesis" in error for error in result.errors)
 
 
 def test_wave_gate_requires_materiality_index_for_synthesis_waves(tmp_path: Path) -> None:

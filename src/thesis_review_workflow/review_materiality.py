@@ -76,6 +76,15 @@ REVIEW_MANIFEST_REL = Path("work/review_manifest.json")
 NEXT_ACTION_STATUSES = {"unresolved", "resolved_by_artifact", "resolved_by_limitation"}
 NEXT_ACTION_SEVERITIES = {"required", "advisory"}
 NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims", "theses_similarity"}
+NEXT_ACTION_STATES = {
+    "missing_artifact",
+    "validator_failed",
+    "present_not_synthesis_covered",
+    "silent_no_concern_waiting_for_reviewed_synthesis",
+    "current_reviewed_artifact",
+    "current_synthesis_covered_artifact",
+    "typed_limitation",
+}
 NEXT_ACTION_CONFIG = {
     "github_intake": {
         "required_artifact_path": "outputs/github_code_intake.md",
@@ -113,6 +122,7 @@ MATERIALITY_COVERAGE_STATES = {
     "current_reviewed_artifact",
     "current_synthesis_covered_artifact",
     "silent_internal_evidence",
+    "silent_no_concern_waiting_for_reviewed_synthesis",
     "fresh_review_required",
     "not_satisfied",
 }
@@ -166,6 +176,7 @@ class MaterialityNextAction:
     source_sha256: dict[str, str]
     typed_limitation_scope: str
     limitations: tuple[str, ...] = ()
+    state: str = "missing_artifact"
 
     @property
     def unresolved(self) -> bool:
@@ -659,25 +670,43 @@ def build_materiality_next_actions(
     theses_similarity = material.get("theses_similarity")
     if theses_similarity is not None:
         config = NEXT_ACTION_CONFIG["theses_similarity"]
-        errors = _theses_similarity_resolution_errors(round_dir, workflow_profile=workflow_profile)
-        if errors and not _has_typed_limitation(
+        state = _theses_similarity_resolution_state(round_dir, workflow_profile=workflow_profile)
+        if state.errors and not _has_typed_limitation(
             round_dir,
             "theses_similarity",
             workflow_profile=workflow_profile,
         ):
+            required_artifact_path = config["required_artifact_path"]
+            command = config["command"]
+            skill = config["skill"]
+            if state.state == "silent_no_concern_waiting_for_reviewed_synthesis":
+                required_artifact_path = SYNTHESIS_ARTIFACT_BY_WORKFLOW.get(
+                    workflow_profile, config["required_artifact_path"]
+                )
+                command = (
+                    "Complete the current synthesis artifact and independent review, then register manifest coverage "
+                    f"for {THESES_SIMILARITY_ASSESSMENT_REL} with used_findings="
+                    f"{THESES_SIMILARITY_SILENT_USED_FINDINGS}."
+                )
+                skill = (
+                    "thesis-supervisor-report-review"
+                    if workflow_profile == "supervisor_report"
+                    else "thesis-opponent-materials-review"
+                )
             actions.append(
                 _make_next_action(
                     round_dir,
                     decision=theses_similarity,
                     workflow_profile=workflow_profile,
-                    required_artifact_path=config["required_artifact_path"],
-                    reason="Theses.cz similarity evidence is incomplete, unreviewed, or not synthesis-covered.",
-                    command=config["command"],
-                    skill=config["skill"],
+                    required_artifact_path=required_artifact_path,
+                    reason=state.reason,
+                    command=command,
+                    skill=skill,
                     typed_limitation_scope=config["typed_limitation_scope"],
                     source_refs=list(theses_similarity.source_refs)
                     + [THESES_SIMILARITY_REVIEW_REL, THESES_SIMILARITY_ASSESSMENT_REL],
-                    limitations=tuple(errors[:5]),
+                    limitations=tuple(state.errors[:5]),
+                    state=state.state,
                 )
             )
     return actions
@@ -735,43 +764,97 @@ def _theses_similarity_validation_errors(round_dir: Path) -> list[str]:
     return errors
 
 
-def _theses_similarity_resolution_errors(round_dir: Path, *, workflow_profile: str) -> list[str]:
+@dataclass(frozen=True)
+class ResolutionState:
+    state: str
+    reason: str
+    errors: tuple[str, ...] = ()
+
+
+def _theses_similarity_resolution_state(round_dir: Path, *, workflow_profile: str) -> ResolutionState:
     if _theses_similarity_silent_internal_evidence_satisfied(round_dir, workflow_profile=workflow_profile):
-        return []
+        return ResolutionState(
+            state="current_synthesis_covered_artifact",
+            reason="Theses.cz similarity evidence is current and covered by reviewed synthesis.",
+        )
     if (round_dir / THESES_SIMILARITY_REVIEW_REL).is_file():
         errors = _theses_similarity_validation_errors(round_dir)
         if errors:
-            return errors
+            return ResolutionState(
+                state="validator_failed",
+                reason="Theses.cz similarity evidence is present but validator checks failed.",
+                errors=tuple(errors),
+            )
         state = _reviewed_or_synthesis_covered_artifact_state(
             round_dir,
             THESES_SIMILARITY_REVIEW_REL,
             workflow_profile=workflow_profile,
         )
         if state is not None:
-            return []
-        return [
+            return ResolutionState(
+                state=(
+                    "current_synthesis_covered_artifact"
+                    if state == CoverageSatisfiedBy.CURRENT_SYNTHESIS_COVERED_ARTIFACT
+                    else "current_reviewed_artifact"
+                ),
+                reason="Theses.cz similarity review output is current.",
+            )
+        message = (
             f"{THESES_SIMILARITY_REVIEW_REL} is present but not independently reviewed "
             "or covered by the current reviewed synthesis artifact."
-        ]
+        )
+        return ResolutionState(
+            state="present_not_synthesis_covered",
+            reason=(
+                "Theses.cz similarity review output is present but still needs independent review "
+                "or synthesis coverage."
+            ),
+            errors=(message,),
+        )
     if (round_dir / THESES_SIMILARITY_ASSESSMENT_REL).is_file():
         assessment, errors = _load_current_theses_similarity_assessment(round_dir)
         if errors:
-            return errors
+            return ResolutionState(
+                state="validator_failed",
+                reason="Theses.cz similarity assessment is present but validator checks failed.",
+                errors=tuple(errors),
+            )
         if assessment is None:
-            return [f"{THESES_SIMILARITY_ASSESSMENT_REL} is missing or invalid."]
+            message = f"{THESES_SIMILARITY_ASSESSMENT_REL} is missing or invalid."
+            return ResolutionState(state="validator_failed", reason=message, errors=(message,))
         if not _theses_similarity_assessment_is_silent_no_concern(assessment):
-            return [
+            message = (
                 f"{THESES_SIMILARITY_ASSESSMENT_REL} records non-silent or reviewer-verification "
                 "similarity concerns; run thesis-theses-similarity-review or record a typed limitation."
-            ]
-        return [
+            )
+            return ResolutionState(state="present_not_synthesis_covered", reason=message, errors=(message,))
+        if workflow_profile not in SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS:
+            message = (
+                f"{THESES_SIMILARITY_ASSESSMENT_REL} records no material concern, but "
+                f"{workflow_profile} cannot use silent synthesis coverage; run thesis-theses-similarity-review "
+                "or record a typed limitation."
+            )
+            return ResolutionState(state="present_not_synthesis_covered", reason=message, errors=(message,))
+        message = (
             f"{THESES_SIMILARITY_ASSESSMENT_REL} records no material concern but is not covered by "
             "the current reviewed synthesis with the silent internal-evidence marker."
-        ]
-    return [
+        )
+        return ResolutionState(
+            state="silent_no_concern_waiting_for_reviewed_synthesis",
+            reason=(
+                "Theses.cz similarity no-concern assessment is present and waiting for reviewed synthesis coverage."
+            ),
+            errors=(message,),
+        )
+    message = (
         f"missing {THESES_SIMILARITY_ASSESSMENT_REL} or {THESES_SIMILARITY_REVIEW_REL} for imported "
         "Theses.cz similarity evidence."
-    ]
+    )
+    return ResolutionState(state="missing_artifact", reason=message, errors=(message,))
+
+
+def _theses_similarity_resolution_errors(round_dir: Path, *, workflow_profile: str) -> list[str]:
+    return list(_theses_similarity_resolution_state(round_dir, workflow_profile=workflow_profile).errors)
 
 
 def _next_action_for_required_artifact(
@@ -836,6 +919,7 @@ def _make_next_action(
     typed_limitation_scope: str,
     source_refs: list[str],
     limitations: tuple[str, ...] = (),
+    state: str = "missing_artifact",
 ) -> MaterialityNextAction:
     safe_refs = [ref for ref in source_refs if source_ref_is_allowed(ref)]
     return MaterialityNextAction(
@@ -851,6 +935,7 @@ def _make_next_action(
         source_sha256=source_hashes_for_refs(round_dir, safe_refs),
         typed_limitation_scope=typed_limitation_scope,
         limitations=limitations,
+        state=state,
     )
 
 
@@ -1227,6 +1312,20 @@ def materiality_coverage_payload(
             "coverage_state": "silent_internal_evidence",
         }
 
+    if (
+        decision.role == "theses_similarity"
+        and workflow_profile in SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS
+        and (round_dir / THESES_SIMILARITY_ASSESSMENT_REL).is_file()
+    ):
+        state = _theses_similarity_resolution_state(round_dir, workflow_profile=workflow_profile)
+        if state.state == "silent_no_concern_waiting_for_reviewed_synthesis":
+            return {
+                "coverage_required": True,
+                "fresh_review_required": False,
+                "coverage_satisfied_by": CoverageSatisfiedBy.NOT_SATISFIED.value,
+                "coverage_state": "silent_no_concern_waiting_for_reviewed_synthesis",
+            }
+
     coverage = (
         CoverageSatisfiedBy.NOT_SATISFIED
         if decision.role in NEXT_ACTION_ROLES
@@ -1438,8 +1537,22 @@ def validate_materiality_coverage_fields(
             errors.append(f"{prefix}: coverage_required must match recommendation={recommendation}")
     if coverage_required is False and fresh_required is True:
         errors.append(f"{prefix}: fresh_review_required must be false when coverage_required is false")
-    if fresh_required is False and coverage is not None and not coverage_satisfies_without_fresh_review(coverage):
+    silent_waiting = (
+        fresh_required is False
+        and coverage == CoverageSatisfiedBy.NOT_SATISFIED
+        and coverage_state == "silent_no_concern_waiting_for_reviewed_synthesis"
+    )
+    if (
+        fresh_required is False
+        and coverage is not None
+        and not (coverage_satisfies_without_fresh_review(coverage) or silent_waiting)
+    ):
         errors.append(f"{prefix}: non-fresh coverage must use a reusable coverage_satisfied_by value")
+    if coverage_state == "silent_no_concern_waiting_for_reviewed_synthesis" and not silent_waiting:
+        errors.append(
+            f"{prefix}: silent_no_concern_waiting_for_reviewed_synthesis must use "
+            "fresh_review_required=false and coverage_satisfied_by=not_satisfied"
+        )
     if fresh_required is True and coverage in {
         CoverageSatisfiedBy.CURRENT_HANDOFF,
         CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT,
@@ -1460,7 +1573,7 @@ def validate_materiality_coverage_fields(
             CoverageSatisfiedBy.FRESH_ROLE_REVIEW: "fresh_review_required",
             CoverageSatisfiedBy.NOT_SATISFIED: "not_satisfied",
         }[coverage]
-        if coverage_state != expected_state:
+        if not silent_waiting and coverage_state != expected_state:
             errors.append(f"{prefix}: coverage_state must match coverage_satisfied_by={coverage.value}")
     if recommendation == "not_material" and coverage is not None:
         if coverage != CoverageSatisfiedBy.TYPED_NO_MATERIAL_ISSUE:
@@ -1578,6 +1691,9 @@ def validate_materiality_next_actions_payload(
         limitations = action.get("limitations")
         if not isinstance(limitations, list):
             errors.append(f"{prefix}: limitations must be a list")
+        state = action.get("state")
+        if state not in NEXT_ACTION_STATES:
+            errors.append(f"{prefix}: state has an unknown materiality resolution value")
     return errors
 
 
@@ -1743,6 +1859,45 @@ def _current_required_next_actions_from_index(
         return [], errors
     actions = build_materiality_next_actions(round_dir, decisions, workflow_profile=workflow_profile)
     action_roles = {action.role for action in actions}
+    stored_actions = payload.get("next_actions")
+    if isinstance(stored_actions, list):
+        current_actions_by_role = {action.role: action for action in actions}
+        material_decisions_by_role = {decision.role: decision for decision in decisions if decision.material}
+        for index, action in enumerate(stored_actions, start=1):
+            if not isinstance(action, dict):
+                continue
+            if action.get("status") != "unresolved" or action.get("severity") != "required":
+                continue
+            role = action.get("role")
+            if not isinstance(role, str) or role not in material_decisions_by_role:
+                continue
+            current_action = current_actions_by_role.get(role)
+            if current_action is not None:
+                stored_state = action.get("state")
+                if isinstance(stored_state, str) and stored_state != current_action.state:
+                    errors.append(
+                        f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
+                        f"is stale: stored state={stored_state} current state={current_action.state}"
+                    )
+                continue
+            coverage_state = _coverage_state_for_role(payload, role)
+            if coverage_state in {
+                "current_reviewed_artifact",
+                "current_synthesis_covered_artifact",
+                "current_handoff",
+                "silent_internal_evidence",
+                "typed_limitation",
+                "no_material_issue",
+            }:
+                errors.append(
+                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
+                    f"contradicts decision coverage_state={coverage_state}"
+                )
+            elif role == "theses_similarity":
+                errors.append(
+                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
+                    "is stale; current Theses.cz similarity evidence no longer has an unresolved next action"
+                )
     material_decisions = {decision.role: decision for decision in decisions if decision.material}
     for role in sorted(NEXT_ACTION_ROLES):
         if role in action_roles:
@@ -1778,7 +1933,18 @@ def _current_required_next_actions_from_index(
                 limitations=tuple(stale_reasons),
             )
         )
-    return actions, []
+    return actions, errors
+
+
+def _coverage_state_for_role(payload: dict[str, Any], role: str) -> str | None:
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        return None
+    for item in decisions:
+        if isinstance(item, dict) and item.get("role") == role:
+            value = item.get("coverage_state")
+            return value if isinstance(value, str) else None
+    return None
 
 
 def unresolved_required_next_actions(
