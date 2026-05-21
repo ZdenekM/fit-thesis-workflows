@@ -46,7 +46,7 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
+def write_silent_theses_similarity_assessment(round_dir: Path) -> str:
     for rel_path, content in (
         (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
         (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Synthetic extracted similarity text.\n"),
@@ -91,6 +91,7 @@ def write_silent_theses_similarity_assessment(round_dir: Path) -> None:
             "limitations": [],
         },
     )
+    return review_materiality.sha256_file(round_dir / THESES_SIMILARITY_ASSESSMENT_REL)
 
 
 def test_workflow_profile_registry_shape_and_approval_names() -> None:
@@ -732,6 +733,7 @@ def test_role_plan_closeout_requires_registered_work_role_output(tmp_path: Path)
             "role": "text_assignment",
             "coverage_role": "text_assignment",
             "skill": "thesis-text-reviewer",
+            "agent_profile_id": "thesis_text_reviewer",
             "expected_output": "work/supervisor_packets/text_assignment_findings.md",
             "registration_preset": "work/supervisor_packets/text_assignment_findings.md",
             "packet_path": "work/supervisor_packets/text_assignment.md",
@@ -782,6 +784,272 @@ def test_role_plan_closeout_requires_registered_work_role_output(tmp_path: Path)
         )
         == []
     )
+
+
+def test_role_plan_validates_sidecar_agent_profile_mapping(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    role = payload["role_states"][0]  # type: ignore[index]
+    assert isinstance(role, dict)
+    role.update(
+        {
+            "role": "text_assignment",
+            "coverage_role": "text_assignment",
+            "skill": "thesis-text-reviewer",
+            "expected_output": "work/supervisor_packets/text_assignment_findings.md",
+            "registration_preset": "work/supervisor_packets/text_assignment_findings.md",
+            "packet_path": "work/supervisor_packets/text_assignment.md",
+        }
+    )
+
+    errors = validate_review_role_plan_payload(payload, round_dir=round_dir)
+    assert any("role_states[1].agent_profile_id must be thesis_text_reviewer" in error for error in errors)
+
+    role["agent_profile_id"] = "unknown_profile"
+    errors = validate_review_role_plan_payload(payload, round_dir=round_dir)
+    assert any("role_states[1].agent_profile_id must be a configured profile id" in error for error in errors)
+
+    role["agent_profile_id"] = "thesis_text_reviewer"
+    assert not [
+        error
+        for error in validate_review_role_plan_payload(payload, round_dir=round_dir)
+        if "agent_profile_id" in error
+    ]
+
+
+def test_role_plan_closeout_accepts_structured_similarity_assessment_preset(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    payload.update(
+        {
+            "profile_id": "opponent_materials",
+            "workflow_profile": "opponent_review",
+            "materiality_profile": "opponent_review",
+            "operator_surface": "opponent_materials",
+            "final_artifact": "outputs/oponent_podklady_revidovane.md",
+            "approval_record": "work/reviews/opponent_materials_review.json",
+            "packet_command": "prepare-opponent-packets",
+            "packet_dir": "work/opponent_packets",
+        }
+    )
+    role = payload["role_states"][0]  # type: ignore[index]
+    assert isinstance(role, dict)
+    role.update(
+        {
+            "role": "theses_similarity",
+            "coverage_role": "theses_similarity",
+            "skill": "thesis-theses-similarity-review",
+            "expected_output": "outputs/theses_similarity_review.md",
+            "registration_preset": THESES_SIMILARITY_ASSESSMENT_REL,
+            "packet_path": "work/opponent_packets/theses_similarity.md",
+        }
+    )
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Opponent Materials\n", encoding="utf-8")
+    final_hash = review_materiality.sha256_file(final_output)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
+    manifest = round_dir / "work" / "review_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "review-manifest-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "supporting_work_artifacts": [
+                    {
+                        "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                        "artifact_sha256": assessment_hash,
+                        "review_scope": "covered_by_synthesis",
+                        "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                        "independent_review": {
+                            "status": "not_required",
+                            "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                            "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                            "evidence_hash": assessment_hash,
+                        },
+                    }
+                ],
+                "artifacts": [
+                    {
+                        "path": "outputs/oponent_podklady_revidovane.md",
+                        "artifact_sha256": final_hash,
+                        "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+                        "independent_review": {
+                            "status": "reviewed",
+                            "reviewer_role": "thesis-opponent-materials-review",
+                            "reviewer_agent": "reviewer-b",
+                            "reviewed_hash": final_hash,
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        validate_role_plan_for_closeout(
+            payload,
+            round_dir=round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="opponent_materials",
+        )
+        == []
+    )
+
+
+def test_role_plan_closeout_rejects_silent_assessment_with_wrong_round(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    payload.update(
+        {
+            "profile_id": "opponent_materials",
+            "workflow_profile": "opponent_review",
+            "materiality_profile": "opponent_review",
+            "operator_surface": "opponent_materials",
+            "final_artifact": "outputs/oponent_podklady_revidovane.md",
+            "approval_record": "work/reviews/opponent_materials_review.json",
+            "packet_command": "prepare-opponent-packets",
+            "packet_dir": "work/opponent_packets",
+        }
+    )
+    role = payload["role_states"][0]  # type: ignore[index]
+    assert isinstance(role, dict)
+    role.update(
+        {
+            "role": "theses_similarity",
+            "coverage_role": "theses_similarity",
+            "skill": "thesis-theses-similarity-review",
+            "expected_output": "outputs/theses_similarity_review.md",
+            "registration_preset": THESES_SIMILARITY_ASSESSMENT_REL,
+            "packet_path": "work/opponent_packets/theses_similarity.md",
+        }
+    )
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Opponent Materials\n", encoding="utf-8")
+    final_hash = review_materiality.sha256_file(final_output)
+    write_silent_theses_similarity_assessment(round_dir)
+    assessment_path = round_dir / THESES_SIMILARITY_ASSESSMENT_REL
+    assessment_payload = json.loads(assessment_path.read_text(encoding="utf-8"))
+    assessment_payload["round_id"] = "other-round"
+    write_json(assessment_path, assessment_payload)
+    assessment_hash = review_materiality.sha256_file(assessment_path)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "supporting_work_artifacts": [
+                {
+                    "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                    "artifact_sha256": assessment_hash,
+                    "review_scope": "covered_by_synthesis",
+                    "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                        "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                        "evidence_hash": assessment_hash,
+                    },
+                }
+            ],
+            "artifacts": [
+                {
+                    "path": "outputs/oponent_podklady_revidovane.md",
+                    "artifact_sha256": final_hash,
+                    "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewer_role": "thesis-opponent-materials-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+    )
+
+    assert any("theses_similarity: role plan state required_fresh requires current output" in error for error in errors)
+
+
+def test_role_plan_closeout_rejects_silent_assessment_for_wrong_profile_synthesis(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    payload = minimal_closeout_role_plan()
+    role = payload["role_states"][0]  # type: ignore[index]
+    assert isinstance(role, dict)
+    role.update(
+        {
+            "role": "theses_similarity",
+            "coverage_role": "theses_similarity",
+            "skill": "thesis-theses-similarity-review",
+            "expected_output": "outputs/theses_similarity_review.md",
+            "registration_preset": THESES_SIMILARITY_ASSESSMENT_REL,
+            "packet_path": "work/supervisor_packets/theses_similarity.md",
+        }
+    )
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Opponent Materials\n", encoding="utf-8")
+    final_hash = review_materiality.sha256_file(final_output)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "supporting_work_artifacts": [
+                {
+                    "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                    "artifact_sha256": assessment_hash,
+                    "review_scope": "covered_by_synthesis",
+                    "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                        "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                        "evidence_hash": assessment_hash,
+                    },
+                }
+            ],
+            "artifacts": [
+                {
+                    "path": "outputs/oponent_podklady_revidovane.md",
+                    "artifact_sha256": final_hash,
+                    "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewer_role": "thesis-opponent-materials-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+    errors = validate_role_plan_for_closeout(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+    )
+
+    assert any("theses_similarity: role plan state required_fresh requires current output" in error for error in errors)
 
 
 def test_role_plan_closeout_rejects_read_only_handoff_as_completed_output(tmp_path: Path) -> None:
@@ -924,12 +1192,70 @@ def test_review_role_plan_preserves_materiality_waiting_state(tmp_path: Path) ->
         round_dir=round_dir,
     )
 
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["theses_similarity"]["registration_preset"] == "outputs/theses_similarity_review.md"
+    assert roles["theses_similarity"]["expected_output"] == "outputs/theses_similarity_review.md"
     [action] = payload["materiality_next_actions"]
     assert action["role"] == "theses_similarity"
     assert action["materiality_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
     assert action["next_action_state"] == "silent_no_concern_waiting_for_reviewed_synthesis"
     assert action["required_artifact_path"] == "outputs/oponent_podklady_revidovane.md"
     assert THESES_SIMILARITY_SILENT_USED_FINDINGS in action["command"]
+
+
+def test_review_role_plan_uses_silent_assessment_preset_only_after_reviewed_synthesis(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Opponent Materials\n", encoding="utf-8")
+    final_hash = review_materiality.sha256_file(final_output)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "supporting_work_artifacts": [
+                {
+                    "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                    "artifact_sha256": assessment_hash,
+                    "review_scope": "covered_by_synthesis",
+                    "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                    "independent_review": {
+                        "status": "not_required",
+                        "covered_by_artifact": "outputs/oponent_podklady_revidovane.md",
+                        "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                        "evidence_hash": assessment_hash,
+                    },
+                }
+            ],
+            "artifacts": [
+                {
+                    "path": "outputs/oponent_podklady_revidovane.md",
+                    "artifact_sha256": final_hash,
+                    "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+                    "independent_review": {
+                        "status": "reviewed",
+                        "reviewer_role": "thesis-opponent-materials-review",
+                        "reviewer_agent": "reviewer-b",
+                        "reviewed_hash": final_hash,
+                    },
+                }
+            ],
+        },
+    )
+
+    payload = build_review_role_plan_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+        generated_at="2026-05-15T12:00:00Z",
+        round_dir=round_dir,
+    )
+
+    roles = {item["role"]: item for item in payload["role_states"]}
+    assert roles["theses_similarity"]["registration_preset"] == THESES_SIMILARITY_ASSESSMENT_REL
 
 
 def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:

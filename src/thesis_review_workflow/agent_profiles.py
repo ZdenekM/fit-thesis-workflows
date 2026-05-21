@@ -77,8 +77,15 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         status="profile",
         profile_id="thesis_text_reviewer",
         role_kind="evidence-producer",
-        sandbox_mode="read-only",
-        rationale="Text and assignment review is a durable role, but no dedicated repo-local skill owns it.",
+        sandbox_mode="workspace-write",
+        owned_outputs=(
+            "work/supervisor_packets/text_assignment_findings.md",
+            "work/opponent_packets/text_structure_assignment_findings.md",
+        ),
+        rationale=(
+            "Text and assignment review is a durable role without a dedicated repo-local skill; when active, "
+            "it writes packet-scoped sidecar findings rather than parent-authored filler."
+        ),
     ),
     _route(
         role_source=".agents/skills/thesis-code-consistency/SKILL.md",
@@ -293,9 +300,14 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         status="profile",
         profile_id="thesis_evidence_calibrator",
         role_kind="calibrator",
-        sandbox_mode="read-only",
+        sandbox_mode="workspace-write",
+        owned_outputs=(
+            "work/supervisor_packets/evidence_calibration_findings.md",
+            "work/opponent_packets/evidence_calibration_findings.md",
+        ),
         rationale=(
-            "Generic independent calibration role for standalone evidence without a specific final-review profile."
+            "Generic independent calibration role for standalone evidence without a specific final-review profile; "
+            "packet-scoped evidence-calibration sidecars are role-owned when the workflow activates them."
         ),
     ),
     _route(

@@ -91,6 +91,9 @@ supervisor does not know a dimension, the intake must say that explicitly.
    `supervisor_report` materiality, and writes `work/review_role_plan.json`.
    Treat that role plan as the source of truth for role states, packet paths,
    expected outputs, registration presets, reuse, and typed limitations.
+   When text/assignment or evidence-calibration packet roles are active, their
+   findings are role-owned sidecars named by `work/review_role_plan.json`; do
+   not create parent-authored filler files for those roles.
 9. Resolve every required materiality next action before trace/draft synthesis:
    use current structured/reviewed evidence, synthesis-covered evidence, or a
    typed limitation. Consume compact packet handoffs and `## Synthesis Handoff`

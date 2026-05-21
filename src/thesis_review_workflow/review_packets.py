@@ -179,6 +179,11 @@ class PacketRole:
     model_note: str = "Semantic reviewer role; keep on gpt-5.5/xhigh unless the operator changes the policy."
     activation_check: tuple[str, ...] = ()
     activation_workflow_profile: str | None = None
+    agent_profile_id: str = ""
+
+
+def agent_profile_metadata_lines(role: PacketRole) -> list[str]:
+    return [f"Agent profile: `{role.agent_profile_id}`"] if role.agent_profile_id else []
 
 
 def rel_status(

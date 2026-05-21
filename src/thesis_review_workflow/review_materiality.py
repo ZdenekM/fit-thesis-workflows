@@ -16,7 +16,6 @@ from thesis_review_workflow.structured_evidence import (
     validate_structured_evidence_artifact,
 )
 from thesis_review_workflow.theses_similarity import (
-    SIMILARITY_UNRESOLVED_CATEGORIES,
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_EXTRACTED_TEXT_REL,
     THESES_SIMILARITY_INTAKE_REL,
@@ -25,6 +24,10 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_SILENT_USED_FINDINGS,
     theses_similarity_materiality_evidence_present,
     theses_similarity_materiality_refs,
+)
+from thesis_review_workflow.theses_similarity_coverage import (
+    theses_similarity_assessment_is_silent_no_concern,
+    theses_similarity_silent_internal_evidence_satisfied,
 )
 
 INDEX_REL = Path("work/review_materiality/index.json")
@@ -1217,35 +1220,13 @@ def _load_current_theses_similarity_assessment(round_dir: Path) -> tuple[dict[st
 
 
 def _theses_similarity_assessment_is_silent_no_concern(payload: dict[str, Any]) -> bool:
-    judgments = payload.get("judgments")
-    if not isinstance(judgments, list) or not judgments:
-        return False
-    for judgment in judgments:
-        if not isinstance(judgment, dict):
-            return False
-        category = judgment.get("category")
-        if category in SIMILARITY_UNRESOLVED_CATEGORIES:
-            return False
-        if judgment.get("synthesis_action") != "silent":
-            return False
-        if judgment.get("requires_reviewer_verification") is not False:
-            return False
-    return True
+    return theses_similarity_assessment_is_silent_no_concern(payload)
 
 
 def _theses_similarity_silent_internal_evidence_satisfied(round_dir: Path, *, workflow_profile: str) -> bool:
-    if workflow_profile not in SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS:
-        return False
-    assessment, errors = _load_current_theses_similarity_assessment(round_dir)
-    if assessment is None or errors:
-        return False
-    if not _theses_similarity_assessment_is_silent_no_concern(assessment):
-        return False
-    return _artifact_covered_by_current_synthesis(
+    return theses_similarity_silent_internal_evidence_satisfied(
         round_dir,
-        THESES_SIMILARITY_ASSESSMENT_REL,
         workflow_profile=workflow_profile,
-        required_used_findings=THESES_SIMILARITY_SILENT_USED_FINDINGS,
     )
 
 

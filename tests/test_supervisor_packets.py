@@ -303,7 +303,7 @@ def test_supervisor_packet_renders_materiality_next_actions(tmp_path: Path) -> N
     )
 
     assert "## Materiality Next Actions" in text
-    assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
+    assert "`quantitative_claims` [missing_artifact] requires `work/quantitative_claims.json`" in text
     assert "thesis-quantitative-claims-review" in text
 
     written = generate_packets(
@@ -334,7 +334,7 @@ def test_supervisor_packets_emit_theses_similarity_packet_from_next_action(tmp_p
     text = (round_dir / "work" / "supervisor_packets" / "theses_similarity.md").read_text(encoding="utf-8")
 
     assert "theses_similarity.md" in names
-    assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
+    assert f"`theses_similarity` [missing_artifact] requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
     assert THESES_SIMILARITY_REPORT_REL in text
     assert "Keep clean or resolved reports silent in student-facing feedback." in text
 

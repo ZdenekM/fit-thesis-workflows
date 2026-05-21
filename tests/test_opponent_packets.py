@@ -460,7 +460,7 @@ def test_opponent_packet_renders_materiality_next_actions(tmp_path: Path) -> Non
     text = render_packet("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir, role)
 
     assert "## Materiality Next Actions" in text
-    assert "`quantitative_claims` requires `work/quantitative_claims.json`" in text
+    assert "`quantitative_claims` [missing_artifact] requires `work/quantitative_claims.json`" in text
 
     written = generate_packets("case-a", "round-a", "2026-05-06T00:00:00Z", round_dir)
     assert "quantitative_claims.md" in {path.name for path in written}
@@ -481,7 +481,7 @@ def test_opponent_packets_emit_theses_similarity_packet_from_next_action(tmp_pat
     text = (round_dir / "work" / "opponent_packets" / "theses_similarity.md").read_text(encoding="utf-8")
 
     assert "theses_similarity.md" in names
-    assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
+    assert f"`theses_similarity` [missing_artifact] requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
     assert THESES_SIMILARITY_REPORT_REL in text
     assert "Do not leak raw report URLs" in text
 

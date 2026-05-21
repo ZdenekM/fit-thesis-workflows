@@ -75,6 +75,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     resolve supervisor-specific GitHub, quantitative, and Theses.cz
     similarity-report materiality actions with a current artifact or typed
     `work/review_manifest.json` limitation.
+    When text/assignment or evidence-calibration packet roles are active, their
+    findings are role-owned sidecars named by `work/review_role_plan.json`
+    (`work/supervisor_packets/text_assignment_findings.md` and
+    `work/supervisor_packets/evidence_calibration_findings.md`); do not create
+    parent-authored filler files for those roles.
 14. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
 15. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
 16. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.

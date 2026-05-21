@@ -38,6 +38,7 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
     theses_similarity_materiality_evidence_present,
 )
+from thesis_review_workflow.theses_similarity_coverage import theses_similarity_silent_internal_evidence_satisfied
 
 COVERAGE_REL = Path("work/agent_coverage.json")
 REUSE_INDEX_REL = Path("work/reuse/reuse_index.json")
@@ -318,11 +319,20 @@ def quantitative_claims_present(round_dir: Path, manifest: dict[str, Any]) -> bo
     return False
 
 
-def theses_similarity_evidence_path(round_dir: Path, manifest: dict[str, Any]) -> str:
+def theses_similarity_evidence_path(
+    round_dir: Path,
+    manifest: dict[str, Any],
+    *,
+    allowed_synthesis_paths: tuple[str, ...] = (),
+) -> str:
     artifacts = artifact_by_path(manifest)
     if (round_dir / THESES_SIMILARITY_REVIEW_REL).is_file() or THESES_SIMILARITY_REVIEW_REL in artifacts:
         return THESES_SIMILARITY_REVIEW_REL
-    if (round_dir / THESES_SIMILARITY_ASSESSMENT_REL).is_file() or THESES_SIMILARITY_ASSESSMENT_REL in artifacts:
+    if theses_similarity_silent_internal_evidence_satisfied(
+        round_dir,
+        manifest,
+        allowed_synthesis_paths=allowed_synthesis_paths,
+    ):
         return THESES_SIMILARITY_ASSESSMENT_REL
     return THESES_SIMILARITY_REVIEW_REL
 
@@ -438,7 +448,11 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
         )
 
     if final_paths and theses_similarity_materiality_evidence_present(round_dir):
-        evidence_path = theses_similarity_evidence_path(round_dir, manifest)
+        evidence_path = theses_similarity_evidence_path(
+            round_dir,
+            manifest,
+            allowed_synthesis_paths=final_paths,
+        )
         specs["theses_similarity"] = RoleSpec(
             "theses_similarity",
             "Theses.cz similarity-report evidence is available and feeds a final/synthesis artifact",
@@ -581,7 +595,7 @@ def role_record_from_spec(spec: RoleSpec, artifacts: dict[str, dict[str, Any]], 
     generator_role, generator_agent = first_recorded_generator(artifact)
     reviewer_role, reviewer_agent, reviewed_hash = review_fields(artifact, artifacts)
     evidence = [spec.evidence_path] if artifact else []
-    record = {
+    record: dict[str, Any] = {
         "role": spec.role,
         "status": "required",
         "trigger": spec.trigger,
@@ -597,6 +611,9 @@ def role_record_from_spec(spec: RoleSpec, artifacts: dict[str, dict[str, Any]], 
         "notes": "",
     }
     record.update(reuse_fields_for_role(round_dir, spec.role, artifact))
+    if spec.role == "theses_similarity" and spec.evidence_path == THESES_SIMILARITY_ASSESSMENT_REL:
+        record["fresh_review_required"] = False
+        record["coverage_satisfied_by"] = CoverageSatisfiedBy.SILENT_INTERNAL_EVIDENCE.value
     return record
 
 
@@ -878,17 +895,34 @@ def validate_coverage(
         if fresh_required_value is False and coverage_mode is not None:
             if not coverage_satisfies_without_fresh_review(coverage_mode):
                 errors.append(f"{role}: non-fresh coverage must use a reusable coverage_satisfied_by value")
-            if status == "required" and coverage_mode != CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT:
-                errors.append(f"{role}: required non-fresh coverage must use current_reviewed_artifact")
-            if status == "required" and coverage_mode == CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT:
-                errors.extend(
-                    validate_reuse_index_decision_for_coverage(
+            if status == "required":
+                if coverage_mode == CoverageSatisfiedBy.CURRENT_REVIEWED_ARTIFACT:
+                    errors.extend(
+                        validate_reuse_index_decision_for_coverage(
+                            round_dir,
+                            role=role,
+                            case_id=case_id,
+                            round_id=round_id,
+                        )
+                    )
+                elif coverage_mode == CoverageSatisfiedBy.SILENT_INTERNAL_EVIDENCE and role == "theses_similarity":
+                    spec = specs.get(role)
+                    if spec is None or not theses_similarity_silent_internal_evidence_satisfied(
                         round_dir,
-                        role=role,
+                        manifest,
+                        allowed_synthesis_paths=spec.required_for,
                         case_id=case_id,
                         round_id=round_id,
+                    ):
+                        errors.append(
+                            f"{role}: silent_internal_evidence requires a current no-concern assessment "
+                            "covered by a reviewed synthesis artifact"
+                        )
+                else:
+                    errors.append(
+                        f"{role}: required non-fresh coverage must use current_reviewed_artifact "
+                        "or theses_similarity silent_internal_evidence"
                     )
-                )
         if record.get("reuse_index_path") not in {"", None, REUSE_INDEX_REL.as_posix()}:
             errors.append(f"{role}: reuse_index_path must be {REUSE_INDEX_REL.as_posix()} when present")
         if record.get("reuse_status") not in {

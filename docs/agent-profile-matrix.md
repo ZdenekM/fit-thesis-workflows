@@ -41,7 +41,7 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 
 | Skill or source | Status | Codex agent role profile | Kind | Sandbox | Owned outputs / allowed writes | Review separation | Validators |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `AGENTS.md:text-structure-assignment-coverage` | `profile` | `thesis_text_reviewer` | evidence-producer | read-only | none; handoff only | downstream synthesis decides use | none |
+| `AGENTS.md:text-structure-assignment-coverage` | `profile` | `thesis_text_reviewer` | evidence-producer | workspace-write | `work/supervisor_packets/text_assignment_findings.md`, `work/opponent_packets/text_structure_assignment_findings.md` | downstream synthesis decides use | none |
 | `thesis-code-consistency` | `profile` | `thesis_code_consistency_reviewer` | evidence-producer | workspace-write | `outputs/code_consistency.md` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-code-consistency` |
 | `thesis-code-quality-review` | `profile` | `thesis_code_quality_reviewer` | evidence-producer | workspace-write | `outputs/code_quality_review.md` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-code-quality-review` |
 | `thesis-quantitative-claims-review` | `profile` | `thesis_quantitative_claims_reviewer` | evidence-producer | workspace-write | `work/quantitative_claims.json` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-evaluation-claims` |
@@ -58,11 +58,20 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 | `thesis-opponent-materials` | `parent-owned` | none | parent-orchestration | parent-orchestration | `work/oponent_podklady_draft.md`, `outputs/oponent_podklady.md` | reviewed materials by `thesis_opponent_materials_reviewer` | `scripts/check-review-wave --workflow opponent_materials --wave draft` |
 | `thesis-opponent-materials-review` | `profile` | `thesis_opponent_materials_reviewer` | final-reviewer | workspace-write | `outputs/oponent_podklady_revidovane.md`, `work/opponent_report_trace.json`, `work/reviews/opponent_materials_review.json` | must be different from the materials generator | `scripts/check-opponent-materials`, `scripts/check-opponent-report --mode canonical` |
 | `thesis-opponent-report-review` | `profile` | `thesis_opponent_report_reviewer` | final-reviewer | workspace-write | `outputs/feedback_k_posudku.md`, `work/reviews/opponent_report_review.json` | fresh review is required after material rewrites; review basis is normally `outputs/oponent_posudek_navrh.md` | `scripts/check-review-wave --workflow opponent_report --wave draft`, `scripts/check-opponent-report --mode canonical`, `scripts/export-opponent-report`, `scripts/check-opponent-report --mode clean`, conditional `scripts/check-report-calibration` for calibration-bound report basis |
-| `AGENTS.md:standalone-evidence-calibration` | `profile` | `thesis_evidence_calibrator` | calibrator | read-only | none; reviewer verdict in chat unless a workflow routes it to a structured approval record | cannot review its own generated evidence | none |
+| `AGENTS.md:standalone-evidence-calibration` | `profile` | `thesis_evidence_calibrator` | calibrator | workspace-write | `work/supervisor_packets/evidence_calibration_findings.md`, `work/opponent_packets/evidence_calibration_findings.md`; reviewer verdict remains chat-only unless a packet role asks for the sidecar | cannot review its own generated evidence | none |
 | `historical-opponent-calibration` | `deferred` | none | generator | not-spawned | none in this profile registry | private calibration workflow; no durable spawned role yet | `scripts/check-opponent-calibration-profile` when the workflow is run |
 | `historical-supervisor-report-calibration` | `deferred` | none | generator | not-spawned | none in this profile registry | private calibration workflow; no durable spawned role yet | `scripts/check-supervisor-report-calibration-profile` when the workflow is run |
 
 ## Routing Decisions
+
+- Packet-scoped text/assignment and evidence-calibration findings are
+  role-owned sidecars when their packet roles are active. They are not parent
+  filler artifacts.
+- Theses.cz no-concern evidence may be registered as the validated structured
+  assessment JSON and then covered by a reviewed synthesis manifest with the
+  `silent_internal_evidence:no_material_concern` marker. That path does not
+  require `outputs/theses_similarity_review.md` unless the assessment records a
+  non-silent or reviewer-verification concern.
 
 - `profile` means a stable `.codex/agents/*` profile either exists or is planned
   in the current rollout.

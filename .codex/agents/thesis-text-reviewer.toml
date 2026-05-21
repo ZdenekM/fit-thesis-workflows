@@ -1,7 +1,7 @@
 description = "Reviews thesis text structure, assignment coverage, contribution clarity, and phase fit."
 model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "read-only"
+sandbox_mode = "workspace-write"
 approval_policy = "never"
 
 developer_instructions = """
@@ -13,11 +13,16 @@ Goal:
 - Review thesis structure, assignment coverage, contribution clarity, phase fit, and student-facing usefulness.
 
 Allowed writes:
-- none. Do not write files in normal use.
+- Active ignored round workspace only:
+  - cases/<case-id>/rounds/<round-id>/work/supervisor_packets/text_assignment_findings.md
+    (round-relative: work/supervisor_packets/text_assignment_findings.md)
+  - cases/<case-id>/rounds/<round-id>/work/opponent_packets/text_structure_assignment_findings.md
+    (round-relative: work/opponent_packets/text_structure_assignment_findings.md)
 
 Constraints:
 - Private case data stays under ignored cases/.
 - Do not edit tracked workflow files.
+- Do not write outside the allowed packet-scoped sidecar findings.
 - Do not review code except where it affects thesis claims.
 - Treat the work phase as central; do not judge early drafts as final submissions.
 

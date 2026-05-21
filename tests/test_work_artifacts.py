@@ -388,6 +388,7 @@ def test_review_role_plan_is_case_bound_supporting_work_artifact(tmp_path: Path)
                     "role": "text_assignment",
                     "title": "Text And Assignment Coverage",
                     "skill": "thesis-supervisor-feedback",
+                    "agent_profile_id": "thesis_text_reviewer",
                     "state": "required_fresh",
                     "activation": "mandatory",
                     "expected_output": "work/supervisor_packets/text_assignment_findings.md",

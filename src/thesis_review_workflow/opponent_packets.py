@@ -11,6 +11,7 @@ from thesis_review_workflow.review_packets import (
     MECHANICAL_MODEL,
     MECHANICAL_REASONING,
     PacketRole,
+    agent_profile_metadata_lines,
     existing_paths,
     generated_role_paths,
     materiality_next_actions_section,
@@ -72,6 +73,7 @@ PACKET_ROLES = (
         key="text_structure_assignment",
         title="Text Structure And Assignment Coverage",
         skill="thesis-opponent-materials",
+        agent_profile_id="thesis_text_reviewer",
         expected_output="work/opponent_packets/text_structure_assignment_findings.md",
         mission=(
             "Assess rendered-thesis structure, assignment fulfillment, and IS-item relevance " "for opponent synthesis."
@@ -290,6 +292,7 @@ PACKET_ROLES = (
         key="evidence_calibration",
         title="Evidence Labels And Severity Calibration",
         skill="thesis-opponent-materials-review",
+        agent_profile_id="thesis_evidence_calibrator",
         expected_output="work/opponent_packets/evidence_calibration_findings.md",
         mission=(
             "Check whether evidence labels, risk severity, strengths, limitations, and grading " "calibration are fair."
@@ -530,6 +533,7 @@ def render_packet(case_id: str, round_id: str, generated_at: str, round_dir: Pat
             f"Common briefing sha256: `{common_briefing_sha}`",
             f"Role key: `{role.key}`",
             f"Skill: `{role.skill}`",
+            *agent_profile_metadata_lines(role),
             f"Expected output: `{role.expected_output}`",
             f"Recommended model: `{role.model}`",
             f"Recommended reasoning: `{role.reasoning}`",

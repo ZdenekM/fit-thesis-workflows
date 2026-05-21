@@ -37,7 +37,8 @@ cases/<case-id>/rounds/<round-id>/
 6. Enumerate available inputs and extract PDF text into `extracted/` when needed and possible. Treat submitted PDFs as rendered thesis evidence; use LaTeX/Overleaf sources for diff/search/evidence and do not build them by default. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction. State what was not available or not runnable.
 7. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
 8. When quantitative, evaluation, experiment, metric, performance, or result claims matter to opponent synthesis, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
-9. Before spawning role-split agents, use the optimized deterministic boundary:
+9. When text/assignment or evidence-calibration packet roles are active, their findings belong in the role-owned sidecars named by `work/review_role_plan.json` (`work/opponent_packets/text_structure_assignment_findings.md` and `work/opponent_packets/evidence_calibration_findings.md`). Do not create parent-authored filler files for those roles. For clean Theses.cz no-concern evidence, use the validated `work/theses_similarity/assessment.json` plus reviewed synthesis manifest coverage with `silent_internal_evidence:no_material_concern`; do not require `outputs/theses_similarity_review.md` unless the assessment records a non-silent or reviewer-verification concern.
+10. Before spawning role-split agents, use the optimized deterministic boundary:
    `scripts/review-round-start --profile opponent_materials <case-id> [round-id]`
    to confirm current materials and write `work/review_run_trace.json`, then
    `scripts/prepare-review-round --profile opponent_materials <case-id> [round-id]`
@@ -50,7 +51,7 @@ cases/<case-id>/rounds/<round-id>/
    synthesis/reviewed wave readiness, resolve opponent-specific GitHub,
    quantitative, and Theses.cz similarity-report materiality actions with a
    current artifact or typed `work/review_manifest.json` limitation.
-10. Build a map of:
+11. Build a map of:
    - assignment points and where they are covered,
    - reviewer profile preferences that are relevant to this round,
    - main technical contribution,
@@ -66,23 +67,23 @@ cases/<case-id>/rounds/<round-id>/
    - typography/formal presentation issues calibrated by thesis language,
    - likely strengths,
    - risks that may affect grading.
-11. Run `thesis-figure-media-review` when thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds materially affect the opponent assessment. Leave reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; summarize only relevant findings and limitations in the materials.
+12. Run `thesis-figure-media-review` when thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds materially affect the opponent assessment. Leave reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; summarize only relevant findings and limitations in the materials.
     If the role agent or helper fails to produce its expected output, stop the
     opponent-materials pipeline before synthesis, report the failed role and
     expected paths, and ask the operator whether to rerun/repair the role or
     accept a blocked typed limitation. Do not silently replace the missing role
     with a parent-generated limited substitute.
-12. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
+13. Run `thesis-code-consistency` and `thesis-code-quality-review` when code is available. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Leave visible evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`, and summarize the relevant findings and limitations in the materials.
     In code-backed opponent materials, also assess whether the implementation
     explanation is understandable without reading the source code line by line:
     prefer principle, architecture, state/data flow, and visual summaries over
     function inventories. Distinguish unit-level evidence for deterministic
     algorithms from integration tests for service/runtime wiring when this
     affects defensibility or grading.
-13. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
-14. Run `thesis-typography-formal-review` when the thesis is in final submission state or formal presentation may affect report quality. Use it as pattern evidence; do not turn it into a long typo inventory.
-15. Run `thesis-theses-similarity-review` when an imported Theses.cz report is present. Keep no-concern or resolved matches internal; surface only reviewed unresolved/material concerns or manual checks, and do not expose raw report URLs/source internals.
-16. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care. Distinguish an unsupported or overstated thesis claim from a serious defect in the work itself:
+14. Run `thesis-literature-citation-review` when literature relevance, citation support, or source defensibility is material to the opponent assessment. For opponent work, use it only for relevance, defensibility, citation quality, and support for submitted claims; do not turn it into literature coaching.
+15. Run `thesis-typography-formal-review` when the thesis is in final submission state or formal presentation may affect report quality. Use it as pattern evidence; do not turn it into a long typo inventory.
+16. Run `thesis-theses-similarity-review` when an imported Theses.cz report is present. Keep no-concern or resolved matches internal; surface only reviewed unresolved/material concerns or manual checks, and do not expose raw report URLs/source internals.
+17. Calibrate severity. Do not search for faults at any cost; identify strong parts with equal care. Distinguish an unsupported or overstated thesis claim from a serious defect in the work itself:
    - if a claimed runtime path is implemented and has a plausible alternate
      scene/profile/configuration, but the submitted default/build artifacts do
      not prove it was used, present it as an evidence or reproducibility
@@ -94,21 +95,21 @@ cases/<case-id>/rounds/<round-id>/
    - keep minor overclaims as presentation/claim-calibration notes unless they
      affect assignment fulfillment, experimental conclusions, or a central
      implementation promise.
-17. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
-18. Apply `docs/opponent-review-workflow.md#report-quality-controls` before
+18. Use `docs/fit-is-rubric.md` as the shared checklist for FIT IS item coverage.
+19. Apply `docs/opponent-review-workflow.md#report-quality-controls` before
     synthesis. In this skill, the role-specific obligation is to translate those
     controls into evidence-backed internal materials, confidence labels,
     report-impact notes, compact candidate wording, manual checks, or defense
     questions without copying raw audit detail into report-facing prose.
-19. Use confidence labels for important statements:
+20. Use confidence labels for important statements:
    - `[FAKT]` directly verified from inputs,
    - `[INTERPRETACE]` reasonable conclusion from multiple inputs,
    - `[ODHAD]` likely but not fully verified,
    - `[NEOVERENO]` not verifiable from provided materials,
    - `[K RUCNI KONTROLE]` important but requires manual opponent verification.
-20. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
-21. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout. If reviewer-profile or operator-calibration preferences affect the report, write or refresh `work/report_calibration_basis.json` before trace/report work; the semantic reviewer or human calibration step owns the preference-to-target mapping. If the operator proceeds to a report from the reviewed trace, `work/opponent_report_trace.json` must bind that basis with path, sha256, `calibration_preference_ids`, and `calibration_preference_applications` mapping preferences to IS items, defense questions, or report controls. The trace must also carry the report-quality controls from `docs/opponent-review-workflow.md#report-quality-controls`: assignment fulfillment, rubric alignment, claim ledger, checked scope, evidence-source matrix, technical-report-scope basis, strength/grade tension, defense-question strategy, and materiality-bound refs such as evaluation/scaling, third-party/authorship, contribution boundary, citation support, media status, deployment readiness, technical difficulty, and result usability when they materially affect the report. Use existing role-owned outputs and validated artifacts, including `work/theses_checker_summary.json` when technical-report scope depends on FIT Theses Checker; do not create new role files merely because the trace has a control field. If no profile-specific or operator-calibration preference applies, the trace must instead record `report_calibration_limitation` with current profile/operator source hashes. If historical/reference calibration artifacts or a report revision request influenced the same report, preserve the existing `calibration_context`; the basis must list the acyclic related calibration artifact such as `work/opponent_calibration_use.json` or `work/opponent_calibration_advisory.json` under `related_calibration_artifacts`. The normal route is `scripts/draft-opponent-report <case-id> [round-id]`, human calibration of `work/oponent_posudek_draft.md`, `scripts/check-opponent-report --mode canonical <case-id> [round-id]`, and `scripts/export-opponent-report <case-id> [round-id]` to create `outputs/oponent_posudek_navrh.md` for report review.
-22. After each role output is written, use `scripts/register-review-artifact`
+21. In DEEP mode, run `thesis-opponent-materials-review` as an independent review pass before treating the materials as ready for writing the report. When a first draft was produced by another agent or model, have a different explicitly authorized reviewer agent run that review pass.
+22. After the reviewed output exists, run `scripts/check-opponent-materials <case-id> [round-id]`. Fix hard failures before treating `outputs/oponent_podklady_revidovane.md` as ready. Warnings are operator prompts; resolve or explicitly accept them in the closeout. If reviewer-profile or operator-calibration preferences affect the report, write or refresh `work/report_calibration_basis.json` before trace/report work; the semantic reviewer or human calibration step owns the preference-to-target mapping. If the operator proceeds to a report from the reviewed trace, `work/opponent_report_trace.json` must bind that basis with path, sha256, `calibration_preference_ids`, and `calibration_preference_applications` mapping preferences to IS items, defense questions, or report controls. The trace must also carry the report-quality controls from `docs/opponent-review-workflow.md#report-quality-controls`: assignment fulfillment, rubric alignment, claim ledger, checked scope, evidence-source matrix, technical-report-scope basis, strength/grade tension, defense-question strategy, and materiality-bound refs such as evaluation/scaling, third-party/authorship, contribution boundary, citation support, media status, deployment readiness, technical difficulty, and result usability when they materially affect the report. Use existing role-owned outputs and validated artifacts, including `work/theses_checker_summary.json` when technical-report scope depends on FIT Theses Checker; do not create new role files merely because the trace has a control field. If no profile-specific or operator-calibration preference applies, the trace must instead record `report_calibration_limitation` with current profile/operator source hashes. If historical/reference calibration artifacts or a report revision request influenced the same report, preserve the existing `calibration_context`; the basis must list the acyclic related calibration artifact such as `work/opponent_calibration_use.json` or `work/opponent_calibration_advisory.json` under `related_calibration_artifacts`. The normal route is `scripts/draft-opponent-report <case-id> [round-id]`, human calibration of `work/oponent_posudek_draft.md`, `scripts/check-opponent-report --mode canonical <case-id> [round-id]`, and `scripts/export-opponent-report <case-id> [round-id]` to create `outputs/oponent_posudek_navrh.md` for report review.
+23. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is
     created. Then run `scripts/init-review-manifest --run-checks <case-id>

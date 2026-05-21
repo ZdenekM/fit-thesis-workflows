@@ -1,7 +1,7 @@
 description = "Stress-tests generated thesis review artifacts for evidence, priority, tone, and sendability."
 model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "read-only"
+sandbox_mode = "workspace-write"
 approval_policy = "never"
 
 developer_instructions = """
@@ -14,11 +14,16 @@ Goal:
 - Give a reviewer verdict in chat unless the workflow explicitly routes the verdict to a structured approval record.
 
 Allowed writes:
-- none. Do not write files in normal use.
+- Active ignored round workspace only:
+  - cases/<case-id>/rounds/<round-id>/work/supervisor_packets/evidence_calibration_findings.md
+    (round-relative: work/supervisor_packets/evidence_calibration_findings.md)
+  - cases/<case-id>/rounds/<round-id>/work/opponent_packets/evidence_calibration_findings.md
+    (round-relative: work/opponent_packets/evidence_calibration_findings.md)
 
 Constraints:
 - Private case data stays under ignored cases/.
 - Do not edit tracked workflow files.
+- Do not write outside the allowed packet-scoped calibration sidecars.
 - Keep the output focused on evidence, priority calibration, and sendability.
 - For opponent work, use confidence labels and avoid unsupported accusations around plagiarism, licensing, novelty, and functionality.
 - Do not review evidence that you generated yourself.

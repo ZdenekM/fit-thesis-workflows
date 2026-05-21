@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from thesis_review_workflow import agent_coverage
+from thesis_review_workflow import agent_coverage, agent_profiles
 from thesis_review_workflow.code_quality_omen import CODE_QUALITY_OMEN_REL, load_omen_advisory_state
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import artifact_role_for_role_plan_role
@@ -27,6 +27,8 @@ from thesis_review_workflow.review_packets import (
     sha256_file,
 )
 from thesis_review_workflow.review_profiles import WorkflowReviewProfile, get_workflow_review_profile
+from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_ASSESSMENT_REL, THESES_SIMILARITY_REVIEW_REL
+from thesis_review_workflow.theses_similarity_coverage import theses_similarity_silent_internal_evidence_satisfied
 
 REVIEW_RUN_TRACE_SCHEMA = "review-run-trace-v1"
 REVIEW_ROLE_PLAN_SCHEMA = "review-role-plan-v1"
@@ -86,6 +88,12 @@ ROLE_PLAN_CLOSEOUT_REQUIRED_STATES = {"required_fresh", "delta_review"}
 REUSE_UNCHANGED_REUSABLE = "unchanged_reusable"
 REUSE_CHANGED_DELTA_REQUIRED = "changed_delta_required"
 REUSE_CURRENT_REVIEWED_ARTIFACT = "current_reviewed_artifact"
+ROLE_AGENT_PROFILE_IDS = {route.profile_id for route in agent_profiles.profile_routes() if route.profile_id}
+ROLE_PLAN_REQUIRED_AGENT_PROFILES = {
+    "text_assignment": "thesis_text_reviewer",
+    "text_structure_assignment": "thesis_text_reviewer",
+    "evidence_calibration": "thesis_evidence_calibrator",
+}
 ROLE_PLAN_MAX_CONCURRENCY = 2
 
 
@@ -384,10 +392,17 @@ def role_plan_record(
         "coverage_role": coverage_role,
         "title": role.title,
         "skill": role.skill,
+        "agent_profile_id": role.agent_profile_id,
         "state": state,
         "activation": role.activation,
         "expected_output": role.expected_output,
-        "registration_preset": registration_preset_for_role(role),
+        "registration_preset": registration_preset_for_role(
+            role,
+            round_dir=round_dir,
+            case_id=case_id,
+            round_id=round_id,
+            allowed_synthesis_paths=(profile.final_artifact,),
+        ),
         "packet_path": packet_path,
         "packet_status": packet_status,
         "output_status": output_status(round_dir, role.expected_output, case_id=case_id, round_id=round_id),
@@ -452,7 +467,25 @@ def coverage_role_for_packet_role(profile: WorkflowReviewProfile, role: PacketRo
     return role.key
 
 
-def registration_preset_for_role(role: PacketRole) -> str:
+def registration_preset_for_role(
+    role: PacketRole,
+    *,
+    round_dir: Path | None = None,
+    case_id: str | None = None,
+    round_id: str | None = None,
+    allowed_synthesis_paths: tuple[str, ...] = (),
+) -> str:
+    if role.key == "theses_similarity" and round_dir is not None:
+        if (round_dir / THESES_SIMILARITY_REVIEW_REL).is_file():
+            return THESES_SIMILARITY_REVIEW_REL
+        if theses_similarity_silent_internal_evidence_satisfied(
+            round_dir,
+            role_plan_manifest_projection(round_dir),
+            allowed_synthesis_paths=allowed_synthesis_paths,
+            case_id=case_id,
+            round_id=round_id,
+        ):
+            return THESES_SIMILARITY_ASSESSMENT_REL
     first_path = role.expected_output.split(" and ", 1)[0]
     if first_path.startswith("outputs/") or first_path.startswith("work/"):
         return first_path
@@ -958,7 +991,15 @@ def validate_role_plan_for_closeout(
         coverage_role = str(record.get("coverage_role") or role)
         coverage_projection = agent_coverage_projection_for_role(round_dir, coverage_role)
         if state in ROLE_PLAN_CLOSEOUT_REQUIRED_STATES:
-            if role_output_or_limitation_present(round_dir, manifest, record, coverage_projection):
+            if role_output_or_limitation_present(
+                round_dir,
+                manifest,
+                record,
+                coverage_projection,
+                case_id=case_id,
+                round_id=round_id,
+                allowed_synthesis_paths=(str(payload.get("final_artifact") or ""),),
+            ):
                 continue
             expected = str(record.get("registration_preset") or record.get("expected_output") or "").split(" and ", 1)[
                 0
@@ -983,6 +1024,10 @@ def role_output_or_limitation_present(
     manifest: dict[str, Any],
     record: dict[str, Any],
     coverage_projection: dict[str, Any],
+    *,
+    case_id: str,
+    round_id: str,
+    allowed_synthesis_paths: tuple[str, ...],
 ) -> bool:
     if typed_limitation_present(record, coverage_projection):
         return True
@@ -996,7 +1041,18 @@ def role_output_or_limitation_present(
     expected = record.get("expected_output")
     if isinstance(expected, str) and expected:
         refs.append(expected.split(" and ", 1)[0])
-    return any(role_output_ref_registered_current(round_dir, manifest, ref, coverage_projection) for ref in refs)
+    return any(
+        role_output_ref_registered_current(
+            round_dir,
+            manifest,
+            ref,
+            coverage_projection,
+            case_id=case_id,
+            round_id=round_id,
+            allowed_synthesis_paths=allowed_synthesis_paths,
+        )
+        for ref in refs
+    )
 
 
 def role_output_ref_registered_current(
@@ -1004,9 +1060,21 @@ def role_output_ref_registered_current(
     manifest: dict[str, Any],
     rel_path: str,
     coverage_projection: dict[str, Any],
+    *,
+    case_id: str,
+    round_id: str,
+    allowed_synthesis_paths: tuple[str, ...],
 ) -> bool:
     if not is_safe_round_relative_path(rel_path) or not (round_dir / rel_path).is_file():
         return False
+    if rel_path == THESES_SIMILARITY_ASSESSMENT_REL:
+        return theses_similarity_silent_internal_evidence_satisfied(
+            round_dir,
+            manifest,
+            allowed_synthesis_paths=allowed_synthesis_paths,
+            case_id=case_id,
+            round_id=round_id,
+        )
     if rel_path in coverage_projection.get("output_evidence", []) and coverage_projection_has_writer(
         coverage_projection
     ):
@@ -1088,6 +1156,15 @@ def _validate_role_plan_record(record: object, prefix: str, errors: list[str]) -
         return
     if record.get("state") not in ROLE_PLAN_STATES:
         errors.append(f"{prefix}.state must be one of {sorted(ROLE_PLAN_STATES)}")
+    agent_profile_id = record.get("agent_profile_id")
+    if agent_profile_id is not None:
+        if not isinstance(agent_profile_id, str):
+            errors.append(f"{prefix}.agent_profile_id must be string when present")
+        elif agent_profile_id and agent_profile_id not in ROLE_AGENT_PROFILE_IDS:
+            errors.append(f"{prefix}.agent_profile_id must be a configured profile id")
+    expected_agent_profile = ROLE_PLAN_REQUIRED_AGENT_PROFILES.get(str(record.get("role", "")))
+    if expected_agent_profile is not None and agent_profile_id != expected_agent_profile:
+        errors.append(f"{prefix}.agent_profile_id must be {expected_agent_profile}")
     for field in ("expected_output", "packet_path"):
         value = record.get(field)
         if not isinstance(value, str):

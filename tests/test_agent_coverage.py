@@ -27,6 +27,22 @@ def make_final_round(tmp_path: Path) -> Path:
     return round_dir
 
 
+def make_opponent_final_round(tmp_path: Path) -> Path:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Opponent Materials\n", encoding="utf-8")
+    return round_dir
+
+
+def make_supervisor_report_final_round(tmp_path: Path) -> Path:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    final_output = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
+    final_output.parent.mkdir(parents=True)
+    final_output.write_text("# Supervisor Report\n", encoding="utf-8")
+    return round_dir
+
+
 def reviewed_feedback_artifact(round_dir: Path) -> dict[str, object]:
     final_output = round_dir / "outputs" / "feedback_student.md"
     final_hash = agent_coverage.sha256_file(final_output)
@@ -41,6 +57,91 @@ def reviewed_feedback_artifact(round_dir: Path) -> dict[str, object]:
             "reviewed_hash": final_hash,
         },
     }
+
+
+def reviewed_supervisor_report_artifact(round_dir: Path) -> dict[str, object]:
+    final_output = round_dir / "outputs" / "vedouci_posudek_revidovany.md"
+    final_hash = agent_coverage.sha256_file(final_output)
+    return {
+        "path": "outputs/vedouci_posudek_revidovany.md",
+        "artifact_sha256": final_hash,
+        "skills": ["thesis-supervisor-report-review"],
+        "generated_by": [{"role": "thesis-supervisor-report-review", "agent": "reviewer-a"}],
+        "independent_review": {
+            "status": "reviewed",
+            "reviewer_role": "thesis-supervisor-report-review",
+            "reviewer_agent": "reviewer-b",
+            "reviewed_hash": final_hash,
+        },
+    }
+
+
+def reviewed_opponent_materials_artifact(round_dir: Path) -> dict[str, object]:
+    final_output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    final_hash = agent_coverage.sha256_file(final_output)
+    return {
+        "path": "outputs/oponent_podklady_revidovane.md",
+        "artifact_sha256": final_hash,
+        "skills": ["thesis-opponent-materials-review"],
+        "generated_by": [{"role": "thesis-opponent-materials-review", "agent": "reviewer-a"}],
+        "independent_review": {
+            "status": "reviewed",
+            "reviewer_role": "thesis-opponent-materials-review",
+            "reviewer_agent": "reviewer-b",
+            "reviewed_hash": final_hash,
+        },
+    }
+
+
+def write_silent_theses_similarity_assessment(
+    round_dir: Path,
+    *,
+    category: str = "no_material_concern",
+    synthesis_action: str = "silent",
+    requires_reviewer_verification: bool = False,
+) -> str:
+    for rel_path, content in (
+        (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
+        (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Extracted similarity text.\n"),
+        (THESES_SIMILARITY_INTAKE_REL, b'{"matched_passages": [{"passage_id": "passage-1"}]}\n'),
+    ):
+        path = round_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
+    write_json(
+        round_dir / THESES_SIMILARITY_ASSESSMENT_REL,
+        {
+            "schema_version": "theses-similarity-assessment-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "generated_at": "2026-05-12T00:00:00Z",
+            "producer_type": "agent",
+            "producer_role": "thesis-theses-similarity-review",
+            "producer_agent": "agent-sim",
+            "authorization_note": "Authorized in current request.",
+            "source_refs": refs,
+            "source_sha256": {ref: agent_coverage.sha256_file(round_dir / ref) for ref in refs},
+            "current_submission_match": "matched",
+            "judgments": [
+                {
+                    "judgment_id": "S1",
+                    "source_ids": [1],
+                    "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
+                    "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
+                    "category": category,
+                    "rationale": "Synthetic structured similarity judgment.",
+                    "confidence": "high",
+                    "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
+                    "synthesis_action": synthesis_action,
+                    "requires_reviewer_verification": requires_reviewer_verification,
+                    "limitations": [],
+                }
+            ],
+            "limitations": [],
+        },
+    )
+    return agent_coverage.sha256_file(round_dir / THESES_SIMILARITY_ASSESSMENT_REL)
 
 
 def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: Path) -> None:
@@ -247,6 +348,103 @@ def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_
     assert warnings == []
 
 
+def test_agent_coverage_accepts_structured_theses_similarity_assessment_for_silent_evidence(tmp_path: Path) -> None:
+    round_dir = make_supervisor_report_final_round(tmp_path)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
+    manifest = {
+        "inputs": [{"path": THESES_SIMILARITY_REPORT_REL, "kind": "pdf"}],
+        "supporting_work_artifacts": [
+            {
+                "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                "artifact_sha256": assessment_hash,
+                "review_scope": "covered_by_synthesis",
+                "skills": ["thesis-theses-similarity-review"],
+                "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                "independent_review": {
+                    "status": "not_required",
+                    "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                    "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                    "evidence_hash": assessment_hash,
+                },
+            }
+        ],
+        "artifacts": [reviewed_supervisor_report_artifact(round_dir)],
+    }
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+    coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
+    assert coverage is not None
+    errors, warnings = agent_coverage.validate_coverage(coverage, manifest, "case-a", "round-a", round_dir)
+
+    assert specs["theses_similarity"].evidence_path == THESES_SIMILARITY_ASSESSMENT_REL
+    role = next(item for item in coverage["roles"] if item["role"] == "theses_similarity")
+    assert role["output_evidence"] == [THESES_SIMILARITY_ASSESSMENT_REL]
+    assert role["generator_role"] == "thesis-theses-similarity-review"
+    assert errors == []
+    assert warnings == []
+
+
+def test_agent_coverage_requires_reviewed_synthesis_marker_for_silent_assessment(tmp_path: Path) -> None:
+    round_dir = make_supervisor_report_final_round(tmp_path)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
+    manifest = {
+        "inputs": [{"path": THESES_SIMILARITY_REPORT_REL, "kind": "pdf"}],
+        "supporting_work_artifacts": [
+            {
+                "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                "artifact_sha256": assessment_hash,
+                "review_scope": "covered_by_synthesis",
+                "skills": ["thesis-theses-similarity-review"],
+                "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                "independent_review": {
+                    "status": "not_required",
+                    "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                    "used_findings": "not_recorded",
+                    "evidence_hash": assessment_hash,
+                },
+            }
+        ],
+        "artifacts": [reviewed_supervisor_report_artifact(round_dir)],
+    }
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert specs["theses_similarity"].evidence_path == THESES_SIMILARITY_REVIEW_REL
+
+
+def test_agent_coverage_requires_silent_no_concern_assessment(tmp_path: Path) -> None:
+    round_dir = make_supervisor_report_final_round(tmp_path)
+    assessment_hash = write_silent_theses_similarity_assessment(
+        round_dir,
+        category="external_match_needs_review",
+        synthesis_action="manual_check",
+        requires_reviewer_verification=True,
+    )
+    manifest = {
+        "inputs": [{"path": THESES_SIMILARITY_REPORT_REL, "kind": "pdf"}],
+        "supporting_work_artifacts": [
+            {
+                "path": THESES_SIMILARITY_ASSESSMENT_REL,
+                "artifact_sha256": assessment_hash,
+                "review_scope": "covered_by_synthesis",
+                "skills": ["thesis-theses-similarity-review"],
+                "generated_by": [{"role": "thesis-theses-similarity-review", "agent": "agent-sim"}],
+                "independent_review": {
+                    "status": "not_required",
+                    "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
+                    "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
+                    "evidence_hash": assessment_hash,
+                },
+            }
+        ],
+        "artifacts": [reviewed_supervisor_report_artifact(round_dir)],
+    }
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert specs["theses_similarity"].evidence_path == THESES_SIMILARITY_REVIEW_REL
+
+
 def test_agent_coverage_rejects_parent_fallback_for_required_fresh_role(tmp_path: Path) -> None:
     round_dir = make_final_round(tmp_path)
     media_input = round_dir / "inputs" / "demo.mp4"
@@ -291,49 +489,8 @@ def test_agent_coverage_rejects_parent_fallback_for_required_fresh_role(tmp_path
 
 
 def test_agent_coverage_tracks_silent_similarity_assessment_as_internal_evidence(tmp_path: Path) -> None:
-    round_dir = make_final_round(tmp_path)
-    for rel_path, content in (
-        (THESES_SIMILARITY_REPORT_REL, b"%PDF synthetic\n"),
-        (THESES_SIMILARITY_EXTRACTED_TEXT_REL, b"Extracted similarity text.\n"),
-        (THESES_SIMILARITY_INTAKE_REL, b'{"matched_passages": [{"passage_id": "passage-1"}]}\n'),
-    ):
-        path = round_dir / rel_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-    refs = [THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_EXTRACTED_TEXT_REL, THESES_SIMILARITY_INTAKE_REL]
-    write_json(
-        round_dir / THESES_SIMILARITY_ASSESSMENT_REL,
-        {
-            "schema_version": "theses-similarity-assessment-v1",
-            "case_id": "case-a",
-            "round_id": "round-a",
-            "generated_at": "2026-05-12T00:00:00Z",
-            "producer_type": "agent",
-            "producer_role": "thesis-theses-similarity-review",
-            "producer_agent": "agent-sim",
-            "authorization_note": "Authorized in current request.",
-            "source_refs": refs,
-            "source_sha256": {ref: agent_coverage.sha256_file(round_dir / ref) for ref in refs},
-            "current_submission_match": "matched",
-            "judgments": [
-                {
-                    "judgment_id": "S1",
-                    "source_ids": [1],
-                    "passage_refs": [f"{THESES_SIMILARITY_INTAKE_REL}#passage-1"],
-                    "basis_refs": [THESES_SIMILARITY_INTAKE_REL],
-                    "category": "no_material_concern",
-                    "rationale": "Synthetic no-concern structured judgment.",
-                    "confidence": "high",
-                    "evidence_refs": [THESES_SIMILARITY_EXTRACTED_TEXT_REL],
-                    "synthesis_action": "silent",
-                    "requires_reviewer_verification": False,
-                    "limitations": [],
-                }
-            ],
-            "limitations": [],
-        },
-    )
-    assessment_hash = agent_coverage.sha256_file(round_dir / THESES_SIMILARITY_ASSESSMENT_REL)
+    round_dir = make_supervisor_report_final_round(tmp_path)
+    assessment_hash = write_silent_theses_similarity_assessment(round_dir)
     manifest = {
         "inputs": [{"path": THESES_SIMILARITY_REPORT_REL, "kind": "pdf"}],
         "supporting_work_artifacts": [
@@ -348,13 +505,13 @@ def test_agent_coverage_tracks_silent_similarity_assessment_as_internal_evidence
                 "review_scope": "covered_by_synthesis",
                 "independent_review": {
                     "status": "not_required",
-                    "covered_by_artifact": "outputs/feedback_student.md",
+                    "covered_by_artifact": "outputs/vedouci_posudek_revidovany.md",
                     "used_findings": THESES_SIMILARITY_SILENT_USED_FINDINGS,
                     "evidence_hash": assessment_hash,
                 },
             }
         ],
-        "artifacts": [reviewed_feedback_artifact(round_dir)],
+        "artifacts": [reviewed_supervisor_report_artifact(round_dir)],
     }
 
     specs = agent_coverage.inferred_role_specs(round_dir, manifest)
@@ -368,6 +525,8 @@ def test_agent_coverage_tracks_silent_similarity_assessment_as_internal_evidence
     assert role["generator_role"] == "thesis-theses-similarity-review"
     assert role["generator_agent"] == "agent-sim"
     assert role["reviewed_hash"] == assessment_hash
+    assert role["fresh_review_required"] is False
+    assert role["coverage_satisfied_by"] == "silent_internal_evidence"
     assert errors == []
     assert warnings == []
 

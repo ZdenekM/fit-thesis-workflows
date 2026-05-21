@@ -441,7 +441,7 @@ ensure the existing `TODO.md` items still name them accurately.
 | Plan review repair | done | Serena scoped plan search used; no Python changes yet, so Omen not applicable. | `scripts/check-private`, `scripts/check-scripts`, and `git diff --check` passed. |
 | Slice 1 | done | Serena inspected `structured_evidence.py`, `literature_source_acquisition.py`, and `theses_similarity.py`. Omen MCP returned zero files for scoped module/package paths but repo-root repomap worked and highlighted `structured_evidence.py`; reproducible `pants run :omen` passed with the existing grade-A baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` hit unrelated baseline formatter/lint changes outside Slice 1, so it was not used as slice evidence. |
 | Slice 2 | done | Serena inspected `review_materiality.py` and `review_wave_gate.py`. Omen MCP returned zero files for the scoped module path but repo-root repomap worked; reproducible `pants run :omen` passed with grade A / 90.48 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` again hit unrelated baseline formatter/lint changes outside Slice 2, so targeted lint is the slice evidence. |
-| Slice 3 | pending | Record before commit. | Pending. |
+| Slice 3 | done | Serena inspected review-pipeline/packet/coverage surfaces during slice work. Omen MCP returned zero files for scoped module paths, so the slice used repo-root Omen evidence; reproducible `pants run :omen` passed with grade A / 90.24 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `scripts/smoke-review-round-closeout`, targeted `pants test` for agent coverage, manifest helpers, role-plan orchestration, profile contracts, packet rendering, materiality, wave gates, and work artifacts, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad lint was not used as slice evidence because the earlier unrelated baseline lint/format drift remained outside this slice. |
 | Slice 4 | pending | Record before commit. | Pending. |
 | Slice 5 | pending | Record before commit. | Pending. |
 | Slice 6 | pending | Record before commit. | Pending. |
@@ -468,6 +468,12 @@ ensure the existing `TODO.md` items still name them accurately.
   draft/trace waiting state only for synthesis workflows that can later bind
   reviewed manifest coverage; other workflows still require the role review or
   a typed limitation.
+- 2026-05-21: Slice 3 treats text/assignment and evidence-calibration packet
+  findings as role-owned sidecars, not parent-authored filler. Silent
+  no-concern Theses.cz evidence may satisfy coverage only when the structured
+  assessment is valid for the active case/round and is hash-bound to the active
+  workflow's current independently reviewed synthesis artifact through the
+  `silent_internal_evidence:no_material_concern` manifest marker.
 
 ## Final Audit
 

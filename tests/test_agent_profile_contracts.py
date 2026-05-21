@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from thesis_review_workflow import agent_coverage, agent_profiles, review_profiles
+from thesis_review_workflow import agent_coverage, agent_profiles, opponent_packets, review_profiles, supervisor_packets
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +63,24 @@ def test_agent_profile_registry_has_reviewable_route_shape() -> None:
 
         if route.independent_review_profile is not None:
             assert route.independent_review_profile in profile_ids
+
+
+def test_packet_sidecar_roles_are_workspace_write_owned_outputs() -> None:
+    routes = {route.profile_id: route for route in agent_profiles.profile_routes()}
+    supervisor_roles = {role.key: role for role in supervisor_packets.PACKET_ROLES}
+    opponent_roles = {role.key: role for role in opponent_packets.PACKET_ROLES}
+
+    text_route = routes["thesis_text_reviewer"]
+    assert text_route.sandbox_mode == "workspace-write"
+    assert "work/opponent_packets/text_structure_assignment_findings.md" in text_route.owned_outputs
+    assert supervisor_roles["text_assignment"].agent_profile_id == "thesis_text_reviewer"
+    assert opponent_roles["text_structure_assignment"].agent_profile_id == "thesis_text_reviewer"
+
+    calibration_route = routes["thesis_evidence_calibrator"]
+    assert calibration_route.sandbox_mode == "workspace-write"
+    assert "work/opponent_packets/evidence_calibration_findings.md" in calibration_route.owned_outputs
+    assert supervisor_roles["evidence_calibration"].agent_profile_id == "thesis_evidence_calibrator"
+    assert opponent_roles["evidence_calibration"].agent_profile_id == "thesis_evidence_calibrator"
 
 
 def test_agent_profile_matrix_mentions_every_registry_route() -> None:
@@ -129,6 +147,10 @@ def test_configured_codex_agent_profiles_match_registry_contract() -> None:
             assert "Allowed writes:" in developer_instructions
             for allowed_write in route.allowed_writes:
                 assert allowed_write.removesuffix("/**") in developer_instructions
+                if profile_id in {"thesis_text_reviewer", "thesis_evidence_calibrator"} and allowed_write.startswith(
+                    "work/"
+                ):
+                    assert f"cases/<case-id>/rounds/<round-id>/{allowed_write}" in developer_instructions
         else:
             assert "Do not write files in normal use." in developer_instructions
 
