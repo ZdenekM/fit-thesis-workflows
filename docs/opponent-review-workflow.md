@@ -154,7 +154,16 @@ Při syntéze a review posudku kontrolujte zejména:
 - úroveň výsledku jako demonstrátor, prototyp, pilotní nástroj,
   prakticky nasaditelný nástroj nebo jiný dobře doložený stav;
 - silné stránky proti limitům tak, aby text odpovídal bodům a známce;
-- otázky k obhajobě jako jednotlivé, zodpověditelné a diagnostické otázky.
+- veřejné znění posudku jako závěr nad evidencí, ne jako popis toho, kdy byla
+  evidence doplněna, jaký interní checker byl spuštěn nebo jak reviewer k závěru
+  procesně došel;
+- praktickou použitelnost přiměřeně zadání, fázi práce a tvrzením v práci; u
+  demonstrátorů a prototypů nepoužívat produkční připravenost jako výchozí
+  hranici neúspěchu;
+- otázky k obhajobě jako jednotlivé, zodpověditelné a diagnostické otázky,
+  obvykle koncepční nebo interpretační. Procedurální otázky na přesné příkazy,
+  konfigurace nebo důvody opomenutí patří do posudku jen tehdy, když řeší
+  materiální nejasnost, kterou nejde férově vyjasnit obecnější otázkou.
 
 Čistý návrh posudku má zůstat kompaktní. Tabulky ledgerů, dlouhé checklisty,
 raw code diagnostics, citation inventories, experiment-protocol inventories,
@@ -366,3 +375,6 @@ evidenci a do report-facing textu převádějte jen věcné závěry, jistotu,
 omezení a ruční kontroly. Podobnostní report zmiňujte jen tehdy, když
 `outputs/theses_similarity_review.md` nese materiální nevyřešený nebo
 institucionálně potřebný závěr; čisté a vysvětlené reporty zůstávají tiché.
+Stejná hranice platí pro automatické checkery, dodatečně dodané podklady a
+review/closeout stav: veřejný text má říci, co z evidence plyne pro hodnocení,
+ne jak se evidence v pipeline objevila.

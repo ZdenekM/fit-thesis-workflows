@@ -121,6 +121,12 @@ Prefer:
   for evidence about the submitted work;
 - compact IS prose that mentions decisive evidence and leaves audit detail in
   internal materials;
+- concise field-specific wording that avoids boilerplate repetition of the same
+  FIT field name, work type, or thesis level when the form context already makes
+  it clear;
+- difficulty calibration grounded in what the student had to understand,
+  integrate, evaluate, or adapt, not in a generic discount merely because
+  standard libraries or frameworks were used;
 - focused defense questions tied to important evidence gaps, tensions, or
   clarifications.
 
@@ -128,6 +134,16 @@ Avoid:
 
 - categorical claims about missing functionality when the actual limitation is
   that the provided materials did not evidence it;
+- report-facing wording that exposes evidence-acquisition status, automatic
+  checker names, review mechanics, or late operator updates instead of the
+  resulting substantive conclusion;
+- production-readiness or low-level engineering-gate framing for thesis
+  prototypes unless the assignment, thesis claims, or available evidence make
+  that level of deployment expectation material;
+- defense questions that ask mainly why omitted work was not done, or that
+  demand low-level command/configuration inventories, when a conceptual question
+  about tradeoffs, expected behavior, interpretation, or validation would better
+  clarify the issue;
 - using the private student comment to introduce new unsupported criticisms;
 - expanding the public report with trace, packet, manifest, or confidence-label
   detail.

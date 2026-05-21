@@ -98,6 +98,16 @@ Review the report as a report, not as the student's thesis. Check:
     or generated-draft state. Remove those classes of internal evidence from the
     report text and convert them into evidence-backed conclusions, limitations,
     or manual checks.
+14. Whether report-facing prose follows the opponent-facing boundary rather than
+    carrying helper-draft habits: avoid evidence-acquisition status, automatic
+    checker names, late-update wording, production-readiness as a default failure
+    boundary, low-level code-review mechanics, and boilerplate repetition of form
+    field names or thesis level when a concise substantive assessment is enough.
+15. Whether defense questions are the best use of the defense slot: prefer
+    conceptual, interpretive, or tradeoff-oriented questions tied to material
+    uncertainties; use low-level command/configuration questions or "why was this
+    not done" questions only when they are necessary to resolve a strong
+    unresolved evidence problem.
 
 Apply `docs/opponent-review-workflow.md#report-quality-controls` at the report
 boundary. In this review skill, the role-specific obligation is to check that
