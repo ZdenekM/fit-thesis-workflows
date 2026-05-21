@@ -42,6 +42,12 @@ PROMOTION_TARGET_PREFIXES = (
     PRIVATE_PROFILE_TARGET_PREFIX,
 )
 PROMOTION_TARGETS = {"AGENTS.md", "README.md", "TODO.md"}
+APPEND_ONLY_OPERATOR_NOTE_REFS = {
+    "notes/late-communications.md",
+    "notes/operator-late-communications.md",
+    "notes/opponent-report-operator-feedback.md",
+    "notes/round-notes.md",
+}
 
 
 def sha256_text(text: str) -> str:
@@ -112,6 +118,32 @@ def hash_refs(round_dir: Path, refs: list[str] | tuple[str, ...]) -> dict[str, s
         if path.is_file():
             hashes[ref] = sha256_file(path)
     return hashes
+
+
+def review_delta_provenance_ref_errors(
+    *,
+    evidence_refs: list[str] | tuple[str, ...],
+    current_artifact_rel: str,
+    previous_snapshot_rel: str,
+    record_rel: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    for ref in evidence_refs:
+        if ref == current_artifact_rel:
+            errors.append(f"evidence_refs must not cite the current artifact being updated: {current_artifact_rel}")
+        if ref == previous_snapshot_rel:
+            errors.append(
+                "evidence_refs must not cite the review-delta before snapshot as external evidence: "
+                f"{previous_snapshot_rel}"
+            )
+        if record_rel and ref == record_rel:
+            errors.append(f"evidence_refs must not cite the review delta record itself: {record_rel}")
+        if ref in APPEND_ONLY_OPERATOR_NOTE_REFS:
+            errors.append(
+                f"evidence_refs must not hash append-only operator notes directly: {ref}; "
+                "cite a stable structured snapshot under work/review_deltas/ or another bounded work artifact"
+            )
+    return errors
 
 
 def require_valid_promotion_targets(values: list[str] | tuple[str, ...], *, field: str) -> list[str]:
@@ -242,6 +274,14 @@ def build_review_delta_payload(
         if not is_safe_round_relative_path(proposal_ref):
             raise ValueError("profile_proposal_ref must be a safe round-relative path")
         source_refs.append(proposal_ref)
+    provenance_errors = review_delta_provenance_ref_errors(
+        evidence_refs=evidence_ref_list,
+        current_artifact_rel=current_artifact_rel,
+        previous_snapshot_rel=previous_snapshot_rel,
+        record_rel=review_delta_record_rel(generated_at, delta_type),
+    )
+    if provenance_errors:
+        raise ValueError("\n".join(provenance_errors))
     payload: dict[str, Any] = {
         "schema_version": REVIEW_DELTA_SCHEMA,
         "case_id": case_id,
@@ -321,6 +361,7 @@ def validate_review_delta_record(
         loaded, rel_path, round_dir, "current_artifact_path", "current_artifact_sha256", errors
     )
     _validate_evidence_refs(loaded, rel_path, round_dir, errors)
+    _validate_source_refs(loaded, rel_path, round_dir, errors)
     if delta_type == "evidence_challenge" and not loaded.get("evidence_refs"):
         errors.append(f"{rel_path}: evidence_challenge requires at least one evidence_ref")
     _validate_string_list(loaded.get("affected_sections"), rel_path, "affected_sections", errors, require_nonempty=True)
@@ -587,11 +628,110 @@ def _validate_evidence_refs(loaded: dict[str, Any], rel_path: str, round_dir: Pa
         if not isinstance(ref, str) or not is_safe_round_relative_path(ref):
             errors.append(f"{rel_path}: evidence_refs must contain safe round-relative paths")
             continue
+        previous_ref = loaded.get("previous_artifact_path")
+        current_ref = loaded.get("current_artifact_path")
+        if isinstance(previous_ref, str) and isinstance(current_ref, str):
+            errors.extend(
+                f"{rel_path}: {error}"
+                for error in review_delta_provenance_ref_errors(
+                    evidence_refs=(ref,),
+                    current_artifact_rel=current_ref,
+                    previous_snapshot_rel=previous_ref,
+                    record_rel=rel_path if is_review_delta_artifact(rel_path) else None,
+                )
+            )
         path = round_dir / ref
         if not path.is_file():
             errors.append(f"{rel_path}: evidence_ref is missing: {ref}")
         elif evidence_sha256.get(ref) != sha256_file(path):
             errors.append(f"{rel_path}: evidence_sha256 is stale for {ref}")
+
+
+def _validate_source_refs(loaded: dict[str, Any], rel_path: str, round_dir: Path, errors: list[str]) -> None:
+    source_refs = loaded.get("source_refs")
+    if not isinstance(source_refs, list):
+        errors.append(f"{rel_path}: source_refs must be a list")
+        return
+    source_sha256 = loaded.get("source_sha256")
+    if not isinstance(source_sha256, dict):
+        errors.append(f"{rel_path}: source_sha256 must be an object")
+        return
+    evidence_refs = loaded.get("evidence_refs")
+    evidence_ref_values = evidence_refs if isinstance(evidence_refs, list) else []
+    expected_refs = [
+        ref
+        for ref in (
+            loaded.get("previous_artifact_path"),
+            loaded.get("current_artifact_path"),
+            *evidence_ref_values,
+            loaded.get("profile_proposal_ref"),
+        )
+        if isinstance(ref, str) and ref
+    ]
+    source_ref_values: list[str] = []
+    for ref in source_refs:
+        if not isinstance(ref, str) or not is_safe_round_relative_path(ref):
+            errors.append(f"{rel_path}: source_refs must contain safe round-relative paths")
+            continue
+        source_ref_values.append(ref)
+        if is_review_delta_artifact(rel_path) and ref == rel_path:
+            errors.append(f"{rel_path}: source_refs must not cite the review delta record itself")
+            continue
+        if ref in APPEND_ONLY_OPERATOR_NOTE_REFS:
+            errors.append(
+                f"{rel_path}: source_refs must not hash append-only operator notes directly: {ref}; "
+                "cite a stable structured snapshot under work/review_deltas/ or another bounded work artifact"
+            )
+        path = round_dir / ref
+        if not path.is_file():
+            errors.append(f"{rel_path}: source_ref is missing: {ref}")
+        elif source_sha256.get(ref) != sha256_file(path):
+            errors.append(f"{rel_path}: source_sha256 is stale for {ref}")
+    for ref in sorted(set(expected_refs).difference(source_ref_values)):
+        errors.append(f"{rel_path}: source_refs missing {ref}")
+    errors.extend(_review_delta_source_cycle_errors(round_dir, rel_path, source_ref_values))
+
+
+def _review_delta_source_cycle_errors(round_dir: Path, rel_path: str, source_refs: list[str]) -> list[str]:
+    if not is_review_delta_artifact(rel_path):
+        return []
+    errors: list[str] = []
+
+    def child_delta_refs(record_ref: str) -> list[str]:
+        path = round_dir / record_ref
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        if not isinstance(loaded, dict):
+            return []
+        refs = loaded.get("source_refs")
+        if not isinstance(refs, list):
+            return []
+        return [
+            ref
+            for ref in refs
+            if isinstance(ref, str)
+            and is_review_delta_artifact(ref)
+            and is_safe_round_relative_path(ref)
+            and (round_dir / ref).is_file()
+        ]
+
+    def visit(candidate: str, chain: list[str]) -> None:
+        if candidate == rel_path:
+            errors.append(
+                f"{rel_path}: source_refs create review-delta provenance cycle: {' -> '.join([*chain, rel_path])}"
+            )
+            return
+        if candidate in chain:
+            return
+        for child in child_delta_refs(candidate):
+            visit(child, [*chain, candidate])
+
+    for ref in source_refs:
+        if is_review_delta_artifact(ref) and is_safe_round_relative_path(ref):
+            visit(ref, [rel_path])
+    return sorted(dict.fromkeys(errors))
 
 
 def _validate_string_list(

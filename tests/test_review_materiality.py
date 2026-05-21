@@ -4,6 +4,7 @@ from pathlib import Path
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
     QUANTITATIVE_CLAIMS_REL,
+    MaterialityDecision,
     build_materiality_decisions,
     load_review_materiality_index,
     sha256_file,
@@ -11,6 +12,10 @@ from thesis_review_workflow.review_materiality import (
     validate_materiality_workflow_limitations,
     validate_review_materiality_artifact,
     write_materiality_decisions,
+)
+from thesis_review_workflow.structured_evidence import (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    build_current_evidence_snapshot_payload,
 )
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
@@ -1297,6 +1302,94 @@ def test_material_quantitative_next_action_stays_unresolved_when_source_hash_cha
     assert errors == []
     assert unresolved[0]["role"] == "quantitative_claims"
     assert "stored materiality source hash is stale" in unresolved[0]["reason"]
+
+
+def test_materiality_stale_support_source_points_to_refresh_command(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    snapshot = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_text('{"schema_version":"current-evidence-snapshot-v1","items":[]}\n', encoding="utf-8")
+    decision = MaterialityDecision(
+        role="quantitative_claims",
+        recommendation="material",
+        scope="synthetic",
+        impact="Synthetic quantitative evidence is material.",
+        reason="Synthetic materiality decision.",
+        source_refs=(CURRENT_EVIDENCE_SNAPSHOT_REL,),
+    )
+    write_materiality_decisions(
+        round_dir,
+        [decision],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    snapshot.write_text('{"schema_version":"current-evidence-snapshot-v1","items":[{}]}\n', encoding="utf-8")
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert unresolved[0]["role"] == "quantitative_claims"
+    assert unresolved[0]["state"] == "stale_support_state"
+    assert unresolved[0]["required_artifact_path"] == "work/review_materiality/supervisor_feedback/index.json"
+    assert "stale support artifact hash for work/current_evidence_snapshot.json" in unresolved[0]["reason"]
+    assert unresolved[0]["skill"] == "refresh-round-hashes"
+    assert "refresh-round-hashes <case-id> [round-id]" in unresolved[0]["command"]
+
+
+def test_materiality_routes_invalid_current_evidence_snapshot_to_support_refresh(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    source = round_dir / "inputs" / "results.csv"
+    source.parent.mkdir()
+    source.write_text("metric,value\nlatency,42\n", encoding="utf-8")
+    quantitative_path = round_dir / "work" / "quantitative_claims.json"
+    write_json(quantitative_path, quantitative_claims_payload())
+    snapshot = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-11T00:00:00Z",
+        source_refs=["work/quantitative_claims.json"],
+    )
+    snapshot["items"][0]["sha256"] = "0" * 64  # type: ignore[index]
+    write_json(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL, snapshot)
+    decision = MaterialityDecision(
+        role="quantitative_claims",
+        recommendation="material",
+        scope="synthetic",
+        impact="Synthetic quantitative evidence is material.",
+        reason="Synthetic materiality decision.",
+        source_refs=(CURRENT_EVIDENCE_SNAPSHOT_REL,),
+    )
+    write_materiality_decisions(
+        round_dir,
+        [decision],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_report",
+        phase="final",
+        generated_at="2026-05-11T00:00:00Z",
+    )
+
+    unresolved, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert unresolved[0]["role"] == "quantitative_claims"
+    assert unresolved[0]["state"] == "stale_support_state"
+    assert "current evidence snapshot invalid" in unresolved[0]["reason"]
+    assert unresolved[0]["skill"] == "refresh-round-hashes"
 
 
 def test_material_github_intake_next_action_resolves_with_typed_limitation(tmp_path: Path) -> None:

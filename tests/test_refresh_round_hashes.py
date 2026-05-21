@@ -3,12 +3,17 @@ from pathlib import Path
 
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.cli import refresh_round_hashes
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_packets import (
     COMMON_BRIEFING_REL,
     validate_common_briefing_artifact,
     write_common_briefing,
 )
-from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
+from thesis_review_workflow.structured_evidence import (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    build_current_evidence_snapshot_payload,
+    validate_structured_evidence_artifact,
+)
 
 
 def make_round(tmp_path: Path) -> tuple[Path, Path]:
@@ -48,6 +53,123 @@ def test_refresh_round_hashes_updates_common_briefing_after_note_edit(tmp_path: 
     payload = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
     assignment = next(item for item in payload["base_inputs"] if item["path"] == "notes/assignment.md")
     assert assignment["sha256"] == sha256_file(round_dir / "notes" / "assignment.md")
+
+
+def test_refresh_round_hashes_updates_current_evidence_snapshot_before_common_briefing(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    snapshot = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-18T10:00:00Z",
+        source_refs=["notes/assignment.md"],
+    )
+    snapshot_path = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-18T10:00:00Z", round_dir)
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n\nEdited note.\n", encoding="utf-8")
+
+    stale_errors = validate_structured_evidence_artifact(
+        round_dir,
+        CURRENT_EVIDENCE_SNAPSHOT_REL,
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert any("sha256 is stale for notes/assignment.md" in error for error in stale_errors)
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 0
+    assert (
+        validate_structured_evidence_artifact(
+            round_dir,
+            CURRENT_EVIDENCE_SNAPSHOT_REL,
+            case_id="case-a",
+            round_id="round-a",
+        )
+        == []
+    )
+    assert validate_common_briefing_artifact(round_dir, case_id="case-a", round_id="round-a") == []
+    captured = capsys.readouterr()
+    assert f"{CURRENT_EVIDENCE_SNAPSHOT_REL}: refreshed" in captured.out
+
+
+def test_refresh_current_evidence_snapshot_does_not_rewrite_producer_only_changes(
+    tmp_path: Path,
+) -> None:
+    _root, round_dir = make_round(tmp_path)
+    snapshot = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-18T10:00:00Z",
+        source_refs=["notes/assignment.md"],
+    )
+    snapshot_path = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    before = sha256_file(snapshot_path)
+
+    result = refresh_round_hashes.refresh_current_evidence_snapshot(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-18T10:01:00Z",
+    )
+
+    assert result == ("already-current", before)
+    assert sha256_file(snapshot_path) == before
+
+
+def test_refresh_round_hashes_refuses_snapshot_only_semantic_output_refresh(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    output = round_dir / "outputs" / "feedback_student.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Reviewed feedback\n", encoding="utf-8")
+    snapshot = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-18T10:00:00Z",
+        source_refs=["outputs/feedback_student.md"],
+    )
+    snapshot_path = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    before = sha256_file(snapshot_path)
+    output.write_text("# Edited reviewed feedback\n", encoding="utf-8")
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 1
+    assert sha256_file(snapshot_path) == before
+    captured = capsys.readouterr()
+    assert "refusing to refresh current evidence hash for outputs/feedback_student.md" in captured.out
 
 
 def test_refresh_round_hashes_preserves_supervisor_report_common_briefing_scope(
@@ -267,3 +389,43 @@ def test_refresh_round_hashes_refuses_to_bless_changed_review_outputs(tmp_path: 
     captured = capsys.readouterr()
     assert "refusing to refresh hash for outputs/oponent_podklady_revidovane.md" in captured.out
     assert "record a review delta or rerun the relevant review/check" in captured.out
+
+
+def test_refresh_round_hashes_failure_does_not_mutate_current_evidence_snapshot(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root, round_dir = make_round(tmp_path)
+    monkeypatch.setattr(refresh_round_hashes, "repo_root", lambda: root)
+    output = round_dir / "outputs" / "oponent_podklady_revidovane.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Reviewed materials\n", encoding="utf-8")
+    snapshot = build_current_evidence_snapshot_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        generated_at="2026-05-18T10:00:00Z",
+        source_refs=["notes/assignment.md"],
+    )
+    snapshot_path = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    write_common_briefing("case-a", "round-a", "2026-05-18T10:00:00Z", round_dir)
+    before = sha256_file(snapshot_path)
+    (round_dir / "notes" / "assignment.md").write_text("# Assignment\n\nEdited note.\n", encoding="utf-8")
+    output.write_text("# Edited reviewed materials\n", encoding="utf-8")
+
+    result = refresh_round_hashes.main(
+        [
+            "--generated-at",
+            "2026-05-18T10:01:00Z",
+            "case-a",
+            "round-a",
+        ]
+    )
+
+    assert result == 1
+    assert sha256_file(snapshot_path) == before
+    captured = capsys.readouterr()
+    assert "refusing to refresh hash for outputs/oponent_podklady_revidovane.md" in captured.out

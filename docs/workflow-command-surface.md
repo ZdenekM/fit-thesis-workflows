@@ -48,6 +48,11 @@ evidence challenges, material claim changes, and durable workflow lessons.
 around that shared delta record; it does not maintain a separate amendment
 ledger. Material claim and evidence-challenge deltas reopen the relevant
 profile independent review before closeout can pass.
+Delta `evidence_refs` must point to stable evidence outside the before/current
+artifact pair. Do not cite the updated trace/report artifact itself, the delta
+record, or append-only operator notes such as
+`notes/opponent-report-operator-feedback.md`; snapshot those notes into a
+bounded `work/review_deltas/` or other structured work artifact first.
 When a correction raises calibration/profile governance, the same delta record
 can include a `classification_reason`, bounded `rejected_targets`,
 `privacy_review`, and an optional hash-bound `profile_proposal_ref` under the
@@ -103,10 +108,14 @@ profile-update command, closeout shortcut, or alternate command surface.
 
 `refresh-round-hashes` is a deterministic maintenance surface for stale helper
 hashes after operator-note or approval-record edits. It currently refreshes
+existing support metadata in `work/current_evidence_snapshot.json` and
 `work/common_briefing.json` only. It must not change approval records,
 `work/review_deltas/*.json`, report text, grades, verdicts, private comments,
 or semantic findings; material report changes still go through
 `record-review-delta` and the relevant independent review loop.
+If current-evidence support metadata cannot be rebuilt safely, repair it with
+`update-current-evidence-snapshot <case-id> [round-id]` using explicit refs
+before rerunning materiality or closeout checks.
 When refreshing an existing supervisor-report common briefing, it preserves the
 stored `workflow_profile` / `report_calibration_scope` boundary and must not
 reintroduce the opponent-report `work/report_calibration_basis.json` into

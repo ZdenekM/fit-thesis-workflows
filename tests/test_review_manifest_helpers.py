@@ -16,6 +16,7 @@ from thesis_review_workflow.cli.init_review_manifest import (
     run_check_record,
     workflow_checker_version,
 )
+from thesis_review_workflow.review_delta import build_review_delta_payload, review_delta_record_rel
 from thesis_review_workflow.review_manifest import (
     REUSE_INDEX_REL,
     apply_artifact_dependency_refs,
@@ -2413,6 +2414,41 @@ def test_review_approval_records_are_collected_and_hash_validated(tmp_path: Path
     errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
 
     assert any("reviewed_artifact_sha256 is stale" in error for error in errors)
+
+
+def test_supporting_work_validation_rejects_cyclic_review_delta_source(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    previous = round_dir / "work" / "review_deltas" / "before.md"
+    current = round_dir / "outputs" / "feedback_student.md"
+    previous.parent.mkdir(parents=True)
+    current.parent.mkdir(parents=True)
+    previous.write_text("# Feedback\n\nBefore.\n", encoding="utf-8")
+    current.write_text("# Feedback\n\nCurrent.\n", encoding="utf-8")
+    payload = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="style_only",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Style-only fixture delta.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="style_only_no_visible_change",
+        typed_exception_rationale="Fixture has no independent approval record.",
+        approved_by="operator",
+    )
+    record_rel = review_delta_record_rel("2026-05-15T12:00:00Z", "style_only")
+    payload["source_refs"].append(record_rel)
+    payload["source_sha256"][record_rel] = "0" * 64
+    record = round_dir / record_rel
+    record.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    records = collect_supporting_work_artifacts(round_dir)
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("source_refs must not cite the review delta record itself" in error for error in errors)
 
 
 def test_review_manifest_requires_approval_record_as_supporting_work_artifact(tmp_path: Path) -> None:

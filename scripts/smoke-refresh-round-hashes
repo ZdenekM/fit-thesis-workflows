@@ -61,9 +61,24 @@ EOF
 PYTHONPATH="$repo_root/src" python3 - "$case_id" "$round_id" "$round_dir" <<'PY'
 import pathlib
 import sys
+import json
 from thesis_review_workflow.review_packets import write_common_briefing
+from thesis_review_workflow.structured_evidence import (
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    build_current_evidence_snapshot_payload,
+)
 
 case_id, round_id, round_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
+snapshot = build_current_evidence_snapshot_payload(
+    round_dir,
+    case_id=case_id,
+    round_id=round_id,
+    generated_at="2026-05-18T10:00:00Z",
+    source_refs=["notes/assignment.md"],
+)
+snapshot_path = round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL
+snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
 write_common_briefing(case_id, round_id, "2026-05-18T10:00:00Z", round_dir)
 PY
 
@@ -97,14 +112,22 @@ expect_success "refresh round hashes" "$repo_root/scripts/refresh-round-hashes" 
   --generated-at 2026-05-18T10:01:00Z \
   "$case_id" "$round_id"
 grep -Fq "work/common_briefing.json: refreshed" "$out_file"
+grep -Fq "work/current_evidence_snapshot.json: refreshed" "$out_file"
 grep -Fq "No approvals, review deltas, report text, grades, verdicts, or semantic findings were modified." "$out_file"
 
 PYTHONPATH="$repo_root/src" python3 - "$round_dir" <<'PY'
 import pathlib
 import sys
 from thesis_review_workflow.review_packets import validate_common_briefing_artifact
+from thesis_review_workflow.structured_evidence import CURRENT_EVIDENCE_SNAPSHOT_REL, validate_structured_evidence_artifact
 
 round_dir = pathlib.Path(sys.argv[1])
+assert validate_structured_evidence_artifact(
+    round_dir,
+    CURRENT_EVIDENCE_SNAPSHOT_REL,
+    case_id=round_dir.parents[1].name,
+    round_id=round_dir.name,
+) == []
 assert validate_common_briefing_artifact(round_dir, case_id=round_dir.parents[1].name, round_id=round_dir.name) == []
 PY
 
@@ -122,6 +145,15 @@ case_id, round_id, round_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3
 write_common_briefing(case_id, round_id, "2026-05-18T10:02:00Z", round_dir)
 PY
 
+snapshot_before="$(python3 - "$round_dir" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1]) / "work" / "current_evidence_snapshot.json"
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+)"
 cat >"$round_dir/outputs/oponent_podklady_revidovane.md" <<'EOF'
 # Edited reviewed materials
 EOF
@@ -131,5 +163,15 @@ expect_failure "semantic output refresh is refused" "$repo_root/scripts/refresh-
   "$case_id" "$round_id"
 grep -Fq "refusing to refresh hash for outputs/oponent_podklady_revidovane.md" "$out_file"
 grep -Fq "record a review delta or rerun the relevant review/check" "$out_file"
+snapshot_after="$(python3 - "$round_dir" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1]) / "work" / "current_evidence_snapshot.json"
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+)"
+test "$snapshot_before" = "$snapshot_after"
 
 echo "Refresh round hashes smoke passed"

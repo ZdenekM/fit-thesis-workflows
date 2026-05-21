@@ -221,8 +221,13 @@ Approval record se neuzavírá ruční opravou hashe. Po materiální úpravě z
 spusťte review nebo zapište explicitní typovanou výjimku a omezení.
 Když se změní jen operator notes nebo approval record a common briefing hlásí
 stale hash, spusťte `scripts/refresh-round-hashes <case-id> [round-id]`.
-Tento helper obnovuje jen deterministické hash-bound pomocné artefakty a nesmí
-nahrazovat review deltu ani novou nezávislou kontrolu.
+Tento helper obnovuje jen deterministické hash-bound pomocné artefakty
+`work/current_evidence_snapshot.json` a `work/common_briefing.json`; nesmí
+nahrazovat review deltu ani novou nezávislou kontrolu. Pokud materiality index
+hlásí stale support metadata, nejdřív spusťte `refresh-round-hashes`; když
+snapshot stále nejde bezpečně obnovit, opravte jeho explicitní refs přes
+`update-current-evidence-snapshot <case-id> [round-id]` a potom znovu spusťte
+materiality/closeout kontrolu.
 
 Pokud existuje `outputs/code_consistency.md`, `outputs/code_quality_review.md`,
 `outputs/revision_diff.md` nebo manifestem registrované

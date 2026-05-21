@@ -260,6 +260,156 @@ def test_evidence_challenge_requires_safe_evidence_anchor(tmp_path: Path) -> Non
     assert payload["independent_review_reopened"] is True
 
 
+def test_review_delta_rejects_current_artifact_as_delta_evidence(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    assert_value_error_contains(
+        "evidence_refs must not cite the current artifact being updated",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="evidence_challenge",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator challenged an evidence-backed claim.",
+        affected_sections=["feedback.body"],
+        evidence_refs=["outputs/feedback_student.md"],
+    )
+
+
+def test_review_delta_rejects_append_only_operator_note_evidence_refs(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text("Append-only operator note.\n", encoding="utf-8")
+
+    assert_value_error_contains(
+        "evidence_refs must not hash append-only operator notes directly",
+        build_review_delta_payload,
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="evidence_challenge",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Operator challenged an evidence-backed claim.",
+        affected_sections=["feedback.body"],
+        evidence_refs=["notes/opponent-report-operator-feedback.md"],
+    )
+
+
+def test_review_delta_validation_rejects_self_source_ref(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    payload = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="style_only",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Whitespace-only correction.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="style_only_no_visible_change",
+        typed_exception_rationale="No approval record is needed for this smoke-scale fixture.",
+        approved_by="operator",
+    )
+    record_rel = review_delta_record_rel("2026-05-15T12:00:00Z", "style_only")
+    payload["source_refs"].append(record_rel)
+    payload["source_sha256"][record_rel] = "0" * 64
+
+    errors = validate_review_delta_record(payload, round_dir=round_dir, rel_path=record_rel)
+
+    assert any("source_refs must not cite the review delta record itself" in error for error in errors)
+
+
+def test_review_delta_validation_rejects_append_only_operator_note_source_ref(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text("Append-only operator note.\n", encoding="utf-8")
+    payload = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="style_only",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="Whitespace-only correction.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="style_only_no_visible_change",
+        typed_exception_rationale="No approval record is needed for this smoke-scale fixture.",
+        approved_by="operator",
+    )
+    payload["source_refs"].append("notes/opponent-report-operator-feedback.md")
+    payload["source_sha256"]["notes/opponent-report-operator-feedback.md"] = sha256_file(note)
+
+    errors = validate_review_delta_record(
+        payload,
+        round_dir=round_dir,
+        rel_path=review_delta_record_rel("2026-05-15T12:00:00Z", "style_only"),
+    )
+
+    assert any("source_refs must not hash append-only operator notes directly" in error for error in errors)
+
+
+def test_review_delta_validation_rejects_record_to_record_source_cycle(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    first_rel = review_delta_record_rel("2026-05-15T12:00:00Z", "style_only")
+    second_rel = review_delta_record_rel("2026-05-15T12:05:00Z", "style_only")
+    first = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="style_only",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:00:00Z",
+        rationale="First style-only correction.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="style_only_no_visible_change",
+        typed_exception_rationale="No approval record is needed for this smoke-scale fixture.",
+        approved_by="operator",
+    )
+    first_path = round_dir / first_rel
+    first_path.write_text(json.dumps(first, indent=2) + "\n", encoding="utf-8")
+    second = build_review_delta_payload(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        delta_type="style_only",
+        previous_snapshot_rel="work/review_deltas/before.md",
+        current_artifact_rel="outputs/feedback_student.md",
+        generated_at="2026-05-15T12:05:00Z",
+        rationale="Second style-only correction.",
+        affected_sections=["feedback.body"],
+        typed_exception_type="style_only_no_visible_change",
+        typed_exception_rationale="No approval record is needed for this smoke-scale fixture.",
+        approved_by="operator",
+    )
+    second["source_refs"].append(first_rel)
+    second["source_sha256"][first_rel] = sha256_file(first_path)
+    second_path = round_dir / second_rel
+    second_path.write_text(json.dumps(second, indent=2) + "\n", encoding="utf-8")
+    first["source_refs"].append(second_rel)
+    first["source_sha256"][second_rel] = sha256_file(second_path)
+    first_path.write_text(json.dumps(first, indent=2) + "\n", encoding="utf-8")
+
+    errors = validate_review_delta_record(first, round_dir=round_dir, rel_path=first_rel)
+
+    assert any("source_refs create review-delta provenance cycle" in error for error in errors)
+
+
 def test_governance_fields_are_structural_and_hash_bound(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     proposal = round_dir / "work" / "profile_proposals" / "local-default.md"

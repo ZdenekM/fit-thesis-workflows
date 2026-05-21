@@ -443,7 +443,7 @@ ensure the existing `TODO.md` items still name them accurately.
 | Slice 2 | done | Serena inspected `review_materiality.py` and `review_wave_gate.py`. Omen MCP returned zero files for the scoped module path but repo-root repomap worked; reproducible `pants run :omen` passed with grade A / 90.48 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` again hit unrelated baseline formatter/lint changes outside Slice 2, so targeted lint is the slice evidence. |
 | Slice 3 | done | Serena inspected review-pipeline/packet/coverage surfaces during slice work. Omen MCP returned zero files for scoped module paths, so the slice used repo-root Omen evidence; reproducible `pants run :omen` passed with grade A / 90.24 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `scripts/smoke-review-round-closeout`, targeted `pants test` for agent coverage, manifest helpers, role-plan orchestration, profile contracts, packet rendering, materiality, wave gates, and work artifacts, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad lint was not used as slice evidence because the earlier unrelated baseline lint/format drift remained outside this slice. |
 | Slice 4 | done | Serena scoped symbol lookup found `validate_review_approval_payload` in `review_approvals.py`; earlier zero-result scoped lookups were treated as a tool limitation, not code evidence. Omen MCP was not available as scoped evidence in this session, so the slice used reproducible repo-root `pants run :omen`, which passed with grade A / 90.10 and the existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-review-approval`, `scripts/smoke-register-review-artifact`, `scripts/smoke-report-calibration`, `scripts/smoke-review-manifest`, targeted `pants test` for approval, manifest helpers, wave gates, report calibration, artifact registry, role-plan orchestration, submitted reports, and agent profile contracts, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad lint was not used as slice evidence because the earlier unrelated baseline lint/format drift remained outside this slice. |
-| Slice 5 | pending | Record before commit. | Pending. |
+| Slice 5 | done | Serena inspected `review_delta.py` symbol overview and `refresh_round_hashes.py` blocker logic. Omen MCP was not available as scoped evidence in this session, so the slice used reproducible repo-root `pants run :omen`, which passed with grade A / 90.15 and the existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-refresh-round-hashes`, `scripts/smoke-record-review-delta`, targeted `pants test` for refresh hashes, review deltas, materiality, and manifest helpers, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. |
 | Slice 6 | pending | Record before commit. | Pending. |
 
 ## Decision Log
@@ -481,6 +481,16 @@ ensure the existing `TODO.md` items still name them accurately.
   The approval contract no longer keeps a parallel ad hoc human-report basis;
   human edits must enter the canonical clean proposal/report-check path before
   approval.
+- 2026-05-21: Slice 5 keeps `refresh-round-hashes` as a deterministic support
+  refresh only. It preflights current-evidence and common-briefing blockers
+  before writing, restores support artifacts on failure, refuses to rehash
+  semantic/report/review snapshot items, and avoids producer-only current
+  evidence churn. Review-delta provenance now rejects direct before/current
+  artifact evidence, append-only operator-note hashes in both `evidence_refs`
+  and `source_refs`, self references, and record-to-record source cycles.
+  Materiality stale-support diagnostics take precedence over downstream role
+  gap wording and point operators to `refresh-round-hashes` or explicit
+  `update-current-evidence-snapshot` recovery.
 
 ## Final Audit
 

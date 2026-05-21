@@ -76,6 +76,7 @@ VISUAL_INVENTORY_REL = Path("work/figure_media/visual_inventory.jsonl")
 EVIDENCE_REQUIREMENTS_REL = Path("work/evidence_requirements.json")
 QUANTITATIVE_CLAIMS_REL = Path("work/quantitative_claims.json")
 REVIEW_MANIFEST_REL = Path("work/review_manifest.json")
+COMMON_BRIEFING_REL = "work/common_briefing.json"
 NEXT_ACTION_STATUSES = {"unresolved", "resolved_by_artifact", "resolved_by_limitation"}
 NEXT_ACTION_SEVERITIES = {"required", "advisory"}
 NEXT_ACTION_ROLES = {"github_intake", "quantitative_claims", "theses_similarity"}
@@ -86,6 +87,7 @@ NEXT_ACTION_STATES = {
     "silent_no_concern_waiting_for_reviewed_synthesis",
     "current_reviewed_artifact",
     "current_synthesis_covered_artifact",
+    "stale_support_state",
     "typed_limitation",
 }
 NEXT_ACTION_CONFIG = {
@@ -148,6 +150,7 @@ REVIEWED_MANIFEST_STATUSES = {"reviewed", "reviewed_with_notes"}
 SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS = {"supervisor_report", "opponent_review"}
 
 ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:")
+SUPPORT_REFRESH_REFS = {COMMON_BRIEFING_REL, CURRENT_EVIDENCE_SNAPSHOT_REL}
 
 
 @dataclass(frozen=True)
@@ -654,20 +657,31 @@ def build_materiality_next_actions(
             "quantitative_claims",
             workflow_profile=workflow_profile,
         ):
+            stale_support_state = _stale_reasons_include_support_state(errors)
             actions.append(
                 _make_next_action(
                     round_dir,
                     decision=quantitative,
                     workflow_profile=workflow_profile,
-                    required_artifact_path=config["required_artifact_path"],
-                    reason=(
-                        "Quantitative materiality is active but " "work/quantitative_claims.json is missing or invalid."
+                    required_artifact_path=(
+                        profile_index_rel(workflow_profile).as_posix()
+                        if stale_support_state
+                        else config["required_artifact_path"]
                     ),
-                    command=config["command"],
-                    skill=config["skill"],
+                    reason=(
+                        "; ".join(errors[:5])
+                        if stale_support_state
+                        else (
+                            "Quantitative materiality is active but "
+                            "work/quantitative_claims.json is missing or invalid."
+                        )
+                    ),
+                    command=_support_refresh_command(workflow_profile) if stale_support_state else config["command"],
+                    skill="refresh-round-hashes" if stale_support_state else config["skill"],
                     typed_limitation_scope=config["typed_limitation_scope"],
                     source_refs=list(quantitative.source_refs),
                     limitations=tuple(errors[:5]),
+                    state="stale_support_state" if stale_support_state else "missing_artifact",
                 )
             )
     theses_similarity = material.get("theses_similarity")
@@ -893,18 +907,22 @@ def _next_action_for_required_artifact(
         ]
     stale_reasons = _artifact_stale_reasons(round_dir, required_artifact_path)
     if stale_reasons:
+        stale_support_state = _stale_reasons_include_support_state(stale_reasons)
         return [
             _make_next_action(
                 round_dir,
                 decision=decision,
                 workflow_profile=workflow_profile,
-                required_artifact_path=required_artifact_path,
+                required_artifact_path=(
+                    profile_index_rel(workflow_profile).as_posix() if stale_support_state else required_artifact_path
+                ),
                 reason="; ".join(stale_reasons),
-                command=command,
-                skill=skill,
+                command=_support_refresh_command(workflow_profile) if stale_support_state else command,
+                skill="refresh-round-hashes" if stale_support_state else skill,
                 typed_limitation_scope=typed_limitation_scope,
                 source_refs=list(decision.source_refs) + [required_artifact_path],
                 limitations=tuple(stale_reasons),
+                state="stale_support_state" if stale_support_state else "validator_failed",
             )
         ]
     return []
@@ -965,7 +983,7 @@ def _artifact_stale_reasons(round_dir: Path, artifact_path: str) -> list[str]:
                         if not path.is_file():
                             reasons.append(f"{artifact_path}: manifest source ref is missing: {ref}")
                         elif sha256_file(path) != recorded_hash:
-                            reasons.append(f"{artifact_path}: manifest source hash is stale for {ref}")
+                            reasons.append(_stale_source_hash_reason(artifact_path, ref, source_kind="manifest"))
                 break
     snapshot, _ = load_json_object(round_dir / CURRENT_EVIDENCE_SNAPSHOT_REL)
     if snapshot is not None:
@@ -1825,8 +1843,32 @@ def _stored_source_hash_stale_reasons(
         if not path.is_file():
             reasons.append(f"{role}: stored materiality source ref is missing: {ref}")
         elif sha256_file(path) != recorded_hash:
-            reasons.append(f"{role}: stored materiality source hash is stale for {ref}")
+            reasons.append(_stale_source_hash_reason(role, ref, source_kind="stored materiality"))
     return reasons
+
+
+def _stale_source_hash_reason(owner: str, ref: str, *, source_kind: str) -> str:
+    if ref in SUPPORT_REFRESH_REFS:
+        return (
+            f"{owner}: {source_kind} stale support artifact hash for {ref}; "
+            "run refresh-round-hashes <case-id> [round-id] before rerunning materiality"
+        )
+    return f"{owner}: {source_kind} source hash is stale for {ref}"
+
+
+def _stale_reasons_include_support_state(reasons: list[str] | tuple[str, ...]) -> bool:
+    return any(
+        "stale support artifact hash" in reason or "current evidence snapshot invalid" in reason for reason in reasons
+    )
+
+
+def _support_refresh_command(workflow_profile: str) -> str:
+    return (
+        "Run refresh-round-hashes <case-id> [round-id], then rerun "
+        f"check-review-materiality --workflow {workflow_profile} <case-id> [round-id]. "
+        "If work/current_evidence_snapshot.json remains invalid, run "
+        "update-current-evidence-snapshot <case-id> [round-id] with explicit refs."
+    )
 
 
 def _current_required_next_actions_from_index(
@@ -1840,49 +1882,8 @@ def _current_required_next_actions_from_index(
         return [], errors
     actions = build_materiality_next_actions(round_dir, decisions, workflow_profile=workflow_profile)
     action_roles = {action.role for action in actions}
-    stored_actions = payload.get("next_actions")
-    if isinstance(stored_actions, list):
-        current_actions_by_role = {action.role: action for action in actions}
-        material_decisions_by_role = {decision.role: decision for decision in decisions if decision.material}
-        for index, action in enumerate(stored_actions, start=1):
-            if not isinstance(action, dict):
-                continue
-            if action.get("status") != "unresolved" or action.get("severity") != "required":
-                continue
-            role = action.get("role")
-            if not isinstance(role, str) or role not in material_decisions_by_role:
-                continue
-            current_action = current_actions_by_role.get(role)
-            if current_action is not None:
-                stored_state = action.get("state")
-                if isinstance(stored_state, str) and stored_state != current_action.state:
-                    errors.append(
-                        f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
-                        f"is stale: stored state={stored_state} current state={current_action.state}"
-                    )
-                continue
-            coverage_state = _coverage_state_for_role(payload, role)
-            if coverage_state in {
-                "current_reviewed_artifact",
-                "current_synthesis_covered_artifact",
-                "current_handoff",
-                "silent_internal_evidence",
-                "typed_limitation",
-                "no_material_issue",
-            }:
-                errors.append(
-                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
-                    f"contradicts decision coverage_state={coverage_state}"
-                )
-            elif role == "theses_similarity":
-                errors.append(
-                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {role} "
-                    "is stale; current Theses.cz similarity evidence no longer has an unresolved next action"
-                )
     material_decisions = {decision.role: decision for decision in decisions if decision.material}
     for role in sorted(NEXT_ACTION_ROLES):
-        if role in action_roles:
-            continue
         decision = material_decisions.get(role)
         if decision is None:
             continue
@@ -1900,20 +1901,74 @@ def _current_required_next_actions_from_index(
         )
         if not stale_reasons:
             continue
+        stale_support_state = _stale_reasons_include_support_state(stale_reasons)
+        if role in action_roles and not stale_support_state:
+            continue
+        if stale_support_state:
+            actions = [action for action in actions if action.role != role]
         actions.append(
             _make_next_action(
                 round_dir,
                 decision=decision,
                 workflow_profile=workflow_profile,
-                required_artifact_path=config["required_artifact_path"],
+                required_artifact_path=(
+                    profile_index_rel(workflow_profile).as_posix()
+                    if stale_support_state
+                    else config["required_artifact_path"]
+                ),
                 reason="; ".join(stale_reasons),
-                command=config["command"],
-                skill=config["skill"],
+                command=_support_refresh_command(workflow_profile) if stale_support_state else config["command"],
+                skill="refresh-round-hashes" if stale_support_state else config["skill"],
                 typed_limitation_scope=config["typed_limitation_scope"],
                 source_refs=list(decision.source_refs),
                 limitations=tuple(stale_reasons),
+                state="stale_support_state" if stale_support_state else "validator_failed",
             )
         )
+        action_roles.add(role)
+    stored_actions = payload.get("next_actions")
+    if isinstance(stored_actions, list):
+        current_actions_by_role = {action.role: action for action in actions}
+        for index, action in enumerate(stored_actions, start=1):
+            if not isinstance(action, dict):
+                continue
+            if action.get("status") != "unresolved" or action.get("severity") != "required":
+                continue
+            stored_role = action.get("role")
+            if not isinstance(stored_role, str) or stored_role not in material_decisions:
+                continue
+            current_action = current_actions_by_role.get(stored_role)
+            if current_action is not None:
+                stored_state = action.get("state")
+                if isinstance(stored_state, str) and stored_state != current_action.state:
+                    if current_action.state == "stale_support_state" or any(
+                        "stored materiality source" in limitation for limitation in current_action.limitations
+                    ):
+                        continue
+                    index_rel = profile_index_rel(workflow_profile).as_posix()
+                    errors.append(
+                        f"{index_rel}: next_actions item {index} for {stored_role} is stale: "
+                        f"stored state={stored_state} current state={current_action.state}"
+                    )
+                continue
+            coverage_state = _coverage_state_for_role(payload, stored_role)
+            if coverage_state in {
+                "current_reviewed_artifact",
+                "current_synthesis_covered_artifact",
+                "current_handoff",
+                "silent_internal_evidence",
+                "typed_limitation",
+                "no_material_issue",
+            }:
+                errors.append(
+                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {stored_role} "
+                    f"contradicts decision coverage_state={coverage_state}"
+                )
+            elif stored_role == "theses_similarity":
+                errors.append(
+                    f"{profile_index_rel(workflow_profile).as_posix()}: next_actions item {index} for {stored_role} "
+                    "is stale; current Theses.cz similarity evidence no longer has an unresolved next action"
+                )
     return actions, errors
 
 
