@@ -282,6 +282,49 @@ def test_validate_theses_similarity_assessment_rejects_stale_hash(tmp_path: Path
     assert any("source_sha256 hash is stale for extracted/thesis.txt" in error for error in errors)
 
 
+def test_validate_theses_similarity_assessment_rejects_generated_packet_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round"
+    payload = common_assessment(round_dir)
+    packet = write_text(round_dir, "work/opponent_packets/theses_similarity.md", "packet prompt\n")
+    payload["source_refs"].append("work/opponent_packets/theses_similarity.md")
+    payload["source_sha256"]["work/opponent_packets/theses_similarity.md"] = sha256_file(packet)
+    write_json(round_dir / "work" / "theses_similarity" / "assessment.json", payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/theses_similarity/assessment.json")
+
+    assert any("generated role packets are handoff prompts" in error for error in errors)
+
+
+def test_validate_theses_similarity_assessment_rejects_supervisor_report_packet_source_ref(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = common_assessment(round_dir)
+    packet = write_text(round_dir, "work/supervisor_report_packets/theses_similarity.md", "packet prompt\n")
+    payload["source_refs"].append("work/supervisor_report_packets/theses_similarity.md")
+    payload["source_sha256"]["work/supervisor_report_packets/theses_similarity.md"] = sha256_file(packet)
+    write_json(round_dir / "work" / "theses_similarity" / "assessment.json", payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/theses_similarity/assessment.json")
+
+    assert any("generated role packets are handoff prompts" in error for error in errors)
+
+
+def test_validate_theses_similarity_assessment_rejects_current_snapshot_source_cycle(
+    tmp_path: Path,
+) -> None:
+    round_dir = tmp_path / "round"
+    payload = common_assessment(round_dir)
+    snapshot = write_text(round_dir, "work/current_evidence_snapshot.json", "{}\n")
+    payload["source_refs"].append("work/current_evidence_snapshot.json")
+    payload["source_sha256"]["work/current_evidence_snapshot.json"] = sha256_file(snapshot)
+    write_json(round_dir / "work" / "theses_similarity" / "assessment.json", payload)
+
+    errors = validate_structured_evidence_artifact(round_dir, "work/theses_similarity/assessment.json")
+
+    assert any("aggregate evidence snapshots can include the role artifact" in error for error in errors)
+
+
 def test_check_theses_similarity_report_accepts_hash_bound_intake(tmp_path: Path) -> None:
     round_dir = tmp_path / "round"
     write_intake(round_dir)

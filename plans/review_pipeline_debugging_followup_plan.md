@@ -439,7 +439,7 @@ ensure the existing `TODO.md` items still name them accurately.
 | --- | --- | --- | --- |
 | Plan intake and current-diff review | done | Serena `initial_instructions` read; Serena scoped plan-heading search succeeded. Omen not applicable because the first commit changed docs/profile text only. | `scripts/check-private`, `scripts/check-scripts`, and `git diff --check` passed before commit `58ffbf5`. |
 | Plan review repair | done | Serena scoped plan search used; no Python changes yet, so Omen not applicable. | `scripts/check-private`, `scripts/check-scripts`, and `git diff --check` passed. |
-| Slice 1 | pending | Record before commit. | Pending. |
+| Slice 1 | done | Serena inspected `structured_evidence.py`, `literature_source_acquisition.py`, and `theses_similarity.py`. Omen MCP returned zero files for scoped module/package paths but repo-root repomap worked and highlighted `structured_evidence.py`; reproducible `pants run :omen` passed with the existing grade-A baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` hit unrelated baseline formatter/lint changes outside Slice 1, so it was not used as slice evidence. |
 | Slice 2 | pending | Record before commit. | Pending. |
 | Slice 3 | pending | Record before commit. | Pending. |
 | Slice 4 | pending | Record before commit. | Pending. |

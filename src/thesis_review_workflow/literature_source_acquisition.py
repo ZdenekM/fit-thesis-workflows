@@ -7,6 +7,7 @@ from typing import Any
 
 from thesis_review_workflow.evidence_capsules import validate_source_sha256_map
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.semantic_source_refs import validate_long_lived_semantic_source_refs
 
 SOURCE_ACQUISITION_REL = "work/literature/source_acquisition.json"
 SOURCE_ACQUISITION_SCHEMA = "literature-source-acquisition-v1"
@@ -256,6 +257,7 @@ def validate_source_acquisition_payload(
     )
     if not source_refs:
         errors.append(f"{rel_path}: source_refs must include thesis/bibliography inputs used for triage")
+    validate_long_lived_semantic_source_refs(rel_path, "source_refs", source_refs, errors)
     validate_source_sha256_map(
         loaded.get("source_sha256"),
         rel_path,

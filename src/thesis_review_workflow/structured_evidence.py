@@ -19,6 +19,7 @@ from thesis_review_workflow.report_calibration import (
     report_calibration_source_paths,
     validate_report_calibration_artifact,
 )
+from thesis_review_workflow.semantic_source_refs import validate_long_lived_semantic_source_refs
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
 from thesis_review_workflow.theses_checker_summary import (
     THESES_CHECKER_SUMMARY_REL,
@@ -1187,6 +1188,7 @@ def _validate_theses_similarity_assessment(
     _validate_hashes_for_refs(loaded, rel_path, "source_sha256", "source_refs", round_dir, errors)
     loaded_source_refs = loaded.get("source_refs")
     source_refs = loaded_source_refs if isinstance(loaded_source_refs, list) else []
+    validate_long_lived_semantic_source_refs(rel_path, "source_refs", source_refs, errors)
     judgments = _require_list(loaded, "judgments", rel_path, errors)
     if not isinstance(judgments, list):
         return

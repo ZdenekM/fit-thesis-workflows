@@ -48,8 +48,12 @@ revision-diff metric.
    synthesis.
 3. Read `work/theses_similarity/intake.json`, role packets,
    current-evidence snapshots, and prior `outputs/theses_similarity_review.md`
-   first. Use the PDF/text only for targeted verification of report structure,
-   source rows, matched-passage anchors, and extraction limitations.
+   first. Use packets and snapshots for orientation only: do not cite generated
+   packets or aggregate current-evidence snapshots in
+   `work/theses_similarity/assessment.json` `source_refs`, because those refs
+   can make the assessment stale or cyclic. Use the PDF/text only for targeted
+   verification of report structure, source rows, matched-passage anchors, and
+   extraction limitations.
 4. Open the current thesis PDF extract, assignment, round notes, and previous
    rounds only as needed for matched-passage anchors, self-overlap, missing
    context, contradictions, or reviewer challenges. For self-overlap, check

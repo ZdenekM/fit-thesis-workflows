@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import cast
 
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.cli.check_literature_citation_review import validate_source_acquisition_file
@@ -126,6 +127,69 @@ def test_source_acquisition_payload_rejects_stale_source_hash(tmp_path: Path) ->
     )
 
     assert any("source_sha256 is stale for extracted/thesis.txt" in error for error in errors)
+
+
+def test_source_acquisition_payload_rejects_generated_packet_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    payload = valid_payload(round_dir)
+    packet = round_dir / "work" / "opponent_packets" / "literature.md"
+    packet.parent.mkdir(parents=True)
+    packet.write_text("packet prompt\n", encoding="utf-8")
+    source_refs = cast(list[str], payload["source_refs"])
+    source_sha256 = cast(dict[str, str], payload["source_sha256"])
+    source_refs.append("work/opponent_packets/literature.md")
+    source_sha256["work/opponent_packets/literature.md"] = sha256_file(packet)
+
+    errors = validate_source_acquisition_payload(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("generated role packets are handoff prompts" in error for error in errors)
+
+
+def test_source_acquisition_payload_rejects_supervisor_report_packet_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    payload = valid_payload(round_dir)
+    packet = round_dir / "work" / "supervisor_report_packets" / "literature.md"
+    packet.parent.mkdir(parents=True)
+    packet.write_text("packet prompt\n", encoding="utf-8")
+    source_refs = cast(list[str], payload["source_refs"])
+    source_sha256 = cast(dict[str, str], payload["source_sha256"])
+    source_refs.append("work/supervisor_report_packets/literature.md")
+    source_sha256["work/supervisor_report_packets/literature.md"] = sha256_file(packet)
+
+    errors = validate_source_acquisition_payload(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("generated role packets are handoff prompts" in error for error in errors)
+
+
+def test_source_acquisition_payload_rejects_current_evidence_snapshot_source_ref(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    payload = valid_payload(round_dir)
+    snapshot = round_dir / "work" / "current_evidence_snapshot.json"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_text("{}\n", encoding="utf-8")
+    source_refs = cast(list[str], payload["source_refs"])
+    source_sha256 = cast(dict[str, str], payload["source_sha256"])
+    source_refs.append("work/current_evidence_snapshot.json")
+    source_sha256["work/current_evidence_snapshot.json"] = sha256_file(snapshot)
+
+    errors = validate_source_acquisition_payload(
+        payload,
+        round_dir=round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("aggregate evidence snapshots can include the role artifact" in error for error in errors)
 
 
 def test_source_acquisition_payload_rejects_invalid_attempt_status(tmp_path: Path) -> None:
