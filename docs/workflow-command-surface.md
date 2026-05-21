@@ -89,6 +89,13 @@ again so the trace hash is not stale. For
 `supervisor_report`, `opponent_review`, and `opponent_materials`, the generic
 command delegates profile-specific checks to `supervisor-report-closeout` or
 `opponent-closeout` while preserving the shared role-plan and trace boundary.
+During longer closeout runs it prints bounded progress lines with the active
+case id, round id, workflow profile, current check, current artifact path,
+logical helper command, and elapsed time. On failure it prints the first
+actionable gate, classifies it as upstream or downstream, and shows the logical
+recovery command before detailed helper transcripts. Helper interruptions clean
+up the active child process tree through POSIX process groups or native Windows
+process-tree termination; do not rely on WSL-only shutdown assumptions.
 
 `record-workflow-operation` is the lightweight reconstruction surface for case
 work. It appends JSONL events to `work/operation_log.jsonl` when a role fails,

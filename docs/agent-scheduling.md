@@ -103,6 +103,14 @@ state was produced for an earlier profile, rerun `review-round-start --profile
 ...` and `prepare-review-round --profile ...` for the current profile before
 trying to close the round.
 
+When closeout or a long helper fails, recover from durable files rather than
+chat memory. Start with the first actionable failure printed by
+`review-round-closeout`, then inspect `work/review_role_plan.json`, expected
+role output paths, role validators, `work/review_manifest.json`, and
+`work/operation_log.jsonl`. If an agent says a role is done but those files or
+validators disagree, trust the files and rerun the logical recovery command
+shown by closeout.
+
 The main session should inventory available `inputs/`, `extracted/`, `notes/`,
 `work/`, and `outputs/` paths, but should not treat that inventory as permission
 to load every raw source into the parent context. Start from

@@ -6,6 +6,7 @@ import argparse
 import json
 import shlex
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,13 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.closeout_preflight import free_space_preflight_step
-from thesis_review_workflow.commands import Step, print_step, run_step
+from thesis_review_workflow.commands import (
+    PROCESS_GROUP_MODE_ENV,
+    PROCESS_GROUP_MODE_INHERIT,
+    Step,
+    print_step,
+    run_step,
+)
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
@@ -41,6 +48,18 @@ DELEGATED_CLOSEOUT_COMMANDS = {
     "opponent_review": "opponent-closeout",
     "opponent_materials": "opponent-closeout",
 }
+UPSTREAM_GATE_PREFIXES = (
+    "Free-space preflight",
+    "Readiness gate:",
+    "Current evidence snapshot refresh",
+    "Final materiality profile:",
+    "Common briefing refresh",
+    "Review role plan refresh",
+    "Review manifest refresh",
+    "Review role plan closeout",
+    "Review delta closeout",
+    "Review profile transition preflight",
+)
 
 
 def now_utc() -> str:
@@ -108,6 +127,126 @@ def prepare_review_round_command(
     return command
 
 
+def review_round_start_command(profile_id: str, case_id: str, round_id: str) -> list[str]:
+    return ["scripts/review-round-start", "--profile", profile_id, case_id, round_id]
+
+
+def logical_command_args(command: list[str]) -> list[str]:
+    if not command:
+        return command
+    executable = command[0].replace("\\", "/")
+    if executable.startswith("scripts/"):
+        return [executable.rsplit("/", 1)[-1], *command[1:]]
+    return command
+
+
+def logical_command_display(command: list[str] | None) -> str:
+    if command is None:
+        return ""
+    return shlex.join(logical_command_args(command))
+
+
+def closeout_progress_line(
+    *,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+    check_label: str,
+    command: list[str] | None,
+    artifact: str,
+    elapsed_seconds: float,
+) -> str:
+    command_text = logical_command_display(command) or "internal-check"
+    return (
+        "progress: "
+        f"case={case_id} round={round_id} profile={profile_id} "
+        f"check={check_label!r} artifact={artifact!r} command={command_text!r} "
+        f"elapsed={elapsed_seconds:.1f}s"
+    )
+
+
+def run_closeout_step(
+    root: Path,
+    label: str,
+    command: list[str],
+    *,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+    artifact: str,
+    started_at: float,
+    required: bool = True,
+    extra_env: dict[str, str] | None = None,
+) -> Step:
+    print(
+        closeout_progress_line(
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            check_label=label,
+            command=command,
+            artifact=artifact,
+            elapsed_seconds=time.monotonic() - started_at,
+        ),
+        flush=True,
+    )
+    return run_step(root, label, command, required=required, extra_env=extra_env)
+
+
+def first_required_failure(steps: list[Step]) -> Step | None:
+    return next((step for step in steps if step.required and not step.ok), None)
+
+
+def gate_classification(step: Step) -> str:
+    if step.label.startswith(UPSTREAM_GATE_PREFIXES):
+        return "upstream"
+    return "downstream"
+
+
+def recovery_command_for_step(step: Step, *, case_id: str, round_id: str, profile_id: str) -> str:
+    if step.recovery_command:
+        return step.recovery_command
+    if step.command is not None:
+        return logical_command_display(step.command)
+    if step.label == "Review profile transition preflight":
+        return " && ".join(
+            (
+                logical_command_display(review_round_start_command(profile_id, case_id, round_id)),
+                logical_command_display(prepare_review_round_command(profile_id, case_id, round_id)),
+            )
+        )
+    if step.label == "Review role plan closeout":
+        return logical_command_display(prepare_review_round_command(profile_id, case_id, round_id))
+    if step.label == "Review delta closeout":
+        return f"record-review-delta --profile {profile_id} {case_id} {round_id}"
+    if step.label.startswith("Common briefing refresh"):
+        return f"refresh-round-hashes {case_id} {round_id}"
+    return f"review-round-closeout --profile {profile_id} {case_id} {round_id}"
+
+
+def print_first_failure_summary(
+    *,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+    steps: list[Step],
+) -> None:
+    first = first_required_failure(steps)
+    if first is None:
+        return
+    print()
+    print("## First Actionable Failure")
+    print(f"- Gate: {first.label}")
+    print(f"- Class: {gate_classification(first)}")
+    recovery = recovery_command_for_step(
+        first,
+        case_id=case_id,
+        round_id=round_id,
+        profile_id=profile_id,
+    )
+    print(f"- Recovery command: `{recovery}`")
+
+
 def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
     command = prepare_review_round_command(profile_id, case_id, round_id)
     try:
@@ -118,6 +257,15 @@ def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: 
             command=command,
             returncode=1,
             output=f"Could not read {REVIEW_ROLE_PLAN_REL}: {exc}",
+            recovery_command=logical_command_display(command),
+        )
+    if plan is None:
+        return Step(
+            label="Review role plan closeout",
+            command=command,
+            returncode=1,
+            output=f"{REVIEW_ROLE_PLAN_REL} is missing; run prepare-review-round before closeout",
+            recovery_command=logical_command_display(command),
         )
     errors = validate_role_plan_for_closeout(
         plan,
@@ -127,11 +275,28 @@ def role_plan_step(round_dir: Path, *, case_id: str, round_id: str, profile_id: 
         profile_id=profile_id,
     )
     if errors:
+        manifest_check = logical_command_display(
+            ["scripts/check-review-manifest", "--require-complete", case_id, round_id]
+        )
+        recovery = (
+            f"inspect {REVIEW_ROLE_PLAN_REL}, expected role output paths, validators, and work/operation_log.jsonl; "
+            f"complete the missing role output or typed limitation; then run {manifest_check}"
+        )
         return Step(
             label="Review role plan closeout",
-            command=command,
+            command=None,
             returncode=1,
-            output="\n".join(f"- {error}" for error in errors),
+            output="\n".join(
+                [
+                    *(f"- {error}" for error in errors),
+                    "",
+                    "Recovery context:",
+                    f"- Inspect {REVIEW_ROLE_PLAN_REL} for the role, state, expected_output, and packet_path.",
+                    "- Check expected role output paths and work/operation_log.jsonl before trusting chat state.",
+                    "- Rerun the manifest checker after the missing output or typed limitation is present.",
+                ]
+            ),
+            recovery_command=recovery,
         )
     return Step(
         label="Review role plan closeout",
@@ -183,16 +348,19 @@ def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, pro
             if loaded.get(field) != expected:
                 errors.append(f"{rel_path} records {field}={loaded.get(field)!r}, expected {expected!r}")
     if errors:
+        start_command = review_round_start_command(profile_id, case_id, round_id)
+        prepare_command = prepare_review_round_command(profile_id, case_id, round_id)
         recovery = [
             "Regenerate the profile transition artifacts before closeout mutates manifest state:",
-            f"scripts/review-round-start --profile {profile_id} {case_id} {round_id}",
-            shlex.join(prepare_review_round_command(profile_id, case_id, round_id)),
+            logical_command_display(start_command),
+            logical_command_display(prepare_command),
         ]
         return Step(
             label="Review profile transition preflight",
             command=None,
             returncode=1,
             output="\n".join([*(f"- {error}" for error in errors), "", *recovery]),
+            recovery_command=f"{logical_command_display(start_command)} && {logical_command_display(prepare_command)}",
         )
     return Step(
         label="Review profile transition preflight",
@@ -226,7 +394,15 @@ def common_briefing_refresh_step(
     )
 
 
-def role_plan_refresh_step(root: Path, *, case_id: str, round_id: str, profile_id: str) -> Step:
+def role_plan_refresh_step(
+    root: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+    started_at: float | None = None,
+    artifact: str = "",
+) -> Step:
     command = prepare_review_round_command(profile_id, case_id, round_id, skip_ready_materiality=True)
     if profile_id == "supervisor_report":
         return Step(
@@ -236,8 +412,20 @@ def role_plan_refresh_step(root: Path, *, case_id: str, round_id: str, profile_i
             output=(
                 "skipped: supervisor_report packet refresh requires explicit agent authorization. "
                 "If closeout reports stale packets or role-plan state, rerun "
-                f"`{shlex.join(command)}` before closeout."
+                f"`{logical_command_display(command)}` before closeout."
             ),
+            recovery_command=logical_command_display(command),
+        )
+    if started_at is not None:
+        return run_closeout_step(
+            root,
+            "Review role plan refresh",
+            command,
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            artifact=artifact,
+            started_at=started_at,
         )
     return run_step(root, "Review role plan refresh", command)
 
@@ -246,23 +434,54 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
     profile = get_workflow_review_profile(profile_id)
     workflow, wave = closeout_wave_for_profile(profile_id)
     round_dir = root / "cases" / case_id / "rounds" / round_id
+    started_at = time.monotonic()
+
+    def run_gate(
+        label: str,
+        command: list[str],
+        *,
+        artifact: str,
+        required: bool = True,
+        extra_env: dict[str, str] | None = None,
+    ) -> Step:
+        return run_closeout_step(
+            root,
+            label,
+            command,
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            artifact=artifact,
+            started_at=started_at,
+            required=required,
+            extra_env=extra_env,
+        )
+
     preflight = free_space_preflight_step(round_dir)
     steps: list[Step] = [preflight]
     if not preflight.ok:
         return steps
+
+    def append_step(step: Step) -> bool:
+        steps.append(step)
+        return step.ok or not step.required
+
     for gate in profile.readiness_gates:
-        steps.append(run_step(root, f"Readiness gate: {gate}", split_gate(gate, case_id, round_id)))
-    steps.append(
-        run_step(
-            root,
+        if not append_step(
+            run_gate(f"Readiness gate: {gate}", split_gate(gate, case_id, round_id), artifact="case.md")
+        ):
+            return steps
+    if not append_step(
+        run_gate(
             "Current evidence snapshot refresh",
             ["scripts/update-current-evidence-snapshot", case_id, round_id],
+            artifact="work/current_evidence_snapshot.json",
         )
-    )
+    ):
+        return steps
     if profile.effective_materiality_profile:
-        steps.append(
-            run_step(
-                root,
+        if not append_step(
+            run_gate(
                 f"Final materiality profile: {profile.effective_materiality_profile}",
                 [
                     "scripts/check-review-materiality",
@@ -273,71 +492,145 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
                     case_id,
                     round_id,
                 ],
+                artifact=f"work/review_materiality/{profile.effective_materiality_profile}/index.json",
             )
-        )
+        ):
+            return steps
     if profile.effective_materiality_profile:
-        steps.append(
+        if not append_step(
             common_briefing_refresh_step(
                 round_dir,
                 case_id=case_id,
                 round_id=round_id,
                 workflow_profile="supervisor_report" if profile_id == "supervisor_report" else None,
             )
+        ):
+            return steps
+    if not append_step(
+        role_plan_refresh_step(
+            root,
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            started_at=started_at,
+            artifact=REVIEW_ROLE_PLAN_REL,
         )
-    steps.append(role_plan_refresh_step(root, case_id=case_id, round_id=round_id, profile_id=profile_id))
-    steps.append(
-        run_step(root, "Review manifest refresh", ["scripts/init-review-manifest", "--run-checks", case_id, round_id])
-    )
-    steps.append(role_plan_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
-    steps.append(review_delta_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id))
+    ):
+        return steps
+    if not append_step(
+        run_gate(
+            "Review manifest refresh",
+            ["scripts/init-review-manifest", "--run-checks", case_id, round_id],
+            artifact=MANIFEST_REL,
+        )
+    ):
+        return steps
+    if not append_step(role_plan_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id)):
+        return steps
+    if not append_step(review_delta_step(round_dir, case_id=case_id, round_id=round_id, profile_id=profile_id)):
+        return steps
 
     delegated = DELEGATED_CLOSEOUT_COMMANDS.get(profile_id)
     if delegated:
         delegated_command = [f"scripts/{delegated}", "--skip-repo-hygiene", case_id, round_id]
         if delegated == "supervisor-report-closeout":
             delegated_command.insert(2, "--skip-current-evidence-refresh")
-        steps.append(
-            run_step(
-                root,
+        append_step(
+            run_gate(
                 f"Delegated profile closeout: {delegated}",
                 delegated_command,
+                artifact=profile.final_artifact,
+                extra_env={PROCESS_GROUP_MODE_ENV: PROCESS_GROUP_MODE_INHERIT},
             )
         )
         return steps
 
-    steps.append(
-        run_step(
-            root,
+    if not append_step(
+        run_gate(
             f"Final review wave: {workflow}:{wave}",
             ["scripts/check-review-wave", "--workflow", workflow, "--wave", wave, case_id, round_id],
+            artifact=MANIFEST_REL,
         )
-    )
-    steps.append(
-        run_step(
-            root,
+    ):
+        return steps
+    if not append_step(
+        run_gate(
             "Post-wave review manifest refresh",
             ["scripts/init-review-manifest", "--run-checks", case_id, round_id],
+            artifact=MANIFEST_REL,
         )
-    )
-    steps.append(run_step(root, "Agent role coverage", ["scripts/check-agent-coverage", case_id, round_id]))
-    steps.append(
-        run_step(
-            root,
+    ):
+        return steps
+    if not append_step(
+        run_gate("Agent role coverage", ["scripts/check-agent-coverage", case_id, round_id], artifact=COVERAGE_REL)
+    ):
+        return steps
+    if not append_step(
+        run_gate(
             "Review manifest completeness",
             ["scripts/check-review-manifest", "--require-complete", case_id, round_id],
+            artifact=MANIFEST_REL,
         )
-    )
+    ):
+        return steps
     if profile_id == "supervisor_feedback":
-        steps.append(run_step(root, "Feedback language", ["scripts/check-feedback-language", case_id, round_id]))
-        steps.append(run_step(root, "Feedback output", ["scripts/check-feedback-output", case_id, round_id]))
+        if not append_step(
+            run_gate(
+                "Feedback language",
+                ["scripts/check-feedback-language", case_id, round_id],
+                artifact=profile.final_artifact,
+            )
+        ):
+            return steps
+        append_step(
+            run_gate(
+                "Feedback output",
+                ["scripts/check-feedback-output", case_id, round_id],
+                artifact=profile.final_artifact,
+            )
+        )
     return steps
 
 
-def repo_hygiene_steps(root: Path) -> list[Step]:
+def repo_hygiene_steps(
+    root: Path,
+    *,
+    case_id: str,
+    round_id: str,
+    profile_id: str,
+    started_at: float,
+) -> list[Step]:
     return [
-        run_step(root, "Private workspace hygiene", ["scripts/check-private"]),
-        run_step(root, "Script syntax", ["scripts/check-scripts"]),
-        run_step(root, "Whitespace/diff hygiene", ["git", "diff", "--check"]),
+        run_closeout_step(
+            root,
+            "Private workspace hygiene",
+            ["scripts/check-private"],
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            artifact="tracked repo/private boundary",
+            started_at=started_at,
+        ),
+        run_closeout_step(
+            root,
+            "Script syntax",
+            ["scripts/check-scripts"],
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            artifact="scripts/",
+            started_at=started_at,
+        ),
+        run_closeout_step(
+            root,
+            "Whitespace/diff hygiene",
+            ["git", "diff", "--check"],
+            case_id=case_id,
+            round_id=round_id,
+            profile_id=profile_id,
+            artifact="tracked repo diff",
+            started_at=started_at,
+        ),
     ]
 
 
@@ -452,6 +745,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Case: cases/{args.case_id}")
     print(f"Round: cases/{args.case_id}/rounds/{round_id}")
     print(f"Profile: {profile.profile_id} ({profile.workflow_profile})")
+    main_started_at = time.monotonic()
 
     preflight = profile_transition_step(
         round_dir,
@@ -460,20 +754,57 @@ def main(argv: list[str] | None = None) -> int:
         profile_id=profile.profile_id,
     )
     if not preflight.ok:
+        print_first_failure_summary(
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            steps=[preflight],
+        )
         print_step(preflight, output_limit=args.output_limit)
         print_summary(round_dir, profile_id=profile.profile_id, steps=[preflight])
         return preflight.returncode
 
     steps = generic_closeout_steps(root, case_id=args.case_id, round_id=round_id, profile_id=profile.profile_id)
     if steps and steps[0].label == "Free-space preflight" and not steps[0].ok:
+        print_first_failure_summary(
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            steps=steps,
+        )
         for step in steps:
             print_step(step, output_limit=max(args.output_limit, 200))
         print_summary(round_dir, profile_id=profile.profile_id, steps=steps)
         return 1
-    if not args.skip_repo_hygiene:
-        steps.extend(repo_hygiene_steps(root))
-
     failed = any(not step.ok and step.required for step in steps)
+    first_failure_reported = False
+    if failed:
+        print_first_failure_summary(
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            steps=steps,
+        )
+        first_failure_reported = True
+    elif not args.skip_repo_hygiene:
+        steps.extend(
+            repo_hygiene_steps(
+                root,
+                case_id=args.case_id,
+                round_id=round_id,
+                profile_id=profile.profile_id,
+                started_at=main_started_at,
+            )
+        )
+        failed = any(not step.ok and step.required for step in steps)
+        if failed:
+            print_first_failure_summary(
+                case_id=args.case_id,
+                round_id=round_id,
+                profile_id=profile.profile_id,
+                steps=steps,
+            )
+            first_failure_reported = True
     try:
         append_closeout_trace(
             round_dir,
@@ -502,17 +833,27 @@ def main(argv: list[str] | None = None) -> int:
         failed = True
 
     steps.append(
-        run_step(
+        run_closeout_step(
             root,
             "Final manifest refresh after trace update",
             ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            artifact=MANIFEST_REL,
+            started_at=main_started_at,
         )
     )
     steps.append(
-        run_step(
+        run_closeout_step(
             root,
             "Final review manifest completeness after trace update",
             ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            artifact=MANIFEST_REL,
+            started_at=main_started_at,
         )
     )
     failed = any(not step.ok and step.required for step in steps)
@@ -546,17 +887,27 @@ def main(argv: list[str] | None = None) -> int:
         failed = True
 
     steps.append(
-        run_step(
+        run_closeout_step(
             root,
             "Final manifest refresh after trace verdict",
             ["scripts/init-review-manifest", "--run-checks", args.case_id, round_id],
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            artifact=MANIFEST_REL,
+            started_at=main_started_at,
         )
     )
     steps.append(
-        run_step(
+        run_closeout_step(
             root,
             "Final review manifest completeness after trace verdict",
             ["scripts/check-review-manifest", "--require-complete", args.case_id, round_id],
+            case_id=args.case_id,
+            round_id=round_id,
+            profile_id=profile.profile_id,
+            artifact=MANIFEST_REL,
+            started_at=main_started_at,
         )
     )
     failed = any(not step.ok and step.required for step in steps)
@@ -576,6 +927,9 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError):
             pass
 
+    if not first_failure_reported:
+        print_first_failure_summary(case_id=args.case_id, round_id=round_id, profile_id=profile.profile_id, steps=steps)
+
     for step in steps:
         print_step(step, output_limit=max(args.output_limit, 200))
 
@@ -584,7 +938,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def console_main() -> int:
-    return main()
+    try:
+        return main()
+    except KeyboardInterrupt:
+        print("ERROR: closeout interrupted; active helper child process tree was terminated.", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

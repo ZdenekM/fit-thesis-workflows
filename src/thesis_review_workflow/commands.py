@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import os
 import shlex
+import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
+
+PROCESS_GROUP_MODE_ENV = "THESIS_REVIEW_PROCESS_GROUP_MODE"
+PROCESS_GROUP_MODE_INHERIT = "inherit"
 
 WORKFLOW_COMMAND_MODULES = {
     "audit-context-budget": "thesis_review_workflow.cli.audit_context_budget",
@@ -92,6 +97,8 @@ class Step:
     returncode: int
     output: str
     required: bool = True
+    elapsed_seconds: float | None = None
+    recovery_command: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -109,8 +116,8 @@ def command_display(args: list[str] | None) -> str:
         return ""
     tool_name = workflow_command_name(args[0])
     if os.name == "nt" and tool_name is not None:
-        return " ".join([f".\\dist\\workflow-tools\\bin\\{tool_name}.cmd", *args[1:]])
-    return " ".join(args)
+        return subprocess.list2cmdline([f".\\dist\\workflow-tools\\bin\\{tool_name}.cmd", *args[1:]])
+    return shlex.join(canonical_command_args(args))
 
 
 def canonical_command_args(args: list[str]) -> list[str]:
@@ -139,11 +146,13 @@ def compact_output(value: str, *, limit: int) -> str:
     return text
 
 
-def repo_command_environment(root: Path) -> dict[str, str]:
+def repo_command_environment(root: Path, *, extra_env: dict[str, str] | None = None) -> dict[str, str]:
     env = os.environ.copy()
     src_path = str(root / "src")
     current = env.get("PYTHONPATH")
     env["PYTHONPATH"] = src_path if not current else src_path + os.pathsep + current
+    if extra_env:
+        env.update(extra_env)
     return env
 
 
@@ -179,24 +188,116 @@ def resolve_repo_command(root: Path, args: list[str]) -> list[str]:
     return args
 
 
-def run_step(root: Path, label: str, args: list[str], *, required: bool = True) -> Step:
-    completed = subprocess.run(
-        resolve_repo_command(root, args),
-        cwd=root,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        env=repo_command_environment(root),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
+def terminate_process_tree(process: subprocess.Popen[str], *, timeout: float = 5.0) -> bool:
+    if process.poll() is not None:
+        return True
+    if os.name == "nt":
+        try:
+            process.send_signal(getattr(signal, "CTRL_BREAK_EVENT", signal.SIGTERM))
+            process.wait(timeout=timeout)
+            return True
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        try:
+            process.wait(timeout=timeout)
+            return True
+        except (OSError, subprocess.TimeoutExpired):
+            return process.poll() is not None
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+        process.wait(timeout=timeout)
+        return True
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except OSError:
+        process.kill()
+    try:
+        process.wait(timeout=timeout)
+        return True
+    except (OSError, subprocess.TimeoutExpired):
+        return process.poll() is not None
+
+
+def run_step(
+    root: Path,
+    label: str,
+    args: list[str],
+    *,
+    required: bool = True,
+    extra_env: dict[str, str] | None = None,
+) -> Step:
+    started = time.monotonic()
+    resolved = resolve_repo_command(root, args)
+    env = repo_command_environment(root, extra_env=extra_env)
+    inherit_process_group = os.environ.get(PROCESS_GROUP_MODE_ENV) == PROCESS_GROUP_MODE_INHERIT
+    if os.name == "nt" and not inherit_process_group:
+        process = subprocess.Popen(
+            resolved,
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            creationflags=int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)),
+        )
+    elif os.name == "nt":
+        process = subprocess.Popen(
+            resolved,
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    elif inherit_process_group:
+        process = subprocess.Popen(
+            resolved,
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    else:
+        process = subprocess.Popen(
+            resolved,
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    try:
+        stdout, _ = process.communicate()
+    except KeyboardInterrupt:
+        if not terminate_process_tree(process):
+            print(f"WARNING: helper process tree may still be running for pid {process.pid}", file=sys.stderr)
+        raise
+    elapsed = time.monotonic() - started
     return Step(
         label=label,
         command=args,
-        returncode=completed.returncode,
-        output=completed.stdout.strip(),
+        returncode=process.returncode if process.returncode is not None else 1,
+        output=(stdout or "").strip(),
         required=required,
+        elapsed_seconds=elapsed,
     )
 
 
@@ -205,5 +306,7 @@ def print_step(step: Step, *, output_limit: int) -> None:
     print(f"## {step.label}: {step.status}")
     if step.command is not None:
         print(f"$ {command_display(step.command)}")
+    if step.elapsed_seconds is not None:
+        print(f"elapsed: {step.elapsed_seconds:.1f}s")
     if step.output:
         print(compact_output(step.output, limit=output_limit))
