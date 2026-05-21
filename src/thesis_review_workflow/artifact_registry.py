@@ -136,7 +136,6 @@ OUTPUT_ARTIFACTS: dict[str, OutputArtifactSpec] = {
         review_basis_candidates=(
             "outputs/oponent_posudek_navrh.md",
             "work/oponent_posudek_draft.md",
-            "work/muj_posudek_draft.md",
         ),
     ),
     "oponent_posudek_navrh.md": OutputArtifactSpec(

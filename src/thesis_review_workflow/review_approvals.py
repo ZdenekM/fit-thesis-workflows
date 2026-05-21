@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.artifact_registry import output_spec
+from thesis_review_workflow.helper_checks import validate_helper_check_ids
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.report_calibration import (
     report_calibration_check_targets,
-    report_calibration_review_basis_bound,
+    report_calibration_review_basis_requires_check,
 )
 from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY_REL, round_uses_theses_checker_summary
 from thesis_review_workflow.theses_similarity import (
@@ -81,7 +82,6 @@ APPROVAL_PROFILES = {
         review_basis_candidates=(
             "outputs/oponent_posudek_navrh.md",
             "work/oponent_posudek_draft.md",
-            "work/muj_posudek_draft.md",
         ),
         reviewer_role="thesis-opponent-report-review",
         required_checks=(
@@ -160,9 +160,26 @@ def validate_required_checks(
             observed_names.add(item)
         else:
             errors.append(f"{rel_path}: checks_observed item {index} must be a non-empty string")
+    string_checks = [item for item in checks_observed if isinstance(item, str)]
+    errors.extend(
+        f"{rel_path}: {error}"
+        for error in validate_helper_check_ids(
+            string_checks,
+            label="checks_observed",
+            allow_observed_only=True,
+        )
+    )
+    allowed_observed = set(required_checks)
+    for name in sorted(observed_names - allowed_observed):
+        errors.append(
+            f"{rel_path}: unexpected observed check {name}; expected one of: " f"{', '.join(sorted(allowed_observed))}"
+        )
     missing = sorted(set(required_checks) - observed_names)
     for check in missing:
-        errors.append(f"{rel_path}: missing required observed check: {check}")
+        errors.append(
+            f"{rel_path}: missing required observed check: {check}; required checks: "
+            f"{', '.join(sorted(required_checks))}"
+        )
     helper_required_checks = tuple(check for check in required_checks if check not in OBSERVED_ONLY_REQUIRED_CHECKS)
     if helper_required_checks and not manifest:
         errors.append(f"{rel_path}: review manifest is required to verify required observed checks")
@@ -175,40 +192,40 @@ def validate_required_checks(
     for item in helper_checks:
         if not isinstance(item, dict):
             continue
-        name = item.get("check")
-        if name not in helper_required_checks:
+        check_name = item.get("check")
+        if check_name not in helper_required_checks:
             continue
         if item.get("status") != "passed":
-            errors.append(f"{rel_path}: helper check {name} must be passed before approval")
+            errors.append(f"{rel_path}: helper check {check_name} must be passed before approval")
         if item.get("exit_code") != 0:
-            errors.append(f"{rel_path}: helper check {name} must record exit_code 0")
+            errors.append(f"{rel_path}: helper check {check_name} must record exit_code 0")
         if not str(item.get("checked_at", "")).strip():
-            errors.append(f"{rel_path}: helper check {name} must record checked_at")
+            errors.append(f"{rel_path}: helper check {check_name} must record checked_at")
         targets = item.get("target_artifacts")
         if not isinstance(targets, list) or not targets:
-            errors.append(f"{rel_path}: helper check {name} must record target_artifacts")
+            errors.append(f"{rel_path}: helper check {check_name} must record target_artifacts")
             continue
         target_set = {target for target in targets if isinstance(target, str)}
-        required_targets = required_helper_targets_for_approval(name, round_dir, rel_path)
+        required_targets = required_helper_targets_for_approval(str(check_name), round_dir, rel_path)
         for missing_target in sorted(required_targets - target_set):
-            errors.append(f"{rel_path}: helper check {name} missing required target artifact {missing_target}")
+            errors.append(f"{rel_path}: helper check {check_name} missing required target artifact {missing_target}")
         recorded_hashes = item.get("target_sha256")
         if not isinstance(recorded_hashes, dict):
-            errors.append(f"{rel_path}: helper check {name} must record target_sha256")
+            errors.append(f"{rel_path}: helper check {check_name} must record target_sha256")
         else:
             for target_path in targets:
                 if not isinstance(target_path, str):
-                    errors.append(f"{rel_path}: helper check {name} target_artifacts items must be strings")
+                    errors.append(f"{rel_path}: helper check {check_name} target_artifacts items must be strings")
                     continue
                 target_file = round_dir / target_path
                 if not target_file.is_file():
                     continue
                 recorded = recorded_hashes.get(target_path)
                 if not isinstance(recorded, str) or not recorded:
-                    errors.append(f"{rel_path}: helper check {name} missing target hash for {target_path}")
+                    errors.append(f"{rel_path}: helper check {check_name} missing target hash for {target_path}")
                 elif recorded != sha256_file(target_file):
-                    errors.append(f"{rel_path}: helper check {name} target hash is stale for {target_path}")
-        _validate_required_helper_freshness(name, item, rel_path, round_dir, errors)
+                    errors.append(f"{rel_path}: helper check {check_name} target hash is stale for {target_path}")
+        _validate_required_helper_freshness(check_name, item, rel_path, round_dir, errors)
     seen = {item.get("check") for item in helper_checks if isinstance(item, dict)}
     for check in sorted(set(helper_required_checks) - {item for item in seen if isinstance(item, str)}):
         errors.append(f"{rel_path}: missing manifest helper check record: {check}")
@@ -253,7 +270,7 @@ def required_checks_for_review_approval(
     checks = list(profile.required_checks)
     if (
         profile.profile == "opponent-report-review"
-        and report_calibration_review_basis_bound(round_dir, review_basis_path)
+        and report_calibration_review_basis_requires_check(round_dir, review_basis_path)
         and REPORT_CALIBRATION_REQUIRED_CHECK not in checks
     ):
         checks.append(REPORT_CALIBRATION_REQUIRED_CHECK)
@@ -271,7 +288,7 @@ def required_helper_targets_for_approval(name: str, round_dir: Path, approval_pa
         return set(report_calibration_check_targets(round_dir))
     if name == THESES_CHECKER_SUMMARY_REQUIRED_CHECK:
         return {THESES_CHECKER_SUMMARY_REL}
-    if name in {"check-opponent-report", "check-opponent-report:canonical"}:
+    if name == "check-opponent-report:canonical":
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if round_uses_theses_checker_summary(round_dir):
             targets.add(THESES_CHECKER_SUMMARY_REL)
@@ -464,7 +481,10 @@ def _require_hash_bound_path(
     if not isinstance(recorded_hash, str) or not recorded_hash:
         errors.append(f"{rel_path}: {hash_field} must be a non-empty string")
     elif recorded_hash != sha256_file(path):
-        errors.append(f"{rel_path}: {hash_field} is stale for {path_value}")
+        if hash_field == "review_basis_sha256":
+            errors.append(f"{rel_path}: review basis changed after approval; {hash_field} is stale for {path_value}")
+        else:
+            errors.append(f"{rel_path}: {hash_field} is stale for {path_value}")
     return path_value
 
 
@@ -527,6 +547,15 @@ def validate_review_approval_payload(
     if not isinstance(checks_observed, list):
         errors.append(f"{rel_path}: checks_observed must be a list")
     else:
+        string_checks = [item for item in checks_observed if isinstance(item, str)]
+        errors.extend(
+            f"{rel_path}: {error}"
+            for error in validate_helper_check_ids(
+                string_checks,
+                label="checks_observed",
+                allow_observed_only=True,
+            )
+        )
         for index, item in enumerate(checks_observed, start=1):
             if not isinstance(item, str) or not item.strip():
                 errors.append(f"{rel_path}: checks_observed item {index} must be a non-empty string")
@@ -534,6 +563,12 @@ def validate_review_approval_payload(
         review_basis = payload.get("review_basis_path")
         if profile is not None and isinstance(review_basis, str):
             required_checks = required_checks_for_review_approval(profile, round_dir, review_basis)
+            allowed_observed = set(required_checks)
+            for name in sorted(set(string_checks) - allowed_observed):
+                errors.append(
+                    f"{rel_path}: unexpected observed check {name}; expected one of: "
+                    f"{', '.join(sorted(allowed_observed))}"
+                )
             if (
                 REPORT_CALIBRATION_REQUIRED_CHECK in required_checks
                 and REPORT_CALIBRATION_REQUIRED_CHECK not in checks_observed

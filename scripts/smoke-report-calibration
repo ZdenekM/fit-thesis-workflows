@@ -121,4 +121,183 @@ fi
 grep -Fq "hash is stale for notes/opponent-report-operator-feedback.md" /tmp/check-report-calibration.out
 rm -f /tmp/check-report-calibration.out
 
+rm -f "$round_dir/work/report_calibration_basis.json"
+printf "# Operator feedback after limitation\n" >"$round_dir/notes/opponent-report-operator-feedback.md"
+printf "# Draft report\n" >"$round_dir/work/oponent_posudek_draft.md"
+printf "# Clean report\n" >"$round_dir/outputs/oponent_posudek_navrh.md"
+
+python3 - "$repo_root" "$round_dir" "$case_id" "$round_id" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+round_dir = Path(sys.argv[2])
+case_id = sys.argv[3]
+round_id = sys.argv[4]
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+operator_rel = "notes/opponent-report-operator-feedback.md"
+evidence_ref = "outputs/oponent_podklady_revidovane.md"
+is_item_ids = [
+    "assignment_difficulty",
+    "assignment_fulfillment",
+    "technical_report_scope",
+    "technical_report_presentation",
+    "technical_report_formal_level",
+    "literature_work",
+    "implementation_output",
+    "result_usability",
+    "overall_assessment",
+]
+profile_sources = [
+    {
+        "path": "profiles/default.md",
+        "sha256": sha(repo_root / "profiles/default.md"),
+    }
+]
+local_default = repo_root / "profiles/local/default.md"
+if local_default.is_file():
+    profile_sources.append({"path": "profiles/local/default.md", "sha256": sha(local_default)})
+trace = {
+    "schema_version": "opponent-report-trace-v2",
+    "case_id": case_id,
+    "round_id": round_id,
+    "generated_at": "2026-05-20T00:30:00Z",
+    "producer_type": "agent",
+    "producer_role": "thesis-opponent-materials-reviewer",
+    "producer_agent": "agent-a",
+    "authorization_note": "Synthetic smoke authorization.",
+    "source_refs": [evidence_ref, operator_rel],
+    "source_materials_path": evidence_ref,
+    "source_materials_sha256": sha(round_dir / evidence_ref),
+    "trace_review_status": "accepted",
+    "reviewer_role": "independent-opponent-report-trace-reviewer",
+    "reviewed_at": "2026-05-20T00:30:00Z",
+    "trace_generated_from": [evidence_ref],
+    "is_items": [
+        {
+            "item_id": item_id,
+            "title": item_id.replace("_", " "),
+            "formulation": "Draft-ready formulation.",
+            "evidence_refs": [evidence_ref],
+        }
+        for item_id in is_item_ids
+    ],
+    "defense_questions": [
+        {"question_id": "D1", "question": "Question?", "evidence_refs": [evidence_ref]},
+    ],
+    "pre_submission_checks": [
+        {"check_id": "C1", "instruction": "Manual check.", "evidence_refs": [evidence_ref]},
+    ],
+    "uncertainty_items": [
+        {
+            "claim_id": "U1",
+            "summary": "Runtime was not fully verified.",
+            "handling_instruction": "Preserve cautious wording.",
+            "source_refs": [evidence_ref],
+            "target_section_ids": ["overall_assessment"],
+            "report_refs": ["work/oponent_posudek_draft.md"],
+            "status": "carried_to_report",
+        }
+    ],
+    "assignment_fulfillment_map": {
+        "source_refs": [evidence_ref],
+        "points": [
+            {
+                "point_id": "assignment-point-1",
+                "summary": "Synthetic assignment point is partially evidenced.",
+                "fulfillment_state": "partially_fulfilled",
+                "evidence_strength": "direct",
+                "evidence_refs": [evidence_ref],
+                "report_impact": "Mention as a calibrated limitation.",
+            }
+        ],
+    },
+    "rubric_alignment": [
+        {
+            "item_id": item_id,
+            "criterion_scope": "Synthetic fixture checks the item independently.",
+            "evidence_refs": [evidence_ref],
+            "do_not_mix_with": ["overall_assessment"],
+            "wording_tone": "Evidence-bound and compact.",
+        }
+        for item_id in is_item_ids
+    ],
+    "report_claim_ledger": [
+        {
+            "claim_id": "claim-overall",
+            "target_item_id": "overall_assessment",
+            "summary": "Overall public wording is evidence-bound.",
+            "evidence_class": "reviewed_materials",
+            "evidence_strength": "direct",
+            "public_wording_mode": "direct",
+            "evidence_refs": [evidence_ref],
+        }
+    ],
+    "checked_scope": [
+        {"evidence_class": "reviewed_materials", "status": "checked", "source_refs": [evidence_ref], "limitations": []}
+    ],
+    "evidence_source_matrix": [
+        {
+            "claim_id": "claim-overall",
+            "source_class": "reviewed_materials",
+            "support_mode": "supports",
+            "source_refs": [evidence_ref],
+        }
+    ],
+    "technical_report_scope_basis": {
+        "status": "operator_accepted_limitation",
+        "wording_mode": "manual_check",
+        "evidence_refs": [evidence_ref],
+        "typed_limitation": {
+            "type": "checker_summary_not_available",
+            "description": "Synthetic smoke records manual acceptance.",
+            "accepted_by": "test-operator",
+        },
+    },
+    "strength_grade_tension": {
+        "strength_refs": [evidence_ref],
+        "limiting_factor_refs": [evidence_ref],
+        "grade_interval_rationale": "Synthetic grade interval follows the evidence ledger.",
+        "private_comment_focus": "No private comment in this fixture.",
+    },
+    "defense_question_strategy": [
+        {
+            "question_id": "D1",
+            "purpose": "Probe one evidence gap.",
+            "target_item_id": "overall_assessment",
+            "evidence_gap_or_tension": "Runtime confidence is limited.",
+            "single_focus": True,
+        }
+    ],
+    "report_calibration_limitation": {
+        "type": "no_applicable_profile_or_operator_calibration",
+        "calibration_scope": "opponent_report",
+        "reviewer_profile_id": "default",
+        "assessed_by": "agent",
+        "assessor_role": "thesis-opponent-materials-review",
+        "assessed_at": "2026-05-20T00:30:00Z",
+        "profile_sources": profile_sources,
+        "operator_calibration_sources": [
+            {
+                "path": operator_rel,
+                "sha256": sha(round_dir / operator_rel),
+            }
+        ],
+        "rationale": "Synthetic smoke found no applicable profile-specific or operator-calibration preference.",
+    },
+    "limitations": [],
+}
+(round_dir / "work/opponent_report_trace.json").write_text(
+    json.dumps(trace, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
+
+"$repo_root/scripts/check-report-calibration" "$case_id" "$round_id"
+
 echo "Report calibration smoke passed"

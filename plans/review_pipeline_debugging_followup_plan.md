@@ -442,7 +442,7 @@ ensure the existing `TODO.md` items still name them accurately.
 | Slice 1 | done | Serena inspected `structured_evidence.py`, `literature_source_acquisition.py`, and `theses_similarity.py`. Omen MCP returned zero files for scoped module/package paths but repo-root repomap worked and highlighted `structured_evidence.py`; reproducible `pants run :omen` passed with the existing grade-A baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` hit unrelated baseline formatter/lint changes outside Slice 1, so it was not used as slice evidence. |
 | Slice 2 | done | Serena inspected `review_materiality.py` and `review_wave_gate.py`. Omen MCP returned zero files for the scoped module path but repo-root repomap worked; reproducible `pants run :omen` passed with grade A / 90.48 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `pants test tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py`, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad `pants lint src/thesis_review_workflow:: tests::` again hit unrelated baseline formatter/lint changes outside Slice 2, so targeted lint is the slice evidence. |
 | Slice 3 | done | Serena inspected review-pipeline/packet/coverage surfaces during slice work. Omen MCP returned zero files for scoped module paths, so the slice used repo-root Omen evidence; reproducible `pants run :omen` passed with grade A / 90.24 and existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-opponent-materials`, `scripts/smoke-review-round-closeout`, targeted `pants test` for agent coverage, manifest helpers, role-plan orchestration, profile contracts, packet rendering, materiality, wave gates, and work artifacts, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad lint was not used as slice evidence because the earlier unrelated baseline lint/format drift remained outside this slice. |
-| Slice 4 | pending | Record before commit. | Pending. |
+| Slice 4 | done | Serena scoped symbol lookup found `validate_review_approval_payload` in `review_approvals.py`; earlier zero-result scoped lookups were treated as a tool limitation, not code evidence. Omen MCP was not available as scoped evidence in this session, so the slice used reproducible repo-root `pants run :omen`, which passed with grade A / 90.10 and the existing hotspot baseline. | `scripts/check-private`, `scripts/check-scripts`, `git diff --check`, `scripts/smoke-review-approval`, `scripts/smoke-register-review-artifact`, `scripts/smoke-report-calibration`, `scripts/smoke-review-manifest`, targeted `pants test` for approval, manifest helpers, wave gates, report calibration, artifact registry, role-plan orchestration, submitted reports, and agent profile contracts, `pants check src/thesis_review_workflow:: tests::`, touched-file `pants fmt`/`pants lint`, and `pants run :omen` passed. Broad lint was not used as slice evidence because the earlier unrelated baseline lint/format drift remained outside this slice. |
 | Slice 5 | pending | Record before commit. | Pending. |
 | Slice 6 | pending | Record before commit. | Pending. |
 
@@ -474,6 +474,13 @@ ensure the existing `TODO.md` items still name them accurately.
   assessment is valid for the active case/round and is hash-bound to the active
   workflow's current independently reviewed synthesis artifact through the
   `silent_internal_evidence:no_material_concern` manifest marker.
+- 2026-05-21: Slice 4 makes opponent-report helper provenance mode-specific:
+  generic `check-opponent-report` is rejected for manifest/check-ref and
+  approval evidence. `check-report-calibration` is required for both bound
+  calibration bases and validated typed no-applicable-calibration limitations.
+  The approval contract no longer keeps a parallel ad hoc human-report basis;
+  human edits must enter the canonical clean proposal/report-check path before
+  approval.
 
 ## Final Audit
 

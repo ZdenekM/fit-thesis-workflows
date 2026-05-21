@@ -209,6 +209,9 @@ Pro `opponent_report_review` musí observed checks obsahovat
 `work/report_calibration_basis.json`, musí záznam obsahovat také
 `check-report-calibration`; manifest a wave gate tento helper přidávají jen pro
 kalibrovaný draft/review report, ne pro reviewed-materials-only closeout.
+Generické `check-opponent-report` není platné manifest/check-ref ani approval
+ID; zapište vždy mode-specific `check-opponent-report:canonical` nebo
+`check-opponent-report:clean`, aby bylo jasné, jaký artefakt helper ověřil.
 Finální
 `check-review-wave --workflow opponent_report_review --wave final` běží až nad
 hotovým approval recordem, takže se do approval recordu nezapisuje jako jeho
@@ -268,8 +271,10 @@ defense questions, private comment, or report controls changed; regenerate the
 canonical draft with `draft-opponent-report --force`; rerun canonical checks;
 export a clean report; refresh the manifest; and rerun independent opponent
 report review. If the feedback is not applicable, record a typed limitation
-with current profile/operator source hashes instead of leaving an ambiguous
-profile-context-only state.
+with current profile/operator source hashes in `work/opponent_report_trace.json`
+and run `scripts/check-report-calibration`; that command succeeds only for a
+validated basis or a validated typed not-applicable limitation, not for an
+ambiguous profile-context-only state.
 
 Po přečtení podkladů a draftu může oponent zapsat připomínky do
 `notes/opponent-report-operator-feedback.md`. Autorizovaný agent nebo člověk je

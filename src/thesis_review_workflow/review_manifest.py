@@ -11,6 +11,7 @@ from thesis_review_workflow.artifact_registry import explicit_internal_review_fi
 from thesis_review_workflow.artifact_registry import output_defaults as registry_output_defaults
 from thesis_review_workflow.artifact_registry import output_spec
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL
+from thesis_review_workflow.helper_checks import helper_check_id_error
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import ArtifactRole
 from thesis_review_workflow.review_approvals import (
@@ -194,6 +195,9 @@ def validate_round_rel_values(label: str, values: list[str], *, allow_checks: bo
         if allow_checks and value.startswith("check-"):
             if not CHECK_ID_RE.fullmatch(value):
                 raise ValueError(f"{label} contains an invalid check id")
+            issue = helper_check_id_error(value)
+            if issue:
+                raise ValueError(f"{label} contains invalid helper check id {value}: {issue}")
             continue
         if not is_safe_round_relative_path(value):
             raise ValueError(f"{label} must contain only safe round-relative paths or check ids")

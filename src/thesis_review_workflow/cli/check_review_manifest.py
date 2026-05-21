@@ -28,6 +28,7 @@ from thesis_review_workflow.cli.context import (
     validate_id,
 )
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
+from thesis_review_workflow.helper_checks import helper_check_id_error
 from thesis_review_workflow.literature_source_acquisition import SOURCE_ACQUISITION_REL
 from thesis_review_workflow.opponent_calibration import calibration_profile_check_targets
 from thesis_review_workflow.paths import is_safe_round_relative_path
@@ -173,6 +174,10 @@ def check_ref_list(
             errors.append(f"{artifact_path}: {field} item {index} must be a non-empty string")
             continue
         if field == "check_refs":
+            issue = helper_check_id_error(ref)
+            if issue:
+                errors.append(f"{artifact_path}: check_refs item {index} is not a valid helper check id: {issue}")
+                continue
             if ref not in allowed_checks:
                 errors.append(f"{artifact_path}: check_refs item {index} is not a manifest helper check: {ref}")
             continue
@@ -305,7 +310,7 @@ def required_helper_targets(name: str, round_dir: Path) -> set[str]:
         return {"outputs/literature_citation_review.md", SOURCE_ACQUISITION_REL}
     if name == "check-report-calibration":
         return set(report_calibration_check_targets(round_dir))
-    if name in {"check-opponent-report", "check-opponent-report:canonical"}:
+    if name == "check-opponent-report:canonical":
         targets = {"work/opponent_report_trace.json", "outputs/oponent_podklady_revidovane.md"}
         if round_uses_report_calibration_basis(round_dir):
             targets.add(REPORT_CALIBRATION_BASIS_REL)
@@ -392,6 +397,9 @@ def check_helper_checks(
         if not isinstance(name, str) or not name:
             errors.append(f"helper_checks item {index}: missing check name")
             continue
+        issue = helper_check_id_error(name)
+        if issue:
+            errors.append(f"helper_checks {name}: {issue}")
         seen.add(name)
         if status not in KNOWN_CHECK_STATUSES:
             errors.append(f"helper_checks {name}: unknown status {status!r}")

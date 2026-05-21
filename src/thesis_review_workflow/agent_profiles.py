@@ -283,7 +283,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
             "work/opponent_report_trace.json",
             "work/reviews/opponent_materials_review.json",
         ),
-        required_validators=("scripts/check-opponent-materials", "scripts/check-opponent-report"),
+        required_validators=("scripts/check-opponent-materials", "scripts/check-opponent-report --mode canonical"),
     ),
     _route(
         role_source=".agents/skills/thesis-opponent-report-review/SKILL.md",
@@ -293,7 +293,12 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/feedback_k_posudku.md", "work/reviews/opponent_report_review.json"),
-        required_validators=("scripts/check-opponent-report",),
+        required_validators=(
+            "scripts/check-review-wave --workflow opponent_report --wave draft",
+            "scripts/check-opponent-report --mode canonical",
+            "scripts/check-opponent-report --mode clean --path outputs/oponent_posudek_navrh.md",
+            "scripts/check-report-calibration when basis is bound or typed not-applicable limitation exists",
+        ),
     ),
     _route(
         role_source="AGENTS.md:standalone-evidence-calibration",

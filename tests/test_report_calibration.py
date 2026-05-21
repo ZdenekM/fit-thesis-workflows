@@ -2,11 +2,19 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from thesis_review_workflow.cli import check_report_calibration
 from thesis_review_workflow.report_calibration import (
+    REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE,
+    REPORT_CALIBRATION_APPLICABILITY_UNBOUND,
     REPORT_CALIBRATION_BASIS_REL,
+    REPORT_CALIBRATION_NOT_APPLICABLE_LIMITATION_TYPE,
+    report_calibration_applicability,
+    report_calibration_check_targets,
+    report_calibration_dependency_files,
     validate_report_calibration_artifact,
     validate_report_calibration_payload,
 )
+from thesis_review_workflow.structured_evidence import OPPONENT_REPORT_TRACE_REL, REQUIRED_OPPONENT_IS_ITEM_IDS
 from thesis_review_workflow.work_artifacts import sha256_file
 
 
@@ -25,7 +33,9 @@ def repo_round(tmp_path: Path) -> tuple[Path, Path]:
     (repo / "src" / "thesis_review_workflow").mkdir(parents=True)
     write_text(repo / "profiles" / "default.md", "# Default profile\n\n## Opponent Report Style\n")
     round_dir = repo / "cases" / "case-a" / "rounds" / "round-a"
+    write_text(repo / "cases" / "case-a" / "case.md", "Reviewer profile: default\n")
     write_text(round_dir / "notes" / "opponent-report-operator-feedback.md", "# Operator feedback\n")
+    write_text(round_dir / "work" / "oponent_posudek_draft.md", "# Draft report\n")
     write_text(round_dir / "outputs" / "oponent_podklady_revidovane.md", "# Materials\n")
     return repo, round_dir
 
@@ -86,6 +96,168 @@ def valid_payload(repo: Path, round_dir: Path) -> dict[str, object]:
             "defense_question_count": {"min": 1, "max": 3},
             "public_report_length": "compact",
             "private_comment_required": True,
+        },
+        "limitations": [],
+    }
+
+
+def report_trace_quality_controls() -> dict[str, object]:
+    evidence_ref = "outputs/oponent_podklady_revidovane.md"
+    claim_id = "claim-overall"
+    return {
+        "assignment_fulfillment_map": {
+            "source_refs": [evidence_ref],
+            "points": [
+                {
+                    "point_id": "assignment-point-1",
+                    "summary": "Synthetic assignment point is partially evidenced.",
+                    "fulfillment_state": "partially_fulfilled",
+                    "evidence_strength": "direct",
+                    "evidence_refs": [evidence_ref],
+                    "report_impact": "Mention as a calibrated limitation.",
+                }
+            ],
+        },
+        "rubric_alignment": [
+            {
+                "item_id": item_id,
+                "criterion_scope": "Synthetic fixture checks the item independently.",
+                "evidence_refs": [evidence_ref],
+                "do_not_mix_with": ["overall_assessment"],
+                "wording_tone": "Evidence-bound and compact.",
+            }
+            for item_id in sorted(REQUIRED_OPPONENT_IS_ITEM_IDS)
+        ],
+        "report_claim_ledger": [
+            {
+                "claim_id": claim_id,
+                "target_item_id": "overall_assessment",
+                "summary": "Overall public wording is evidence-bound.",
+                "evidence_class": "reviewed_materials",
+                "evidence_strength": "direct",
+                "public_wording_mode": "direct",
+                "evidence_refs": [evidence_ref],
+            }
+        ],
+        "checked_scope": [
+            {
+                "evidence_class": "reviewed_materials",
+                "status": "checked",
+                "source_refs": [evidence_ref],
+                "limitations": [],
+            }
+        ],
+        "evidence_source_matrix": [
+            {
+                "claim_id": claim_id,
+                "source_class": "reviewed_materials",
+                "support_mode": "supports",
+                "source_refs": [evidence_ref],
+            }
+        ],
+        "technical_report_scope_basis": {
+            "status": "operator_accepted_limitation",
+            "wording_mode": "manual_check",
+            "evidence_refs": [evidence_ref],
+            "typed_limitation": {
+                "type": "checker_summary_not_available",
+                "description": "Synthetic fixture records manual acceptance instead of a Theses Checker summary.",
+                "accepted_by": "test-operator",
+            },
+        },
+        "strength_grade_tension": {
+            "strength_refs": [evidence_ref],
+            "limiting_factor_refs": [evidence_ref],
+            "grade_interval_rationale": "Synthetic grade interval follows the evidence ledger.",
+            "private_comment_focus": "No private comment in this fixture.",
+        },
+        "defense_question_strategy": [
+            {
+                "question_id": "D1",
+                "purpose": "Probe one evidence gap.",
+                "target_item_id": "overall_assessment",
+                "evidence_gap_or_tension": "Runtime confidence is limited.",
+                "single_focus": True,
+            }
+        ],
+    }
+
+
+def valid_not_applicable_trace(repo: Path, round_dir: Path) -> dict[str, object]:
+    materials_hash = sha256_file(round_dir / "outputs" / "oponent_podklady_revidovane.md")
+    operator_rel = "notes/opponent-report-operator-feedback.md"
+    profile_rel = "profiles/default.md"
+    return {
+        "schema_version": "opponent-report-trace-v2",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-05-20T00:00:00Z",
+        "producer_type": "agent",
+        "producer_role": "thesis-opponent-materials-reviewer",
+        "producer_agent": "agent-a",
+        "authorization_note": "Synthetic test authorization.",
+        "source_refs": ["outputs/oponent_podklady_revidovane.md", operator_rel],
+        "source_materials_path": "outputs/oponent_podklady_revidovane.md",
+        "source_materials_sha256": materials_hash,
+        "trace_review_status": "accepted",
+        "reviewer_role": "independent-opponent-report-trace-reviewer",
+        "reviewed_at": "2026-05-20T00:00:00Z",
+        "trace_generated_from": ["outputs/oponent_podklady_revidovane.md"],
+        "is_items": [
+            {
+                "item_id": item_id,
+                "title": item_id.replace("_", " "),
+                "formulation": "Draft-ready formulation.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+            for item_id in sorted(REQUIRED_OPPONENT_IS_ITEM_IDS)
+        ],
+        "defense_questions": [
+            {
+                "question_id": "D1",
+                "question": "Which evidence gap should the student explain?",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "pre_submission_checks": [
+            {
+                "check_id": "C1",
+                "instruction": "Check final IS controls manually.",
+                "evidence_refs": ["outputs/oponent_podklady_revidovane.md"],
+            }
+        ],
+        "uncertainty_items": [
+            {
+                "claim_id": "U1",
+                "summary": "Runtime was not fully verified.",
+                "handling_instruction": "Preserve cautious wording in the overall assessment.",
+                "source_refs": ["outputs/oponent_podklady_revidovane.md"],
+                "target_section_ids": ["overall_assessment"],
+                "report_refs": ["work/oponent_posudek_draft.md"],
+                "status": "carried_to_report",
+            }
+        ],
+        **report_trace_quality_controls(),
+        "report_calibration_limitation": {
+            "type": REPORT_CALIBRATION_NOT_APPLICABLE_LIMITATION_TYPE,
+            "calibration_scope": "opponent_report",
+            "reviewer_profile_id": "default",
+            "assessed_by": "agent",
+            "assessor_role": "thesis-opponent-materials-review",
+            "assessed_at": "2026-05-20T00:00:00Z",
+            "profile_sources": [
+                {
+                    "path": profile_rel,
+                    "sha256": sha256_file(repo / profile_rel),
+                }
+            ],
+            "operator_calibration_sources": [
+                {
+                    "path": operator_rel,
+                    "sha256": sha256_file(round_dir / operator_rel),
+                }
+            ],
+            "rationale": "Synthetic reviewer found no applicable profile-specific or operator-calibration preference.",
         },
         "limitations": [],
     }
@@ -164,7 +336,9 @@ def test_report_calibration_rejects_profile_prose_as_round_ref(tmp_path: Path) -
 
     errors = validate_report_calibration_payload(payload, round_dir=round_dir, require_existing_refs=False)
 
-    assert any("ref must be relative under inputs/, extracted/, notes/, work/, or outputs/" in error for error in errors)
+    assert any(
+        "ref must be relative under inputs/, extracted/, notes/, work/, or outputs/" in error for error in errors
+    )
 
 
 def test_report_calibration_rejects_invalid_expected_controls(tmp_path: Path) -> None:
@@ -231,7 +405,10 @@ def test_report_calibration_rejects_non_effective_profile_sources(tmp_path: Path
         expected_profile_source_paths=["profiles/default.md"],
     )
 
-    assert any("profile_sources includes non-effective reviewer profile source profiles/local/other.md" in error for error in errors)
+    assert any(
+        "profile_sources includes non-effective reviewer profile source profiles/local/other.md" in error
+        for error in errors
+    )
 
     payload["reviewer_profile_id"] = "other"
     profile_errors = validate_report_calibration_payload(
@@ -243,3 +420,80 @@ def test_report_calibration_rejects_non_effective_profile_sources(tmp_path: Path
     )
 
     assert any("reviewer_profile_id does not match case Reviewer profile" in error for error in profile_errors)
+
+
+def test_report_calibration_applicability_accepts_typed_not_applicable_limitation(tmp_path: Path) -> None:
+    _repo, round_dir = repo_round(tmp_path)
+    write_json(
+        round_dir / OPPONENT_REPORT_TRACE_REL,
+        {
+            "report_calibration_limitation": {
+                "type": REPORT_CALIBRATION_NOT_APPLICABLE_LIMITATION_TYPE,
+                "calibration_scope": "opponent_report",
+            }
+        },
+    )
+
+    assert report_calibration_applicability(round_dir) == REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE
+
+
+def test_report_calibration_applicability_is_unbound_without_basis_or_limitation(tmp_path: Path) -> None:
+    _repo, round_dir = repo_round(tmp_path)
+
+    assert report_calibration_applicability(round_dir) == REPORT_CALIBRATION_APPLICABILITY_UNBOUND
+
+
+def test_check_report_calibration_accepts_valid_not_applicable_trace(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    repo, round_dir = repo_round(tmp_path)
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, valid_not_applicable_trace(repo, round_dir))
+    monkeypatch.setattr(check_report_calibration, "repo_root", lambda: repo)
+
+    result = check_report_calibration.main(["case-a", "round-a"])
+
+    assert result == 0
+    assert "not applicable" in capsys.readouterr().out
+
+
+def test_check_report_calibration_rejects_invalid_not_applicable_trace(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo, round_dir = repo_round(tmp_path)
+    payload = valid_not_applicable_trace(repo, round_dir)
+    limitation = cast(dict[str, object], payload["report_calibration_limitation"])
+    limitation.pop("assessed_by")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, payload)
+    monkeypatch.setattr(check_report_calibration, "repo_root", lambda: repo)
+
+    result = check_report_calibration.main(["case-a", "round-a"])
+
+    assert result == 1
+    assert "report_calibration_limitation: assessed_by must be one of" in capsys.readouterr().err
+
+
+def test_report_calibration_not_applicable_targets_and_dependencies(tmp_path: Path) -> None:
+    repo, round_dir = repo_round(tmp_path)
+    write_text(round_dir / "outputs" / "oponent_posudek_navrh.md", "# Clean report\n")
+    write_json(round_dir / OPPONENT_REPORT_TRACE_REL, valid_not_applicable_trace(repo, round_dir))
+
+    assert report_calibration_check_targets(round_dir) == [
+        "work/opponent_report_trace.json",
+        "notes/opponent-report-operator-feedback.md",
+    ]
+    dependencies = dict(report_calibration_dependency_files(round_dir))
+
+    assert dependencies["repo:profiles/default.md"] == repo / "profiles/default.md"
+    assert dependencies["round:notes/opponent-report-operator-feedback.md"] == (
+        round_dir / "notes/opponent-report-operator-feedback.md"
+    )
+
+
+def test_check_report_calibration_rejects_unbound_round(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo, _round_dir = repo_round(tmp_path)
+    monkeypatch.setattr(check_report_calibration, "repo_root", lambda: repo)
+
+    result = check_report_calibration.main(["case-a", "round-a"])
+
+    assert result == 1
+    assert "report calibration basis is not bound" in capsys.readouterr().err

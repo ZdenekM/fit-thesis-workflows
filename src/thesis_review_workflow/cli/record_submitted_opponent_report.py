@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
             summary="Recorded submitted opponent report PDF, extracted public text, and archive-readiness record.",
             command=f"record-submitted-opponent-report {args.case_id} {round_id}",
             artifacts=[pdf_rel, public_text_rel, OPPONENT_REPORT_SUBMITTED_RECORD_REL],
-            checks=["check-opponent-report"],
+            checks=["check-opponent-report:clean"],
         )
     except (OSError, ValueError) as exc:
         if "round_dir" in locals() and not args.force:

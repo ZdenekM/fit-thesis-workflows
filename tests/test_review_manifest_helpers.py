@@ -64,6 +64,45 @@ def test_helper_dependency_hashes_include_report_calibration_basis_when_trace_bo
     assert hashes["round:work/report_calibration_basis.json"] == sha256_file(basis)
 
 
+def test_helper_dependency_hashes_include_not_applicable_calibration_sources(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    round_dir = repo / "cases" / "case-a" / "rounds" / "round-a"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    profile = repo / "profiles" / "default.md"
+    note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    for path, text in (
+        (profile, "# Profile\n"),
+        (note, "# Operator note\n"),
+    ):
+        path.parent.mkdir(parents=True)
+        path.write_text(text, encoding="utf-8")
+    trace.parent.mkdir(parents=True)
+    trace.write_text(
+        json.dumps(
+            {
+                "report_calibration_limitation": {
+                    "type": "no_applicable_profile_or_operator_calibration",
+                    "calibration_scope": "opponent_report",
+                    "profile_sources": [{"path": "profiles/default.md", "sha256": sha256_file(profile)}],
+                    "operator_calibration_sources": [
+                        {
+                            "path": "notes/opponent-report-operator-feedback.md",
+                            "sha256": sha256_file(note),
+                        }
+                    ],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    hashes = helper_dependency_hashes(round_dir, "check-report-calibration")
+
+    assert hashes["repo:profiles/default.md"] == sha256_file(profile)
+    assert hashes["round:notes/opponent-report-operator-feedback.md"] == sha256_file(note)
+
+
 def test_helper_dependency_hashes_include_theses_checker_summary_when_trace_bound(tmp_path: Path) -> None:
     round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
     trace = round_dir / "work" / "opponent_report_trace.json"
@@ -264,7 +303,7 @@ def test_review_manifest_validates_artifact_refs_against_manifest_records(tmp_pa
         "evidence_refs item 1 is not recorded in manifest supporting_work_artifacts/artifacts" in error
         for error in errors
     )
-    assert any("check_refs item 1 is not a manifest helper check" in error for error in errors)
+    assert any("check_refs item 1 is not a valid helper check id" in error for error in errors)
 
 
 def test_review_manifest_validates_known_output_metadata_against_registry(tmp_path: Path) -> None:
@@ -534,6 +573,58 @@ def test_init_manifest_adds_report_calibration_check_for_bound_report(tmp_path: 
     assert calibration["command"] == "check-report-calibration case-a round-a"
 
 
+def test_init_manifest_adds_report_calibration_check_for_not_applicable_trace(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    round_dir = repo / "cases" / "case-a" / "rounds" / "round-a"
+    clean = round_dir / "outputs" / "oponent_posudek_navrh.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    profile = repo / "profiles" / "default.md"
+    note = round_dir / "notes" / "opponent-report-operator-feedback.md"
+    for path, text in (
+        (clean, "# Clean\n"),
+        (profile, "# Profile\n"),
+        (note, "# Operator note\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    trace.parent.mkdir(parents=True, exist_ok=True)
+    trace.write_text(
+        json.dumps(
+            {
+                "report_calibration_limitation": {
+                    "type": "no_applicable_profile_or_operator_calibration",
+                    "calibration_scope": "opponent_report",
+                    "profile_sources": [{"path": "profiles/default.md", "sha256": sha256_file(profile)}],
+                    "operator_calibration_sources": [
+                        {
+                            "path": "notes/opponent-report-operator-feedback.md",
+                            "sha256": sha256_file(note),
+                        }
+                    ],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    checks = required_checks(
+        "case-a",
+        "round-a",
+        {"outputs/oponent_posudek_navrh.md"},
+        round_dir,
+        {},
+    )
+
+    calibration = next(item for item in checks if item["check"] == "check-report-calibration")
+
+    assert calibration["target_artifacts"] == [
+        "work/opponent_report_trace.json",
+        "notes/opponent-report-operator-feedback.md",
+    ]
+    assert calibration["dependency_sha256"]["repo:profiles/default.md"] == sha256_file(profile)
+
+
 def test_run_check_record_executes_generated_logical_command(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
@@ -602,6 +693,59 @@ def test_review_manifest_requires_opponent_report_trace_check_target(tmp_path: P
         "helper_checks check-opponent-report:canonical: missing required target artifact "
         "work/opponent_report_trace.json" in errors
     )
+
+
+def test_review_manifest_rejects_generic_opponent_report_helper_id(tmp_path: Path) -> None:
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    errors: list[str] = []
+
+    check_helper_checks(
+        [
+            {
+                "check": "check-opponent-report",
+                "command": "check-opponent-report case-a round-a",
+                "target_artifacts": [],
+                "target_sha256": {},
+                "status": "passed",
+                "checked_at": "2026-05-07T00:00:00Z",
+                "exit_code": 0,
+            }
+        ],
+        {"check-opponent-report"},
+        round_dir,
+        True,
+        errors,
+        [],
+    )
+
+    assert any("generic check-opponent-report is ambiguous" in error for error in errors)
+
+
+def test_register_review_artifact_rejects_generic_opponent_report_check_ref(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    output = round_dir / "outputs" / "feedback_k_posudku.md"
+    output.parent.mkdir(parents=True)
+    output.write_text("# Report review\n", encoding="utf-8")
+    monkeypatch.setattr(register_review_artifact, "repo_root", lambda: root)
+
+    result = register_review_artifact.main(
+        [
+            "case-a",
+            "round-a",
+            "outputs/feedback_k_posudku.md",
+            "--check-ref",
+            "check-opponent-report",
+        ]
+    )
+
+    assert result == 1
+    assert "generic check-opponent-report is ambiguous" in capsys.readouterr().out
+    assert not (round_dir / "work" / "review_manifest.json").exists()
 
 
 def test_review_manifest_requires_clean_opponent_report_target(tmp_path: Path) -> None:

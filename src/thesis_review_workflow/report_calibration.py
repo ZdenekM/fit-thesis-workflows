@@ -13,11 +13,20 @@ from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPORT_CALIBRATION_BASIS_REL = "work/report_calibration_basis.json"
 REPORT_CALIBRATION_BASIS_SCHEMA = "report-calibration-basis-v1"
+REPORT_CALIBRATION_NOT_APPLICABLE_LIMITATION_TYPE = "no_applicable_profile_or_operator_calibration"
+REPORT_CALIBRATION_APPLICABILITY_BOUND = "bound"
+REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE = "not_applicable"
+REPORT_CALIBRATION_APPLICABILITY_UNBOUND = "unbound"
+REPORT_CALIBRATION_TRACE_REL = "work/opponent_report_trace.json"
 REPORT_CALIBRATION_BOUND_REPORT_RELS = (
     "work/oponent_posudek_draft.md",
     "outputs/oponent_posudek_navrh.md",
 )
 REPORT_CALIBRATION_REVIEW_OUTPUT_REL = "outputs/feedback_k_posudku.md"
+REPORT_CALIBRATION_CHECKABLE_REPORT_RELS = (
+    *REPORT_CALIBRATION_BOUND_REPORT_RELS,
+    REPORT_CALIBRATION_REVIEW_OUTPUT_REL,
+)
 REPORT_CALIBRATION_SOURCE_PATHS = (
     "notes/opponent-report-operator-feedback.md",
     "notes/opponent-report-review-intake.md",
@@ -101,7 +110,7 @@ def is_report_calibration_basis_path(rel_path: str) -> bool:
 def round_uses_report_calibration_basis(round_dir: Path) -> bool:
     if (round_dir / REPORT_CALIBRATION_BASIS_REL).is_file():
         return True
-    trace_path = round_dir / "work" / "opponent_report_trace.json"
+    trace_path = round_dir / REPORT_CALIBRATION_TRACE_REL
     try:
         trace = json.loads(trace_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -114,20 +123,57 @@ def round_uses_report_calibration_basis(round_dir: Path) -> bool:
     )
 
 
-def report_calibration_check_required(round_dir: Path) -> bool:
-    if not round_uses_report_calibration_basis(round_dir):
+def trace_records_report_calibration_not_applicable(round_dir: Path) -> bool:
+    if round_uses_report_calibration_basis(round_dir):
         return False
-    return any(
-        (round_dir / rel_path).is_file()
-        for rel_path in (*REPORT_CALIBRATION_BOUND_REPORT_RELS, REPORT_CALIBRATION_REVIEW_OUTPUT_REL)
+    limitation = _report_calibration_limitation(round_dir)
+    if not isinstance(limitation, dict):
+        return False
+    return (
+        limitation.get("type") == REPORT_CALIBRATION_NOT_APPLICABLE_LIMITATION_TYPE
+        and limitation.get("calibration_scope") == CALIBRATION_SCOPE
     )
+
+
+def report_calibration_applicability(round_dir: Path) -> str:
+    if round_uses_report_calibration_basis(round_dir):
+        return REPORT_CALIBRATION_APPLICABILITY_BOUND
+    if trace_records_report_calibration_not_applicable(round_dir):
+        return REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE
+    return REPORT_CALIBRATION_APPLICABILITY_UNBOUND
+
+
+def report_calibration_check_required(round_dir: Path) -> bool:
+    if report_calibration_applicability(round_dir) not in {
+        REPORT_CALIBRATION_APPLICABILITY_BOUND,
+        REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE,
+    }:
+        return False
+    return any((round_dir / rel_path).is_file() for rel_path in REPORT_CALIBRATION_CHECKABLE_REPORT_RELS)
 
 
 def report_calibration_review_basis_bound(round_dir: Path, rel_path: str) -> bool:
     return round_uses_report_calibration_basis(round_dir) and rel_path in REPORT_CALIBRATION_BOUND_REPORT_RELS
 
 
+def report_calibration_review_basis_requires_check(round_dir: Path, rel_path: str) -> bool:
+    if rel_path not in REPORT_CALIBRATION_BOUND_REPORT_RELS:
+        return False
+    return report_calibration_applicability(round_dir) in {
+        REPORT_CALIBRATION_APPLICABILITY_BOUND,
+        REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE,
+    }
+
+
 def report_calibration_check_targets(round_dir: Path) -> list[str]:
+    if report_calibration_applicability(round_dir) == REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE:
+        targets = [REPORT_CALIBRATION_TRACE_REL]
+        limitation = _report_calibration_limitation(round_dir)
+        if isinstance(limitation, dict):
+            targets.extend(_round_paths_from_source_records(limitation.get("operator_calibration_sources")))
+        return list(dict.fromkeys(targets))
+    if report_calibration_applicability(round_dir) != REPORT_CALIBRATION_APPLICABILITY_BOUND:
+        return []
     targets = [REPORT_CALIBRATION_BASIS_REL]
     for rel_path in REPORT_CALIBRATION_BOUND_REPORT_RELS:
         if (round_dir / rel_path).is_file():
@@ -136,6 +182,18 @@ def report_calibration_check_targets(round_dir: Path) -> list[str]:
 
 
 def report_calibration_dependency_files(round_dir: Path) -> list[tuple[str, Path]]:
+    if report_calibration_applicability(round_dir) == REPORT_CALIBRATION_APPLICABILITY_NOT_APPLICABLE:
+        limitation = _report_calibration_limitation(round_dir)
+        if not isinstance(limitation, dict):
+            return []
+        repo_root = _repo_root_for_round(round_dir)
+        limitation_paths: list[tuple[str, Path]] = []
+        if repo_root is not None:
+            for rel_path in _profile_paths_from_source_records(limitation.get("profile_sources")):
+                limitation_paths.append((f"repo:{rel_path}", repo_root / rel_path))
+        for rel_path in _round_paths_from_source_records(limitation.get("operator_calibration_sources")):
+            limitation_paths.append((f"round:{rel_path}", round_dir / rel_path))
+        return limitation_paths
     try:
         loaded = json.loads((round_dir / REPORT_CALIBRATION_BASIS_REL).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -151,6 +209,44 @@ def report_calibration_dependency_files(round_dir: Path) -> list[tuple[str, Path
     for rel_path in report_calibration_source_refs(loaded):
         if _is_allowed_round_ref(rel_path):
             paths.append((f"round:{rel_path}", round_dir / rel_path))
+    return paths
+
+
+def _report_calibration_limitation(round_dir: Path) -> dict[str, Any] | None:
+    trace_path = round_dir / REPORT_CALIBRATION_TRACE_REL
+    try:
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(trace, dict):
+        return None
+    limitation = trace.get("report_calibration_limitation")
+    return limitation if isinstance(limitation, dict) else None
+
+
+def _profile_paths_from_source_records(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    paths: list[str] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rel_path = item.get("path")
+        if isinstance(rel_path, str) and _is_allowed_profile_path(rel_path):
+            paths.append(rel_path)
+    return paths
+
+
+def _round_paths_from_source_records(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    paths: list[str] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rel_path = item.get("path")
+        if isinstance(rel_path, str) and _is_allowed_round_ref(rel_path):
+            paths.append(rel_path)
     return paths
 
 

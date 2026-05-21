@@ -158,7 +158,6 @@ WORKFLOW_REVIEW_PROFILES: tuple[WorkflowReviewProfile, ...] = (
         draft_artifacts=(
             "outputs/oponent_posudek_navrh.md",
             "work/oponent_posudek_draft.md",
-            "work/muj_posudek_draft.md",
         ),
         approval_record="work/reviews/opponent_report_review.json",
         final_review_role="opponent_report_review",

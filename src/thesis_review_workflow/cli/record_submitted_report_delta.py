@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
             summary="Recorded submitted opponent report public-form delta classification.",
             command=f"record-submitted-report-delta {args.case_id} {round_id}",
             artifacts=[OPPONENT_REPORT_SUBMITTED_RECORD_REL, OPPONENT_REPORT_DELTAS_REL],
-            checks=["check-opponent-report"],
+            checks=["check-opponent-report:clean"],
         )
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -29,17 +29,16 @@ work/oponent_posudek_draft.md
 work/opponent_report_trace.json
 work/report_calibration_basis.json
 work/theses_checker_summary.json
-work/muj_posudek_draft.md
 ```
 
 If `outputs/oponent_posudek_navrh.md` exists, treat it as the primary report
-text to review. The only exception is an externally supplied human report that
-the user explicitly identifies as the current report text; record that exact
-round-relative path as the review basis and do not imply that the clean-proposal
-route was validated. When revising an exported proposal, write findings or a
-revision request first; a parent agent or human must update the trace/canonical
-draft, rerun canonical validation, export a new clean proposal, rerun clean
-validation, and then reopen independent report review. `work/oponent_posudek_draft.md`
+text to review. If the user supplies a human report outside the canonical export
+route, first copy or transform it into the canonical clean proposal path and run
+the clean report check; do not keep a parallel report-basis path for approval.
+When revising an exported proposal, write findings or a revision request first;
+a parent agent or human must update the trace/canonical draft, rerun canonical
+validation, export a new clean proposal, rerun clean validation, and then reopen
+independent report review. `work/oponent_posudek_draft.md`
 is the trace-bound canonical source: it must contain concrete points and grade, must match the current
 `work/opponent_report_trace.json` and `outputs/oponent_podklady_revidovane.md`
 hashes, and must pass `scripts/check-opponent-report --mode canonical <case-id>
@@ -122,6 +121,9 @@ canonical <case-id> [round-id]`, then `scripts/export-opponent-report <case-id>
 [round-id]`, then `scripts/check-opponent-report --mode clean <case-id>
 [round-id]`. If `work/report_calibration_basis.json` is present or the trace
 binds it, also run `scripts/check-report-calibration <case-id> [round-id]`.
+When the trace records a typed no-applicable-calibration limitation instead of a
+basis, `scripts/check-report-calibration` is still the gate that validates that
+limitation. Do not treat a profile-context-only state as calibrated.
 Treat failures as draft/export/calibration issues to fix or explicitly return to
 the user before IS submission. Do not review an uncalibrated helper draft as if
 it were a final human report.
@@ -144,7 +146,7 @@ verification, contradiction checks, or contested report wording.
 
 This skill is the independent review pass for a human-drafted or exported opponent report. If agent authorization is missing, ask before writing final sendable review feedback. Reviewer agents should not directly edit `outputs/oponent_posudek_navrh.md` unless the parent explicitly assigns a rewrite artifact; the normal correction path is feedback or revision-request evidence, followed by parent/human updates to the canonical draft, re-export, and a fresh independent review. If an agent does rewrite report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
 
-After writing or revising `outputs/feedback_k_posudku.md`, use `scripts/write-review-approval --profile opponent-report-review` to write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/muj_posudek_draft.md` / another explicit round-relative draft when the user supplied that as the current human report. Include `check-opponent-report:canonical`, `check-opponent-report:clean`, and `check-review-wave.opponent-report.draft` in observed checks when the clean proposal comes from the canonical draft. Include `check-report-calibration` as well when the reviewed basis is a report bound to `work/report_calibration_basis.json`. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
+After writing or revising `outputs/feedback_k_posudku.md`, use `scripts/write-review-approval --profile opponent-report-review` to write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/oponent_posudek_draft.md` only before the clean proposal exists. Include `check-opponent-report:canonical`, `check-opponent-report:clean`, and `check-review-wave.opponent-report.draft` in observed checks when the clean proposal comes from the canonical draft; never record the ambiguous generic `check-opponent-report` ID. Include `check-report-calibration` as well when the reviewed basis is a report bound to `work/report_calibration_basis.json` or when the trace records a typed no-applicable-calibration limitation that `scripts/check-report-calibration` validates. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
 
 After actual IS submission, record the public PDF export with `scripts/record-submitted-opponent-report --pdf <pdf> --public-text-file <public-transcript.md> --recorded-by <name> <case-id> [round-id]`. The public transcript should preserve the clean-report Markdown sections; if omitted, the helper only attempts raw `pdftotext -layout` and must not treat an unparsed IS PDF layout as archive-ready. The command may write a non-archive-ready capture when public text differs from the reviewed clean proposal. If the difference is a bounded non-material IS-entry edit, record every changed public section with `scripts/record-submitted-report-delta`; changes to selectbox values, category points, overall points/grade, or defense questions reopen this review path instead of being accepted as archive drift. The private student comment remains bound to the reviewed clean proposal; do not infer it from the public PDF export.
 

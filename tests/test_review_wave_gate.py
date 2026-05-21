@@ -424,6 +424,55 @@ def test_wave_gate_runs_report_calibration_check_for_bound_report(monkeypatch, t
     assert ("check-report-calibration",) in seen
 
 
+def test_wave_gate_runs_report_calibration_check_for_not_applicable_trace(monkeypatch, tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    draft = round_dir / "work" / "oponent_posudek_draft.md"
+    trace = round_dir / "work" / "opponent_report_trace.json"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+    trace.write_text(
+        '{"report_calibration_limitation": {"type": "no_applicable_profile_or_operator_calibration", '
+        '"calibration_scope": "opponent_report"}}\n',
+        encoding="utf-8",
+    )
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="figure_media",
+                recommendation="not_material",
+                scope="synthetic",
+                impact="none",
+                reason="no visual evidence in this synthetic wave",
+                source_refs=("workflow-profile:opponent_review",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="opponent_review",
+        phase="final",
+        generated_at="2026-05-20T00:00:00Z",
+    )
+    seen: list[tuple[str, ...]] = []
+
+    def fake_run_check_command(root, args, *, case_id, round_id, role, required, result):
+        seen.append(tuple(args))
+        result.passed.append(f"{role}: checker passed: {' '.join(args)}")
+
+    monkeypatch.setattr(review_wave_gate, "run_check_command", fake_run_check_command)
+
+    result = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("opponent-report", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert result.errors == []
+    assert ("check-report-calibration",) in seen
+
+
 def test_report_review_final_wave_requires_observed_report_calibration_check(monkeypatch, tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     report_review = round_dir / "outputs" / "feedback_k_posudku.md"
