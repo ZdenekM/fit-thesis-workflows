@@ -1,6 +1,6 @@
 # Review Pipeline Debugging Follow-Up Plan
 
-Status: active
+Status: done
 Created: 2026-05-21
 Reviewed: 2026-05-21
 
@@ -502,19 +502,46 @@ ensure the existing `TODO.md` items still name them accurately.
 
 ## Final Audit
 
-Not run yet. Before archiving this plan, record:
+Run on 2026-05-21 before archiving:
 
-```bash
-scripts/check-private
-scripts/check-scripts
-git diff --check
-pants fmt ::
-pants lint src/thesis_review_workflow:: tests:: scripts::
-pants check src/thesis_review_workflow:: tests:: scripts::
-pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py tests/test_agent_coverage.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_report_calibration.py tests/test_refresh_round_hashes.py tests/test_review_delta.py tests/test_review_round_closeout.py
-pants run :omen
-```
+- Passed: `scripts/check-private`.
+- Passed: `scripts/check-scripts`.
+- Passed: `git diff --check`.
+- Passed with formatting changes retained in the final archive commit:
+  `pants fmt ::` (`tests/test_supervisor_report_packets.py` import order and
+  `scripts/smoke-refresh-round-hashes` shfmt layout).
+- Partial: `pants lint src/thesis_review_workflow:: tests:: scripts::`.
+  Black, isort, flake8, shfmt, and most shellcheck partitions passed, but
+  shellcheck still reports unrelated baseline info findings in
+  `scripts/smoke-opponent-packets` and `scripts/smoke-opponent-report`.
+- Passed: `pants check src/thesis_review_workflow:: tests:: scripts::`.
+- Passed: `pants test tests/test_literature_citation_checker.py tests/test_theses_similarity.py tests/test_review_materiality.py tests/test_review_wave_gate.py tests/test_review_pipeline_orchestration.py tests/test_agent_coverage.py tests/test_review_manifest_helpers.py tests/test_review_approvals.py tests/test_report_calibration.py tests/test_refresh_round_hashes.py tests/test_review_delta.py tests/test_review_round_closeout.py tests/test_supervisor_report_packets.py`.
+- Passed: `pants run :omen` with grade A / overall score 90.12 and the
+  existing hotspot baseline.
+- Pre-archive tracked status contained only `TODO.md`, this archived plan,
+  `scripts/smoke-refresh-round-hashes`, and
+  `tests/test_supervisor_report_packets.py`; no `cases/` data or generated
+  private artifacts were staged.
 
-Also record every slice-specific smoke command that was run, any skipped check
-with a concrete limitation, final git status, and the archive or follow-up TODO
-decision.
+Slice smoke commands rerun and passed:
+
+- `scripts/smoke-opponent-materials`
+- `scripts/smoke-review-round-closeout`
+- `scripts/smoke-refresh-round-hashes`
+- `scripts/smoke-record-review-delta`
+- `scripts/smoke-review-approval`
+- `scripts/smoke-register-review-artifact`
+- `scripts/smoke-report-calibration`
+- `scripts/smoke-review-manifest`
+
+Residual work:
+
+- Large submitted-bundle inventory promotion and late materiality refresh were
+  copied into `TODO.md`.
+- Media/demo intake remains covered by the existing TODO evidence-coverage
+  items.
+- Native Windows runtime proof remains covered by the existing TODO P0 item;
+  this plan added deterministic Windows-aware process and command-surface tests
+  but did not run a native Windows checkout.
+
+Archive decision: completed; move this plan to `plans/archive/`.

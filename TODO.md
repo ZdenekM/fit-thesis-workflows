@@ -28,6 +28,14 @@
 
 ## P1 - Evidence Coverage
 
+- [ ] Promote large submitted-bundle inventory limits through `review-round-start`.
+   - Keep the inventory contract deterministic and case-neutral: file counts, sizes, path classes, archive depth, and explicitly configured thresholds are valid; semantic conclusions about thesis/code quality still belong to review workflows.
+   - Surface oversized, truncated, or hidden submitted-material inventories early enough that packet preparation and closeout do not discover them only through downstream stale-state failures.
+   - Store any detailed inventory evidence under the ignored round workspace and expose only bounded manifest refs in tracked docs/tests.
+- [ ] Add late materiality refresh for newly discovered media, demo, quantitative, or evaluation evidence.
+   - When parent-side preparation or inventory reveals new evidence classes after the first materiality pass, provide an explicit refresh path rather than silently relying on stale role-plan state.
+   - Keep the refresh semantic: deterministic helpers may report new evidence classes and stale materiality support state, but must not infer thesis quality from raw free text or filenames.
+   - Route refreshed requirements through existing materiality profiles, review-role plans, validators, and operation logs so closeout remains file-oriented.
 - [ ] Add a student-code sandbox workflow before running submitted code.
    - Keep the default code-review mode static/read-only; executing student code must be an explicit sandboxed step with recorded scope.
    - Add a helper such as `scripts/code-sandbox` with modes for environment inspection, case-local Python venv/uv setup, and rootless container runs.

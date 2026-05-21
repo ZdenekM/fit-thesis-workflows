@@ -4,9 +4,9 @@ from pathlib import Path
 
 from thesis_review_workflow.cli import prepare_supervisor_report_packets
 from thesis_review_workflow.commands import Step
+from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_materiality import MaterialityDecision, write_materiality_decisions
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, validate_common_briefing_payload
-from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.submission_bundle import (
     build_submission_bundle_inventory,
     write_submission_bundle_inventory,
@@ -125,7 +125,7 @@ def test_supervisor_report_packets_emit_theses_similarity_packet_from_next_actio
     text = (round_dir / "work" / "supervisor_report_packets" / "theses_similarity.md").read_text(encoding="utf-8")
 
     assert "theses_similarity.md" in names
-    assert f"`theses_similarity` requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
+    assert f"`theses_similarity` [missing_artifact] requires `{THESES_SIMILARITY_REVIEW_REL}`" in text
     assert THESES_SIMILARITY_REPORT_REL in text
     assert "Keep no-concern and resolved findings silent" in text
     assert "theses-similarity-assessment-v1" in text

@@ -145,7 +145,8 @@ case_id, round_id, round_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3
 write_common_briefing(case_id, round_id, "2026-05-18T10:02:00Z", round_dir)
 PY
 
-snapshot_before="$(python3 - "$round_dir" <<'PY'
+snapshot_before="$(
+  python3 - "$round_dir" <<'PY'
 import hashlib
 import pathlib
 import sys
@@ -163,7 +164,8 @@ expect_failure "semantic output refresh is refused" "$repo_root/scripts/refresh-
   "$case_id" "$round_id"
 grep -Fq "refusing to refresh hash for outputs/oponent_podklady_revidovane.md" "$out_file"
 grep -Fq "record a review delta or rerun the relevant review/check" "$out_file"
-snapshot_after="$(python3 - "$round_dir" <<'PY'
+snapshot_after="$(
+  python3 - "$round_dir" <<'PY'
 import hashlib
 import pathlib
 import sys
