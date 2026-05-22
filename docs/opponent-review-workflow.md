@@ -86,7 +86,13 @@ ruční ověření, ne automatický důkaz, že je tvrzení práce nepravdivé.
 
 ## Role Packets
 
-Před spawnutím role-split agentů spusťte:
+Normální optimalizovaná cesta jde přes `review-round-start --profile
+opponent_materials` a `prepare-review-round --profile opponent_materials`.
+`prepare-review-round` deleguje packet emission a zároveň zapíše
+`work/review_role_plan.json`, který je závazný pro vlny agentů a closeout.
+
+Přímý packet helper používejte jen jako nižší recovery/developer povrch, nebo
+když to výslovně požaduje konkrétní plán:
 
 ```bash
 scripts/prepare-opponent-packets <case-id> [round-id]
