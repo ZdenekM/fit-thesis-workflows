@@ -470,6 +470,7 @@ def test_round_start_planner_classifies_parent_submission_bundles_without_code_d
     assert plan.actions[1].target_refs == (
         "work/submission_bundle_inventory.json",
         "work/submission_bundle_inventory.md",
+        "work/submission_bundle_expansion.json",
     )
     assert [action.action_id for action in plan.actions].count("prepare_code_workspace") == 1
 
@@ -516,6 +517,25 @@ def test_round_start_planner_rejects_unsafe_material_paths() -> None:
 
     assert not plan.ok
     assert any("path must be a safe round-relative path" in blocker.message for blocker in plan.blockers)
+
+
+def test_round_start_planner_rejects_work_paths_as_authoritative_bundle_children() -> None:
+    plan = plan_review_round_start(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="opponent_materials",
+        materials=(
+            RoundMaterialDescriptor(
+                "submission_bundle",
+                path="inputs/submission.zip",
+                bundle_classification="container_bundle",
+                decomposed_authoritative_refs=("work/submission_bundle/submission/thesis.pdf",),
+            ),
+        ),
+    )
+
+    assert not plan.ok
+    assert any("decomposed authoritative ref must be under inputs/" in blocker.message for blocker in plan.blockers)
 
 
 def test_metadata_newline_diagnostics_are_explicit_and_structural() -> None:

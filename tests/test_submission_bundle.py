@@ -4,9 +4,11 @@ import zipfile
 from pathlib import Path
 
 from thesis_review_workflow.submission_bundle import (
+    BundleExpansionLimits,
     BundleInventoryLimits,
     build_submission_bundle_inventory,
     materialize_submission_bundle_candidate,
+    materialize_submission_bundles,
     render_inventory_markdown,
     submission_bundle_visibility_lines,
     write_submission_bundle_inventory,
@@ -155,6 +157,143 @@ def test_inventory_rejects_zip_slip_and_case_insensitive_collisions(tmp_path: Pa
     assert any("unsafe_archive_member_path" in item["reason_codes"] for item in skipped)
     assert any("case_insensitive_path_collision" in item["reason_codes"] for item in skipped)
     assert [item["candidate_ref"] for item in payload["candidates"]] == ["inputs/unsafe.zip!project/Foo.py"]
+
+
+def test_inventory_and_expansion_skip_duplicate_exact_archive_paths(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "duplicate.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("project/README.md", "# first\n")
+        handle.writestr("project/README.md", "# second\n")
+
+    payload = build_submission_bundle_inventory(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/duplicate.zip"],
+        generated_at="2026-05-19T12:00:00Z",
+    )
+
+    assert [item["candidate_ref"] for item in payload["candidates"]] == ["inputs/duplicate.zip!project/README.md"]
+    assert any("duplicate_path" in item["reason_codes"] for item in payload["skipped_entries"])
+
+    expansion, _ = materialize_submission_bundles(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/duplicate.zip"],
+        generated_at="2026-05-19T12:01:00Z",
+    )
+
+    [record] = expansion["expansions"]
+    target = round_dir / record["target_ref"]
+    assert (target / "project/README.md").read_text(encoding="utf-8") == "# first\n"
+    assert any(item["reason_code"] == "duplicate_path" for item in expansion["skipped_entries"])
+
+
+def test_expansion_rejects_symlinked_expansion_root(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("README.md", "# synthetic\n")
+    outside = tmp_path / "outside-expansion"
+    outside.mkdir()
+    (round_dir / "work").mkdir()
+    try:
+        (round_dir / "work" / "submission_bundle").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        return
+
+    try:
+        materialize_submission_bundles(
+            case_id="case-a",
+            round_id="round-a",
+            round_dir=round_dir,
+            bundle_refs=["inputs/submission.zip"],
+            generated_at="2026-05-19T12:01:00Z",
+        )
+    except ValueError as exc:
+        assert "symlink" in str(exc)
+    else:
+        raise AssertionError("symlinked expansion root was accepted")
+
+
+def test_expansion_rebuilds_when_existing_target_tree_is_tampered(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "submission.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("README.md", "# original\n")
+
+    first, _ = materialize_submission_bundles(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        generated_at="2026-05-19T12:01:00Z",
+    )
+    target = round_dir / first["expansions"][0]["target_ref"]
+    (target / "README.md").write_text("# tampered\n", encoding="utf-8")
+
+    errors = validate_supporting_work_artifacts(
+        collect_supporting_work_artifacts(round_dir),
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+    )
+    assert any("target_tree_sha256 does not match current expanded tree" in error for error in errors)
+
+    second, _ = materialize_submission_bundles(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/submission.zip"],
+        generated_at="2026-05-19T12:02:00Z",
+    )
+
+    assert second["expansions"][0]["action"] == "expanded"
+    assert (target / "README.md").read_text(encoding="utf-8") == "# original\n"
+
+
+def test_expansion_entry_limit_is_global_across_nested_archives(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "nested.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("a.zip", nested_zip({"a/README.md": "# a\n"}))
+        handle.writestr("b.zip", nested_zip({"b/README.md": "# b\n"}))
+
+    expansion, _ = materialize_submission_bundles(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/nested.zip"],
+        limits=BundleExpansionLimits(max_entries=1),
+        generated_at="2026-05-19T12:01:00Z",
+    )
+
+    target = round_dir / expansion["expansions"][0]["target_ref"]
+    assert (target / "a.zip").is_file()
+    assert not list(target.glob("a.zip.contents-*/a/README.md"))
+    assert any(item["reason_code"] == "entry_count_limit_reached" for item in expansion["skipped_entries"])
+
+
+def test_nested_archive_expansion_uses_hashed_sidecar_to_avoid_contents_collision(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    bundle = round_dir / "inputs" / "collision.zip"
+    with zipfile.ZipFile(bundle, "w") as handle:
+        handle.writestr("code.zip", nested_zip({"src/main.py": "print('synthetic')\n"}))
+        handle.writestr("code.zip.contents/README.md", "# real submitted directory\n")
+
+    expansion, _ = materialize_submission_bundles(
+        case_id="case-a",
+        round_id="round-a",
+        round_dir=round_dir,
+        bundle_refs=["inputs/collision.zip"],
+        generated_at="2026-05-19T12:01:00Z",
+    )
+
+    target = round_dir / expansion["expansions"][0]["target_ref"]
+    assert (target / "code.zip.contents/README.md").read_text(encoding="utf-8") == "# real submitted directory\n"
+    assert list(target.glob("code.zip.contents-*/src/main.py"))
 
 
 def test_inventory_rejects_windows_invalid_member_names(tmp_path: Path) -> None:

@@ -57,11 +57,14 @@ from thesis_review_workflow.review_pipeline_orchestration import (
 )
 from thesis_review_workflow.structured_evidence import STRUCTURED_EVIDENCE_SCHEMAS, validate_structured_evidence_payload
 from thesis_review_workflow.submission_bundle import (
+    SUBMISSION_BUNDLE_EXPANSION_REL,
+    SUBMISSION_BUNDLE_EXPANSION_SCHEMA,
     SUBMISSION_BUNDLE_INVENTORY_REL,
     SUBMISSION_BUNDLE_INVENTORY_SCHEMA,
     SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
     SUBMISSION_BUNDLE_MATERIALIZATION_REL,
     SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA,
+    validate_submission_bundle_expansion_payload,
     validate_submission_bundle_materialization_payload,
 )
 from thesis_review_workflow.submitted_report_deltas import (
@@ -111,6 +114,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     THESES_CHECKER_SUMMARY_REL: {THESES_CHECKER_SUMMARY_SCHEMA},
     SUBMISSION_BUNDLE_INVENTORY_REL: {SUBMISSION_BUNDLE_INVENTORY_SCHEMA},
     SUBMISSION_BUNDLE_MATERIALIZATION_REL: {SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA},
+    SUBMISSION_BUNDLE_EXPANSION_REL: {SUBMISSION_BUNDLE_EXPANSION_SCHEMA},
 }
 
 JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type | tuple[type, ...]]] = {
@@ -144,6 +148,7 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type | tuple[type, ...]]] = {
     },
     SUBMISSION_BUNDLE_INVENTORY_REL: {"source_bundles": list, "candidates": list, "skipped_entries": list},
     SUBMISSION_BUNDLE_MATERIALIZATION_REL: {"materializations": list},
+    SUBMISSION_BUNDLE_EXPANSION_REL: {"expansions": list, "skipped_entries": list},
     THESES_SIMILARITY_INTAKE_REL: {
         "report_pdf": dict,
         "extracted_text": dict,
@@ -179,6 +184,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     SUBMISSION_BUNDLE_INVENTORY_REL,
     SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
     SUBMISSION_BUNDLE_MATERIALIZATION_REL,
+    SUBMISSION_BUNDLE_EXPANSION_REL,
     "work/figure_media/visual_inventory.jsonl",
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",
@@ -581,6 +587,16 @@ def validate_json_work_artifact(
     elif rel_path == SUBMISSION_BUNDLE_MATERIALIZATION_REL:
         errors.extend(
             validate_submission_bundle_materialization_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path == SUBMISSION_BUNDLE_EXPANSION_REL:
+        errors.extend(
+            validate_submission_bundle_expansion_payload(
                 loaded,
                 rel_path,
                 round_dir=round_dir,

@@ -642,6 +642,7 @@ scripts/bootstrap-case opponent <case-id> opponent-review --work-type DP --thesi
 scripts/opponent-preflight <case-id>
 scripts/new-case <case-id> BP first-review
 scripts/import-round <case-id> current-review /path/to/thesis.pdf /path/to/code.zip
+scripts/materialize-submission-bundle <case-id> --bundle inputs/submission.zip
 scripts/prepare-code-workspace <case-id>
 scripts/draft-opponent-report <case-id>   # až po vytvoření work/opponent_report_trace.json
 scripts/export-opponent-report <case-id>  # až po lidské kalibraci canonical draftu
@@ -658,6 +659,20 @@ ignorovaný round workspace, extrahuje PDF text, rozbalí zdroje do
 `case.md`/`notes/*` a na konci spustí příslušný readiness check plus
 `case-doctor`. Automaticky extrahovaný text bere jen jako vodítko: zadání,
 private notes a metadata musí před review potvrdit hodnotitel.
+
+Pokud student odevzdá větší parent bundle, například ZIP obsahující PDF, kód,
+video, data, modely a dokumentaci, berte ho jako samostatný materiál
+`--submission-bundle`. `review-round-start` ho vždy inventarizuje a v rámci
+nastavených bezpečnostních limitů rozbalí do ignorovaného `work/submission_bundle/` s manifestem
+`work/submission_bundle_expansion.json`. Velikost archivu sama o sobě není
+důvodem spokojit se jen s metadaty: u bodů zadání typu dataset, evaluace,
+zdrojové kódy nebo video se kontroluje rozbalený workspace a teprve z něj se
+formuluje, zda artefakt chybí nebo je pouze nedoložený. Pokud manifest hlásí
+vynechané nebo limitované položky, musí se tato nejistota promítnout do
+review jako omezení kontroly, ne jako důkaz absence artefaktu. Jednotlivé
+vnořené soubory materializujte zpět do `inputs/` jen tehdy, když se mají stát
+autoritativními vstupy dalšího workflow; odkazy `work/submission_bundle/**`
+jsou pouze inspekční workspace, ne autoritativní `--bundle-child`.
 
 `scripts/opponent-preflight <case-id> [round-id]` před oponentským workflow
 tvrdě hlídá opponent readiness, tooling, lokální code workspace a GitHub intake

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+export THESIS_REVIEW_CALLER_CWD="${THESIS_REVIEW_CALLER_CWD:-$PWD}"
+export PYTHONPATH="$REPO_ROOT/src"
+cd "$REPO_ROOT"
+exec python3 -m thesis_review_workflow.cli.materialize_submission_bundle "$@"

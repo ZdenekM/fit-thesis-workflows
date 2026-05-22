@@ -25,6 +25,20 @@ První příkaz potvrdí aktuální materiály, import/extract/code workspace a 
 `opponent_materials` je workflow/operator surface mapovaná na canonical
 materiality profil `opponent_review`, ne Codex agent profile.
 
+Pokud je mezi vstupy parent ZIP/bundle s více artefakty, předejte ho do
+`review-round-start` jako `--submission-bundle inputs/<soubor>.zip`. Start roundu
+pak nezůstane u metadat: zapíše `work/submission_bundle_inventory.*` a zároveň
+rozbalí bundle v rámci nastavených bezpečnostních limitů do ignorovaného
+`work/submission_bundle/` s manifestem
+`work/submission_bundle_expansion.json`. U zadávacích bodů, které vyžadují
+konkrétní artefakt, například dataset, evaluaci, video nebo zdrojové kódy,
+musí syntéza vycházet z této rozbalené kopie. Až když rozbalený bundle neobsahuje
+odpovídající anotace, splity, ground truth nebo raw výstupy, je fér formulovat
+výhradu k doložení artefaktu; samotná velikost ZIPu není důvod pro kontrolu jen
+z názvů souborů nebo částečného code subsetu. Pokud expansion manifest eviduje
+vynechané nebo limitované položky, popište to jako omezení kontroly a nedělejte
+z toho samo o sobě závěr o absenci artefaktu.
+
 Nižší profilový preflight zůstává dostupný a používá se přímo nebo delegovaně
 ze shared path:
 

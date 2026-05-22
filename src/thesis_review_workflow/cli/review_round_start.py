@@ -34,7 +34,11 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     plan_review_round_start,
 )
 from thesis_review_workflow.review_profiles import profiles_by_id
-from thesis_review_workflow.submission_bundle import build_and_write_submission_bundle_inventory
+from thesis_review_workflow.submission_bundle import (
+    BundleExpansionLimits,
+    build_and_write_submission_bundle_inventory,
+    materialize_submission_bundles,
+)
 
 METADATA_KEY_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -96,6 +100,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="ROUND_REL_PATH",
         help="Authoritative child ref for a classified submission bundle.",
+    )
+    parser.add_argument(
+        "--submission-bundle-max-expand-bytes",
+        type=int,
+        default=BundleExpansionLimits.max_total_bytes,
+        help="Maximum total uncompressed bytes for automatic work/submission_bundle expansion.",
+    )
+    parser.add_argument(
+        "--submission-bundle-max-file-bytes",
+        type=int,
+        default=BundleExpansionLimits.max_file_bytes,
+        help="Maximum single file size for automatic work/submission_bundle expansion.",
     )
     parser.add_argument(
         "--metadata",
@@ -311,6 +327,7 @@ def execute_action(
     round_id: str,
     action: RoundStartAction,
     materials: tuple[RoundMaterialDescriptor, ...],
+    bundle_expansion_limits: BundleExpansionLimits | None = None,
 ) -> ExecutedAction:
     if action.action_id == "classify_bundle":
         return ExecutedAction(
@@ -327,10 +344,20 @@ def execute_action(
             bundle_refs=bundle_refs,
             producer="scripts/review-round-start",
         )
+        expansion_payload, _ = materialize_submission_bundles(
+            case_id=case_id,
+            round_id=round_id,
+            round_dir=round_dir,
+            bundle_refs=bundle_refs,
+            limits=bundle_expansion_limits or BundleExpansionLimits(),
+            producer="scripts/review-round-start",
+            refresh=True,
+        )
+        skipped_count = len(expansion_payload.get("skipped_entries", []))
         return ExecutedAction(
             "passed",
-            "review-round-start internal submission-bundle inventory",
-            (f"inventoried {len(bundle_refs)} submitted bundle(s)",),
+            "review-round-start internal submission-bundle inventory and expansion",
+            (f"inventoried and expanded {len(bundle_refs)} submitted bundle(s); skipped entries={skipped_count}",),
         )
     if action.action_id == "ensure_profile_note":
         target = round_dir / "notes" / "supervisor-report-operator-input.md"
@@ -439,6 +466,16 @@ def run_round_start(argv: list[str]) -> int:
     case_dir = require_case_dir(root, args.case_id, stderr=True)
     round_id = resolve_round(case_dir, args.round_id, stderr=True)
     round_dir = require_round_dir(case_dir, args.case_id, round_id, stderr=True)
+    if args.submission_bundle_max_expand_bytes <= 0:
+        print("ERROR: --submission-bundle-max-expand-bytes must be greater than zero", file=sys.stderr)
+        return 2
+    if args.submission_bundle_max_file_bytes <= 0:
+        print("ERROR: --submission-bundle-max-file-bytes must be greater than zero", file=sys.stderr)
+        return 2
+    bundle_expansion_limits = BundleExpansionLimits(
+        max_total_bytes=args.submission_bundle_max_expand_bytes,
+        max_file_bytes=args.submission_bundle_max_file_bytes,
+    )
     materials = material_descriptors_from_args(args)
     plan = plan_review_round_start(
         case_id=args.case_id,
@@ -557,6 +594,7 @@ def run_round_start(argv: list[str]) -> int:
                 round_id=round_id,
                 action=action,
                 materials=materials,
+                bundle_expansion_limits=bundle_expansion_limits,
             )
         except (OSError, RuntimeError, shutil.Error, ValueError) as exc:
             executed = ExecutedAction(

@@ -46,6 +46,7 @@ shell_sources(
         "import-theses-report",
         "init-review-manifest",
         "inventory-submission-bundle",
+        "materialize-submission-bundle",
         "materialize-submission-bundle-candidate",
         "new-case",
         "opponent-closeout",
@@ -191,6 +192,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:import_theses_report",
     "src/thesis_review_workflow/cli:init_review_manifest",
     "src/thesis_review_workflow/cli:inventory_submission_bundle",
+    "src/thesis_review_workflow/cli:materialize_submission_bundle",
     "src/thesis_review_workflow/cli:materialize_submission_bundle_candidate",
     "src/thesis_review_workflow/cli:new_case",
     "src/thesis_review_workflow/cli:opponent_closeout",
@@ -675,6 +677,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/materialize-submission-bundle-candidate",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="materialize_submission_bundle_tool",
+    entry_point="thesis_review_workflow.cli.materialize_submission_bundle:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/materialize-submission-bundle",
     tags=["workflow-tool"],
 )
 

@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import re
+import shutil
 import tarfile
 import unicodedata
 import zipfile
@@ -30,14 +31,19 @@ SUBMISSION_BUNDLE_INVENTORY_REL = "work/submission_bundle_inventory.json"
 SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL = "work/submission_bundle_inventory.md"
 SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA = "submission-bundle-materialization-v1"
 SUBMISSION_BUNDLE_MATERIALIZATION_REL = "work/submission_bundle_materialization.json"
+SUBMISSION_BUNDLE_EXPANSION_SCHEMA = "submission-bundle-expansion-v1"
+SUBMISSION_BUNDLE_EXPANSION_REL = "work/submission_bundle_expansion.json"
+SUBMISSION_BUNDLE_EXPANDED_ROOT_REL = "work/submission_bundle"
 SUBMISSION_BUNDLE_PRODUCER = "scripts/inventory-submission-bundle"
 SUBMISSION_BUNDLE_ROUND_START_PRODUCER = "scripts/review-round-start"
 SUBMISSION_BUNDLE_MATERIALIZATION_PRODUCER = "scripts/materialize-submission-bundle-candidate"
+SUBMISSION_BUNDLE_EXPANSION_PRODUCER = "scripts/materialize-submission-bundle"
 SUBMISSION_BUNDLE_VISIBILITY_SCHEMA = "submission-bundle-visibility-v1"
 SUBMISSION_BUNDLE_VISIBILITY_REFS = (
     SUBMISSION_BUNDLE_INVENTORY_REL,
     SUBMISSION_BUNDLE_INVENTORY_SUMMARY_REL,
     SUBMISSION_BUNDLE_MATERIALIZATION_REL,
+    SUBMISSION_BUNDLE_EXPANSION_REL,
 )
 
 ACTIONABLE_CLASSES = {
@@ -63,7 +69,7 @@ AMBIGUOUS_CLASSES = {
 
 @dataclass(frozen=True)
 class BundleInventoryLimits:
-    max_archive_bytes: int = 250 * 1024 * 1024
+    max_archive_bytes: int = 20 * 1024 * 1024 * 1024
     max_nested_archive_bytes: int = 64 * 1024 * 1024
     max_hash_bytes: int = 32 * 1024 * 1024
     max_read_bytes: int = 128 * 1024 * 1024
@@ -76,6 +82,22 @@ class BundleInventoryLimits:
             "max_nested_archive_bytes": self.max_nested_archive_bytes,
             "max_hash_bytes": self.max_hash_bytes,
             "max_read_bytes": self.max_read_bytes,
+            "max_entries": self.max_entries,
+            "max_archive_depth": self.max_archive_depth,
+        }
+
+
+@dataclass(frozen=True)
+class BundleExpansionLimits:
+    max_total_bytes: int = 20 * 1024 * 1024 * 1024
+    max_file_bytes: int = 5 * 1024 * 1024 * 1024
+    max_entries: int = 100_000
+    max_archive_depth: int = 4
+
+    def as_record(self) -> dict[str, int]:
+        return {
+            "max_total_bytes": self.max_total_bytes,
+            "max_file_bytes": self.max_file_bytes,
             "max_entries": self.max_entries,
             "max_archive_depth": self.max_archive_depth,
         }
@@ -125,6 +147,32 @@ class ReadBudget:
         return True
 
 
+@dataclass
+class ExpansionBudget:
+    limit: int
+    used: int = 0
+
+    def reserve(self, label: str, size: int) -> str | None:
+        if size < 0:
+            return f"{label}: negative archive member size"
+        if self.used + size > self.limit:
+            return f"{label}: total expansion limit {format_bytes(self.limit)} would be exceeded"
+        self.used += size
+        return None
+
+
+@dataclass
+class ExpansionStats:
+    source_ref: str
+    target_ref: str
+    files_written: int = 0
+    directories_written: int = 0
+    archives_expanded: int = 0
+    bytes_written: int = 0
+    entries_seen: int = 0
+    skipped_entries: list[dict[str, Any]] = field(default_factory=list)
+
+
 class PortablePathRegistry:
     """Detect archive paths that cannot coexist on case-insensitive systems."""
 
@@ -146,10 +194,39 @@ class PortablePathRegistry:
                     return f"case-insensitive path collision with {existing_display}"
                 if existing_kind != record_kind:
                     return f"path type collision with {existing_kind} {existing_display}"
+                if index == len(parts):
+                    return f"duplicate {record_kind} path {existing_display}"
             pending.append((key, (display, record_kind)))
         for key, record in pending:
             self._records.setdefault(key, record)
         return None
+
+
+def path_collision_reason_code(detail: str) -> str:
+    if detail.startswith("duplicate "):
+        return "duplicate_path"
+    return "case_insensitive_path_collision"
+
+
+def reserve_expansion_entry(
+    stats: ExpansionStats,
+    *,
+    chain: tuple[str, ...],
+    limits: BundleExpansionLimits,
+    archive_depth: int,
+    detail: str,
+) -> bool:
+    if stats.entries_seen >= limits.max_entries:
+        expansion_skip(
+            stats,
+            chain=chain,
+            reason_code="entry_count_limit_reached",
+            detail=detail,
+            archive_depth=archive_depth,
+        )
+        return False
+    stats.entries_seen += 1
+    return True
 
 
 WINDOWS_RESERVED_NAMES = {
@@ -577,7 +654,7 @@ def add_archive_member_candidates(
                     source=source,
                     chain=member_chain,
                     state="duplicate_candidate",
-                    reason_codes=("case_insensitive_path_collision",),
+                    reason_codes=(path_collision_reason_code(collision),),
                     archive_depth=depth,
                     limits=limits,
                     detail=collision,
@@ -789,7 +866,7 @@ def add_directory_candidates(
                     source=source,
                     chain=(rel,),
                     state="duplicate_candidate",
-                    reason_codes=("case_insensitive_path_collision",),
+                    reason_codes=(path_collision_reason_code(collision),),
                     archive_depth=0,
                     limits=limits,
                     detail=collision,
@@ -1056,6 +1133,23 @@ def load_optional_materialization_manifest(round_dir: Path) -> tuple[dict[str, A
     return loaded, None
 
 
+def load_optional_expansion_manifest(round_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+    path = round_dir / SUBMISSION_BUNDLE_EXPANSION_REL
+    if not path.is_file():
+        return None, None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{SUBMISSION_BUNDLE_EXPANSION_REL}: cannot read expansion manifest: {exc}"
+    if not isinstance(loaded, dict) or loaded.get("schema_version") != SUBMISSION_BUNDLE_EXPANSION_SCHEMA:
+        return None, f"{SUBMISSION_BUNDLE_EXPANSION_REL}: unsupported schema_version"
+    if not isinstance(loaded.get("expansions"), list):
+        return None, f"{SUBMISSION_BUNDLE_EXPANSION_REL}: expansions must be a list"
+    if not isinstance(loaded.get("skipped_entries"), list):
+        return None, f"{SUBMISSION_BUNDLE_EXPANSION_REL}: skipped_entries must be a list"
+    return loaded, None
+
+
 def _validate_sha256_file_field(
     *,
     payload: dict[str, Any],
@@ -1150,6 +1244,89 @@ def validate_submission_bundle_materialization_payload(
     return errors
 
 
+def validate_submission_bundle_expansion_payload(
+    payload: dict[str, Any],
+    rel_path: str,
+    *,
+    round_dir: Path,
+    case_id: str | None = None,
+    round_id: str | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if payload.get("schema_version") != SUBMISSION_BUNDLE_EXPANSION_SCHEMA:
+        errors.append(f"{rel_path}: schema_version must be {SUBMISSION_BUNDLE_EXPANSION_SCHEMA}")
+    if case_id is not None and payload.get("case_id") != case_id:
+        errors.append(f"{rel_path}: case_id does not match requested case")
+    if round_id is not None and payload.get("round_id") != round_id:
+        errors.append(f"{rel_path}: round_id does not match requested round")
+    target_root_ref = payload.get("target_root_ref")
+    if target_root_ref != SUBMISSION_BUNDLE_EXPANDED_ROOT_REL:
+        errors.append(f"{rel_path}: target_root_ref must be {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}")
+    records = payload.get("expansions")
+    if not isinstance(records, list):
+        errors.append(f"{rel_path}: expansions must be a list")
+        return errors
+    skipped = payload.get("skipped_entries")
+    if not isinstance(skipped, list):
+        errors.append(f"{rel_path}: skipped_entries must be a list")
+    for index, record in enumerate(records, start=1):
+        prefix = f"{rel_path}: expansions item {index}"
+        if not isinstance(record, dict):
+            errors.append(f"{prefix}: must be an object")
+            continue
+        source_bundle_ref = record.get("source_bundle_ref")
+        if not isinstance(source_bundle_ref, str) or not is_safe_round_relative_path(source_bundle_ref):
+            errors.append(f"{prefix}: source_bundle_ref must be a safe round-relative path")
+        else:
+            _validate_sha256_file_field(
+                payload=record,
+                field="source_bundle_sha256",
+                path=round_dir / source_bundle_ref,
+                prefix=prefix,
+                errors=errors,
+            )
+        target_ref = record.get("target_ref")
+        if (
+            not isinstance(target_ref, str)
+            or not is_safe_round_relative_path(target_ref)
+            or not target_ref.startswith(f"{SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}/")
+        ):
+            errors.append(f"{prefix}: target_ref must be below {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}/")
+        else:
+            target_path = round_dir / target_ref
+            if not target_path.is_dir():
+                errors.append(f"{prefix}: target_ref directory is missing: {target_ref}")
+            else:
+                try:
+                    current_tree = expansion_tree_state(target_path)
+                except (OSError, ValueError) as exc:
+                    errors.append(f"{prefix}: target_ref tree is invalid: {exc}")
+                else:
+                    for field_name, expected in current_tree.items():
+                        if record.get(field_name) != expected:
+                            errors.append(f"{prefix}: {field_name} does not match current expanded tree")
+        for field_name in (
+            "files_written",
+            "directories_written",
+            "archives_expanded",
+            "entries_seen",
+            "bytes_written",
+            "skipped_entry_count",
+            "target_tree_file_count",
+            "target_tree_directory_count",
+            "target_tree_bytes",
+        ):
+            value = record.get(field_name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                errors.append(f"{prefix}: {field_name} must be a non-negative integer")
+        if not isinstance(record.get("target_tree_sha256"), str) or not str(record.get("target_tree_sha256")).strip():
+            errors.append(f"{prefix}: target_tree_sha256 must be a non-empty string")
+        for field_name in ("kind", "action"):
+            if not isinstance(record.get(field_name), str) or not str(record.get(field_name)).strip():
+                errors.append(f"{prefix}: {field_name} must be a non-empty string")
+    return errors
+
+
 def _count_by(items: Iterable[dict[str, Any]], key: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
@@ -1232,6 +1409,7 @@ def _candidate_has_generated_sample_vendor(candidate: dict[str, Any]) -> bool:
 def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> dict[str, Any]:
     inventory, inventory_error = load_optional_submission_bundle_inventory(round_dir)
     materialization, materialization_error = load_optional_materialization_manifest(round_dir)
+    expansion, expansion_error = load_optional_expansion_manifest(round_dir)
     expected_case_id, expected_round_id = _round_identity(round_dir)
     inventory_status = "invalid" if inventory_error else "present" if inventory else "missing"
     inventory_note = ""
@@ -1259,6 +1437,14 @@ def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> 
         elif expected_round_id and materialization.get("round_id") != expected_round_id:
             materialization_status = "invalid"
             materialization_error = f"{SUBMISSION_BUNDLE_MATERIALIZATION_REL}: round_id does not match round path"
+    expansion_status = "invalid" if expansion_error else "present" if expansion else "missing"
+    if expansion is not None and expansion_status == "present":
+        if expected_case_id and expansion.get("case_id") != expected_case_id:
+            expansion_status = "invalid"
+            expansion_error = f"{SUBMISSION_BUNDLE_EXPANSION_REL}: case_id does not match round path"
+        elif expected_round_id and expansion.get("round_id") != expected_round_id:
+            expansion_status = "invalid"
+            expansion_error = f"{SUBMISSION_BUNDLE_EXPANSION_REL}: round_id does not match round path"
     candidates = [
         item for item in (inventory or {}).get("candidates", []) if authoritative_inventory and isinstance(item, dict)
     ]
@@ -1276,6 +1462,16 @@ def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> 
         item
         for item in (materialization or {}).get("materializations", [])
         if materialization_status == "present" and isinstance(item, dict)
+    ]
+    expansions = [
+        item
+        for item in (expansion or {}).get("expansions", [])
+        if expansion_status == "present" and isinstance(item, dict)
+    ]
+    expansion_skipped = [
+        item
+        for item in (expansion or {}).get("skipped_entries", [])
+        if expansion_status == "present" and isinstance(item, dict)
     ]
     materialized_candidates = [candidate for candidate in candidates if _candidate_materialized(candidate)]
     first_party_candidates = [candidate for candidate in candidates if _candidate_has_first_party_code(candidate)]
@@ -1301,6 +1497,10 @@ def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> 
         "materialization_ref": SUBMISSION_BUNDLE_MATERIALIZATION_REL,
         "materialization_status": materialization_status,
         "materialization_error": materialization_error or "",
+        "expansion_ref": SUBMISSION_BUNDLE_EXPANSION_REL,
+        "expansion_status": expansion_status,
+        "expansion_error": expansion_error or "",
+        "expanded_root_ref": SUBMISSION_BUNDLE_EXPANDED_ROOT_REL,
         "source_bundles": source_bundles[:limit],
         "candidate_counts_by_class": _count_by(candidates, "artifact_class"),
         "candidate_counts_by_state": _count_by(candidates, "state"),
@@ -1313,6 +1513,32 @@ def submission_bundle_visibility_payload(round_dir: Path, *, limit: int = 8) -> 
                 "source_candidate_ref": str(record.get("source_candidate_ref", "")),
             }
             for record in materializations[:limit]
+        ],
+        "expansion_records": [
+            {
+                "source_bundle_ref": str(record.get("source_bundle_ref", "")),
+                "target_ref": str(record.get("target_ref", "")),
+                "action": str(record.get("action", "")),
+                "files_written": _safe_int(record.get("files_written")),
+                "archives_expanded": _safe_int(record.get("archives_expanded")),
+                "bytes_written": _safe_int(record.get("bytes_written")),
+                "skipped_entry_count": _safe_int(record.get("skipped_entry_count")),
+            }
+            for record in expansions[:limit]
+        ],
+        "expansion_skipped_entry_count": len(expansion_skipped),
+        "expansion_skipped_entry_examples": [
+            "`{source}` `{chain}` `{reason}`: {detail}".format(
+                source=item.get("source_bundle_ref", ""),
+                chain=(
+                    " / ".join(str(part) for part in item.get("nested_path_chain", []))
+                    if isinstance(item.get("nested_path_chain"), list)
+                    else ""
+                ),
+                reason=item.get("reason_code", ""),
+                detail=item.get("detail", ""),
+            )
+            for item in expansion_skipped[:limit]
         ],
         "first_party_code_candidates": _limited_labels(first_party_candidates, limit=limit),
         "archive_code_summaries": archive_summaries[:limit],
@@ -1342,6 +1568,10 @@ def submission_bundle_visibility_lines(
     lines = [
         f"- Inventory: `{payload['inventory_ref']}` ({payload['inventory_status']})",
         f"- Materialization manifest: `{payload['materialization_ref']}` ({payload['materialization_status']})",
+        (
+            f"- Expanded bundle workspace: `{payload['expanded_root_ref']}` "
+            f"via `{payload['expansion_ref']}` ({payload['expansion_status']})"
+        ),
     ]
     if payload["inventory_error"]:
         lines.append(f"- Inventory error: {payload['inventory_error']}")
@@ -1351,6 +1581,8 @@ def submission_bundle_visibility_lines(
         return lines
     if payload["materialization_error"]:
         lines.append(f"- Materialization manifest error: {payload['materialization_error']}")
+    if payload["expansion_error"]:
+        lines.append(f"- Expanded bundle workspace error: {payload['expansion_error']}")
     source_lines = []
     for source in payload["source_bundles"]:
         ref = source.get("source_bundle_ref", "")
@@ -1362,6 +1594,32 @@ def submission_bundle_visibility_lines(
     lines.append(f"- Candidate states: {_count_text(payload['candidate_counts_by_state'])}")
     materialized = payload["materialized_candidates"]
     lines.append("- Materialized candidates: " + ("; ".join(materialized) if materialized else "none"))
+    expansion_records = payload["expansion_records"]
+    if expansion_records:
+        expanded_labels = [
+            (
+                "`{source}` -> `{target}` "
+                "({action}, files={files}, archives={archives}, bytes={bytes}, skipped={skipped})"
+            ).format(
+                source=record["source_bundle_ref"],
+                target=record["target_ref"],
+                action=record["action"],
+                files=record["files_written"],
+                archives=record["archives_expanded"],
+                bytes=format_bytes(int(record["bytes_written"])),
+                skipped=record["skipped_entry_count"],
+            )
+            for record in expansion_records
+        ]
+        lines.append("- Expanded bundles: " + "; ".join(expanded_labels))
+    else:
+        lines.append("- Expanded bundles: none")
+    expansion_skipped_count = int(payload["expansion_skipped_entry_count"])
+    expansion_skipped = payload["expansion_skipped_entry_examples"]
+    if expansion_skipped_count:
+        lines.append(
+            f"- Expansion skipped or bounded entries: {expansion_skipped_count}; " + "; ".join(expansion_skipped)
+        )
     first_party = payload["first_party_code_candidates"]
     lines.append("- First-party-looking code: " + ("; ".join(first_party) if first_party else "none discovered"))
     archive_summaries = payload["archive_code_summaries"]
@@ -1616,6 +1874,717 @@ def load_materialization_manifest(path: Path, *, case_id: str, round_id: str) ->
 def write_materialization_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_expansion_manifest(path: Path, *, case_id: str, round_id: str) -> dict[str, Any]:
+    if not path.is_file():
+        return {
+            "schema_version": SUBMISSION_BUNDLE_EXPANSION_SCHEMA,
+            "case_id": case_id,
+            "round_id": round_id,
+            "generated_at": now_utc(),
+            "producer": SUBMISSION_BUNDLE_EXPANSION_PRODUCER,
+            "target_root_ref": SUBMISSION_BUNDLE_EXPANDED_ROOT_REL,
+            "limits": BundleExpansionLimits().as_record(),
+            "expansions": [],
+            "skipped_entries": [],
+        }
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict) or loaded.get("schema_version") != SUBMISSION_BUNDLE_EXPANSION_SCHEMA:
+        raise ValueError(f"{SUBMISSION_BUNDLE_EXPANSION_REL}: unsupported schema_version")
+    if loaded.get("case_id") != case_id or loaded.get("round_id") != round_id:
+        raise ValueError(f"{SUBMISSION_BUNDLE_EXPANSION_REL}: case_id/round_id mismatch")
+    if not isinstance(loaded.get("expansions"), list):
+        raise ValueError(f"{SUBMISSION_BUNDLE_EXPANSION_REL}: expansions must be a list")
+    if not isinstance(loaded.get("skipped_entries"), list):
+        raise ValueError(f"{SUBMISSION_BUNDLE_EXPANSION_REL}: skipped_entries must be a list")
+    return loaded
+
+
+def write_expansion_manifest(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def source_expansion_ref(source: SourceBundle) -> str:
+    leaf = portable_filename(PurePosixPath(source.ref).name)
+    return f"{SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}/{source.sha256[:12]}-{leaf}"
+
+
+def ensure_expansion_root(round_dir: Path) -> Path:
+    work_dir = round_dir / "work"
+    if work_dir.exists() and work_dir.is_symlink():
+        raise ValueError("Expansion work directory must not be a symlink")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    root = round_dir / SUBMISSION_BUNDLE_EXPANDED_ROOT_REL
+    if root.exists() and root.is_symlink():
+        raise ValueError(f"Expansion root must not be a symlink: {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}")
+    try:
+        root.resolve(strict=False).relative_to(round_dir.resolve(strict=False))
+    except ValueError as exc:
+        raise ValueError(
+            f"Expansion root must stay below the round directory: {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}"
+        ) from exc
+    return root
+
+
+def ensure_expansion_target(round_dir: Path, target: Path) -> None:
+    root = ensure_expansion_root(round_dir)
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"Expansion target is outside {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}: {target}") from exc
+    if target == root:
+        raise ValueError(f"Expansion target must be below {SUBMISSION_BUNDLE_EXPANDED_ROOT_REL}")
+    if target.is_symlink():
+        raise ValueError(f"Expansion target is a symlink: {target}")
+
+
+def expansion_tree_state(root: Path) -> dict[str, int | str]:
+    digest = hashlib.sha256()
+    digest.update(b"submission-bundle-expansion-tree-v1\0")
+    file_count = 0
+    directory_count = 0
+    byte_count = 0
+    for child in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
+        rel = child.relative_to(root).as_posix()
+        if child.is_symlink():
+            raise ValueError(f"{rel}: expanded workspace must not contain symlinks")
+        if child.is_dir():
+            directory_count += 1
+            digest.update(b"D\0")
+            digest.update(rel.encode("utf-8", errors="surrogateescape"))
+            digest.update(b"\0")
+            continue
+        if not child.is_file():
+            raise ValueError(f"{rel}: expanded workspace contains an unsupported file type")
+        size = child.stat().st_size
+        file_count += 1
+        byte_count += size
+        digest.update(b"F\0")
+        digest.update(rel.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        digest.update(str(size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(sha256_file(child).encode("ascii"))
+        digest.update(b"\0")
+    return {
+        "target_tree_sha256": digest.hexdigest(),
+        "target_tree_file_count": file_count,
+        "target_tree_directory_count": directory_count,
+        "target_tree_bytes": byte_count,
+    }
+
+
+def expansion_record_matches_target(record: dict[str, Any], target: Path, limits: BundleExpansionLimits) -> bool:
+    if record.get("limits") != limits.as_record():
+        return False
+    try:
+        state = expansion_tree_state(target)
+    except (OSError, ValueError):
+        return False
+    return all(record.get(key) == value for key, value in state.items())
+
+
+def safe_child_target(root: Path, rel_path: str) -> Path:
+    parts = PurePosixPath(rel_path).parts
+    target = root.joinpath(*parts)
+    current = root
+    for part in parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"{rel_path}: refusing to extract through a symlinked parent")
+    try:
+        target.resolve(strict=False).relative_to(root.resolve(strict=False))
+    except ValueError as exc:
+        raise ValueError(f"{rel_path}: extraction target escapes expansion root") from exc
+    return target
+
+
+def expansion_skip(
+    stats: ExpansionStats,
+    *,
+    chain: tuple[str, ...],
+    reason_code: str,
+    detail: str,
+    archive_depth: int,
+    target_ref: str = "",
+) -> None:
+    stats.skipped_entries.append(
+        {
+            "source_bundle_ref": stats.source_ref,
+            "nested_path_chain": list(chain),
+            "target_ref": target_ref,
+            "reason_code": reason_code,
+            "detail": detail,
+            "archive_depth": archive_depth,
+        }
+    )
+
+
+def write_expanded_file(
+    *,
+    target: Path,
+    source: Any,
+    size: int,
+    label: str,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+    limits: BundleExpansionLimits,
+) -> str | None:
+    if size > limits.max_file_bytes:
+        return f"{label}: exceeds per-file expansion limit {format_bytes(limits.max_file_bytes)}"
+    budget_error = budget.reserve(label, size)
+    if budget_error is not None:
+        return budget_error
+    if target.is_symlink():
+        return f"{label}: target path is a symlink"
+    if target.exists():
+        return f"{label}: target path already exists"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    error: str | None = None
+    with target.open("wb") as destination:
+        while True:
+            chunk = source.read(1024 * 1024)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > size:
+                error = f"{label}: wrote more bytes than declared"
+                break
+            destination.write(chunk)
+    if error is not None:
+        target.unlink(missing_ok=True)
+        return error
+    stats.files_written += 1
+    stats.bytes_written += written
+    return None
+
+
+def expand_nested_archive_if_supported(
+    *,
+    archive_path: Path,
+    chain: tuple[str, ...],
+    depth: int,
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    suffix = archive_suffix(archive_path)
+    if suffix not in SUPPORTED_ARCHIVE_SUFFIXES:
+        return
+    if depth >= limits.max_archive_depth:
+        expansion_skip(
+            stats,
+            chain=chain,
+            reason_code="nested_archive_depth_limit",
+            detail=f"nested archive not expanded past depth {limits.max_archive_depth}",
+            archive_depth=depth,
+            target_ref=str(archive_path),
+        )
+        return
+    chain_digest = hashlib.sha256("\0".join(chain).encode("utf-8", errors="surrogateescape")).hexdigest()[:12]
+    nested_target = archive_path.with_name(f"{archive_path.name}.contents-{chain_digest}")
+    nested_target.mkdir(parents=True, exist_ok=True)
+    expand_supported_archive(
+        archive_path,
+        suffix=suffix,
+        target_dir=nested_target,
+        chain=chain,
+        depth=depth + 1,
+        limits=limits,
+        stats=stats,
+        budget=budget,
+    )
+
+
+def expand_zip_archive(
+    archive_path: Path,
+    *,
+    target_dir: Path,
+    chain: tuple[str, ...],
+    depth: int,
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    registry = PortablePathRegistry()
+    stats.archives_expanded += 1
+    try:
+        with zipfile.ZipFile(archive_path) as handle:
+            for info in handle.infolist():
+                if not reserve_expansion_entry(
+                    stats,
+                    chain=chain,
+                    limits=limits,
+                    archive_depth=depth,
+                    detail=f"stopped after {limits.max_entries} total expanded entries",
+                ):
+                    break
+                normalized = normalize_artifact_path(info.filename)
+                member_chain = (*chain, normalized)
+                unsafe_reason = unsafe_portable_member_reason(info.filename)
+                if unsafe_reason is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="unsafe_archive_member_path",
+                        detail=unsafe_reason,
+                        archive_depth=depth,
+                    )
+                    continue
+                collision = registry.register(normalized, kind="directory" if info.is_dir() else "file")
+                if collision is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code=path_collision_reason_code(collision),
+                        detail=collision,
+                        archive_depth=depth,
+                    )
+                    continue
+                try:
+                    target = safe_child_target(target_dir, normalized)
+                except ValueError as exc:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="unsafe_archive_member_path",
+                        detail=str(exc),
+                        archive_depth=depth,
+                    )
+                    continue
+                if info.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    stats.directories_written += 1
+                    continue
+                with handle.open(info) as source:
+                    error = write_expanded_file(
+                        target=target,
+                        source=source,
+                        size=info.file_size,
+                        label=info.filename,
+                        stats=stats,
+                        budget=budget,
+                        limits=limits,
+                    )
+                if error is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="expansion_write_skipped",
+                        detail=error,
+                        archive_depth=depth,
+                    )
+                    continue
+                expand_nested_archive_if_supported(
+                    archive_path=target,
+                    chain=member_chain,
+                    depth=depth,
+                    limits=limits,
+                    stats=stats,
+                    budget=budget,
+                )
+    except (OSError, zipfile.BadZipFile) as exc:
+        expansion_skip(
+            stats,
+            chain=chain,
+            reason_code="archive_metadata_unreadable",
+            detail=str(exc),
+            archive_depth=depth,
+        )
+
+
+def expand_tar_archive(
+    archive_path: Path,
+    *,
+    target_dir: Path,
+    chain: tuple[str, ...],
+    depth: int,
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    registry = PortablePathRegistry()
+    stats.archives_expanded += 1
+    try:
+        with tarfile.open(archive_path, mode="r:*") as handle:
+            for member in handle:
+                if not reserve_expansion_entry(
+                    stats,
+                    chain=chain,
+                    limits=limits,
+                    archive_depth=depth,
+                    detail=f"stopped after {limits.max_entries} total expanded entries",
+                ):
+                    break
+                normalized = normalize_artifact_path(member.name)
+                member_chain = (*chain, normalized)
+                unsafe_reason = unsafe_portable_member_reason(member.name)
+                if unsafe_reason is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="unsafe_archive_member_path",
+                        detail=unsafe_reason,
+                        archive_depth=depth,
+                    )
+                    continue
+                kind = "directory" if member.isdir() else "file"
+                collision = registry.register(normalized, kind=kind)
+                if collision is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code=path_collision_reason_code(collision),
+                        detail=collision,
+                        archive_depth=depth,
+                    )
+                    continue
+                try:
+                    target = safe_child_target(target_dir, normalized)
+                except ValueError as exc:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="unsafe_archive_member_path",
+                        detail=str(exc),
+                        archive_depth=depth,
+                    )
+                    continue
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    stats.directories_written += 1
+                    continue
+                if not member.isfile():
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="unsupported_tar_member_type",
+                        detail="only regular files and directories are expanded",
+                        archive_depth=depth,
+                    )
+                    continue
+                extracted = handle.extractfile(member)
+                if extracted is None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="archive_member_unreadable",
+                        detail="tar member cannot be opened",
+                        archive_depth=depth,
+                    )
+                    continue
+                with extracted:
+                    error = write_expanded_file(
+                        target=target,
+                        source=extracted,
+                        size=member.size,
+                        label=member.name,
+                        stats=stats,
+                        budget=budget,
+                        limits=limits,
+                    )
+                if error is not None:
+                    expansion_skip(
+                        stats,
+                        chain=member_chain,
+                        reason_code="expansion_write_skipped",
+                        detail=error,
+                        archive_depth=depth,
+                    )
+                    continue
+                expand_nested_archive_if_supported(
+                    archive_path=target,
+                    chain=member_chain,
+                    depth=depth,
+                    limits=limits,
+                    stats=stats,
+                    budget=budget,
+                )
+    except (OSError, tarfile.TarError) as exc:
+        expansion_skip(
+            stats,
+            chain=chain,
+            reason_code="archive_metadata_unreadable",
+            detail=str(exc),
+            archive_depth=depth,
+        )
+
+
+def expand_supported_archive(
+    archive_path: Path,
+    *,
+    suffix: str,
+    target_dir: Path,
+    chain: tuple[str, ...],
+    depth: int,
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    if suffix == ".zip":
+        expand_zip_archive(
+            archive_path,
+            target_dir=target_dir,
+            chain=chain,
+            depth=depth,
+            limits=limits,
+            stats=stats,
+            budget=budget,
+        )
+        return
+    if suffix in {".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".tbz", ".tbz2", ".txz"}:
+        expand_tar_archive(
+            archive_path,
+            target_dir=target_dir,
+            chain=chain,
+            depth=depth,
+            limits=limits,
+            stats=stats,
+            budget=budget,
+        )
+        return
+    expansion_skip(
+        stats,
+        chain=chain,
+        reason_code="unsupported_archive_type",
+        detail=f"unsupported archive suffix {suffix}",
+        archive_depth=depth,
+    )
+
+
+def copy_file_to_expansion(
+    *,
+    source_path: Path,
+    target_path: Path,
+    chain: tuple[str, ...],
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    with source_path.open("rb") as source:
+        error = write_expanded_file(
+            target=target_path,
+            source=source,
+            size=source_path.stat().st_size,
+            label=source_path.name,
+            stats=stats,
+            budget=budget,
+            limits=limits,
+        )
+    if error is not None:
+        expansion_skip(
+            stats,
+            chain=chain,
+            reason_code="expansion_write_skipped",
+            detail=error,
+            archive_depth=0,
+        )
+
+
+def copy_directory_to_expansion(
+    *,
+    source: SourceBundle,
+    target_dir: Path,
+    limits: BundleExpansionLimits,
+    stats: ExpansionStats,
+    budget: ExpansionBudget,
+) -> None:
+    registry = PortablePathRegistry()
+    for child in sorted(source.path.rglob("*"), key=lambda item: item.as_posix()):
+        if not reserve_expansion_entry(
+            stats,
+            chain=(),
+            limits=limits,
+            archive_depth=0,
+            detail=f"stopped after {limits.max_entries} total expanded entries",
+        ):
+            break
+        rel = child.relative_to(source.path).as_posix()
+        if child.is_symlink():
+            expansion_skip(
+                stats,
+                chain=(rel,),
+                reason_code="directory_symlink_skipped",
+                detail="directory symlink skipped",
+                archive_depth=0,
+            )
+            continue
+        if not child.is_file() and not child.is_dir():
+            continue
+        unsafe_reason = unsafe_portable_member_reason(rel)
+        if unsafe_reason is not None:
+            expansion_skip(
+                stats,
+                chain=(rel,),
+                reason_code="unsafe_directory_member_path",
+                detail=unsafe_reason,
+                archive_depth=0,
+            )
+            continue
+        collision = registry.register(rel, kind="directory" if child.is_dir() else "file")
+        if collision is not None:
+            expansion_skip(
+                stats,
+                chain=(rel,),
+                reason_code=path_collision_reason_code(collision),
+                detail=collision,
+                archive_depth=0,
+            )
+            continue
+        target = safe_child_target(target_dir, rel)
+        if child.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            stats.directories_written += 1
+            continue
+        copy_file_to_expansion(
+            source_path=child,
+            target_path=target,
+            chain=(rel,),
+            limits=limits,
+            stats=stats,
+            budget=budget,
+        )
+        expand_nested_archive_if_supported(
+            archive_path=target,
+            chain=(rel,),
+            depth=0,
+            limits=limits,
+            stats=stats,
+            budget=budget,
+        )
+
+
+def expansion_record(
+    *,
+    source: SourceBundle,
+    target_ref: str,
+    stats: ExpansionStats,
+    limits: BundleExpansionLimits,
+    action: str,
+    tree_state: dict[str, int | str],
+) -> dict[str, Any]:
+    return {
+        "source_bundle_ref": source.ref,
+        "source_bundle_sha256": source.sha256,
+        "kind": source.kind,
+        "size_bytes": source.size_bytes,
+        "target_ref": target_ref,
+        "action": action,
+        "files_written": stats.files_written,
+        "directories_written": stats.directories_written,
+        "archives_expanded": stats.archives_expanded,
+        "entries_seen": stats.entries_seen,
+        "bytes_written": stats.bytes_written,
+        "skipped_entry_count": len(stats.skipped_entries),
+        "limits": limits.as_record(),
+        **tree_state,
+    }
+
+
+def materialize_submission_bundles(
+    *,
+    case_id: str,
+    round_id: str,
+    round_dir: Path,
+    bundle_refs: Iterable[str],
+    limits: BundleExpansionLimits | None = None,
+    generated_at: str | None = None,
+    producer: str = SUBMISSION_BUNDLE_EXPANSION_PRODUCER,
+    refresh: bool = False,
+) -> tuple[dict[str, Any], Path]:
+    active_limits = limits or BundleExpansionLimits()
+    manifest_path = round_dir / SUBMISSION_BUNDLE_EXPANSION_REL
+    existing = load_expansion_manifest(manifest_path, case_id=case_id, round_id=round_id)
+    existing_by_source = {
+        (item.get("source_bundle_ref"), item.get("source_bundle_sha256")): item
+        for item in existing.get("expansions", [])
+        if isinstance(item, dict)
+    }
+    budget = ExpansionBudget(active_limits.max_total_bytes)
+    expansions: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for bundle_ref in bundle_refs:
+        source = resolve_source_bundle(round_dir, bundle_ref, BundleInventoryLimits())
+        target_ref = source_expansion_ref(source)
+        target = round_dir / target_ref
+        ensure_expansion_target(round_dir, target)
+        existing_record = existing_by_source.get((source.ref, source.sha256))
+        if (
+            not refresh
+            and isinstance(existing_record, dict)
+            and target.is_dir()
+            and expansion_record_matches_target(existing_record, target, active_limits)
+        ):
+            reused = dict(existing_record)
+            reused["action"] = "reused_existing"
+            expansions.append(reused)
+            continue
+        if target.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        target.mkdir(parents=True, exist_ok=True)
+        stats = ExpansionStats(source_ref=source.ref, target_ref=target_ref)
+        if source.kind == "directory":
+            copy_directory_to_expansion(
+                source=source,
+                target_dir=target,
+                limits=active_limits,
+                stats=stats,
+                budget=budget,
+            )
+        else:
+            suffix = archive_suffix(source.path)
+            if suffix in SUPPORTED_ARCHIVE_SUFFIXES:
+                expand_supported_archive(
+                    source.path,
+                    suffix=suffix,
+                    target_dir=target,
+                    chain=(),
+                    depth=0,
+                    limits=active_limits,
+                    stats=stats,
+                    budget=budget,
+                )
+            else:
+                target_file = target / portable_filename(PurePosixPath(source.ref).name)
+                copy_file_to_expansion(
+                    source_path=source.path,
+                    target_path=target_file,
+                    chain=(),
+                    limits=active_limits,
+                    stats=stats,
+                    budget=budget,
+                )
+        skipped.extend(stats.skipped_entries)
+        tree_state = expansion_tree_state(target)
+        expansions.append(
+            expansion_record(
+                source=source,
+                target_ref=target_ref,
+                stats=stats,
+                limits=active_limits,
+                action="expanded",
+                tree_state=tree_state,
+            )
+        )
+    payload = {
+        "schema_version": SUBMISSION_BUNDLE_EXPANSION_SCHEMA,
+        "case_id": case_id,
+        "round_id": round_id,
+        "generated_at": generated_at or now_utc(),
+        "producer": producer,
+        "target_root_ref": SUBMISSION_BUNDLE_EXPANDED_ROOT_REL,
+        "limits": active_limits.as_record(),
+        "expansions": expansions,
+        "skipped_entries": skipped,
+    }
+    write_expansion_manifest(manifest_path, payload)
+    return payload, manifest_path
 
 
 def materialize_submission_bundle_candidate(

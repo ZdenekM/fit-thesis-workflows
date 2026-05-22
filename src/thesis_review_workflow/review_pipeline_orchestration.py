@@ -1263,6 +1263,8 @@ def validate_round_material_descriptor(material: RoundMaterialDescriptor) -> lis
     for rel_path in material.decomposed_authoritative_refs:
         if not is_safe_round_relative_path(rel_path):
             errors.append(f"{rel_path}: decomposed authoritative ref must be a safe round-relative path")
+        elif not rel_path.startswith("inputs/"):
+            errors.append(f"{rel_path}: decomposed authoritative ref must be under inputs/")
     if material.url and material.kind not in {"github_snapshot_request", "github_pr_url"}:
         errors.append(f"{material.url}: url descriptors are supported only for GitHub material requests")
     if material.is_bundle_container and not material.decomposed_authoritative_refs:
@@ -1293,10 +1295,17 @@ def round_start_actions(
         actions.append(
             RoundStartAction(
                 "inventory_submission_bundle",
-                "review-round-start internal submission-bundle inventory",
-                "submitted parent bundles need bounded inventory before nested evidence can be selected",
+                "review-round-start internal submission-bundle inventory and expansion",
+                (
+                    "submitted parent bundles need inventory and an ignored expanded workspace "
+                    "before nested evidence can be reviewed"
+                ),
                 submission_bundle_refs,
-                ("work/submission_bundle_inventory.json", "work/submission_bundle_inventory.md"),
+                (
+                    "work/submission_bundle_inventory.json",
+                    "work/submission_bundle_inventory.md",
+                    "work/submission_bundle_expansion.json",
+                ),
             )
         )
     for material in materials:

@@ -115,6 +115,7 @@ PY
 
 test -f "$round_dir/inputs/materialized-code.zip"
 test -f "$round_dir/work/submission_bundle_materialization.json"
+test -f "$round_dir/work/submission_bundle_expansion.json"
 test -f "$round_dir/work/code/materialized-code/project/src/main.py"
 test -f "$round_dir/work/review_role_plan.json"
 grep -Fq "Submission Bundle Inventory" /tmp/submission-bundle-preflight-smoke.out
@@ -124,7 +125,26 @@ grep -Fq "expected extract \`extracted/submission_bundle/" /tmp/submission-bundl
 grep -Fq "Submission Bundle Inventory" /tmp/submission-bundle-doctor-smoke.out
 grep -Fq "First-party-looking code:" /tmp/submission-bundle-doctor-smoke.out
 grep -Fq "work/submission_bundle_inventory.json" "$round_dir/work/common_briefing.json"
+grep -Fq "work/submission_bundle_expansion.json" "$round_dir/work/common_briefing.json"
 grep -Fq "Submission Bundle Inventory" "$round_dir/work/opponent_packets/text_structure_assignment.md"
+
+python3 - "$round_dir/work/submission_bundle_expansion.json" "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+round_dir = pathlib.Path(sys.argv[2])
+assert payload["producer"] == "scripts/review-round-start", payload
+assert payload["expansions"], payload
+record = payload["expansions"][0]
+target = round_dir / record["target_ref"]
+assert target.is_dir(), target
+assert (target / "handoff/code.zip").is_file(), target
+nested_main = list(target.glob("handoff/code.zip.contents-*/project/src/main.py"))
+assert nested_main, target
+assert record["archives_expanded"] >= 2, record
+PY
 
 assignment_candidate_id="$(
   python3 - "$round_dir/work/submission_bundle_inventory.json" <<'PY'
@@ -216,6 +236,7 @@ for rel in (
     "work/submission_bundle_inventory.json",
     "work/submission_bundle_inventory.md",
     "work/submission_bundle_materialization.json",
+    "work/submission_bundle_expansion.json",
 ):
     assert rel in support, rel
     digest = hashlib.sha256((round_dir / rel).read_bytes()).hexdigest()
@@ -228,6 +249,7 @@ snapshot = json.loads((round_dir / "work/current_evidence_snapshot.json").read_t
 snapshot_refs = {item["path"] for item in snapshot["items"]}
 assert "work/submission_bundle_inventory.json" in snapshot_refs
 assert "work/submission_bundle_materialization.json" in snapshot_refs
+assert "work/submission_bundle_expansion.json" in snapshot_refs
 assert not (round_dir / "extracted/submission_bundle").exists()
 PY
 
@@ -289,5 +311,25 @@ JSONL
 inventory_after_observation="$(sha256sum "$round_dir/work/submission_bundle_inventory.json" | awk '{print $1}')"
 test "$inventory_before_observation" = "$inventory_after_observation"
 test -f "$round_dir/work/figure_media/visual_inventory.jsonl"
+
+"$repo_root/scripts/materialize-submission-bundle" \
+  "$case_id" \
+  "$round_id" \
+  --bundle inputs/submission.zip \
+  --refresh \
+  --generated-at 2026-05-19T12:04:00Z >/tmp/submission-bundle-expand-cli-smoke.out
+python3 - "$round_dir/work/submission_bundle_expansion.json" "$round_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+round_dir = pathlib.Path(sys.argv[2])
+assert payload["producer"] == "scripts/materialize-submission-bundle", payload
+record = payload["expansions"][0]
+target = round_dir / record["target_ref"]
+nested_main = list(target.glob("handoff/code.zip.contents-*/project/src/main.py"))
+assert nested_main, target
+PY
 
 echo "submission bundle materialization smoke passed"
