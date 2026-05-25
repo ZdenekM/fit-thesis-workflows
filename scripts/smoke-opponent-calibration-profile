@@ -143,6 +143,12 @@ profile = {
     "profile_markdown_path": "outputs/reviewer_calibration_profile.md",
     "profile_markdown_sha256": profile_hash,
     "profile_applicability": {"confident": ["synthetic software engineering"]},
+    "ownership_boundaries": {
+        "baseline_workflow_owned": ["public-report hygiene belongs to report review and export checks"],
+        "methodology_pipeline_owned": ["methodological evidence checks belong to pipeline-owned review roles"],
+        "calibration_profile_owned": ["reviewer-specific severity and grading calibration"],
+        "do_not_duplicate": ["do not copy baseline workflow rules into active calibration prompts"],
+    },
     "source_case_refs": analysis_refs,
     "profile_version": 1,
     "profile_previous_sha256": None,
@@ -172,6 +178,7 @@ checklist = {
             "item_id": "assignment-map",
             "evidence_class": "assignment_fulfillment",
             "prompt": "Map current work to assignment points.",
+            "ownership_scope": "calibration_profile",
             "source_case_refs": analysis_refs,
             "requires_current_case_evidence": True,
         }

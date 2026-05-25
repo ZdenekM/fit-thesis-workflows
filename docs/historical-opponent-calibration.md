@@ -22,7 +22,7 @@ case analyses, reviewer profiles, checklists, and calibration history live under
 ignored `cases/`, for example:
 
 ```text
-cases/opponent-calibration-zm/
+cases/opponent-calibration-private/
   case.md
   current-round.txt
   rounds/
@@ -55,10 +55,37 @@ The companion JSON is only a manifest:
 - `work/calibration/reviewer_calibration_profile.json`
 
 The manifest binds the Markdown profile by path and hash, records versioning,
-source case analyses, applicability, confidence by dimension, limitations, and
-the boundaries where the profile must not be used. Deterministic helpers may
-validate these fields and hashes, but must not semantically parse the Markdown
-profile text.
+source case analyses, applicability, confidence by dimension, limitations,
+ownership boundaries, and the boundaries where the profile must not be used.
+Deterministic helpers may validate these fields and hashes, but must not
+semantically parse the Markdown profile text.
+
+Every profile refresh must triage candidate lessons by ownership before writing
+the active profile or checklist:
+
+- `baseline_workflow_owned`: already-owned workflow hygiene, privacy,
+  public/private wording, checker/export, readiness, and manifest rules.
+- `methodology_pipeline_owned`: methodology, evidence-mode, problem framing,
+  contribution-boundary, evaluation, user-study, figure/media, or quantitative
+  checks that belong to the opponent methodology pipeline. For contribution
+  boundaries, this means factual evidence, assignment interpretation, and target
+  binding.
+- `calibration_profile_owned`: reviewer-specific calibration of severity,
+  grading strictness, contribution-credit weight after the factual boundary is
+  established, emphasis, defense-question style, and wording preferences that
+  are not normal workflow baseline.
+- `do_not_duplicate`: concrete rules that must stay out of active calibration
+  prompts because another workflow surface owns them.
+
+Only `calibration_profile_owned` lessons may become active checklist prompts.
+The profile manifest must include all four ownership boundary keys. The active
+`calibration_profile_owned` and `do_not_duplicate` lists must be non-empty;
+baseline and methodology lists may be empty when the refresh did not observe a
+new lesson for those owners. Every `work/calibration/reviewer_checklist.json`
+item must declare `ownership_scope: "calibration_profile"` with a unique
+`item_id`. Baseline and methodology lessons should be promoted to their owning
+docs/skills/plans or tracked as follow-up work, not parked in the private
+calibration checklist.
 
 The synthesized profile can be checked with:
 
@@ -74,13 +101,23 @@ profile, profile manifest, checklist, append-only profile history, private
 It is still only a structural gate; synthesis and anti-overfit judgment belong
 to explicitly authorized agents or human reviewers.
 
+The independent profile review must include an ownership-boundary check: active
+calibration should not duplicate public-report hygiene, path/privacy leak
+checks, final export/readiness checks, or methodology-pipeline work that is
+already owned elsewhere. This is a semantic review requirement; deterministic
+helpers validate the review path, hash, metadata, and structured profile
+manifest, but they do not parse Markdown review prose for meaning.
+
 Historical case analyses are path-classified artifacts:
 
 - `work/calibration/historical_case_analyses/<historical-case-id>.json`
 
 Each analysis must use the schema
 `historical-opponent-case-analysis-v1`, carry corpus coverage metadata, and
-anchor evidence to private round-relative refs.
+anchor evidence to private round-relative refs. Reusable `recurring_checks`
+entries are structural objects with unique `check_id`, `evidence_class`, and
+`prompt`; deterministic validation checks shape and uniqueness only, not the
+semantic meaning of the prompt.
 
 Validate the current calibration round with:
 

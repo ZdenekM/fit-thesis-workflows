@@ -1130,8 +1130,14 @@ expect_success "export clean proposal for report review closeout" \
   "$repo_root/scripts/export-opponent-report" --force "$case_id" round-a
 expect_success "clean proposal passes before report review closeout" \
   "$repo_root/scripts/check-opponent-report" --mode clean --path outputs/oponent_posudek_navrh.md "$case_id" round-a
-! grep -Fq "strukturovanou kontrolu pro" "$round_dir/outputs/oponent_posudek_navrh.md"
-! grep -Fq "## 12. Před odevzdáním" "$round_dir/outputs/oponent_posudek_navrh.md"
+if grep -Fq "strukturovanou kontrolu pro" "$round_dir/outputs/oponent_posudek_navrh.md"; then
+  echo "Unexpected internal review wording in clean opponent report proposal" >&2
+  exit 1
+fi
+if grep -Fq "## 12. Před odevzdáním" "$round_dir/outputs/oponent_posudek_navrh.md"; then
+  echo "Unexpected pre-submission section in clean opponent report proposal" >&2
+  exit 1
+fi
 write_report_review_feedback "$round_dir/outputs/feedback_k_posudku.md"
 expect_success "opponent materials round start writes old profile trace" \
   "$repo_root/scripts/review-round-start" --profile opponent_materials "$case_id" round-a
@@ -1144,7 +1150,7 @@ expect_failure "opponent report closeout refuses stale materials profile state" 
   "$repo_root/scripts/review-round-closeout" --profile opponent_report_review --skip-repo-hygiene "$case_id" round-a
 expect_output "work/review_run_trace.json records profile_id='opponent_materials', expected 'opponent_report_review'"
 expect_output "work/review_role_plan.json records profile_id='opponent_materials', expected 'opponent_report_review'"
-expect_output "scripts/review-round-start --profile opponent_report_review"
+expect_output "review-round-start --profile opponent_report_review"
 test "$(file_digest "$round_dir/work/review_manifest.json")" = "$manifest_before_stale_preflight"
 test "$(file_digest "$round_dir/work/agent_coverage.json")" = "$coverage_before_stale_preflight"
 test "$(file_digest "$round_dir/work/common_briefing.json")" = "$briefing_before_stale_preflight"

@@ -1,6 +1,6 @@
 # Historical Opponent Calibration Plan
 
-Status: active
+Status: completed
 Created: 2026-05-07
 
 ## Goal
@@ -91,7 +91,7 @@ Non-goals:
 Historical calibration data lives under an ignored calibration case, for example:
 
 ```text
-cases/opponent-calibration-zm/
+cases/opponent-calibration-private/
   case.md
   current-round.txt
   rounds/
@@ -798,40 +798,55 @@ Commit target:
 
 - `feat(workflow): mark finalized reports for calibration refresh`
 
-### Slice 10: Private Pilot With Historical Reports
+### Slice 10: Private Pilot With Current Opponent Cases
 
-Status: blocked
+Status: completed
 
-Blocker:
+Completion note:
 
-- No dedicated private calibration workspace with the required 2-3 historical
-  opponent cases is currently present under ignored `cases/`. This slice needs
-  real private historical reports supplied by the operator; synthetic smokes
-  already cover the public workflow mechanics but cannot validate reviewer-style
-  calibration quality.
+- The private semantic pilot was completed using an operator-provided private
+  calibration corpus under ignored `cases/`. This closes the
+  historical-calibration workflow plan because the repository mechanics had
+  already been implemented and the remaining blocker was a real private corpus.
+  The pilot corpus is still small and domain-skewed, so the resulting private
+  profile is advisory calibration context, not a grading rule.
 
 Actions:
 
-- Confirm current-request authorization to use agents before reading private
-  historical cases or writing semantic artifacts.
-- User provides 2-3 historical opponent cases under the ignored calibration
-  workspace.
-- Run the historical case analysis workflow for each private case.
-- Synthesize and review the private profile/checklist.
-- Add one additional completed or historical case and refresh the profile to
-  prove the incremental update path.
-- Run one current or synthetic opponent case through the calibrated comparison
-  and draft feedback loop.
-- Select 2-3 private sentinel cases and record how to rerun them as a private
-  regression check after future calibration/profile workflow changes.
-- Capture only case-neutral lessons into tracked docs/TODO. Keep all historical
-  case content and private profile output ignored.
+- Confirmed current-request authorization to use agents before reading private
+  case materials or writing semantic artifacts.
+- Created an ignored private calibration round and copied only private
+  case-local calibration inputs under `inputs/historical_cases/`.
+- Ran agent-assisted semantic analysis of the private calibration corpus and wrote
+  `work/calibration/historical_case_analyses/<case>.json` artifacts.
+- Ran `scripts/check-opponent-calibration-case` and verified the private
+  historical case analyses.
+- Synthesized `outputs/reviewer_calibration_profile.md`,
+  `work/calibration/reviewer_calibration_profile.json`,
+  `work/calibration/reviewer_checklist.json`,
+  `work/calibration/reviewer_calibration_profile_history.jsonl`, and
+  `work/calibration/reviewer_profile_change_log.md`.
+- Ran an independent anti-overfit/profile review and recorded it in
+  `work/calibration/profile_review.md`.
+- Registered the profile in `work/review_manifest.json`, refreshed helper-check
+  metadata, and passed `scripts/check-opponent-calibration-profile` plus
+  `scripts/check-review-manifest --require-complete`.
+- Kept all private corpus inputs, analyses, profile outputs, checklist, review,
+  and manifest artifacts under ignored `cases/`.
 
 Verification:
 
 ```bash
+scripts/check-opponent-calibration-case <calibration-case-id> <round-id>
+scripts/check-opponent-calibration-profile <calibration-case-id> <round-id>
+scripts/init-review-manifest --run-checks <calibration-case-id> <round-id>
+scripts/check-review-manifest --require-complete <calibration-case-id> <round-id>
+pants test tests/test_opponent_calibration.py
+scripts/smoke-opponent-calibration-case
+scripts/smoke-opponent-calibration-profile
 scripts/check-private
 scripts/check-scripts
+pants run :omen
 git diff --check
 git status --short --untracked-files=all
 ```
@@ -1002,11 +1017,22 @@ Commit target:
   `git diff --check`, `pants run :vulture`, `pants run :jscpd`, and
   `pants run :omen`.
 - 2026-05-07: Slice 10 checked for readiness and left blocked. The repository
-  does not currently contain a dedicated ignored calibration workspace with 2-3
-  historical opponent cases, so running the private semantic pilot would require
-  inventing historical evidence. The plan remains active and must not be
-  archived until the operator supplies the private pilot inputs and the semantic
-  calibration/profile workflow is actually run.
+  did not then contain a dedicated ignored calibration workspace with a private
+  opponent corpus, so running the private semantic pilot would have required
+  inventing historical evidence.
+- 2026-05-25: Slice 10 completed after explicit operator authorization to use
+  agents on a private calibration corpus. Created an ignored calibration
+  round, wrote historical case analyses, synthesized and independently
+  reviewed the private Markdown-first reviewer calibration profile and checklist,
+  registered the profile in the review manifest, and passed the calibration case,
+  profile, and complete-manifest checks. Historical calibration is now closed as
+  a workflow plan; future profile updates are ordinary private refreshes rather
+  than blocked plan implementation.
+- 2026-05-25: Cleaned the private profile to remove baseline clean-report and
+  methodology-pipeline rules from the active calibration checklist, then added
+  structural ownership guards for future refreshes. The current private profile
+  has calibration-only prompts, explicit ownership boundaries, updated profile
+  history, and passing profile/manifest checks.
 
 ## Decision Log
 
@@ -1037,15 +1063,66 @@ Commit target:
 - Stable `outputs/` artifacts from this workflow need manifest/review/hash
   integration before downstream use. Experimental shapes belong under `work/`
   until the contract is stable.
-- V1 should start with 2-3 historical cases. Broader automation waits until the
-  pilot shows which differences matter.
+- The initial private profile uses a small operator-provided calibration corpus
+  rather than only synthetic fixtures. That improves practical coverage, but the
+  corpus remains private and domain-skewed and should be used cautiously outside
+  its evidence base.
+- Keep baseline public-report hygiene in tracked profiles, report-review skills,
+  and clean-report checkers. Keep evidence-mode/source-support/target-binding
+  semantics in the methodology pipeline. The private calibration profile should
+  only calibrate severity, grading, difficulty, wording, defense-question
+  strategy, and how much current-case methodology findings affect grade/report
+  emphasis after the methodology evidence exists.
 
 ## Final Audit
 
-Not run yet. Fill before archiving:
+Completed on 2026-05-25.
 
-- commands run
-- skipped checks and reasons
-- private pilot limitations
-- residual TODO transfers
-- archive commit
+Commands run:
+
+```bash
+scripts/check-opponent-calibration-case <calibration-case-id> <round-id>
+scripts/check-opponent-calibration-profile <calibration-case-id> <round-id>
+scripts/init-review-manifest --run-checks <calibration-case-id> <round-id>
+scripts/check-review-manifest --require-complete <calibration-case-id> <round-id>
+scripts/check-private
+scripts/check-scripts
+git diff --check
+git status --short --untracked-files=all
+```
+
+Results:
+
+- Private calibration case check passed with the available private historical
+  case analyses.
+- Private reviewer calibration profile check passed after duplicate
+  baseline/workflow content was removed and structural ownership guards were
+  added.
+- Complete review manifest check passed after registering the reviewed profile
+  and generated helper-check metadata.
+- Targeted opponent-calibration tests and synthetic smoke checks passed after
+  the ownership-boundary schema hardening.
+- `scripts/check-private`, `scripts/check-scripts`, and `git diff --check`
+  passed.
+- `pants run :omen` completed with no critical issues reported.
+
+Skipped checks:
+
+- None for this closeout scope.
+
+Private pilot limitations:
+
+- Corpus is small and domain-skewed.
+- Not every included source is a fully submitted historical report.
+- The profile is advisory calibration context only. It must not replace
+  current-case evidence, normal reviewer-profile readiness, operator calibration,
+  or independent report review.
+
+Residual TODO transfers:
+
+- None from this plan. Future calibration refreshes should use the implemented
+  private refresh workflow and append profile history under ignored `cases/`.
+
+Archive status:
+
+- Archived under `plans/archive/`.

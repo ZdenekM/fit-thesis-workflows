@@ -66,6 +66,14 @@ CONFIDENCE_DIMENSIONS = {
     "evidence_expectations",
     "checklist_coverage",
 }
+OWNERSHIP_BOUNDARY_FIELDS = {
+    "baseline_workflow_owned",
+    "methodology_pipeline_owned",
+    "calibration_profile_owned",
+    "do_not_duplicate",
+}
+NONEMPTY_OWNERSHIP_BOUNDARY_FIELDS = {"calibration_profile_owned", "do_not_duplicate"}
+CHECKLIST_OWNERSHIP_SCOPES = {"calibration_profile"}
 HISTORICAL_CASE_STRENGTHS = {"strong", "typical", "weak", "atypical", "unknown"}
 CALIBRATION_APPLICABILITY_STATUSES = {"matching", "partial", "mismatch", "unknown"}
 CALIBRATION_ADVISORY_REASONS = {
@@ -397,7 +405,7 @@ def _validate_historical_case_analysis(loaded: dict[str, Any], rel_path: str, er
     if strength not in HISTORICAL_CASE_STRENGTHS:
         values = ", ".join(sorted(HISTORICAL_CASE_STRENGTHS))
         errors.append(f"{rel_path}: case_strength must be one of: {values}")
-    _require_list(loaded, "recurring_checks", rel_path, errors)
+    _validate_recurring_checks(loaded.get("recurring_checks"), rel_path, errors)
     source_refs = loaded.get("source_refs")
     if not isinstance(source_refs, list) or not source_refs:
         errors.append(f"{rel_path}: source_refs must not be empty")
@@ -433,6 +441,7 @@ def _validate_profile_manifest(
     if "operator_approval" in loaded:
         _validate_operator_approval(loaded.get("operator_approval"), f"{rel_path}: operator_approval", errors)
     _validate_confidence_by_dimension(loaded.get("confidence_by_dimension"), rel_path, errors)
+    _validate_ownership_boundaries(loaded.get("ownership_boundaries"), rel_path, errors)
     _require_list(loaded, "do_not_use_for", rel_path, errors)
     markdown_path = loaded.get("profile_markdown_path")
     if isinstance(markdown_path, str):
@@ -470,13 +479,21 @@ def _validate_reviewer_checklist(
     items = _require_nonempty_list(loaded, "checklist_items", rel_path, errors)
     if not isinstance(items, list):
         return
+    seen_item_ids: set[str] = set()
     for index, item in enumerate(items, start=1):
         prefix = f"{rel_path}: checklist_items item {index}"
         if not isinstance(item, dict):
             errors.append(f"{prefix} must be object")
             continue
-        for field in ("item_id", "evidence_class", "prompt"):
+        _validate_id_field(item, "item_id", prefix, errors)
+        for field in ("evidence_class", "prompt"):
             _require_nonempty_string(item, field, prefix, errors)
+        item_id = item.get("item_id")
+        if isinstance(item_id, str) and item_id:
+            if item_id in seen_item_ids:
+                errors.append(f"{prefix}: item_id must be unique")
+            seen_item_ids.add(item_id)
+        _require_enum(item, "ownership_scope", CHECKLIST_OWNERSHIP_SCOPES, prefix, errors)
         source_case_refs = _require_nonempty_list(item, "source_case_refs", prefix, errors)
         _validate_historical_analysis_refs(
             source_case_refs,
@@ -486,6 +503,46 @@ def _validate_reviewer_checklist(
             errors=errors,
         )
         _require_bool(item, "requires_current_case_evidence", prefix, errors)
+
+
+def _validate_recurring_checks(value: Any, rel_path: str, errors: list[str]) -> None:
+    if not isinstance(value, list):
+        errors.append(f"{rel_path}: recurring_checks must be list")
+        return
+    seen_check_ids: set[str] = set()
+    for index, item in enumerate(value, start=1):
+        prefix = f"{rel_path}: recurring_checks item {index}"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be object")
+            continue
+        _validate_id_field(item, "check_id", prefix, errors)
+        for field in ("evidence_class", "prompt"):
+            _require_nonempty_string(item, field, prefix, errors)
+        check_id = item.get("check_id")
+        if isinstance(check_id, str) and check_id:
+            if check_id in seen_check_ids:
+                errors.append(f"{prefix}: check_id must be unique")
+            seen_check_ids.add(check_id)
+
+
+def _validate_ownership_boundaries(value: Any, rel_path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{rel_path}: ownership_boundaries must be object")
+        return
+    unknown_fields = sorted(set(value) - OWNERSHIP_BOUNDARY_FIELDS)
+    if unknown_fields:
+        errors.append(
+            f"{rel_path}: ownership_boundaries contains unknown field(s): {', '.join(unknown_fields)}"
+        )
+    for field in sorted(OWNERSHIP_BOUNDARY_FIELDS):
+        items = _require_list(value, field, f"{rel_path}: ownership_boundaries", errors)
+        if not isinstance(items, list):
+            continue
+        if field in NONEMPTY_OWNERSHIP_BOUNDARY_FIELDS and not items:
+            errors.append(f"{rel_path}: ownership_boundaries: {field} must not be empty")
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, str) or not item:
+                errors.append(f"{rel_path}: ownership_boundaries {field} item {index} must be non-empty str")
 
 
 def _validate_opponent_calibration_use(
@@ -1440,6 +1497,16 @@ def _validate_ref(
         return
     if require_existing_refs and round_dir is not None and not (round_dir / value).exists():
         errors.append(f"{label}: ref does not exist: {value}")
+
+
+def _validate_id_field(loaded: dict[str, Any], field: str, prefix: str, errors: list[str]) -> None:
+    value = loaded.get(field)
+    _require_nonempty_string(loaded, field, prefix, errors)
+    if isinstance(value, str) and value and not is_valid_id(value):
+        errors.append(
+            f"{prefix}: {field} must use only letters, numbers, dot, underscore, and dash; "
+            "dot-only ids are not allowed"
+        )
 
 
 def _require_nonempty_string(loaded: dict[str, Any], field: str, prefix: str, errors: list[str]) -> None:

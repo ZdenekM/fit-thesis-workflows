@@ -18,6 +18,9 @@ Use this as a compact checklist for opponent materials and report review.
 ## Calibration
 
 - Use grade/bod ranges and rationale, not false precision.
+- For DP scope calibration, use the thresholds recorded in the current
+  `work/theses_checker_summary.json` or an explicit operator/case instruction;
+  do not hard-code categorical normostrany ranges without a current source.
 - Do not claim non-functionality when the actual issue is unverifiability from available materials.
 - Do not make plagiarism, licensing, or novelty accusations without clear evidence.
 - Do not turn standard library, framework, platform, template, asset, generated-code, or AI-assisted capability into the student's invented method unless that contribution boundary is evidenced.

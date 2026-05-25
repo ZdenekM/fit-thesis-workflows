@@ -21,26 +21,44 @@ profiles, checklists, and reviews stay under ignored `cases/`.
    reading historical materials or writing semantic artifacts.
 3. For each historical case under `inputs/historical_cases/<id>/`, an authorized
    agent reads the private materials and writes
-   `work/calibration/historical_case_analyses/<id>.json`.
+   `work/calibration/historical_case_analyses/<id>.json`. Any
+   `recurring_checks` entries must be structured objects with unique
+   `check_id`, `evidence_class`, and `prompt`.
 4. Run `scripts/check-opponent-calibration-case <calibration-case-id> [round-id]`.
-5. After at least two historical analyses pass, synthesize the authoritative
-   narrative profile in `outputs/reviewer_calibration_profile.md`.
-6. Write only machine-checkable metadata to
+5. Before synthesis, triage candidate lessons by ownership:
+   `baseline_workflow_owned`, `methodology_pipeline_owned`,
+   `calibration_profile_owned`, and `do_not_duplicate`. Promote only
+   reviewer-specific calibration into the active profile/checklist; route
+   baseline workflow rules to the owning skill/docs/checker and methodology
+   pipeline lessons to the methodology pipeline plan or implementation.
+   Contribution-boundary evidence, assignment interpretation, and target
+   binding are methodology-owned; the calibration profile may only capture how
+   the reviewer tends to weight or word an already established contribution
+   boundary.
+6. After at least two historical analyses pass, synthesize the authoritative
+   narrative profile in `outputs/reviewer_calibration_profile.md`. Include an
+   `Ownership Boundaries` section that makes the ownership split explicit.
+7. Write only machine-checkable metadata to
    `work/calibration/reviewer_calibration_profile.json`: profile path/hash,
    version, previous hash, source analyses, applicability, confidence by
-   dimension, limitations, and do-not-use boundaries.
-7. Write reusable evidence-class review prompts to
-   `work/calibration/reviewer_checklist.json`.
-8. Append the version entry to
+   dimension, limitations, ownership boundaries, and do-not-use boundaries.
+8. Write reusable evidence-class review prompts to
+   `work/calibration/reviewer_checklist.json`. Every active checklist item must
+   have a unique `item_id` and `ownership_scope: "calibration_profile"`; do
+   not keep baseline workflow hygiene or methodology-pipeline checks as active
+   calibration prompts.
+9. Append the version entry to
    `work/calibration/reviewer_calibration_profile_history.jsonl`.
-9. Record the human-readable version summary in
+10. Record the human-readable version summary in
    `work/calibration/reviewer_profile_change_log.md`.
-10. Run an independent anti-overfit/profile reviewer and record the review in
-   `work/calibration/profile_review.md`.
-11. Register `outputs/reviewer_calibration_profile.md` in
+11. Run an independent anti-overfit/profile reviewer and record the review in
+   `work/calibration/profile_review.md`. The reviewer must explicitly check
+   that baseline workflow rules and methodology pipeline-owned lessons were not
+   reintroduced into active checklist prompts.
+12. Register `outputs/reviewer_calibration_profile.md` in
     `work/review_manifest.json` with reviewed hash, generator, reviewer,
     source analysis refs, and limitations.
-12. Run `scripts/check-opponent-calibration-profile <calibration-case-id> [round-id]`.
+13. Run `scripts/check-opponent-calibration-profile <calibration-case-id> [round-id]`.
 
 ## Current Case Use
 
@@ -121,6 +139,10 @@ history entry, or explicit default-profile approval.
   gate in `case.md`.
 - Deterministic helpers must not infer reviewer style from raw historical report
   text. They validate schemas, paths, hashes, and review state only.
+- The active checklist is reviewer-calibration-only. Baseline public-report
+  hygiene, privacy/path leakage, checker/export readiness, and methodology or
+  evaluation evidence checks belong to their owning workflow surfaces, not to
+  historical calibration prompts.
 - Avoid long verbatim excerpts from historical reports.
 - Current-case use is recorded in `work/opponent_calibration_use.json` only
   after reviewed opponent materials and an accepted report trace exist; absence
