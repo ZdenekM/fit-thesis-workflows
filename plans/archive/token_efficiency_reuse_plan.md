@@ -1,6 +1,6 @@
 # Token Efficiency And Artifact Reuse Plan
 
-Status: active
+Status: done
 Created: 2026-05-13
 
 ## Goal
@@ -1102,30 +1102,33 @@ private raw content during normal synthesis.
 
 ## Final Audit
 
-Not started. When implemented, close with:
+Archive closeout recorded on 2026-05-25.
+
+Implementation verification was recorded slice by slice in Progress above. This
+cleanup did not change implementation files; it only records final plan state
+and moves the completed plan to `plans/archive/`.
+
+Current cleanup verification:
 
 ```bash
-pants fmt ::
-pants lint src/thesis_review_workflow:: tests:: scripts::
-pants check src/thesis_review_workflow:: tests:: scripts::
-pants test tests/test_reuse.py tests/test_evidence_capsules.py tests/test_claim_review_basis.py tests/test_context_budget.py tests/test_workflow_python_contracts.py
-scripts/smoke-prepare-code-workspace
-scripts/smoke-github-code-intake
-scripts/smoke-round-reuse-index
-scripts/smoke-supervisor-packets
-scripts/smoke-opponent-packets
-scripts/smoke-supervisor-report-packets
-scripts/smoke-review-wave
-scripts/smoke-review-manifest
-scripts/smoke-register-review-artifact
-scripts/smoke-review-approval
-scripts/smoke-supervisor-report
-scripts/smoke-audit-context-budget
-scripts/smoke-package-workflow-tools
 scripts/check-private
 scripts/check-scripts
 git diff --check
+git status --short --untracked-files=all
 ```
 
-Record any intentionally skipped smoke, missing platform proof, or residual risk
-before moving this plan to `plans/archive/`.
+Checks intentionally not rerun during archive cleanup:
+
+- The full implementation closeout matrix from the original plan, including
+  Pants and smoke targets, because no implementation file changed in this
+  cleanup and the per-slice progress entries already record the targeted
+  validation that accompanied the commits.
+
+Residual work:
+
+- Native Windows runtime proof remains outside this plan unless a later
+  command-surface verification task adds Windows CI or manual evidence.
+
+Archive decision:
+
+- Move to `plans/archive/token_efficiency_reuse_plan.md`.
