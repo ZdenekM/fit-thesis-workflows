@@ -16,6 +16,36 @@ samostatnou interní evidenci napište v aktuálním požadavku výslovně
 `použij agenty`. Bez toho má agent zastavit před sendable/final artefaktem a
 vyžádat si autorizaci.
 
+## Local RAG
+
+Volitelný `mcp-local-rag` index slouží jen jako discovery vrstva pro rychlou
+orientaci v Markdown dokumentaci, plánech, skills, profilech, case poznámkách a
+generated Markdown výstupech. Není to evidence source pro posudek ani náhrada
+za workflow kontroly; agent musí po nalezení kandidátního místa otevřít
+autoritativní artefakt a citovat jeho cestu, sekci, stránku nebo řádek.
+Databáze, model cache a retrieved private chunks musí zůstat mimo tracked
+repozitář.
+
+Při indexaci `cases/` nepoužívejte raw directory ingest bez explicitního scope
+nebo exclude pravidel. Do RAG patří case metadata, `notes/`, `outputs/`, přímé
+Markdown vstupy typu předchozí feedback, kurátorovaná GitHub intake shrnutí,
+reviewer profily a operator-authored work summaries. Do RAG nepatří připravené
+submitted-code workspaces, zejména `cases/**/work/code/**` a
+`cases/**/work/submission_bundle/**`, raw GitHub intake diffy, patche, komentáře
+nebo logy pod `inputs/github/**`, rozbalené odevzdané zdroje ve vnořených
+`inputs/**` adresářích, `extracted/**` text práce ani jejich
+vendor/dependency/build/cache dokumentace. Podrobnosti jsou v
+`docs/local-rag-usage.md`.
+
+`BASE_DIRS` neberte jako bezpečný file-level allowlist. Pokud v lokálním MCP
+configu zůstává široký root typu `cases/`, jen zpřístupňuje cílené soubory; bulk
+ingest musí pořád používat kurátorovaný scope nebo explicitní bezpečné subrooty.
+
+Typický přínos je triage při širokých historických dotazech: když by přesné
+vyhledání v Markdownu našlo desítky plánů, docs nebo skills, RAG má nejdřív
+zúžit kandidáty na několik pravděpodobných zdrojů a teprve ty agent otevře
+přímo.
+
 ## Case Layout
 
 Lokální case workspace má tento tvar:
