@@ -100,6 +100,17 @@ Předchozí feedback využij jen tam, kde je z něj a z revizí vidět reakce
 studenta; pokud to průkazné není, opři procesní hodnocení o moje poznámky.
 ```
 
+### Zpětná vazba z oponentského posudku
+
+```text
+Mám oponentský posudek k práci, kterou jsem vedl. Přidej ho do case jako
+postmortem vstup, porovnej oprávněné výtky s tím, co student dostal v dřívější
+zpětné vazbě, a navrhni, které typy problémů máme příště hlídat lépe.
+
+Použij agenty. Posudek je zatím draft sdílený oponentem ke konzultaci /
+oficiální neveřejná kopie / veřejně dostupný posudek.
+```
+
 ### Review vlastního posudku
 
 ```text
@@ -132,6 +143,8 @@ pomáhá:
 - zdrojový zip nebo LaTeX/Overleaf export, pokud je užitečný pro diff a hledání,
 - kód, repo nebo PR, pokud práce obsahuje implementaci,
 - starší feedback a informace, co se od minule změnilo,
+- oponentský posudek k práci, kterou jste vedli, pokud má sloužit jako
+  postmortem vstup pro budoucí zlepšení supervisor workflow,
 - vaše neveřejné poznámky ke kontextu, aktivitě, samostatnosti a komunikaci,
 - fáze práce: pracovní verze, předfinální verze, finální kontrola, posudek,
 - požadovaný výstup,

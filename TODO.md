@@ -28,6 +28,11 @@
 
 ## P1 - Evidence Coverage
 
+- [ ] Add external opponent-report intake and supervisor postmortem learning.
+   - Let supervised cases store draft, official-private, or public opponent reports under the ignored round workspace with source status, permission, path/hash bindings, and explicit intended use.
+   - Compare justified opponent criticisms against prior supervisor feedback, revision diffs, thesis/code evidence, and what was available at the time; classify findings as already caught, partially caught, missed, unavailable, disputed, case-specific, or not actionable.
+   - Promote recurring missed checks to the narrowest durable owner: supervisor feedback/report skills, private reviewer profile, methodology pipeline, specialized evidence workflow, TODO, or no promotion.
+   - Keep semantic classification agent/human-authored and reviewed; deterministic helpers may validate schemas, paths, hashes, enums, and stale refs only.
 - [ ] Promote large submitted-bundle inventory limits through `review-round-start`.
    - Keep the inventory contract deterministic and case-neutral: file counts, sizes, path classes, archive depth, and explicitly configured thresholds are valid; semantic conclusions about thesis/code quality still belong to review workflows.
    - Surface oversized, truncated, or hidden submitted-material inventories early enough that packet preparation and closeout do not discover them only through downstream stale-state failures.
