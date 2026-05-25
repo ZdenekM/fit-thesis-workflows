@@ -23,6 +23,15 @@ from thesis_review_workflow.evidence_capsules import (
     EVIDENCE_CAPSULES_REL,
     validate_evidence_capsules_payload,
 )
+from thesis_review_workflow.external_opponent_feedback import (
+    EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_REL,
+    EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_SCHEMA,
+    EXTERNAL_OPPONENT_REPORT_INTAKE_REL,
+    EXTERNAL_OPPONENT_REPORT_INTAKE_SCHEMA,
+    SUPERVISOR_LEARNING_CANDIDATES_REL,
+    SUPERVISOR_LEARNING_CANDIDATES_SCHEMA,
+    validate_external_opponent_feedback_payload,
+)
 from thesis_review_workflow.literature_source_acquisition import (
     SOURCE_ACQUISITION_REL,
     SOURCE_ACQUISITION_SCHEMA,
@@ -112,6 +121,9 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     THESES_SIMILARITY_INTAKE_REL: {THESES_SIMILARITY_INTAKE_SCHEMA},
     THESES_SIMILARITY_ASSESSMENT_REL: {THESES_SIMILARITY_ASSESSMENT_SCHEMA},
     THESES_CHECKER_SUMMARY_REL: {THESES_CHECKER_SUMMARY_SCHEMA},
+    EXTERNAL_OPPONENT_REPORT_INTAKE_REL: {EXTERNAL_OPPONENT_REPORT_INTAKE_SCHEMA},
+    EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_REL: {EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_SCHEMA},
+    SUPERVISOR_LEARNING_CANDIDATES_REL: {SUPERVISOR_LEARNING_CANDIDATES_SCHEMA},
     SUBMISSION_BUNDLE_INVENTORY_REL: {SUBMISSION_BUNDLE_INVENTORY_SCHEMA},
     SUBMISSION_BUNDLE_MATERIALIZATION_REL: {SUBMISSION_BUNDLE_MATERIALIZATION_SCHEMA},
     SUBMISSION_BUNDLE_EXPANSION_REL: {SUBMISSION_BUNDLE_EXPANSION_SCHEMA},
@@ -158,6 +170,14 @@ JSON_ARTIFACT_REQUIRED_FIELDS: dict[str, dict[str, type | tuple[type, ...]]] = {
     },
     THESES_SIMILARITY_ASSESSMENT_REL: {"judgments": list},
     THESES_CHECKER_SUMMARY_REL: {"source_artifact": dict, "normostrany": (int, float), "status": str},
+    EXTERNAL_OPPONENT_REPORT_INTAKE_REL: {
+        "source_status": str,
+        "workflow_learning_permission": str,
+        "source_refs": list,
+        "intended_uses": list,
+    },
+    EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_REL: {"intake_ref": dict, "findings": list},
+    SUPERVISOR_LEARNING_CANDIDATES_REL: {"findings_ref": dict, "candidates": list},
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -201,6 +221,9 @@ EXPLICIT_WORK_ARTIFACTS = (
     "work/opponent_report_revision_request.json",
     "work/opponent_calibration_refresh_eligibility.json",
     THESES_CHECKER_SUMMARY_REL,
+    EXTERNAL_OPPONENT_REPORT_INTAKE_REL,
+    EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_REL,
+    SUPERVISOR_LEARNING_CANDIDATES_REL,
     "work/code_reproducibility.json",
     SOURCE_ACQUISITION_REL,
     "work/media_presence_inventory.jsonl",
@@ -577,6 +600,20 @@ def validate_json_work_artifact(
     elif rel_path == THESES_CHECKER_SUMMARY_REL:
         errors.extend(
             validate_theses_checker_summary_payload(
+                loaded,
+                rel_path,
+                round_dir=round_dir,
+                case_id=case_id,
+                round_id=round_id,
+            )
+        )
+    elif rel_path in {
+        EXTERNAL_OPPONENT_REPORT_INTAKE_REL,
+        EXTERNAL_OPPONENT_FEEDBACK_FINDINGS_REL,
+        SUPERVISOR_LEARNING_CANDIDATES_REL,
+    }:
+        errors.extend(
+            validate_external_opponent_feedback_payload(
                 loaded,
                 rel_path,
                 round_dir=round_dir,

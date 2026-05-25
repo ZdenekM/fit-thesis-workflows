@@ -10,6 +10,7 @@ python_source(name="check_code_quality_review", source="check_code_quality_revie
 python_source(name="check_code_reproducibility", source="check_code_reproducibility.py")
 python_source(name="check_evidence_presence", source="check_evidence_presence.py")
 python_source(name="check_evaluation_claims", source="check_evaluation_claims.py")
+python_source(name="check_external_opponent_feedback", source="check_external_opponent_feedback.py")
 python_source(name="check_feedback_output", source="check_feedback_output.py")
 python_source(name="check_feedback_language", source="check_feedback_language.py")
 python_source(name="check_figure_media_review", source="check_figure_media_review.py")

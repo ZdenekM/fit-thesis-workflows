@@ -1,6 +1,6 @@
 # Supervisor Opponent Feedback Learning Plan
 
-Status: planned
+Status: in_progress
 Created: 2026-05-25
 
 ## Goal
@@ -240,11 +240,14 @@ scripts/check-scripts
 
 ### Slice 1 - Skill And Role Contract
 
-Status: planned
+Status: done
 
 Expected paths:
 
+- `AGENTS.md`
 - `.agents/skills/thesis-supervisor-opponent-feedback-learning/SKILL.md`
+- `.codex/agents/thesis-evidence-calibrator.toml`
+- `src/thesis_review_workflow/agent_profiles.py`
 - `docs/agent-profile-matrix.md`
 - `docs/agent-scheduling.md` only if a new spawned role is introduced
 
@@ -261,6 +264,7 @@ Work:
 Verification:
 
 ```bash
+tests/test_agent_profile_contracts.py
 git diff --check
 scripts/check-private
 scripts/check-scripts
@@ -268,17 +272,21 @@ scripts/check-scripts
 
 ### Slice 2 - Structured Artifacts And Validator
 
-Status: planned
+Status: done
 
 Expected paths:
 
 - `src/thesis_review_workflow/external_opponent_feedback.py`
 - `src/thesis_review_workflow/cli/check_external_opponent_feedback.py`
 - `src/thesis_review_workflow/commands.py`
+- `src/thesis_review_workflow/helper_checks.py`
 - `src/thesis_review_workflow/work_artifacts.py`
+- `src/thesis_review_workflow/cli/BUILD`
+- `src/thesis_review_workflow/cli/check_private.py`
 - `scripts/BUILD`
 - `scripts/check-external-opponent-feedback`
 - `tests/test_external_opponent_feedback.py`
+- `tests/test_check_private.py`
 
 Work:
 
@@ -370,6 +378,40 @@ scripts/check-scripts
 - 2026-05-25: Slice 0 operator contract scaffold added through README prompt,
   intake template, and TODO entry. Creation checks passed:
   `git diff --check`, `scripts/check-private`, `scripts/check-scripts`.
+- 2026-05-25: Slice 1 agent/skill contract added. The new
+  `thesis-supervisor-opponent-feedback-learning` skill is parent-orchestrated,
+  requires explicit agent authorization before report-source reads or semantic
+  findings, records independent evidence-calibrator review before durable
+  analysis use, and is registered in `AGENTS.md`,
+  `src/thesis_review_workflow/agent_profiles.py`, and
+  `docs/agent-profile-matrix.md`. No new spawned role or scheduling rule was
+  added.
+- 2026-05-25: Slice 2 structured validator added for
+  `work/external_opponent_report_intake.json`,
+  `work/external_opponent_feedback_findings.json`, and
+  `work/supervisor_learning_candidates.json`, with strict external-report
+  source allowlisting under `inputs/external_opponent_report/`, hash-bound refs,
+  enum checks, permission-aware promotion routing, forbidden raw-report text
+  fields, review approval validation for
+  `outputs/external_opponent_feedback_analysis.md`, POSIX/Pants/PEX command
+  surface, and synthetic tests. Early checks passed:
+  `pants test tests/test_external_opponent_feedback.py`,
+  `pants check src/thesis_review_workflow:: tests/test_external_opponent_feedback.py tests/test_check_private.py scripts/check-external-opponent-feedback`,
+  `pants test tests/test_agent_profile_contracts.py tests/test_check_private.py`,
+  and `scripts/check-external-opponent-feedback --help`.
+- 2026-05-25: Omen MCP was attempted on `src/thesis_review_workflow` and
+  `src/thesis_review_workflow/work_artifacts.py`; both returned zero files for
+  non-empty targets, so this is recorded as an MCP/path-handling blocker rather
+  than code evidence. Use `pants run :omen` for reproducible closeout evidence.
+- 2026-05-25: Post-implementation agent review findings were incorporated:
+  metadata-only preflight now avoids semantic intake fields before
+  authorization, `thesis_evidence_calibrator` owns
+  `work/reviews/external_opponent_feedback_review.json`, durable validation is
+  documented as `scripts/check-external-opponent-feedback --require-analysis`,
+  `unknown_or_restricted` sources block findings, the require-analysis flag
+  fails on an empty round, external approval records require the expected
+  workflow profile/reviewer/check, and `inputs/external_opponent_report/` is
+  treated as private regardless of file extension.
 
 ## Decision Log
 
@@ -377,7 +419,14 @@ scripts/check-scripts
   supervisor-postmortem learning loop, not as opponent historical calibration.
 - 2026-05-25: Store all real reports and analyses in ignored `cases/`; tracked
   artifacts contain only the case-neutral contract and synthetic future tests.
+- 2026-05-25: Implement Slice 1 without a new stable spawned role. Parent
+  orchestration owns synthesis, existing specialist roles provide fresh
+  evidence when needed, and `thesis_evidence_calibrator` provides independent
+  review separation.
+- 2026-05-25: Deterministic validation for Slice 2 is limited to schema, enum,
+  path, hash, placeholder, permission, review-record, and privacy-shape checks.
+  It does not classify opponent criticism from raw prose.
 
 ## Final Audit
 
-Not run yet. This plan is in `planned` state.
+Not run yet. Slices 3 and 4 remain planned.

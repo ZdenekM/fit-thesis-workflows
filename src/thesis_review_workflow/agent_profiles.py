@@ -261,6 +261,25 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         required_validators=("scripts/check-supervisor-report",),
     ),
     _route(
+        role_source=".agents/skills/thesis-supervisor-opponent-feedback-learning/SKILL.md",
+        skill_id="thesis-supervisor-opponent-feedback-learning",
+        status="parent-owned",
+        role_kind="parent-orchestration",
+        sandbox_mode="parent-orchestration",
+        owned_outputs=(
+            "work/external_opponent_report_intake.json",
+            "work/external_opponent_feedback_findings.json",
+            "work/supervisor_learning_candidates.json",
+            "outputs/external_opponent_feedback_analysis.md",
+        ),
+        independent_review_profile="thesis_evidence_calibrator",
+        required_validators=("scripts/check-external-opponent-feedback --require-analysis",),
+        rationale=(
+            "The main agent owns the supervised-case postmortem synthesis; existing specialist roles and "
+            "the evidence calibrator provide review separation without adding a new stable spawned role."
+        ),
+    ),
+    _route(
         role_source=".agents/skills/thesis-opponent-materials/SKILL.md",
         skill_id="thesis-opponent-materials",
         status="parent-owned",
@@ -309,10 +328,12 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         owned_outputs=(
             "work/supervisor_packets/evidence_calibration_findings.md",
             "work/opponent_packets/evidence_calibration_findings.md",
+            "work/reviews/external_opponent_feedback_review.json",
         ),
         rationale=(
             "Generic independent calibration role for standalone evidence without a specific final-review profile; "
-            "packet-scoped evidence-calibration sidecars are role-owned when the workflow activates them."
+            "packet-scoped evidence-calibration sidecars and external opponent-feedback approval records are "
+            "role-owned when the workflow activates them."
         ),
     ),
     _route(

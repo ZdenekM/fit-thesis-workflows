@@ -16,6 +16,7 @@ KNOWN_HELPER_CHECK_IDS = frozenset(
         "check-code-consistency",
         "check-code-quality-review",
         "check-evaluation-claims",
+        "check-external-opponent-feedback",
         "check-feedback-language",
         "check-feedback-output",
         "check-figure-media-review",

@@ -25,6 +25,7 @@ WORKFLOW_COMMAND_MODULES = {
     "check-code-reproducibility": "thesis_review_workflow.cli.check_code_reproducibility",
     "check-evidence-presence": "thesis_review_workflow.cli.check_evidence_presence",
     "check-evaluation-claims": "thesis_review_workflow.cli.check_evaluation_claims",
+    "check-external-opponent-feedback": "thesis_review_workflow.cli.check_external_opponent_feedback",
     "check-feedback-language": "thesis_review_workflow.cli.check_feedback_language",
     "check-feedback-output": "thesis_review_workflow.cli.check_feedback_output",
     "check-figure-media-review": "thesis_review_workflow.cli.check_figure_media_review",

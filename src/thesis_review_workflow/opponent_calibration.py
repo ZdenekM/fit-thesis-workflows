@@ -531,9 +531,7 @@ def _validate_ownership_boundaries(value: Any, rel_path: str, errors: list[str])
         return
     unknown_fields = sorted(set(value) - OWNERSHIP_BOUNDARY_FIELDS)
     if unknown_fields:
-        errors.append(
-            f"{rel_path}: ownership_boundaries contains unknown field(s): {', '.join(unknown_fields)}"
-        )
+        errors.append(f"{rel_path}: ownership_boundaries contains unknown field(s): {', '.join(unknown_fields)}")
     for field in sorted(OWNERSHIP_BOUNDARY_FIELDS):
         items = _require_list(value, field, f"{rel_path}: ownership_boundaries", errors)
         if not isinstance(items, list):

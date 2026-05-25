@@ -11,6 +11,7 @@ shell_sources(
         "check-code-reproducibility",
         "check-evidence-presence",
         "check-evaluation-claims",
+        "check-external-opponent-feedback",
         "check-feedback-language",
         "check-feedback-output",
         "check-figure-media-review",
@@ -157,6 +158,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_code_reproducibility",
     "src/thesis_review_workflow/cli:check_evidence_presence",
     "src/thesis_review_workflow/cli:check_evaluation_claims",
+    "src/thesis_review_workflow/cli:check_external_opponent_feedback",
     "src/thesis_review_workflow/cli:check_feedback_language",
     "src/thesis_review_workflow/cli:check_feedback_output",
     "src/thesis_review_workflow/cli:check_figure_media_review",
@@ -317,6 +319,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-evaluation-claims",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_external_opponent_feedback_tool",
+    entry_point="thesis_review_workflow.cli.check_external_opponent_feedback:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-external-opponent-feedback",
     tags=["workflow-tool"],
 )
 

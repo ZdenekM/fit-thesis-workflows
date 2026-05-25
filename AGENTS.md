@@ -48,7 +48,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Before generating supervisor feedback, require assignment, deadline, and reviewer-profile context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, deadline override, or valid reviewer profile.
 - Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 - Use `scripts/case-doctor <case-id> [round-id]` as a read-only operator snapshot when orienting in a case or checking what is missing; it summarizes state but does not replace required workflow gates.
-- Supervisor feedback, supervisor reports, opponent materials, opponent-report review, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
+- Supervisor feedback, supervisor reports, opponent materials, opponent-report review, external opponent-report postmortem learning, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts, reading external opponent-report sources, or writing semantic findings, and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
 - Use the strongest available model and high reasoning effort for semantic thesis-review roles that read thesis text, submitted code, evidence, synthesis drafts, or final/reviewable artifacts. Lower-cost models such as Spark are acceptable only for mechanical, validator-backed helper roles and must not be the sole basis for evidence claims, grading/report calibration, or sendable wording.
 
 ## Command Routing
@@ -63,6 +63,7 @@ Use these repo-local skills as the primary workflow definitions:
 - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` for the required critical second pass before sending supervisor feedback.
 - `.agents/skills/thesis-supervisor-report/SKILL.md` for formal supervisor-report drafts for FIT IS.
 - `.agents/skills/thesis-supervisor-report-review/SKILL.md` for the required independent review before treating a supervisor-report draft as reviewed.
+- `.agents/skills/thesis-supervisor-opponent-feedback-learning/SKILL.md` for external opponent-report postmortems about theses the operator supervised and supervisor workflow learning.
 - `.agents/skills/thesis-opponent-materials/SKILL.md` for internal opponent preparation materials.
 - `.agents/skills/thesis-opponent-materials-review/SKILL.md` for reviewing and hardening generated opponent materials.
 - `.agents/skills/thesis-opponent-report-review/SKILL.md` for reviewing a draft opponent report before submission.

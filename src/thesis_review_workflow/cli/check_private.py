@@ -23,11 +23,13 @@ PRIVATE_MANIFEST_RE = re.compile(
     r"supervisor_report_feedback_history|supervisor_report_trace|supervisor_report_confirmation|"
     r"supervisor_report_calibration_use|supervisor_report_calibration_advisory|"
     r"supervisor_report_calibration_profile|supervisor_report_calibration_checklist|"
+    r"external_opponent_report_intake|external_opponent_feedback_findings|supervisor_learning_candidates|"
     r"opponent_calibration_refresh_eligibility|reviewer_calibration_profile|reviewer_checklist)\.json$"
     r"|(^|/)work/theses_similarity/[^/]+\.json$"
     r"|(^|/)work/reviews/[^/]+_review\.json$"
 )
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
+PRIVATE_EXTERNAL_OPPONENT_REPORT_RE = re.compile(r"(^|/)inputs/external_opponent_report/")
 PRIVATE_MARKDOWN_RE = re.compile(
     r"(^|/)(feedback_student|feedback_student_draft|feedback_k_posudku|revision_diff|code_workspace|"
     r"submission_bundle_inventory|"
@@ -39,6 +41,7 @@ PRIVATE_MARKDOWN_RE = re.compile(
     r"supervisor-report-operator-input|vedouci_posudek_draft|vedouci_posudek_revidovany|"
     r"oponent_podklady|oponent_podklady_draft|"
     r"oponent_podklady_revidovane|oponent_posudek_draft|theses_similarity_review)\.md$"
+    r"|(^|/)external_opponent_feedback_analysis\.md$"
     r"|(^|/)work/theses_similarity/review_draft\.md$"
 )
 PRIVATE_GITHUB_RE = re.compile(
@@ -94,6 +97,7 @@ def is_sensitive_artifact(path: str) -> bool:
         or PRIVATE_JSONL_RE.search(path)
         or PRIVATE_MANIFEST_RE.search(path)
         or PRIVATE_CALIBRATION_TREE_RE.search(path)
+        or PRIVATE_EXTERNAL_OPPONENT_REPORT_RE.search(path)
         or PRIVATE_GITHUB_RE.search(path)
     )
 

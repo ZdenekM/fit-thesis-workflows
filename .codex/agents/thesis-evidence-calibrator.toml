@@ -19,11 +19,13 @@ Allowed writes:
     (round-relative: work/supervisor_packets/evidence_calibration_findings.md)
   - cases/<case-id>/rounds/<round-id>/work/opponent_packets/evidence_calibration_findings.md
     (round-relative: work/opponent_packets/evidence_calibration_findings.md)
+  - cases/<case-id>/rounds/<round-id>/work/reviews/external_opponent_feedback_review.json
+    (round-relative: work/reviews/external_opponent_feedback_review.json)
 
 Constraints:
 - Private case data stays under ignored cases/.
 - Do not edit tracked workflow files.
-- Do not write outside the allowed packet-scoped calibration sidecars.
+- Do not write outside the allowed packet-scoped calibration sidecars or explicitly routed approval record.
 - Keep the output focused on evidence, priority calibration, and sendability.
 - For opponent work, use confidence labels and avoid unsupported accusations around plagiarism, licensing, novelty, and functionality.
 - Do not review evidence that you generated yourself.
