@@ -236,5 +236,8 @@ __marimo__/
 # Codex hook bytecode
 /.codex/hooks/__pycache__/
 
+# Claude Code local (non-shared) settings
+/.claude/settings.local.json
+
 # Streamlit
 .streamlit/secrets.toml

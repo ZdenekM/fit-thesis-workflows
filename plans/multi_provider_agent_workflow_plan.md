@@ -207,14 +207,26 @@ Paths: `CLAUDE.md` (`@AGENTS.md` + minimal notes),
 --check`, `scripts/check-private`, `scripts/check-scripts`. Smoke: fresh Claude
 session lists loaded instructions and confirms the `AGENTS.md` import.
 
-### A2 — Provider-agnostic enforcement wiring for Claude
+### A2 — Provider-agnostic enforcement wiring for Claude (POSIX)
 
-Status: planned. Paths: `.claude/settings.json` (SessionStart + PreToolUse using
-`${CLAUDE_PROJECT_DIR}` + native launcher), gitignore for
-`.claude/settings.local.json`. Verify: run both hook scripts with synthetic
-payloads AND a real Claude session for both events; confirm the hook *decision*
-is observed (a `git add cases/...` is denied), not merely that JSON prints; add
-a Windows discriminating check. `scripts/check-private`, `scripts/check-scripts`.
+Status: done. Scope: wire `.claude/settings.json` (SessionStart +
+PreToolUse:Bash) to the existing `.codex/hooks/*.py` via `${CLAUDE_PROJECT_DIR}`,
+fail **closed** (`|| exit 2`) so an erroring/missing guard blocks rather than
+silently allows, and gitignore `.claude/settings.local.json`. Acceptance (met):
+synthetic payloads through the *wired command* show deny for `git add
+cases/...`, allow (exit 0) for a tracked path, `additionalContext` for
+SessionStart, and exit 2 on guard error; `scripts/check-private`,
+`scripts/check-scripts`, `git diff --check` pass.
+
+Explicitly deferred out of A2 (named owners, so A2 is honestly complete for its
+scope):
+
+- Native-Windows Claude hook launcher (`.cmd`/`.ps1`) → end-user track, since
+  Windows is the operator platform (dráha B), not the Linux dev track.
+- Live fresh-Claude-session activation smoke (both events) → maintainer to
+  confirm on next session; no Claude executable in the review environment.
+- Fail-closed *capability detection* when a project hook is untrusted/disabled
+  (distinct from the active-guard `|| exit 2` fix) → slice B3.
 
 ### A3 — Mandatory dev-track Codex-review command surface
 
@@ -292,6 +304,24 @@ TOMLs remain hand-authoritative.
   duplication, and scope were confirmed clean. Live fresh-Claude-session import
   smoke is left for the maintainer to confirm (no Claude executable in the
   review environment).
+- 2026-07-20: A2 wired `.claude/settings.json` (SessionStart + PreToolUse:Bash)
+  to the existing `.codex/hooks/*.py` scripts using `${CLAUDE_PROJECT_DIR}`
+  (F6). `.claude/settings.local.json` gitignored. Smoke verified the *decision*,
+  not just JSON output: the wired PreToolUse command denies `git add cases/...`,
+  allows `git add CLAUDE.md` (exit 0), and SessionStart emits `additionalContext`.
+  Native-Windows launcher, live-session hook activation, and fail-closed
+  capability detection recorded as open limitations (B3 / end-user track). The
+  broader Edit/Write/shell write-boundary guard remains F3/B1.
+- 2026-07-20: Codex slice-review of A2 returned `changes_required` (1×P1, 1×P2).
+  P1 (accepted, security): the PreToolUse guard failed *open* on runtime error
+  (Claude Code treats PreToolUse exit codes other than 2 as non-blocking), so a
+  missing `python3` or a guard exception would silently allow `git add
+  cases/...`. Fixed by appending `|| exit 2` to the wired command; verified
+  malformed stdin → exit 2 while deny/allow still exit 0. P2 (accepted): A2 was
+  marked done while its text still listed Windows/live-session as pending —
+  rescoped A2 to POSIX wiring + fail-closed and moved the rest to named owners.
+  Schema, matchers, `${CLAUDE_PROJECT_DIR}`, unchanged Codex setup, and
+  shared/local split were confirmed correct.
 
 ## Decision Log
 

@@ -74,6 +74,34 @@ discriminating test), `false_positive` (rejected with evidence),
 scope, with residual risk), or `needs_human` (product/safety/policy decision).
 Keep review/fix cycles bounded; a Codex finding is evidence, not an instruction.
 
+## Privacy/session hooks under Claude
+
+`.claude/settings.json` reuses the existing Codex hook scripts
+(`.codex/hooks/session_start_context.py` and `pre_tool_use_privacy_guard.py`)
+verbatim — the hook-output JSON is the same contract Claude Code consumes. The
+command path uses `${CLAUDE_PROJECT_DIR}` (expanded by Claude Code) rather than a
+`git rev-parse` shell substitution.
+
+The PreToolUse privacy guard **fails closed**: the wired command ends with
+`|| exit 2`, so if `python3` is missing or the guard script raises, Claude Code
+receives exit code 2 and blocks the Bash call instead of silently allowing it
+(Claude Code treats PreToolUse exit codes other than 2 as non-blocking). Normal
+allow and deny both exit 0 and are unaffected.
+
+Known limitations (tracked in the plan, not yet closed):
+
+- The command invokes `python3` and assumes a POSIX shell. Native-Windows
+  operators (the end-user track, dráha B) need a packaged launcher, consistent
+  with the Windows command-surface convention in `AGENTS.md`. Wiring the guard
+  for native-Windows Claude is deferred to the end-user track.
+- Claude project hooks require the user to trust/approve them, and a policy may
+  disable them. Capability detection that *fails closed* when a required hook is
+  inactive is part of slice B3, not this slice. Do not assume the guard is
+  active in a session without confirming.
+- This slice wires the existing Bash-`git add` guard for parity. The broader
+  write-boundary guard (Edit/Write/shell resolved against a role's owned
+  outputs) is opponentura finding F3 and lands with the canary (B1).
+
 ## Implementation status
 
 This model is being rolled out incrementally under
@@ -83,7 +111,7 @@ This model is being rolled out incrementally under
 |---|---|
 | `CLAUDE.md` importing `AGENTS.md` | files landed; live fresh-session import smoke to be confirmed by the maintainer |
 | This document | landed |
-| Provider-neutral privacy/session hooks wired for Claude (`.claude/settings.json`) | planned (slice A2) |
+| Provider-neutral privacy/session hooks wired for Claude (`.claude/settings.json`) | landed on POSIX; live-session confirmation + native-Windows launcher pending |
 | Single mandatory Codex-review command surface | planned (slice A3) |
 | Provider dimension + provenance in the role registry/records | planned (slice B0) |
 | First Claude reviewer role proven end-to-end (canary) | planned (slice B1) |
