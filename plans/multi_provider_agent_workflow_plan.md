@@ -242,15 +242,33 @@ Smoke = dogfood: this slice was itself reviewed via `scripts/agent-review
 --staged`. Paths: `scripts/agent-review`, `scripts/BUILD`,
 `docs/agent-workflow.md`, `CLAUDE.md`.
 
-### B0 — Registry provider dimension + provenance (no execution yet)
+### B0 — Registry provider dimension (declarative; no execution)
 
-Status: planned. Paths: `agent_profiles.py` (add provider dimension + adapter
-identity, no model value leaked into the neutral layer);
-`review_pipeline_orchestration.py`, `review_manifest.py`, `review_approvals.py`
-(carry `requested_provider`/`actual_provider`/`adapter_id`/`run_id`; independence
-judged on provider+adapter+run); contract tests updated. Verify: `pants test
-tests/test_agent_profile_contracts.py tests/test_workflow_python_contracts.py
-tests/test_review_manifest_helpers.py`, `pants check`, `git diff --check`.
+Status: planned. Scope reduced from the original bundle: add only the
+declarative provider dimension the canary needs, and defer the provenance-record
+schema + gate rewire to B3 (below), where execution actually populates provider
+identity. Rationale: adding `requested/actual_provider`/`adapter_id`/`run_id` to
+the safety-critical review-approval/manifest gate *now* would create dormant,
+unexercised schema fields on the most sensitive path; sequencing them to where
+they are produced is safer and testable.
+
+Paths: `agent_profiles.py` (add a `providers: tuple[str, ...]` field per route,
+default `("codex",)`, plus a `SUPPORTED_PROVIDERS` constant and a
+claude-capable lookup — no model value leaked into the neutral layer);
+`tests/test_agent_profile_contracts.py` (assert every `profile` route lists a
+non-empty provider set ⊆ supported and currently includes `codex`; and — the
+drift guard for B1 — any route listing `claude` MUST have a matching
+`.claude/agents/<role>.md`). No role lists `claude` until B1 adds its adapter.
+Verify: `pants test tests/test_agent_profile_contracts.py
+tests/test_workflow_python_contracts.py`, `pants check`, `git diff --check`.
+
+### B0-provenance (folded into B3) — provider identity in review records
+
+The opponentura F2 provenance contract (`requested_provider`,
+`actual_provider`, `adapter_id`, `run_id` in `generated_record` /
+`build_review_approval_payload`, and a provider-aware independence gate) lands in
+B3, when provider selection/execution actually writes those fields. Until then
+the existing name-based independence gate stays in force (it never gets weaker).
 
 ### B1 — Single-role canary (the gate for everything after)
 
@@ -262,8 +280,11 @@ one `.claude/agents/<role>.md` with valid Claude frontmatter (Claude name, model
 tier or `inherit`, tools with **no `Agent`**, permissions), body = fragment;
 (4) run real Claude smokes: write to owned output (allowed), sibling output /
 tracked source / protected `cases/` path / shell redirection / symlink traversal
-(all denied), and one independent-review-separation check with provenance
-recorded. Only expand to remaining roles after this passes. Verify: the smoke
+(all denied). Independent-review separation for the canary uses the **existing
+name-based gate** (the code-quality role is an evidence-producer reviewed by a
+different agent) — provider-aware provenance (F2) is *not* required here and
+lands in B3, so the canary stays focused on the write-boundary/concurrency/hook
+unknowns. Only expand to remaining roles after this passes. Verify: the smoke
 matrix above + `pants test` + `scripts/check-private`.
 
 ### B2 — Roll out remaining Claude reviewer adapters
@@ -278,7 +299,11 @@ Verify: contract tests, `pants test tests::`, `scripts/check-scripts`.
 
 Status: planned. Implement the Provider Execution Matrix selection + capability
 detection (fail-closed), the global-2 concurrency rule across providers, and the
-`both` sequential cross-provider pattern. Generalize `docs/agent-scheduling.md`
+`both` sequential cross-provider pattern. **Also owns the folded-in provenance
+work**: add `requested_provider`/`actual_provider`/`adapter_id`/`run_id` to
+`generated_record` / `build_review_approval_payload` and make the independence
+gate provider-aware (reject substitution; require the provider set for `both`),
+now that execution populates those fields. Generalize `docs/agent-scheduling.md`
 ("main session (Codex or Claude)"), README "which tool" note, min-Claude-version
 gate. Optional readiness `scripts/check-*`. Verify: two-role synthetic wave under
 `provider=claude`, then `provider=both`; confirm global-2, independence +
@@ -346,6 +371,26 @@ TOMLs remain hand-authoritative.
   two-round cross-provider ceiling was reached, so this last tiny fix was
   validated locally rather than with a third Codex round.
 
+- 2026-07-20: B0 scope split (see slice notes): implemented only the
+  declarative provider dimension. Added `Provider`/`SUPPORTED_PROVIDERS` and a
+  `providers` field (default `("codex",)`) to `AgentProfileRoute`/`_route`, plus
+  `providers_for_profile` and `claude_capable_profile_ids` helpers. Three new
+  contract tests: valid provider sets (codex-capable, ⊆ supported), the
+  canary drift guard (a `claude` route requires `.claude/agents/<role>.md`), and
+  the lookup helper. No role lists `claude` yet. The provenance-record schema +
+  provider-aware independence gate (F2) were deferred to B3 to avoid dormant,
+  unexercised fields on the safety-critical review gate. Green: the two contract
+  tests, `test_agent_coverage.py`, `pants check/lint/fmt` on the touched files.
+- 2026-07-20: Codex review of B0 (`changes_required`, 1×P1, 1×P2, 1×P3), all
+  accepted. P1: B1's acceptance still named provenance, contradicting the
+  B0→B3 provenance split → reworded B1 to use the existing name-based
+  independence gate for the canary (provenance stays in B3). P2: non-`profile`
+  routes inherited `providers=("codex",)` → `_route` now forces `()` for
+  non-profile routes, with a new invariant test. P3: stale docs status row and
+  opponentura F2 line → split/corrected. Codex explicitly cleared the
+  dataclass-construction compat, the missing-adapter drift guard, and the
+  underscore→hyphen basename convention.
+
 ## Decision Log
 
 - 2026-07-20: The *role* is the durable unit; providers are thin adapters over
@@ -385,7 +430,8 @@ TOMLs remain hand-authoritative.
   - F1 provider execution matrix undefined — **accepted** → added Provider
     Execution Matrix (MVP).
   - F2 provenance can't prove provider — **accepted** (verified) → Provenance &
-    Independence Contract, B0.
+    Independence Contract; provenance-record schema + provider-aware gate land
+    in B3 (where execution populates provider identity), not B0.
   - F3 sandbox translation not enforceable — **accepted** → Enforcement section,
     B1 smoke matrix.
   - F4 adapter metadata not 1:1; 15 not 16 TOMLs — **accepted** (verified) →

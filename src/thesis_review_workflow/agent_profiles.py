@@ -7,6 +7,13 @@ from pathlib import Path
 from typing import Literal
 
 RouteStatus = Literal["profile", "parent-owned", "deferred"]
+Provider = Literal["codex", "claude"]
+# Providers that can incarnate a spawnable reviewer role. A role's ``providers``
+# tuple is declarative capability, not execution: it says which provider
+# adapters exist for the role, not which one a given run uses. Every current
+# role ships a Codex adapter (`.codex/agents/*.toml`); a role gains ``"claude"``
+# only once a matching `.claude/agents/<role>.md` adapter lands (canary-first).
+SUPPORTED_PROVIDERS: tuple[Provider, ...] = ("codex", "claude")
 RoleKind = Literal[
     "generator",
     "evidence-producer",
@@ -28,6 +35,7 @@ class AgentProfileRoute:
     sandbox_mode: SandboxMode
     skill_id: str | None = None
     profile_id: str | None = None
+    providers: tuple[str, ...] = ("codex",)
     owned_outputs: tuple[str, ...] = ()
     allowed_writes: tuple[str, ...] = ()
     standalone_review_profile: str | None = None
@@ -45,6 +53,7 @@ def _route(
     sandbox_mode: SandboxMode,
     skill_id: str | None = None,
     profile_id: str | None = None,
+    providers: tuple[str, ...] = ("codex",),
     owned_outputs: tuple[str, ...] = (),
     allowed_writes: tuple[str, ...] | None = None,
     standalone_review_profile: str | None = None,
@@ -54,6 +63,9 @@ def _route(
     rationale: str = "",
 ) -> AgentProfileRoute:
     writes = owned_outputs if allowed_writes is None else allowed_writes
+    # Only spawnable `profile` roles have provider adapters. `parent-owned` and
+    # `deferred` routes are not spawned, so they advertise no providers.
+    normalized_providers = providers if status == "profile" else ()
     return AgentProfileRoute(
         role_source=role_source,
         status=status,
@@ -61,6 +73,7 @@ def _route(
         sandbox_mode=sandbox_mode,
         skill_id=skill_id,
         profile_id=profile_id,
+        providers=normalized_providers,
         owned_outputs=owned_outputs,
         allowed_writes=writes,
         standalone_review_profile=standalone_review_profile,
@@ -369,6 +382,18 @@ def profile_routes() -> tuple[AgentProfileRoute, ...]:
 
 def routes_by_skill_id() -> dict[str, AgentProfileRoute]:
     return {route.skill_id: route for route in AGENT_PROFILE_ROUTES if route.skill_id is not None}
+
+
+def providers_for_profile(profile_id: str) -> tuple[str, ...]:
+    for route in AGENT_PROFILE_ROUTES:
+        if route.profile_id == profile_id:
+            return route.providers
+    return ()
+
+
+def claude_capable_profile_ids() -> set[str]:
+    """Profile ids that currently ship a Claude adapter (declared in the registry)."""
+    return {route.profile_id for route in profile_routes() if route.profile_id and "claude" in route.providers}
 
 
 def repo_local_skill_ids(root: Path) -> set[str]:

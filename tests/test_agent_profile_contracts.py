@@ -223,3 +223,41 @@ def test_session_start_hook_points_to_profile_matrix_without_stale_role_subset()
     assert "supervisor feedback, opponent materials" not in hook
     assert "logical workflow command check-supervisor-ready" in hook
     assert "packaged .cmd/.ps1 launcher" in hook
+
+
+def test_profile_routes_declare_valid_provider_sets() -> None:
+    supported = set(agent_profiles.SUPPORTED_PROVIDERS)
+    for route in agent_profiles.profile_routes():
+        assert route.providers, f"{route.profile_id} must declare at least one provider"
+        assert set(route.providers) <= supported, f"{route.profile_id} lists unsupported provider(s)"
+        # Every current spawnable role ships a Codex adapter.
+        assert "codex" in route.providers, f"{route.profile_id} must remain codex-capable"
+
+
+def test_non_profile_routes_advertise_no_providers() -> None:
+    # parent-owned and deferred routes are not spawned, so they must not claim a
+    # provider adapter (capability discovery must not surface them).
+    for route in agent_profiles.agent_profile_routes():
+        if route.status != "profile":
+            assert route.providers == (), f"{route.role_source} is {route.status}; providers must be empty"
+
+
+def test_claude_capable_routes_have_a_matching_claude_adapter() -> None:
+    # Drift guard (canary-first): a route may only advertise "claude" once its
+    # `.claude/agents/<role>.md` adapter exists. This forces the registry flag
+    # and the adapter file to land together.
+    for route in agent_profiles.profile_routes():
+        if route.profile_id and "claude" in route.providers:
+            adapter = REPO_ROOT / ".claude" / "agents" / f"{route.profile_id.replace('_', '-')}.md"
+            assert adapter.is_file(), (
+                f"{route.profile_id} advertises the claude provider but " f"{adapter.relative_to(REPO_ROOT)} is missing"
+            )
+
+
+def test_claude_capable_profile_ids_matches_registry() -> None:
+    expected = {
+        route.profile_id
+        for route in agent_profiles.profile_routes()
+        if route.profile_id and "claude" in route.providers
+    }
+    assert agent_profiles.claude_capable_profile_ids() == expected

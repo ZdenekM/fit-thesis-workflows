@@ -123,7 +123,8 @@ This model is being rolled out incrementally under
 | This document | landed |
 | Provider-neutral privacy/session hooks wired for Claude (`.claude/settings.json`) | landed on POSIX; live-session confirmation + native-Windows launcher pending |
 | Single mandatory Codex-review command surface (`scripts/agent-review`) | landed |
-| Provider dimension + provenance in the role registry/records | planned (slice B0) |
+| Provider *dimension* in the role registry (declarative) | landed (slice B0) |
+| Provider *provenance* in review records + provider-aware independence gate | planned (slice B3) |
 | First Claude reviewer role proven end-to-end (canary) | planned (slice B1) |
 | Remaining Claude reviewer adapters + skill model-note generalization | planned (slice B2) |
 | Provider selection, capability detection, scheduling docs | planned (slice B3) |
