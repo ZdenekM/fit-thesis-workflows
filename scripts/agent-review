@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Developer-track Codex review command surface (dráha A).
+#
+# Single, mandatory contract for requesting an independent Codex review of repo
+# changes while Claude Code is the parent/writer. It fixes the review posture so
+# reviews are reproducible instead of ad hoc: read-only sandbox, ephemeral
+# session, no approvals, an explicit target, a prompt-template version, an
+# optional output artifact, a timeout, and nonzero-exit propagation.
+#
+# This is a Linux/dev maintainer tool. It is intentionally NOT part of the
+# operator thesis-workflow command surface (WORKFLOW_COMMAND_MODULES) and is not
+# packaged for Windows; operators do not run Codex reviews of repo diffs.
+set -euo pipefail
+
+PROMPT_VERSION="agent-review/v1"
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd "$script_dir/.." && pwd -P)"
+
+profile="slice-review"
+base_ref=""
+staged_only=0
+output_file=""
+timeout_secs=1800
+model=""
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/agent-review [options] [extra focus text...]
+
+Request a read-only, ephemeral Codex review of the current changes.
+
+Options:
+  --profile NAME    Review lens: slice-review (default), final-review,
+                    plan-critic, architecture-review, test-review.
+  --base REF        Review the diff of REF against the working tree
+                    (default: uncommitted changes vs HEAD).
+  --staged          Review only staged changes (git diff --cached).
+  --output FILE     Also write the reviewer's final message to FILE.
+  --timeout SECS    Kill the review after SECS seconds (default: 1800).
+  --model MODEL     Override the Codex model.
+  -h, --help        Show this help.
+
+Any remaining arguments are appended to the review prompt as extra focus.
+The reviewer's agent tools run under --sandbox read-only and cannot edit files.
+(An explicit --output path is written by the host process afterwards, so do not
+point --output at a tracked file.)
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --profile) profile="${2:?--profile needs a value}"; shift 2 ;;
+    --base) base_ref="${2:?--base needs a value}"; shift 2 ;;
+    --staged) staged_only=1; shift ;;
+    --output) output_file="${2:?--output needs a value}"; shift 2 ;;
+    --timeout) timeout_secs="${2:?--timeout needs a value}"; shift 2 ;;
+    --model) model="${2:?--model needs a value}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) echo "agent-review: unknown option: $1" >&2; usage >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+extra_focus="$*"
+
+case "$timeout_secs" in
+  ''|*[!0-9]*) echo "agent-review: --timeout must be a positive integer (seconds)." >&2; exit 2 ;;
+esac
+if [ "$timeout_secs" -le 0 ]; then
+  echo "agent-review: --timeout must be greater than 0 (GNU timeout treats 0 as no limit)." >&2
+  exit 2
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "agent-review: codex CLI not found on PATH; cannot obtain a Codex review." >&2
+  echo "agent-review: install Codex or run the review manually. Not silently skipping." >&2
+  exit 3
+fi
+
+if [ "$staged_only" -eq 1 ]; then
+  git_target="--cached"
+  target_desc="the STAGED changes (git diff --cached)"
+elif [ -n "$base_ref" ]; then
+  git_target="$base_ref"
+  target_desc="the diff of '$base_ref' against the current working tree (git diff $base_ref)"
+else
+  git_target="HEAD"
+  target_desc="the uncommitted working-tree changes vs HEAD (git diff HEAD)"
+fi
+
+read -r -d '' prompt <<PROMPT || true
+Role: independent read-only ${profile} reviewer (${PROMPT_VERSION}).
+You run under a read-only sandbox; do NOT edit any files.
+
+Repository: ${repo_root}
+Review target: ${target_desc}.
+Inspect it yourself (e.g. run \`git diff ${git_target}\`) plus the surrounding
+code needed to judge it.
+
+Follow the repository's canonical instructions in AGENTS.md. Prioritize:
+concrete correctness and regressions; violated invariants/contracts; the privacy
+boundary (private cases/ or reviewer-profile data must never enter tracked
+paths, and git add of private paths must stay blocked); resource/lifecycle and
+Windows-portability issues where relevant; scope creep beyond the intended
+change; and missing or misleading verification. Exclude pure style preferences.
+
+${extra_focus}
+
+For each finding provide: severity (P0-P3), confidence, file:line, a concrete
+failure scenario, repo evidence, and the smallest reasonable fix. State the
+single most important thing to fix, then end with a final line in exactly this
+form (one of the three allowed values, nothing after it):
+Verdict: pass
+Verdict: changes_required
+Verdict: needs_human
+PROMPT
+
+# Always capture the reviewer's final message so we can fail CLOSED on an empty
+# or missing review: a zero exit status must not be mistaken for "review done".
+result_file="$(mktemp "${TMPDIR:-/tmp}/agent-review.XXXXXX")"
+trap 'rm -f "$result_file"' EXIT
+
+set -- codex exec --ephemeral --sandbox read-only --skip-git-repo-check \
+  -C "$repo_root" -c 'approval_policy="never"' -o "$result_file"
+if [ -n "$model" ]; then
+  set -- "$@" -m "$model"
+fi
+set -- "$@" "$prompt"
+
+echo "agent-review: profile=$profile target=$target_desc timeout=${timeout_secs}s" >&2
+
+# Redirect stdin from /dev/null so no ambient piped data is appended to the
+# fixed review prompt (and so an open pipe cannot stall until timeout).
+status=0
+timeout "$timeout_secs" "$@" </dev/null || status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "agent-review: codex exec failed or timed out (exit $status); no usable review produced." >&2
+  exit "$status"
+fi
+# Require an explicit allowed verdict tied to the "verdict" label (tolerant of
+# markdown decoration), so an empty message, "Verdict: inconclusive", or a stray
+# "tests pass" cannot satisfy the gate.
+if [ ! -s "$result_file" ] || ! grep -qiE 'verdict[^a-z]+(pass|changes_required|needs_human)\b' "$result_file"; then
+  echo "agent-review: Codex returned no usable review (missing an explicit pass/changes_required/needs_human verdict); failing closed." >&2
+  exit 4
+fi
+if [ -n "$output_file" ]; then
+  cp "$result_file" "$output_file"
+  echo "agent-review: final review written to $output_file" >&2
+fi
+echo "agent-review: review complete (verdict present)." >&2

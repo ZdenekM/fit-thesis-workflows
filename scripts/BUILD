@@ -1,6 +1,7 @@
 shell_sources(
     name="workflow_shell",
     sources=[
+        "agent-review",
         "audit-context-budget",
         "bootstrap-case",
         "case-doctor",

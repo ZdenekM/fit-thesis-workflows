@@ -56,16 +56,26 @@ adapters will not receive the `Agent` tool.
 
 ## Developer-track Codex review
 
-This describes the target A3 command surface; it is **not yet operational**
-(see the status table below). Until it lands, request Codex reviews read-only
-and explicitly.
+The review *contract* is mandatory; `scripts/agent-review` is its POSIX
+implementation (a Linux/dev maintainer tool; not part of the operator workflow
+command surface and not packaged for Windows). On native Windows, a maintainer
+uses the Codex plugin or invokes `codex exec` directly with the same posture.
+The script runs Codex non-interactively with that fixed posture — repository
+root, an explicit working-tree/base target, `--ephemeral`, `--sandbox
+read-only`, `approval_policy = never`, a prompt-template version
+(`agent-review/v1`), an optional `--output` artifact, a `--timeout`, and
+nonzero-exit propagation (it exits non-zero rather than silently skipping if
+`codex` is missing).
 
-When Claude is maintaining the repo, request an independent Codex review through
-a single documented command surface (read-only sandbox, non-interactive). The
-review request should fix: repository root, the working-tree/base target,
-ephemeral execution, `--sandbox read-only`, `approval_policy = never`, the
-prompt/template version, an output destination, a timeout, and nonzero-exit
-handling.
+```bash
+scripts/agent-review --staged                 # review staged changes
+scripts/agent-review --base main               # review this branch vs main
+scripts/agent-review --profile plan-critic plans/foo_plan.md   # extra focus text
+```
+
+Prefer this over ad-hoc `codex exec` so reviews share one target/sandbox/approval
+contract. A plugin or IDE integration should call this surface rather than
+becoming a second implementation.
 
 Adjudicate each material finding and record the outcome as one of: `accepted`
 (reproduced from code, then fixed), `accepted_test_only` (addressed with a
@@ -112,7 +122,7 @@ This model is being rolled out incrementally under
 | `CLAUDE.md` importing `AGENTS.md` | files landed; live fresh-session import smoke to be confirmed by the maintainer |
 | This document | landed |
 | Provider-neutral privacy/session hooks wired for Claude (`.claude/settings.json`) | landed on POSIX; live-session confirmation + native-Windows launcher pending |
-| Single mandatory Codex-review command surface | planned (slice A3) |
+| Single mandatory Codex-review command surface (`scripts/agent-review`) | landed |
 | Provider dimension + provenance in the role registry/records | planned (slice B0) |
 | First Claude reviewer role proven end-to-end (canary) | planned (slice B1) |
 | Remaining Claude reviewer adapters + skill model-note generalization | planned (slice B2) |

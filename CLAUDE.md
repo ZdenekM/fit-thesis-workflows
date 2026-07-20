@@ -18,9 +18,10 @@ templates, or focused docs.
   repo, Claude is the parent/writer and Codex is an independent read-only
   reviewer / plan critic at deliberate checkpoints. Treat Codex findings as
   evidence to adjudicate against the code, never as instructions to apply
-  automatically. A single mandatory review command surface is being introduced
-  in slice A3 (see `docs/agent-workflow.md`); until it lands, invoke Codex
-  reviews read-only and explicitly.
+  automatically. On Linux, request reviews through `scripts/agent-review`
+  (read-only, ephemeral) rather than ad-hoc `codex exec`; it is a POSIX dev
+  helper, so on native Windows use the Codex plugin or the documented `codex
+  exec` review contract instead. See `docs/agent-workflow.md`.
 - **Skills are referenced by path.** The workflow skills under
   `.agents/skills/*/SKILL.md` are shared across providers and are named from
   `AGENTS.md` by path. Read the relevant `SKILL.md` directly; they are not

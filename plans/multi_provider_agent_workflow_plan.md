@@ -230,15 +230,17 @@ scope):
 
 ### A3 — Mandatory dev-track Codex-review command surface
 
-Status: planned. Pick ONE command surface (plugin calls it; not "plugin and/or
-ad hoc"). It fixes: repo root, working-tree/base target, ephemeral,
-`--sandbox read-only`, `approval_policy = never`, prompt/template version,
-output destination, timeout, nonzero-exit handling. Document adjudication
-vocabulary (accepted / accepted_test_only / false_positive / already_covered /
-deferred / needs_human). Smoke (mandatory dev-track proof): one read-only Codex
-review of a trivial working-tree diff; confirm read-only, correct target, usable
-findings. Paths: `docs/agent-workflow.md`, `scripts/agent-review` (+ Windows
-launcher).
+Status: done. Delivered `scripts/agent-review`: one command surface fixing repo
+root, working-tree/base target (`--staged`/`--base`), `--ephemeral`,
+`--sandbox read-only`, `approval_policy = never`, prompt-template version
+(`agent-review/v1`), `--output` artifact, `--timeout`, and nonzero-exit
+propagation (exit 3 if `codex` missing — no silent skip). Registered in
+`scripts/BUILD` shell_sources as a dev tool, deliberately NOT in
+`WORKFLOW_COMMAND_MODULES` and NOT Windows-packaged (operators do not review
+repo diffs). Adjudication vocabulary documented in `docs/agent-workflow.md`.
+Smoke = dogfood: this slice was itself reviewed via `scripts/agent-review
+--staged`. Paths: `scripts/agent-review`, `scripts/BUILD`,
+`docs/agent-workflow.md`, `CLAUDE.md`.
 
 ### B0 — Registry provider dimension + provenance (no execution yet)
 
@@ -322,6 +324,27 @@ TOMLs remain hand-authoritative.
   rescoped A2 to POSIX wiring + fail-closed and moved the rest to named owners.
   Schema, matchers, `${CLAUDE_PROJECT_DIR}`, unchanged Codex setup, and
   shared/local split were confirmed correct.
+
+- 2026-07-20: A3 delivered `scripts/agent-review` and was reviewed by dogfood
+  (`scripts/agent-review --staged` reviewing itself), which also proves the
+  bridge works. Codex returned `changes_required` (1×P1, 3×P2, 1×P3), all
+  accepted: (P1) exit 0 didn't prove a review existed → now captures `-o` to a
+  temp file and fails closed (exit 4) unless non-empty with a verdict; (P2)
+  ambient stdin could alter/stall the prompt → run with `</dev/null`; (P2) a
+  Linux-only script was presented as unconditionally mandatory → scoped as a
+  POSIX dev helper with the plugin / documented `codex exec` as the Windows
+  path (contract stays mandatory, the script does not); (P2) `--timeout 0`
+  disabled the timeout → validated as a positive integer; (P3) "cannot modify
+  the working tree" was false for `--output` → wording clarified.
+- 2026-07-20: Round-2 dogfood confirmed the stdin/timeout/failure-propagation
+  fixes and found one more P1: the fail-closed grep was too permissive
+  ("Verdict: inconclusive" or a stray "tests pass" would satisfy the gate).
+  Fixed: the prompt now requires an explicit final `Verdict: <value>` line, and
+  the validator requires the allowed token tied to the `verdict` label
+  (markdown-tolerant). Self-verified deterministically over 7 cases (valid incl.
+  markdown pass; inconclusive/tests-pass/no-verdict/empty fail closed); the
+  two-round cross-provider ceiling was reached, so this last tiny fix was
+  validated locally rather than with a third Codex round.
 
 ## Decision Log
 
