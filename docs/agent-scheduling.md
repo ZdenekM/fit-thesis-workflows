@@ -10,6 +10,41 @@ shorthand and logical workflow command names. On Windows, package the workflow
 tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching
 PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 
+## Providers And Selection
+
+The main session can be Codex or Claude, and reviewer roles can run on Codex,
+Claude, or both (one provider generates, the other independently reviews).
+`src/thesis_review_workflow/agent_providers.py` is the provider-neutral contract;
+the registry (`agent_profiles.py`) records which providers can incarnate each
+role.
+
+Status: this contract (capability detection, `resolve_run_provider`,
+`select_role_provider`) is implemented and tested but **not yet consumed by
+automatic orchestration enforcement** — that wiring is B3b/c. Today the parent
+applies the matrix by following this document: the 8 Claude reviewer adapters
+exist and can be spawned, and CLI presence can be probed, but the parent must
+still perform the launch and the launch-time readiness checks (Claude version,
+active hooks). Provider provenance and the provider-aware independence gate (F2)
+are also B3b/c.
+
+Supported parent → reviewer directions (the operator picks the run provider in
+chat; the workflow **fails closed** — never silently continues without a
+provider or an independent review):
+
+| Run provider | Reviewer roles | Notes |
+|---|---|---|
+| `codex` (default when present) | all Codex `.codex/agents/*` | the established path |
+| `claude` | the Claude-capable roles only (`.claude/agents/*`) | Codex-only roles must run on Codex |
+| `both` | generate with one, review with the other | **sequential**; one coordinator owns both launches; still ≤2 live agents total |
+
+Capability detection (`detect_available_providers`) probes the `codex`/`claude`
+CLIs on PATH. `resolve_run_provider` rejects a requested provider that is
+unavailable (and `both` unless both are present); `select_role_provider` refuses
+to run a role on a provider that has no adapter for it (e.g. GitHub intake,
+literature, and the final reviewers are Codex-only until the B3 parent-mediated
+protocol lands). The Claude reviewer path is POSIX-only for now (see
+`docs/agent-workflow.md`); native-Windows operators use Codex.
+
 ## Default Limit
 
 - Run at most 2 spawned workflow agents concurrently by default.
@@ -19,7 +54,9 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
   project config. Higher concurrency requires an intentional config change
   before the run.
 
-The limit is about live spawned agents, excluding the main Codex session. It does
+The limit is about live spawned agents, excluding the main session (the parent
+Codex or Claude writer/orchestrator). It applies **globally across providers**:
+`both` mode does not become two-per-provider. It does
 not reduce required role coverage, independent review, manifest evidence, or
 `scripts/check-agent-coverage`.
 

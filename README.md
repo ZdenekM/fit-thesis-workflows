@@ -24,6 +24,16 @@ Agent se používá jako chat. Příklady níže jsou inspirace, ne povinný sty
 promptu. Můžete psát stručně, průběžně doplňovat materiály, ptát se na detaily
 konkrétní práce a nechat agenta, aby si vyžádal chybějící kontext.
 
+Workflow je stavěné tak, aby šlo provozovat s nástrojem, který máte: **Codex**,
+**Claude**, nebo obojím (jeden připraví, druhý nezávisle zkontroluje). Codex
+dnes umí všechny role. Claude už zvládá čtecí review role (soulad a kvalita
+kódu, revizní diff, kvantitativní tvrzení, obrázky, typografie, Theses.cz,
+text/zadání) a běží na Linuxu/macOS; role, které potřebují stahování kódu z
+GitHubu, získávání zdrojů k citacím nebo finální posudek s podpisem, zatím jedou
+na Codexu. Automatický výběr nástroje a jeho vynucení se ještě dokončuje
+(vývojově), takže zatím nástroj zvolte v chatu a agent podle výše uvedeného
+rozdělení řekne, pokud danou roli na daném nástroji spustit nelze.
+
 ## Nejrychlejší cesta
 
 1. Otevřete chat s agentem v tomto repozitáři.

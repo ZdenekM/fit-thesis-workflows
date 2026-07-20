@@ -163,7 +163,8 @@ This model is being rolled out incrementally under
 | First Claude reviewer adapter + write-boundary guard (canary: `thesis-code-quality-reviewer`) | landed; live subagent write-boundary smoke pending maintainer |
 | 8 evidence-producer roles have Claude adapters; skill model notes generalized | landed (slice B2) |
 | 7 roles (GitHub intake, literature, 4 final-reviewers, evidence-calibrator) Claude-capable | planned (slice B3 — need shell/network or hash-bound approval) |
-| Provider selection, capability detection, scheduling docs | planned (slice B3) |
+| Provider selection + capability detection (`agent_providers.py`) + scheduling docs | landed (slice B3a) |
+| Provenance (F2) in review records; parent-mediated protocol for the 7 Codex-only roles | planned (slice B3b/c) |
 
 Until a capability is marked landed, the repository runs on the existing
 Codex-native path. Do not assume a planned capability is active.

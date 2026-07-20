@@ -315,7 +315,18 @@ Verify: `test_agent_profile_contracts`, `test_write_guard`,
 
 ### B3 — Provider selection, capability detection, scheduling docs
 
-Status: planned. Implement the Provider Execution Matrix selection + capability
+Status: in_progress. **B3a done**: `src/thesis_review_workflow/agent_providers.py`
+encodes the execution matrix and capability detection — `detect_available_providers`
+(probe `codex`/`claude` on PATH), `resolve_run_provider` (fail closed on an
+unavailable requested provider; `both` needs both), `select_role_provider`
+(refuse a role on a provider with no adapter), `role_provider_matrix`; with
+`tests/test_agent_providers.py`. `docs/agent-scheduling.md` generalized ("main
+session (Codex or Claude)", global-2 across providers, a Providers And Selection
+section with the matrix); README gained a "which tool" note. **B3b/c remain**:
+F2 provenance in review records + provider-aware independence gate, and the
+parent-mediated protocol that brings the 7 Codex-only roles to Claude.
+
+Implement the Provider Execution Matrix selection + capability
 detection (fail-closed), the global-2 concurrency rule across providers, and the
 `both` sequential cross-provider pattern. **Also owns the folded-in provenance
 work**: add `requested_provider`/`actual_provider`/`adapter_id`/`run_id` to
@@ -476,6 +487,15 @@ TOMLs remain hand-authoritative.
   now fails closed when an adapter file exists but is not in the policy, and a
   bidirectional contract test asserts registry-claude-capable == adapters ==
   fragments == policy keys (one set). Regression test added for the orphan case.
+
+- 2026-07-20: B3a Codex review (`changes_required`, 3×P1, 1×P2), all accepted:
+  renamed `detect_available_providers` → `detect_installed_provider_clis`
+  (presence probe, not readiness — version/hooks validated at launch);
+  `resolve_run_provider` now intersects availability with supported providers
+  (auto can't return an unavailable provider); `select_role_provider` calls
+  `resolve_run_provider` first so `both` with one CLI fails closed; docs/README
+  relabelled as a designed-but-unwired contract (parent applies it manually;
+  automatic enforcement is B3b/c). Tests extended for the fail-closed cases.
 
 ## Residual Risks (canary)
 
