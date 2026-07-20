@@ -261,3 +261,67 @@ def test_claude_capable_profile_ids_matches_registry() -> None:
         if route.profile_id and "claude" in route.providers
     }
     assert agent_profiles.claude_capable_profile_ids() == expected
+
+
+def test_role_fragments_match_codex_developer_instructions() -> None:
+    # Drift guard: the shared provider-neutral role prompt body under
+    # .agents/roles/<role>.md must stay byte-equal (modulo surrounding
+    # whitespace) to the authoritative Codex adapter's developer_instructions.
+    roles_dir = REPO_ROOT / ".agents" / "roles"
+    fragments = sorted(roles_dir.glob("*.md")) if roles_dir.is_dir() else []
+    assert fragments, "expected at least the canary role fragment"
+    for frag in fragments:
+        toml_path = REPO_ROOT / ".codex" / "agents" / f"{frag.stem}.toml"
+        assert toml_path.is_file(), f"role fragment {frag.name} has no Codex adapter {toml_path.name}"
+        codex_body = tomllib.loads(toml_path.read_text(encoding="utf-8"))["developer_instructions"].strip()
+        assert codex_body == frag.read_text(encoding="utf-8").strip(), f"{frag.name} drifted from its Codex adapter"
+
+
+def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    lines = text.splitlines()
+    assert lines and lines[0].strip() == "---", "adapter must start with a YAML frontmatter block"
+    end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    meta: dict[str, str] = {}
+    for line in lines[1:end]:
+        if ":" in line:
+            key, _, value = line.partition(":")
+            meta[key.strip()] = value.strip()
+    body = "\n".join(lines[end + 1 :]).strip()
+    return meta, body
+
+
+def test_claude_adapters_match_fragments_and_are_safe() -> None:
+    agents_dir = REPO_ROOT / ".claude" / "agents"
+    adapters = sorted(agents_dir.glob("*.md")) if agents_dir.is_dir() else []
+    # Only assert over adapters that exist; the registry drift guard elsewhere
+    # forces a claude-capable route to have one.
+    for adapter in adapters:
+        meta, body = _parse_frontmatter(adapter.read_text(encoding="utf-8"))
+        assert meta.get("name") == adapter.stem, f"{adapter.name}: frontmatter name must equal filename stem"
+        assert meta.get("description"), f"{adapter.name}: description required"
+        # Semantic reviewer roles must pin the strongest model and high effort
+        # (never `inherit`, which can silently resolve to a weak parent model).
+        assert meta.get("model") in {"opus"} or str(meta.get("model", "")).startswith(
+            "claude-opus"
+        ), f"{adapter.name}: semantic reviewer must pin a strong Opus model, not {meta.get('model')!r}"
+        assert meta.get("effort") == "xhigh", f"{adapter.name}: semantic reviewer must set effort: xhigh"
+        tools = {t.strip() for t in meta.get("tools", "").split(",") if t.strip()}
+        assert tools, f"{adapter.name}: an explicit tools allowlist is required"
+        # No nested spawning and no shell/write-escape for reviewer adapters.
+        assert {"Task", "Agent", "Bash"}.isdisjoint(tools), f"{adapter.name}: must not grant Task/Agent/Bash"
+        fragment = (REPO_ROOT / ".agents" / "roles" / adapter.name).read_text(encoding="utf-8").strip()
+        assert body == fragment, f"{adapter.name}: body drifted from .agents/roles/{adapter.name}"
+
+
+def test_reviewer_write_policy_matches_registry() -> None:
+    # The write-guard policy file must stay in sync with the registry: keys are
+    # the claude-capable roles (hyphenated), values are their allowed_writes.
+    import json
+
+    policy = json.loads((REPO_ROOT / ".claude/hooks/reviewer_write_policy.json").read_text(encoding="utf-8"))
+    expected = {
+        route.profile_id.replace("_", "-"): list(route.allowed_writes)
+        for route in agent_profiles.profile_routes()
+        if route.profile_id and "claude" in route.providers
+    }
+    assert policy == expected

@@ -272,7 +272,8 @@ the existing name-based independence gate stays in force (it never gets weaker).
 
 ### B1 — Single-role canary (the gate for everything after)
 
-Status: planned. Pick one role (e.g. `thesis_code_quality_reviewer`). Steps:
+Status: done (canary; live subagent write-boundary smoke pending maintainer).
+Canary role = `thesis_code_quality_reviewer`. Steps:
 (1) extract its prompt BODY to `.agents/roles/<role>.md`; (2) add a test
 asserting the existing `.codex/agents/<role>.toml` `developer_instructions`
 equals the fragment (Codex TOMLs stay authoritative, unchanged); (3) hand-write
@@ -390,6 +391,69 @@ TOMLs remain hand-authoritative.
   opponentura F2 line → split/corrected. Codex explicitly cleared the
   dataclass-construction compat, the missing-adapter drift guard, and the
   underscore→hyphen basename convention.
+
+- 2026-07-20: B1 canary built for `thesis_code_quality_reviewer`. Extracted the
+  prompt body to `.agents/roles/thesis-code-quality-reviewer.md` (byte-equal to
+  the unchanged Codex `developer_instructions`, enforced by a drift test);
+  hand-wrote `.claude/agents/thesis-code-quality-reviewer.md` (tools allowlist
+  Read/Grep/Glob/Write — no Task/Agent/Bash; `model: inherit`; body == fragment,
+  enforced by a test); flipped the registry route to `providers=("codex",
+  "claude")` (the earlier drift guard now requires the adapter). Added the
+  write-boundary guard `.claude/hooks/pre_tool_use_write_guard.py` (PreToolUse
+  Write|Edit|NotebookEdit), keyed off `agent_type` so it constrains only
+  reviewer subagents, never the parent; verified over an 11-case boundary matrix
+  and a regression test `tests/test_write_guard.py`. Pants plumbing: un-ignored
+  `.claude/` and added it as a source root; exposed `.claude/agents/*.md` +
+  `.agents/roles/*.md` to the metadata files target; added `//.claude/hooks:hooks`
+  as a test dep. Independent-review separation for the canary uses the existing
+  name-based gate (provenance stays B3). Green: the five contract/coverage/guard
+  tests, `pants check/lint/fmt`, `check-scripts`, `check-private`. Pending: the
+  live Claude-session subagent write-boundary smoke (no live spawn in this env).
+
+- 2026-07-20: Codex review of the B1 canary (`changes_required`, 4×P1, 1×P2,
+  1×P3), all accepted — the canary's whole point. Hardened the write guard:
+  (P1) enforce the role's **exact owned writes** from a registry-synced
+  `.claude/hooks/reviewer_write_policy.json` (siblings/other-role/`work` denied),
+  not a coarse round-workspace shape; (P1/F2) the guard now backstops the
+  adapter allowlist by denying `Bash`/`Task`/`WebFetch`/`WebSearch` for reviewer
+  subagents (matcher broadened), defending against a shadowing same-name adapter;
+  (P1/F6) gate on `agent_id` (subagent discriminator), not `agent_type`, so a
+  `claude --agent` main session is not constrained; (P2/F5) fail closed on
+  unreadable policy and on a path-less write. (P1) pinned `model: opus` +
+  `effort: xhigh` on the adapter with a contract test (no `inherit`). (P1/F3)
+  documented the Claude reviewer path as POSIX-only (Windows operators use Codex;
+  native launcher stays B3). Re-verified: expanded `tests/test_write_guard.py`
+  (owned-output precision, tool denial, agent_id gating, fail-closed cases) and
+  the policy-sync + model-pin contract tests; `pants check/lint/fmt` green.
+
+- 2026-07-20: Codex round-2 review of the hardened canary (`changes_required`,
+  2×P1, 1×P2) confirmed the round-1 fixes and found: (P1) `owned_write` checked
+  only the path tail → a reviewer could write another case's owned filename;
+  added env-gated active-scope (`CLAUDE_REVIEW_CASE`/`CLAUDE_REVIEW_ROUND`,
+  enforced when the spawner sets them, with a cross-case test). (P1) the
+  enumerated matcher missed `Agent` and `mcp__*` tools → switched the guard to a
+  **catch-all** `matcher: "*"` (confirmed semantics via docs) so `decide()`'s
+  allowlist governs every tool; added a settings-dispatch contract test. (P2)
+  the model test proves frontmatter, not the effective runtime model → reworded
+  docs to "adapter default; B3 validates the effective launch model". Two rounds
+  reached; the two residual items below are recorded rather than chasing a third
+  round.
+
+## Residual Risks (canary)
+
+- Cross-case/round confinement is only enforced when the parent exports
+  `CLAUDE_REVIEW_CASE`/`CLAUDE_REVIEW_ROUND` at spawn; no spawner sets them until
+  B3, so until then a reviewer subagent is confined to its owned *tail* but not a
+  specific case/round. Realistically unreachable in B1 (nothing spawns reviewers
+  yet). B3 must set the scope env when it launches reviewers and flip the guard
+  to fail-closed-when-absent.
+- The frontmatter `model: opus`/`effort: xhigh` is a default; env or
+  per-invocation selection can override it. B3 must validate the effective
+  launched model before treating a Claude pass as a semantic review.
+- The Claude reviewer path is POSIX-only; native-Windows launcher is deferred to
+  the end-user track / B3.
+- Live fresh-Claude-session subagent write-boundary smoke is pending the
+  maintainer (no live subagent spawn in the build/review environment).
 
 ## Decision Log
 

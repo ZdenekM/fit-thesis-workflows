@@ -10,6 +10,7 @@ pants_ignore = [
   "!.agents/",
   "!.github/",
   "!.codex/",
+  "!.claude/",
 ]
 backend_packages = [
   "pants.backend.python",
@@ -23,7 +24,7 @@ backend_packages = [
 ]
 
 [source]
-root_patterns = [".codex/hooks", "scripts", "src", "tests"]
+root_patterns = [".claude/hooks", ".codex/hooks", "scripts", "src", "tests"]
 
 [python]
 interpreter_constraints = ["==3.12.*"]

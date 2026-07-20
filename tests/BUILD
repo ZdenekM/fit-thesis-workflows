@@ -1,6 +1,7 @@
 python_tests(
     name="tests",
     dependencies=[
+        "//.claude/hooks:hooks",
         "//:agent_profile_registry_metadata",
         "//:codex_agent_profile_metadata",
         "//scripts:workflow_contract_metadata",

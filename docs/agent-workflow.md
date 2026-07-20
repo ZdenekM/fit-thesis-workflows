@@ -109,8 +109,43 @@ Known limitations (tracked in the plan, not yet closed):
   inactive is part of slice B3, not this slice. Do not assume the guard is
   active in a session without confirming.
 - This slice wires the existing Bash-`git add` guard for parity. The broader
-  write-boundary guard (Edit/Write/shell resolved against a role's owned
-  outputs) is opponentura finding F3 and lands with the canary (B1).
+  write-boundary guard for reviewer subagents (F3) lands with the canary (B1),
+  below.
+
+### Reviewer write boundary (B1)
+
+`.claude/hooks/pre_tool_use_write_guard.py` is the authoritative reviewer
+sandbox for Claude — it enforces the boundary Codex expresses via a role-scoped
+`workspace-write` sandbox, and holds even if a shadowing same-name adapter
+granted extra tools. It:
+
+- acts **only** on spawned subagents, detected by the presence of `agent_id`
+  (not `agent_type`, which `claude --agent` also sets on the main session), so
+  the parent/main session and its normal edits are never constrained;
+- applies only when the subagent's `agent_type` matches a reviewer role in
+  `.claude/hooks/reviewer_write_policy.json`, which a contract test keeps in sync
+  with the profile registry's `allowed_writes`;
+- for a matched reviewer: allows `Read`/`Grep`/`Glob`; allows
+  `Write`/`Edit`/`NotebookEdit` **only** to that role's exact owned outputs under
+  `cases/<id>/rounds/<round>/` (siblings, other roles' outputs, `work/` records,
+  tracked files, out-of-repo paths, and `..`/symlink escapes are denied); and
+  denies every other tool (`Bash`, `Task`, `WebFetch`, ...) as a backstop to the
+  adapter's own `tools` allowlist;
+- fails closed: unparseable input, an unreadable policy, or a path-less write all
+  deny, and the wiring adds `|| exit 2`.
+
+**Platform:** these hooks call `python3` under a POSIX shell, so the Claude
+reviewer path is Linux/macOS-only for now. On native Windows the `|| exit 2`
+fail-closed rule would block the parent's own writes when `python3` is absent, so
+Windows operators use the Codex path until the packaged native launcher lands
+(end-user track / B3). Do not wire these hooks on native Windows yet.
+
+**Model:** reviewer adapters set a strong model and high effort as their
+*default* (`model: opus`, `effort: xhigh`) rather than `inherit`, mirroring the
+Codex `gpt-5.5`/`xhigh` pin. Note this is the frontmatter default only —
+environment (`CLAUDE_CODE_SUBAGENT_MODEL`) or per-invocation selection can
+override it, so B3 validates the *effective* launched model/effort before
+treating a Claude pass as a semantic review.
 
 ## Implementation status
 
@@ -125,7 +160,7 @@ This model is being rolled out incrementally under
 | Single mandatory Codex-review command surface (`scripts/agent-review`) | landed |
 | Provider *dimension* in the role registry (declarative) | landed (slice B0) |
 | Provider *provenance* in review records + provider-aware independence gate | planned (slice B3) |
-| First Claude reviewer role proven end-to-end (canary) | planned (slice B1) |
+| First Claude reviewer adapter + write-boundary guard (canary: `thesis-code-quality-reviewer`) | landed; live subagent write-boundary smoke pending maintainer |
 | Remaining Claude reviewer adapters + skill model-note generalization | planned (slice B2) |
 | Provider selection, capability detection, scheduling docs | planned (slice B3) |
 

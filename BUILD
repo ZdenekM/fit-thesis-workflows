@@ -27,7 +27,11 @@ files(
 files(
     name="agent_profile_registry_metadata",
     sources=[
+        ".agents/roles/*.md",
         ".agents/skills/*/SKILL.md",
+        ".claude/agents/*.md",
+        ".claude/hooks/reviewer_write_policy.json",
+        ".claude/settings.json",
         ".codex/hooks/session_start_context.py",
         "docs/agent-profile-matrix.md",
     ],

@@ -119,6 +119,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         profile_id="thesis_code_quality_reviewer",
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
+        providers=("codex", "claude"),
         owned_outputs=("outputs/code_quality_review.md",),
         standalone_review_profile="thesis_evidence_calibrator",
         downstream_synthesis_review_allowed=True,

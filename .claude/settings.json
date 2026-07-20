@@ -20,6 +20,15 @@
             "command": "python3 \"${CLAUDE_PROJECT_DIR}/.codex/hooks/pre_tool_use_privacy_guard.py\" || exit 2"
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_write_guard.py\" || exit 2"
+          }
+        ]
       }
     ]
   }
