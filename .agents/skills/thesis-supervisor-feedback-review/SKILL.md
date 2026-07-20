@@ -95,9 +95,8 @@ trust the gate and repair the file or approval record.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-review workflow. In the current Codex setup, use `gpt-5.5` with `xhigh`
-reasoning when that choice is exposed. Packet prompts generated for this skill
-must carry the same requirement. Do not downshift to Spark or another low-cost
+review workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this skill
+must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another low-cost
 model for the first or only pass over draft feedback, evidence calibration,
 sendability, priority, tone, or final student-facing wording. Mechanical helper
 summaries may use cheaper models only when validator-backed and consumed by a

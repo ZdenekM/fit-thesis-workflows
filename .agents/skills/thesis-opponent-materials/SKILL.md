@@ -209,9 +209,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. In the current Codex setup, use `gpt-5.5` with `xhigh` reasoning when
-that choice is exposed. Packet prompts generated for this skill must carry the
-same requirement. Do not downshift to Spark or another low-cost model for the
+workflow. Run the parent/orchestrator session on the strongest available model at high reasoning effort (`xhigh`); see `docs/agent-scheduling.md`. This work is parent-orchestrated, not a spawned provider adapter. Packet prompts generated for this skill must carry the
+same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) for the
 first or only pass over thesis text, code evidence, reviewed evidence,
 opponent-materials synthesis, grading/report calibration, confidence labels, or
 defense questions. Mechanical helper summaries may use cheaper models only when

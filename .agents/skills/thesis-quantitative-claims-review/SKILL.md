@@ -196,8 +196,10 @@ grade/report defensibility, limitations, defense questions, or manual checks.
 
 ## Model And Reasoning
 
-Use `gpt-5.5` with `model_reasoning_effort = "xhigh"`. Do not downshift this
-role to Spark or another mechanical helper model: the first pass over unit,
+Use the active provider's strongest tier at `xhigh` effort (Codex `gpt-5.5`,
+Claude `opus`); see `docs/agent-scheduling.md` for the provider-neutral model
+policy. Do not downshift this role to a low-cost model (Codex Spark or a small
+Claude tier) or another mechanical helper model: the first pass over unit,
 scale, baseline, reproducibility, practical magnitude, and overclaim risk is a
 semantic review.
 

@@ -110,9 +110,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. In the current repo-local Codex profile this role is pinned to
-`gpt-5.5` with `model_reasoning_effort = "xhigh"`. Packet prompts generated for
-this skill must carry the same requirement. Do not downshift to Spark or another
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for
+this skill must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another
 low-cost model for the first or only pass over implementation design,
 maintainability, runtime risk, reviewer-confidence findings, or Omen-informed
 interpretation. Mechanical helper summaries may use cheaper models only when

@@ -161,7 +161,8 @@ This model is being rolled out incrementally under
 | Provider *dimension* in the role registry (declarative) | landed (slice B0) |
 | Provider *provenance* in review records + provider-aware independence gate | planned (slice B3) |
 | First Claude reviewer adapter + write-boundary guard (canary: `thesis-code-quality-reviewer`) | landed; live subagent write-boundary smoke pending maintainer |
-| Remaining Claude reviewer adapters + skill model-note generalization | planned (slice B2) |
+| 8 evidence-producer roles have Claude adapters; skill model notes generalized | landed (slice B2) |
+| 7 roles (GitHub intake, literature, 4 final-reviewers, evidence-calibrator) Claude-capable | planned (slice B3 — need shell/network or hash-bound approval) |
 | Provider selection, capability detection, scheduling docs | planned (slice B3) |
 
 Until a capability is marked landed, the repository runs on the existing

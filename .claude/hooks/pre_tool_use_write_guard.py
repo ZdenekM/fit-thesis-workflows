@@ -118,7 +118,12 @@ def decide(payload: dict, root: Path) -> dict | None:
         return _deny(f"reviewer write policy is unreadable; refusing {tool or 'tool'}")
     agent_type = normalize_agent_type(str(payload.get("agent_type", "")))
     if agent_type not in policy:
-        return None  # not one of our reviewer adapters
+        # If a Claude adapter exists for this agent_type but the policy does not
+        # cover it, we cannot determine its owned writes: fail closed rather than
+        # leave the reviewer unconstrained.
+        if (root / ".claude" / "agents" / f"{agent_type}.md").is_file():
+            return _deny(f"{agent_type} adapter is not covered by the reviewer write policy; failing closed")
+        return None  # a non-reviewer subagent (no adapter)
     if tool in READ_TOOLS:
         return None
     if tool in WRITE_TOOLS:

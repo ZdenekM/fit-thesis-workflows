@@ -290,11 +290,28 @@ matrix above + `pants test` + `scripts/check-private`.
 
 ### B2 — Roll out remaining Claude reviewer adapters
 
-Status: planned. Repeat B1's proven pattern for the other spawnable roles;
-generalize the 14 skill "Model And Reasoning" blocks and
-`review_packets.py` model note to "strongest model of the active provider" with
-per-provider pins. Update `docs/agent-profile-matrix.md` (Claude adapter column).
-Verify: contract tests, `pants test tests::`, `scripts/check-scripts`.
+Status: done. The **8 evidence-producer roles** that work inside the Claude
+reviewer sandbox (Read/Grep/Glob/Write, parent-run validators) opt in to a
+`.claude/agents/*.md` adapter + `.agents/roles/*.md` fragment: `text`,
+`code_consistency`, `code_quality`, `quantitative_claims`, `revision_diff`,
+`figure_media`, `typography_formal`, `theses_similarity`. The other **7 stay
+Codex-only** because they need shell/network or hash-bound approval records —
+GitHub intake (import), literature (source acquisition), the 4 final-reviewers
+(hash-bound approval), and the evidence calibrator (approval sidecar); they gain
+Claude adapters in B3 once a parent-mediated protocol exists. Registry default
+is `("codex",)`; viable roles opt in explicitly (drift-guarded). The skills'
+"Model And Reasoning" blocks were generalized to "whichever provider runs this
+role (Claude where an adapter exists)"; parent-owned skills say the
+parent/orchestrator session uses the strongest tier (not an adapter pin).
+`docs/agent-scheduling.md` Model Defaults is the provider-neutral source.
+`review_packets.py` model generation deferred to B3.
+
+Codex review returned `changes_required` (3×P1, 1×P2): the initial blanket
+rollout over-declared Claude for roles whose tool/write contract it cannot meet
+(GitHub import, literature acquisition, hash-bound final reviews) and mislabeled
+parent-owned skills as having adapters. All accepted and corrected as above.
+Verify: `test_agent_profile_contracts`, `test_write_guard`,
+`test_check_scripts_contracts`, `scripts/check-scripts`, `check-private`.
 
 ### B3 — Provider selection, capability detection, scheduling docs
 
@@ -306,9 +323,13 @@ work**: add `requested_provider`/`actual_provider`/`adapter_id`/`run_id` to
 gate provider-aware (reject substitution; require the provider set for `both`),
 now that execution populates those fields. Generalize `docs/agent-scheduling.md`
 ("main session (Codex or Claude)"), README "which tool" note, min-Claude-version
-gate. Optional readiness `scripts/check-*`. Verify: two-role synthetic wave under
-`provider=claude`, then `provider=both`; confirm global-2, independence +
-provenance, and clear failure when a provider is unavailable.
+gate. Optional readiness `scripts/check-*`. **Also brings the 7 Codex-only roles
+to Claude** via a parent-mediated protocol: the parent runs the GitHub import,
+literature source acquisition, and hash-bound approval/export helpers on behalf
+of a Claude reviewer (which stays read-only), then the role can opt in to
+`claude`. Verify: two-role synthetic wave under `provider=claude`, then
+`provider=both`; confirm global-2, independence + provenance, and clear failure
+when a provider is unavailable.
 
 ### B4 (optional, deferred) — Generator that also renders `.codex/*.toml`
 
@@ -438,6 +459,23 @@ TOMLs remain hand-authoritative.
   docs to "adapter default; B3 validates the effective launch model". Two rounds
   reached; the two residual items below are recorded rather than chasing a third
   round.
+
+- 2026-07-20: B2 first over-rolled (all 15 roles). Codex review
+  (`changes_required`, 3×P1, 1×P2) showed 7 roles cannot run in the
+  Read/Grep/Glob/Write Claude sandbox (shell/network/hash needs). Corrected: only
+  the 8 evidence-producer roles opt in to Claude (explicit `providers`); the 7
+  stay Codex-only pending B3; parent-owned skill model notes fixed to name the
+  parent session, not an adapter. Fragments/adapters exist only for the 8;
+  `docs/agent-scheduling.md` is the provider-neutral model source. Green:
+  contract/guard/check-scripts tests, `check-private`.
+
+- 2026-07-20: B2 round-2 review (`changes_required`, 1×P1) confirmed the 8-role
+  scope and wording fixes, and found a one-directional drift gap: an orphan
+  Claude adapter (present but absent from the policy) would run unconstrained
+  because the guard keys detection off the policy. Fixed both ways — the guard
+  now fails closed when an adapter file exists but is not in the policy, and a
+  bidirectional contract test asserts registry-claude-capable == adapters ==
+  fragments == policy keys (one set). Regression test added for the orphan case.
 
 ## Residual Risks (canary)
 

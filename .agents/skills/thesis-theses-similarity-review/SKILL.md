@@ -159,8 +159,7 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for semantic
-review of similarity matches and downstream wording. In the current Codex setup,
-use `gpt-5.5` with `xhigh` reasoning when exposed. Mechanical parsing and helper
+review of similarity matches and downstream wording. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Mechanical parsing and helper
 checks may use cheaper models only when validator-backed and consumed by this
 semantic pass.
 

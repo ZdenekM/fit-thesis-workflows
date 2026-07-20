@@ -45,9 +45,8 @@ Use structured tools when available: `diff`, `git diff --no-index`, file lists, 
 
 Use the strongest available model with high reasoning effort for this semantic
 workflow when the diff will feed supervisor feedback, opponent materials, or
-final standalone evidence. In the current Codex setup, use `gpt-5.5` with
-`xhigh` reasoning when that choice is exposed. Packet prompts generated for this
-skill must carry the same requirement. Do not downshift to Spark or another
+final standalone evidence. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this
+skill must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another
 low-cost model for the first or only pass over prior-feedback status, thesis/code
 changes, new risks, or synthesis implications. Mechanical helper summaries may
 use cheaper models only when validator-backed and consumed by a high-reasoning

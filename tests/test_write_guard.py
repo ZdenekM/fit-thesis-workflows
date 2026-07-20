@@ -119,6 +119,23 @@ def test_malformed_input_fails_closed() -> None:
     assert _denies("this is not json")
 
 
+def test_orphan_adapter_absent_from_policy_fails_closed(tmp_path: Path) -> None:
+    # A Claude adapter that exists on disk but is not covered by the policy must
+    # not run unconstrained: the guard denies rather than treating it as a
+    # non-reviewer.
+    (tmp_path / ".claude" / "agents").mkdir(parents=True)
+    (tmp_path / ".claude" / "agents" / "orphan.md").write_text("---\nname: orphan\n---\nbody\n", encoding="utf-8")
+    (tmp_path / ".claude" / "hooks").mkdir(parents=True)
+    (tmp_path / ".claude" / "hooks" / "reviewer_write_policy.json").write_text("{}\n", encoding="utf-8")
+    payload = {
+        "agent_type": "orphan",
+        "agent_id": "x",
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(tmp_path / "AGENTS.md")},
+    }
+    assert _denies(payload, root=tmp_path)
+
+
 def test_missing_policy_fails_closed_for_reviewer_writes(tmp_path: Path) -> None:
     # Point the guard at a project dir with no policy file: a subagent write
     # must be denied rather than silently allowed.

@@ -1,5 +1,31 @@
 {
+  "thesis-code-consistency-reviewer": [
+    "outputs/code_consistency.md"
+  ],
   "thesis-code-quality-reviewer": [
     "outputs/code_quality_review.md"
+  ],
+  "thesis-figure-media-reviewer": [
+    "work/figure_media/visual_inventory.jsonl",
+    "outputs/figure_media_review.md"
+  ],
+  "thesis-quantitative-claims-reviewer": [
+    "work/quantitative_claims.json"
+  ],
+  "thesis-revision-diff-reviewer": [
+    "outputs/revision_diff.md"
+  ],
+  "thesis-text-reviewer": [
+    "work/supervisor_packets/text_assignment_findings.md",
+    "work/opponent_packets/text_structure_assignment_findings.md"
+  ],
+  "thesis-theses-similarity-reviewer": [
+    "work/theses_similarity/intake.json",
+    "work/theses_similarity/assessment.json",
+    "work/theses_similarity/review_draft.md",
+    "outputs/theses_similarity_review.md"
+  ],
+  "thesis-typography-formal-reviewer": [
+    "outputs/typography_formal_review.md"
   ]
 }

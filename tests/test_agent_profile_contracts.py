@@ -313,6 +313,21 @@ def test_claude_adapters_match_fragments_and_are_safe() -> None:
         assert body == fragment, f"{adapter.name}: body drifted from .agents/roles/{adapter.name}"
 
 
+def test_claude_capability_surfaces_are_mutually_consistent() -> None:
+    # Bidirectional drift guard: the registry's claude-capable set, the
+    # .claude/agents adapters, the .agents/roles fragments, and the write-policy
+    # keys must all be the SAME set. Otherwise an orphan adapter (present but not
+    # registered/policed) would run unconstrained by the write guard.
+    import json
+
+    registry = agent_profiles.claude_capable_profile_ids()  # profile_id form
+    registry_names = {pid.replace("_", "-") for pid in registry}
+    adapters = {p.stem for p in (REPO_ROOT / ".claude" / "agents").glob("*.md")}
+    fragments = {p.stem for p in (REPO_ROOT / ".agents" / "roles").glob("*.md")}
+    policy_keys = set(json.loads((REPO_ROOT / ".claude/hooks/reviewer_write_policy.json").read_text(encoding="utf-8")))
+    assert registry_names == adapters == fragments == policy_keys
+
+
 def test_reviewer_write_policy_matches_registry() -> None:
     # The write-guard policy file must stay in sync with the registry: keys are
     # the claude-capable roles (hyphenated), values are their allowed_writes.

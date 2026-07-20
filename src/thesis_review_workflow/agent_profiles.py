@@ -9,10 +9,16 @@ from typing import Literal
 RouteStatus = Literal["profile", "parent-owned", "deferred"]
 Provider = Literal["codex", "claude"]
 # Providers that can incarnate a spawnable reviewer role. A role's ``providers``
-# tuple is declarative capability, not execution: it says which provider
-# adapters exist for the role, not which one a given run uses. Every current
-# role ships a Codex adapter (`.codex/agents/*.toml`); a role gains ``"claude"``
-# only once a matching `.claude/agents/<role>.md` adapter lands (canary-first).
+# tuple is declarative capability, not execution: it says which provider adapters
+# exist for the role, not which one a given run uses. Every spawnable ``profile``
+# role ships a Codex adapter (`.codex/agents/*.toml`); a role opts in to
+# ``"claude"`` only when it works within the Claude reviewer sandbox
+# (Read/Grep/Glob/Write, no shell/network/MCP) — i.e. an evidence producer that
+# reads inputs and writes its own findings file, whose validators the parent
+# runs. Roles that need shell/network (GitHub import, literature acquisition) or
+# must write hash-bound approval records (final reviewers) stay Codex-only until
+# B3 supplies a parent-mediated protocol. A drift-guard test requires a
+# `.claude/agents/<role>.md` adapter for any role advertising ``"claude"``.
 SUPPORTED_PROVIDERS: tuple[Provider, ...] = ("codex", "claude")
 RoleKind = Literal[
     "generator",
@@ -89,6 +95,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         role_source="AGENTS.md:text-structure-assignment-coverage",
         status="profile",
         profile_id="thesis_text_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=(
@@ -105,6 +112,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-code-consistency",
         status="profile",
         profile_id="thesis_code_consistency_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/code_consistency.md",),
@@ -117,9 +125,9 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-code-quality-review",
         status="profile",
         profile_id="thesis_code_quality_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
-        providers=("codex", "claude"),
         owned_outputs=("outputs/code_quality_review.md",),
         standalone_review_profile="thesis_evidence_calibrator",
         downstream_synthesis_review_allowed=True,
@@ -130,6 +138,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-quantitative-claims-review",
         status="profile",
         profile_id="thesis_quantitative_claims_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("work/quantitative_claims.json",),
@@ -159,6 +168,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-revision-diff",
         status="profile",
         profile_id="thesis_revision_diff_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/revision_diff.md",),
@@ -171,6 +181,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-figure-media-review",
         status="profile",
         profile_id="thesis_figure_media_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=(
@@ -198,6 +209,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-typography-formal-review",
         status="profile",
         profile_id="thesis_typography_formal_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/typography_formal_review.md",),
@@ -210,6 +222,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-theses-similarity-review",
         status="profile",
         profile_id="thesis_theses_similarity_reviewer",
+        providers=("codex", "claude"),
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=(
