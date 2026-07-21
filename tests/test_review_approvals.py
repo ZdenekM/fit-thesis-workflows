@@ -980,3 +980,40 @@ def test_write_review_approval_rejects_canonical_role_override(tmp_path: Path, m
     )
 
     assert result == 1
+
+
+def test_reviewer_matches_generator_stays_name_only() -> None:
+    # Provider provenance is recorded but NOT trusted to relax independence: an
+    # unverified manual provider label must not let a same-agent entity
+    # self-approve. Same agent name is a violation regardless of recorded
+    # provider; a different name is independent.
+    from thesis_review_workflow.review_approvals import reviewer_matches_generator
+
+    def manifest(generator_provider: str) -> dict:
+        record = {"role": "r", "agent": "agent-x", "contribution": "generation"}
+        if generator_provider:
+            record["provider"] = generator_provider
+        return {"artifacts": [{"path": "outputs/x.md", "review_scope": "sendable_final", "generated_by": [record]}]}
+
+    # Same agent name is a violation even when providers are labelled differently.
+    assert reviewer_matches_generator(
+        manifest("codex"), reviewed_artifact_path="outputs/x.md", reviewer_agent="agent-x"
+    )
+    assert reviewer_matches_generator(manifest(""), reviewed_artifact_path="outputs/x.md", reviewer_agent="agent-x")
+    # A different agent name is independent.
+    assert not reviewer_matches_generator(
+        manifest("codex"), reviewed_artifact_path="outputs/x.md", reviewer_agent="other"
+    )
+
+
+def test_append_unique_generated_keeps_distinct_providers() -> None:
+    from thesis_review_workflow.review_manifest import append_unique_generated, generated_record
+
+    codex = generated_record("r", "agent-x", "generation", "", "codex")
+    claude = generated_record("r", "agent-x", "generation", "", "claude")
+    records = append_unique_generated([], codex)
+    records = append_unique_generated(records, claude)
+    # Same role/agent/contribution but different provider -> both preserved.
+    assert records == [codex, claude]
+    # Re-adding an identical record is still deduplicated.
+    assert append_unique_generated(records, dict(codex)) == records

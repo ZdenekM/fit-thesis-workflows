@@ -242,13 +242,20 @@ def registration_defaults(
     }
 
 
-def generated_record(role: str, agent: str, contribution: str, notes: str) -> dict[str, str]:
-    return {
+def generated_record(role: str, agent: str, contribution: str, notes: str, provider: str = "") -> dict[str, str]:
+    record = {
         "role": role or "not_recorded",
         "agent": agent or "not_recorded",
         "contribution": contribution or "generation",
         "notes": notes,
     }
+    # Provider provenance is additive: recorded only when known, so legacy
+    # (Codex-era) records keep their exact shape. Independence checks treat a
+    # recorded provider that differs from the reviewer's as genuinely
+    # independent; see review_approvals.reviewer_matches_generator.
+    if provider:
+        record["provider"] = provider
+    return record
 
 
 def review_record(
@@ -606,6 +613,7 @@ def upsert_output_artifact(
     used_findings: str,
     review_basis_path: str,
     notes: str,
+    provider: str = "",
 ) -> None:
     path = validate_artifact_rel_path(rel_path, round_dir)
     artifact_type, skills, default_scope = output_defaults(rel_path)
@@ -646,7 +654,7 @@ def upsert_output_artifact(
     existing["review_scope"] = scope
     existing["generated_by"] = append_unique_generated(
         existing.get("generated_by"),
-        generated_record(role, agent, contribution, notes),
+        generated_record(role, agent, contribution, notes, provider=provider),
     )
     existing["independent_review"] = review_record(
         status=review_status,
@@ -682,8 +690,13 @@ def upsert_output_artifact(
 
 def append_unique_generated(values: Any, addition: dict[str, str]) -> list[dict[str, str]]:
     result = [item for item in values if isinstance(item, dict)] if isinstance(values, list) else []
-    key = (addition["role"], addition["agent"], addition["contribution"])
-    if not any((item.get("role"), item.get("agent"), item.get("contribution")) == key for item in result):
+    # Provider is part of the identity so a same-agent record from a different
+    # provider is preserved as a distinct entry (not collapsed into a stale one).
+    key = (addition["role"], addition["agent"], addition["contribution"], addition.get("provider", ""))
+    if not any(
+        (item.get("role"), item.get("agent"), item.get("contribution"), item.get("provider", "")) == key
+        for item in result
+    ):
         result.append(addition)
     return result
 
@@ -710,6 +723,7 @@ def upsert_work_artifact(
     used_findings: str = "",
     review_basis_path: str = "",
     notes: str,
+    provider: str = "",
 ) -> None:
     path = validate_artifact_rel_path(rel_path, round_dir)
     current_hash = sha256_file(path)
@@ -729,7 +743,7 @@ def upsert_work_artifact(
         existing["skills"] = append_unique(existing.get("skills"), [role])
     existing["generated_by"] = append_unique_generated(
         existing.get("generated_by"),
-        generated_record(role, agent, contribution, notes),
+        generated_record(role, agent, contribution, notes, provider=provider),
     )
     covered_by = feeds[0] if existing["review_scope"] == "covered_by_synthesis" and feeds else ""
     reviewed_hash = current_hash if review_status in {"reviewed", "reviewed_with_notes"} else ""
@@ -790,6 +804,7 @@ def register_artifact(
     used_findings: str,
     review_basis_path: str,
     notes: str,
+    provider: str = "",
 ) -> None:
     validate_round_rel_values("feeds", feeds)
     validate_round_rel_values("input refs", input_refs)
@@ -818,6 +833,7 @@ def register_artifact(
             used_findings=used_findings,
             review_basis_path=review_basis_path,
             notes=notes,
+            provider=provider,
         )
         return
     upsert_work_artifact(
@@ -841,6 +857,7 @@ def register_artifact(
         used_findings=used_findings,
         review_basis_path=review_basis_path,
         notes=notes,
+        provider=provider,
     )
 
 

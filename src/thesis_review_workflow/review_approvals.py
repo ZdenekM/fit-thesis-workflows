@@ -318,6 +318,11 @@ def reviewer_matches_generator(
     reviewed_artifact_path: str,
     reviewer_agent: str,
 ) -> bool:
+    # Independence is judged strictly by agent-name equality. Recorded provider
+    # provenance is NOT trusted to relax this yet: a manual `--provider` label is
+    # unverified, so a same-provider entity could otherwise self-approve by
+    # claiming a different provider. A verified actual-provider gate (requested
+    # vs actual, adapter/run identity) is deferred to B3c.
     if not manifest:
         return False
     artifacts = manifest.get("artifacts")
@@ -365,6 +370,8 @@ def build_review_approval_payload(
     human_reviewer: str = "",
     notes: str = "",
     used_findings: str = "",
+    reviewer_provider: str = "",
+    run_id: str = "",
     manifest: dict[str, Any] | None = None,
     required_checks: tuple[str, ...] = (),
     approval_path: str = "work/reviews/review_record_review.json",
@@ -412,6 +419,10 @@ def build_review_approval_payload(
         payload["notes"] = notes
     if used_findings:
         payload["used_findings"] = used_findings
+    if reviewer_provider:
+        payload["reviewer_provider"] = reviewer_provider
+    if run_id:
+        payload["run_id"] = run_id
     errors = validate_required_checks(
         required_checks=required_checks,
         checks_observed=checks_observed,

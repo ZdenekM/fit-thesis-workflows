@@ -55,6 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--review-basis", default="")
     parser.add_argument("--reviewer-role", default="")
     parser.add_argument("--reviewer-agent", default="")
+    parser.add_argument("--provider", default="", help="Provider that ran the reviewer (e.g. codex, claude).")
+    parser.add_argument("--run-id", default="", help="Opaque run identifier for this review, for provenance.")
     parser.add_argument("--human-reviewer", default="")
     parser.add_argument("--verdict", choices=["approved", "pass"], default="approved")
     parser.add_argument("--blocking-findings-count", type=int, default=0)
@@ -174,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
             human_reviewer=human_reviewer,
             notes=args.notes,
             used_findings=args.used_findings,
+            reviewer_provider=args.provider,
+            run_id=args.run_id,
             manifest=read_manifest(round_dir / MANIFEST_REL),
             required_checks=required_checks,
             approval_path=approval_path,

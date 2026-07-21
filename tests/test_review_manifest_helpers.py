@@ -3751,3 +3751,17 @@ def test_register_artifact_rejects_unsafe_refs(tmp_path: Path) -> None:
         assert "feeds" in str(exc)
     else:
         raise AssertionError("unsafe feeds ref should fail")
+
+
+def test_generated_record_provider_is_additive() -> None:
+    from thesis_review_workflow.review_manifest import generated_record
+
+    # Legacy records (no provider) keep their exact shape.
+    assert generated_record("r", "a", "generation", "") == {
+        "role": "r",
+        "agent": "a",
+        "contribution": "generation",
+        "notes": "",
+    }
+    # A provider is recorded only when supplied.
+    assert generated_record("r", "a", "generation", "", "claude")["provider"] == "claude"

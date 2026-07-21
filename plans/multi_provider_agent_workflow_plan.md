@@ -497,6 +497,26 @@ TOMLs remain hand-authoritative.
   relabelled as a designed-but-unwired contract (parent applies it manually;
   automatic enforcement is B3b/c). Tests extended for the fail-closed cases.
 
+- 2026-07-20: B3b (provenance F2) records provider provenance as **additive
+  metadata** with its population points, so the fields are exercised, not
+  dormant. `generated_record` gained an optional `provider`;
+  `build_review_approval_payload` gained `reviewer_provider`/`run_id`; both are
+  recorded only when supplied, so legacy Codex-era records keep their exact shape
+  (verified). `--provider` threads through `register-review-artifact`;
+  `--provider`/`--run-id` through `write-review-approval`. `append_unique_generated`
+  now keys on provider too, so a same-agent record from a different provider is
+  not collapsed into a stale one.
+- 2026-07-20: B3b Codex review (`changes_required`, 3×P1) caught a design error:
+  my first version *relaxed* the independence gate for "different recorded
+  provider", but the provider label is an **unverified** manual `--provider`
+  string — so a same-provider entity could self-approve by claiming a different
+  provider (and build vs closeout validation would disagree). Fix: the
+  independence gate stays strictly **name-only** (unchanged, consistent at build
+  and closeout); provider is metadata only. The provider-aware gate + substituted-
+  provider detection (requested vs verified actual, adapter/run identity) is
+  deferred to B3c, where the spawner supplies *trusted* actual-provider
+  provenance. Tests assert the name-only behavior; smokes + full suite pass.
+
 ## Residual Risks (canary)
 
 - Cross-case/round confinement is only enforced when the parent exports

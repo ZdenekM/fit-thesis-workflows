@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--preset", choices=("auto", "none"), default="auto")
     parser.add_argument("--role")
     parser.add_argument("--agent", default="not_recorded")
+    parser.add_argument("--provider", default="", help="Provider that produced this artifact (e.g. codex, claude).")
     parser.add_argument("--contribution", default="generation")
     parser.add_argument("--review-scope")
     parser.add_argument("--review-status")
@@ -160,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
             args.artifact_path,
             role=options["role"],
             agent=args.agent,
+            provider=args.provider,
             contribution=args.contribution,
             review_scope=options["review_scope"],
             review_status=options["review_status"],
