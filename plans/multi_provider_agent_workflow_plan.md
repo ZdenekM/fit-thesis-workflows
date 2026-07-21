@@ -1,6 +1,7 @@
 # Multi-Provider Agent Workflow Plan
 
-Status: active
+Status: done (implementation A1–B3c complete; live end-to-end validation +
+optional B4 generator pending)
 Created: 2026-07-20
 Revised: 2026-07-20 (after Codex opponentura — verdict `changes_required`, all 8
 findings accepted; see Codex Opponentura Log)
@@ -244,7 +245,7 @@ Smoke = dogfood: this slice was itself reviewed via `scripts/agent-review
 
 ### B0 — Registry provider dimension (declarative; no execution)
 
-Status: planned. Scope reduced from the original bundle: add only the
+Status: done. Scope reduced from the original bundle: add only the
 declarative provider dimension the canary needs, and defer the provenance-record
 schema + gate rewire to B3 (below), where execution actually populates provider
 identity. Rationale: adding `requested/actual_provider`/`adapter_id`/`run_id` to
@@ -640,7 +641,29 @@ TOMLs remain hand-authoritative.
 
 ## Final Audit
 
-Not run yet. Implementation in progress on `multi-provider-agent-workflow`
-(canary-first: A1–A3 + B0 + B1, then B2 + B3). Per-slice Codex reviews are
-recorded in Progress. Operator decisions #2–#4 are still open but do not block
-A1–A3.
+Implementation complete on `multi-provider-agent-workflow` (9 commits: A1, A2,
+A3, B0, B1, B2, B3a, B3b, B3c), merged to `main` when done.
+
+Delivered:
+- Developer track: `CLAUDE.md` (`@AGENTS.md`), Claude privacy/session hooks
+  (fail-closed), `scripts/agent-review` (the read-only Codex-review surface used
+  to review every slice).
+- End-user track: provider dimension + `agent_providers` selection/capability
+  contract; 12 reviewer roles Claude-capable via `.claude/agents/*` + a
+  registry-synced write-boundary guard (`agent_id`-gated, catch-all, fail-closed
+  without active-round scope, per-role `claude_writes`); provider provenance
+  recorded as metadata; the parent-mediated protocol documented.
+
+Verification: full `pants test ::` green (122 targets); `scripts/check-scripts`,
+`scripts/check-private`, `git diff --check` clean; changed-CLI smokes pass. Each
+slice had a read-only Codex review (several two-round); all findings adjudicated
+and fixed or recorded as residual.
+
+Skipped/pending (see Residual Risks): live end-to-end Claude review in a real
+session (operator's whole-pipeline test), a provider-aware independence gate, the
+native-Windows Claude launcher, the optional B4 generator, and the 3 Codex-only
+roles' two-phase handoffs. The pre-existing GitHub `allowed_writes` path bug is
+flagged for a separate fix.
+
+Not archived yet: keep active until the operator's live validation confirms the
+Claude review path end-to-end.
