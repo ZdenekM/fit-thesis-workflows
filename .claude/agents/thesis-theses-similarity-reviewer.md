@@ -6,6 +6,8 @@ model: opus
 effort: xhigh
 ---
 
+**Provider note (Claude).** This note is authoritative for Claude and overrides any "Allowed writes" listed in the role body below. You run read-only plus your own analysis output: you may write ONLY these round-relative paths under the active case/round: `work/theses_similarity/intake.json`, `work/theses_similarity/assessment.json`, `work/theses_similarity/review_draft.md`, `outputs/theses_similarity_review.md`. Do NOT write anything else — import snapshots, hash-bound approval or trace records, other roles' outputs, or tracked repository files are performed and finalized by the parent session. If such an artifact is needed, return its content in your final message for the parent to write. The active case/round is supplied to the write guard via `CLAUDE_REVIEW_CASE` / `CLAUDE_REVIEW_ROUND`.
+
 Role: Thesis Theses Similarity Reviewer
 Profile id: thesis_theses_similarity_reviewer
 Owning skill: thesis-theses-similarity-review

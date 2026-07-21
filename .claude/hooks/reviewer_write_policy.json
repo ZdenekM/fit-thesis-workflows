@@ -5,15 +5,28 @@
   "thesis-code-quality-reviewer": [
     "outputs/code_quality_review.md"
   ],
+  "thesis-evidence-calibrator": [
+    "work/supervisor_packets/evidence_calibration_findings.md",
+    "work/opponent_packets/evidence_calibration_findings.md"
+  ],
   "thesis-figure-media-reviewer": [
     "work/figure_media/visual_inventory.jsonl",
     "outputs/figure_media_review.md"
+  ],
+  "thesis-opponent-report-reviewer": [
+    "outputs/feedback_k_posudku.md"
   ],
   "thesis-quantitative-claims-reviewer": [
     "work/quantitative_claims.json"
   ],
   "thesis-revision-diff-reviewer": [
     "outputs/revision_diff.md"
+  ],
+  "thesis-supervisor-feedback-reviewer": [
+    "outputs/feedback_student.md"
+  ],
+  "thesis-supervisor-report-reviewer": [
+    "outputs/vedouci_posudek_revidovany.md"
   ],
   "thesis-text-reviewer": [
     "work/supervisor_packets/text_assignment_findings.md",

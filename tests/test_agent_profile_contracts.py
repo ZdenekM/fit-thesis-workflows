@@ -310,7 +310,15 @@ def test_claude_adapters_match_fragments_and_are_safe() -> None:
         # No nested spawning and no shell/write-escape for reviewer adapters.
         assert {"Task", "Agent", "Bash"}.isdisjoint(tools), f"{adapter.name}: must not grant Task/Agent/Bash"
         fragment = (REPO_ROOT / ".agents" / "roles" / adapter.name).read_text(encoding="utf-8").strip()
-        assert body == fragment, f"{adapter.name}: body drifted from .agents/roles/{adapter.name}"
+        # The adapter body is a Claude effective-scope preamble followed by the
+        # shared role fragment (which must stay byte-equal to the Codex adapter).
+        assert body.endswith(fragment), f"{adapter.name}: shared fragment drifted or missing"
+        preamble = body[: -len(fragment)]
+        assert "Provider note (Claude)" in preamble, f"{adapter.name}: missing Claude provider-scope preamble"
+        # The preamble must name exactly the role's claude_writes scope.
+        profile_id = adapter.stem.replace("-", "_")
+        for write_path in agent_profiles.claude_writes_for_profile(profile_id):
+            assert f"`{write_path}`" in preamble, f"{adapter.name}: preamble omits owned write {write_path}"
 
 
 def test_claude_capability_surfaces_are_mutually_consistent() -> None:
@@ -335,8 +343,19 @@ def test_reviewer_write_policy_matches_registry() -> None:
 
     policy = json.loads((REPO_ROOT / ".claude/hooks/reviewer_write_policy.json").read_text(encoding="utf-8"))
     expected = {
-        route.profile_id.replace("_", "-"): list(route.allowed_writes)
+        route.profile_id.replace("_", "-"): list(agent_profiles.claude_writes_for_profile(route.profile_id))
         for route in agent_profiles.profile_routes()
         if route.profile_id and "claude" in route.providers
     }
     assert policy == expected
+
+
+def test_claude_writes_is_subset_of_allowed_writes() -> None:
+    # A Claude reviewer's write scope may only ever narrow the role's writes
+    # (the parent handles the excluded import/acquisition/approval artifacts);
+    # it must never grant a path the Codex role itself is not allowed to write.
+    for route in agent_profiles.profile_routes():
+        if route.profile_id and "claude" in route.providers:
+            claude = set(agent_profiles.claude_writes_for_profile(route.profile_id))
+            assert claude, f"{route.profile_id} claude write scope must be non-empty"
+            assert claude <= set(route.allowed_writes), f"{route.profile_id} claude_writes exceeds allowed_writes"

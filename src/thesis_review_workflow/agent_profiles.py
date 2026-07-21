@@ -12,12 +12,12 @@ Provider = Literal["codex", "claude"]
 # tuple is declarative capability, not execution: it says which provider adapters
 # exist for the role, not which one a given run uses. Every spawnable ``profile``
 # role ships a Codex adapter (`.codex/agents/*.toml`); a role opts in to
-# ``"claude"`` only when it works within the Claude reviewer sandbox
-# (Read/Grep/Glob/Write, no shell/network/MCP) — i.e. an evidence producer that
-# reads inputs and writes its own findings file, whose validators the parent
-# runs. Roles that need shell/network (GitHub import, literature acquisition) or
-# must write hash-bound approval records (final reviewers) stay Codex-only until
-# B3 supplies a parent-mediated protocol. A drift-guard test requires a
+# ``"claude"`` when it can run within the Claude reviewer sandbox
+# (Read/Grep/Glob/Write, no shell/network/MCP). Roles that need shell/network
+# (GitHub import, literature acquisition) or a hash-bound approval record (final
+# reviewers) run under the parent-mediated protocol: the parent performs those
+# steps and the Claude reviewer writes only its own analysis output, expressed
+# as the narrower ``claude_writes`` scope. A drift-guard test requires a
 # `.claude/agents/<role>.md` adapter for any role advertising ``"claude"``.
 SUPPORTED_PROVIDERS: tuple[Provider, ...] = ("codex", "claude")
 RoleKind = Literal[
@@ -42,6 +42,12 @@ class AgentProfileRoute:
     skill_id: str | None = None
     profile_id: str | None = None
     providers: tuple[str, ...] = ("codex",)
+    # Claude write scope: the round-relative paths a Claude reviewer subagent may
+    # write (its own analysis outputs). None means "same as allowed_writes". It
+    # is a subset for roles where the parent performs import/acquisition/approval
+    # on the reviewer's behalf (parent-mediated protocol; see
+    # docs/agent-workflow.md), so those parent-written artifacts are excluded.
+    claude_writes: tuple[str, ...] | None = None
     owned_outputs: tuple[str, ...] = ()
     allowed_writes: tuple[str, ...] = ()
     standalone_review_profile: str | None = None
@@ -60,6 +66,7 @@ def _route(
     skill_id: str | None = None,
     profile_id: str | None = None,
     providers: tuple[str, ...] = ("codex",),
+    claude_writes: tuple[str, ...] | None = None,
     owned_outputs: tuple[str, ...] = (),
     allowed_writes: tuple[str, ...] | None = None,
     standalone_review_profile: str | None = None,
@@ -80,6 +87,7 @@ def _route(
         skill_id=skill_id,
         profile_id=profile_id,
         providers=normalized_providers,
+        claude_writes=claude_writes,
         owned_outputs=owned_outputs,
         allowed_writes=writes,
         standalone_review_profile=standalone_review_profile,
@@ -151,6 +159,8 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-github-code-intake",
         status="profile",
         profile_id="thesis_github_code_intake_reviewer",
+        # Codex-only: import writes structured work/github-intake and work/code
+        # artifacts entangled with the role; needs a tested two-phase handoff.
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/github_code_intake.md",),
@@ -197,6 +207,8 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-literature-citation-review",
         status="profile",
         profile_id="thesis_literature_citation_reviewer",
+        # Codex-only: requires a reviewer-owned work/literature/source_acquisition.json
+        # (semantic citation decisions + hashes) beyond the Markdown review.
         role_kind="evidence-producer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/literature_citation_review.md",),
@@ -255,6 +267,8 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-supervisor-feedback-review",
         status="profile",
         profile_id="thesis_supervisor_feedback_reviewer",
+        providers=("codex", "claude"),
+        claude_writes=("outputs/feedback_student.md",),
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/feedback_student.md", "work/reviews/supervisor_feedback_review.json"),
@@ -279,6 +293,8 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-supervisor-report-review",
         status="profile",
         profile_id="thesis_supervisor_report_reviewer",
+        providers=("codex", "claude"),
+        claude_writes=("outputs/vedouci_posudek_revidovany.md",),
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         owned_outputs=(
@@ -322,6 +338,10 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-opponent-materials-review",
         status="profile",
         profile_id="thesis_opponent_materials_reviewer",
+        # Codex-only: this role must write a report trace containing the final
+        # file's SHA-256 and (in calibration rounds) a calibration basis, which a
+        # read-only-plus-output Claude reviewer cannot finalize. Revisit with a
+        # two-phase parent-finalized handoff.
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         owned_outputs=(
@@ -336,6 +356,8 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-opponent-report-review",
         status="profile",
         profile_id="thesis_opponent_report_reviewer",
+        providers=("codex", "claude"),
+        claude_writes=("outputs/feedback_k_posudku.md",),
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         owned_outputs=("outputs/feedback_k_posudku.md", "work/reviews/opponent_report_review.json"),
@@ -350,6 +372,11 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         role_source="AGENTS.md:standalone-evidence-calibration",
         status="profile",
         profile_id="thesis_evidence_calibrator",
+        providers=("codex", "claude"),
+        claude_writes=(
+            "work/supervisor_packets/evidence_calibration_findings.md",
+            "work/opponent_packets/evidence_calibration_findings.md",
+        ),
         role_kind="calibrator",
         sandbox_mode="workspace-write",
         owned_outputs=(
@@ -402,6 +429,19 @@ def providers_for_profile(profile_id: str) -> tuple[str, ...]:
     for route in AGENT_PROFILE_ROUTES:
         if route.profile_id == profile_id:
             return route.providers
+    return ()
+
+
+def claude_writes_for_profile(profile_id: str) -> tuple[str, ...]:
+    """Round-relative paths a Claude reviewer for this role may write.
+
+    Defaults to the role's full ``allowed_writes``; a role that opts into a
+    narrower Claude scope (because the parent writes its import/acquisition/
+    approval artifacts) returns that subset.
+    """
+    for route in AGENT_PROFILE_ROUTES:
+        if route.profile_id == profile_id:
+            return route.allowed_writes if route.claude_writes is None else route.claude_writes
     return ()
 
 

@@ -11,9 +11,14 @@ CANARY = "thesis-code-quality-reviewer"
 OWNED = "cases/demo/rounds/r1/outputs/code_quality_review.md"
 
 
-def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None = None) -> bool:
+def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None = None, scope: bool = True) -> bool:
     raw = payload if isinstance(payload, str) else json.dumps(payload)
     env = {"CLAUDE_PROJECT_DIR": str(root), "PATH": ""}
+    if scope:
+        # The parent exports the active case/round when launching a reviewer;
+        # the guard fails closed without it. Tests supply demo/r1 by default.
+        env["CLAUDE_REVIEW_CASE"] = "demo"
+        env["CLAUDE_REVIEW_ROUND"] = "r1"
     if extra_env:
         env.update(extra_env)
     result = subprocess.run(
@@ -113,6 +118,25 @@ def test_active_case_round_scope_confines_cross_case_writes() -> None:
         _reviewer("Write", _abs("cases/other-student/rounds/r1/outputs/code_quality_review.md")), extra_env=scope
     )
     assert _denies(_reviewer("Write", _abs("cases/demo/rounds/r9/outputs/code_quality_review.md")), extra_env=scope)
+
+
+def test_final_reviewer_may_write_output_but_not_parent_mediated_approval() -> None:
+    # Under the parent-mediated protocol a Claude final reviewer writes only its
+    # analysis output; the hash-bound approval record is written by the parent,
+    # so the reviewer's own attempt to write it is denied.
+    reviewer = "thesis-supervisor-feedback-reviewer"
+
+    def payload(rel: str) -> dict:
+        return {"agent_type": reviewer, "agent_id": "x", "tool_name": "Write", "tool_input": {"file_path": _abs(rel)}}
+
+    assert not _denies(payload("cases/demo/rounds/r1/outputs/feedback_student.md"))
+    assert _denies(payload("cases/demo/rounds/r1/work/reviews/supervisor_feedback_review.json"))
+
+
+def test_reviewer_write_without_active_scope_fails_closed() -> None:
+    # No CLAUDE_REVIEW_CASE/ROUND exported -> the guard cannot confine the write
+    # to the active student's round, so even an owned-output write is denied.
+    assert _denies(_reviewer("Write", _abs(OWNED)), scope=False)
 
 
 def test_malformed_input_fails_closed() -> None:

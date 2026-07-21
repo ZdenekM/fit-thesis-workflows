@@ -91,15 +91,15 @@ def owned_write(resolved: Path, root: Path, allowed: list[str]) -> bool:
     # cases/<id>/rounds/<round>/<tail...>
     if len(parts) < 5 or parts[0] != "cases" or parts[2] != "rounds":
         return False
-    # When the parent launches a reviewer it exports the active case/round
-    # (CLAUDE_REVIEW_CASE / CLAUDE_REVIEW_ROUND); if present, confine the write to
-    # that exact case and round so a reviewer cannot touch another student's
-    # case. Until the spawner sets them (B3), only the owned tail is enforced.
+    # The parent MUST export the active case/round (CLAUDE_REVIEW_CASE /
+    # CLAUDE_REVIEW_ROUND) when it launches a reviewer. The guard fails closed
+    # without them, and otherwise confines the write to that exact case and
+    # round, so a reviewer cannot touch another student's case.
     case_scope = os.environ.get("CLAUDE_REVIEW_CASE")
     round_scope = os.environ.get("CLAUDE_REVIEW_ROUND")
-    if case_scope and parts[1] != case_scope:
+    if not case_scope or not round_scope:
         return False
-    if round_scope and parts[3] != round_scope:
+    if parts[1] != case_scope or parts[3] != round_scope:
         return False
     tail = "/".join(parts[4:])
     return any(tail == pattern or fnmatch.fnmatch(tail, pattern) for pattern in allowed)

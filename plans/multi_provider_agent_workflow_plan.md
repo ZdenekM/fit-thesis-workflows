@@ -315,7 +315,7 @@ Verify: `test_agent_profile_contracts`, `test_write_guard`,
 
 ### B3 — Provider selection, capability detection, scheduling docs
 
-Status: in_progress. **B3a done**: `src/thesis_review_workflow/agent_providers.py`
+Status: done (B3a + B3b + B3c). **B3a**: `src/thesis_review_workflow/agent_providers.py`
 encodes the execution matrix and capability detection — `detect_available_providers`
 (probe `codex`/`claude` on PATH), `resolve_run_provider` (fail closed on an
 unavailable requested provider; `both` needs both), `select_role_provider`
@@ -517,14 +517,62 @@ TOMLs remain hand-authoritative.
   deferred to B3c, where the spawner supplies *trusted* actual-provider
   provenance. Tests assert the name-only behavior; smokes + full suite pass.
 
-## Residual Risks (canary)
+- 2026-07-20: B3c brought all 15 reviewer roles to Claude via the
+  parent-mediated protocol. Added a `claude_writes` registry field (the Claude
+  reviewer's write scope; defaults to `allowed_writes`, a narrower subset for
+  roles where the parent writes import/acquisition/approval artifacts) +
+  `claude_writes_for_profile`. Opted the 7 previously-Codex-only roles into
+  `claude` with the correct subset scope; generated their fragments/adapters;
+  the write policy is generated from `claude_writes`, so the guard confines e.g.
+  a Claude final-reviewer to its `outputs/*.md` and denies the `work/reviews/
+  *_review.json` approval (parent-written). Documented the protocol
+  (docs/agent-workflow.md) with the per-role parent/reviewer split. Tests:
+  `claude_writes ⊆ allowed_writes`, policy-sync now against `claude_writes`, and
+  guard tests for the parent-mediated exclusions. Full suite + smokes pass.
+- 2026-07-20: B3c Codex review (`changes_required`, 2×P1, 1×P2, 1×P3), all
+  accepted: (P1) the guard now **fails closed** without `CLAUDE_REVIEW_CASE`/
+  `ROUND` (cross-case overwrite of another student's artifact was possible with
+  final-reviewers now Claude-capable); (P1) **opponent-materials-reviewer
+  reverted to Codex-only** (needs a hash-bound trace + calibration basis a
+  read-only reviewer cannot finalize) — 14 roles now Claude-capable, not 15;
+  (P2) each Claude adapter now carries a **provider-scope preamble** naming its
+  `claude_writes` and the parent-mediated exclusions, tied to the registry by a
+  test; (P3) reconciled the contradictory status docs. Re-verified.
 
-- Cross-case/round confinement is only enforced when the parent exports
-  `CLAUDE_REVIEW_CASE`/`CLAUDE_REVIEW_ROUND` at spawn; no spawner sets them until
-  B3, so until then a reviewer subagent is confined to its owned *tail* but not a
-  specific case/round. Realistically unreachable in B1 (nothing spawns reviewers
-  yet). B3 must set the scope env when it launches reviewers and flip the guard
-  to fail-closed-when-absent.
+- 2026-07-20: B3c round-2 review (`changes_required`, 2×P1, 3×P2) confirmed the
+  cross-case guard is fixed and independence sound, and pushed the Claude scope
+  to a conservative, honest set. Applied: (P1) guard already fails closed
+  without scope — kept; (P1) **reverted literature to Codex-only** (needs a
+  reviewer-owned `source_acquisition.json` with decisions+hashes); (P2)
+  **reverted GitHub intake to Codex-only** (import writes entangled
+  `work/github-intake/**` / `work/code/**`); (P2) added an **override sentence**
+  to the adapter preamble so it supersedes the body's Codex "Allowed writes";
+  (P2) reconciled counts to **12 Claude-capable** roles, 3 Codex-only
+  (opponent-materials, literature, GitHub). Net: only roles whose Claude
+  deliverable is exactly their analysis output(s) (with a parent-written
+  hash-bound approval) are Claude-capable.
+
+## Residual Risks
+
+- **Live end-to-end Claude review is unproven.** The writable Claude path
+  requires the parent to export `CLAUDE_REVIEW_CASE`/`CLAUDE_REVIEW_ROUND` before
+  spawning a reviewer (the guard inherits it via the environment; there is no
+  automatic launcher yet), and the launch-time readiness checks (Claude version,
+  active hooks, effective model/effort) are parent responsibilities. The
+  operator's whole-pipeline test is the validation of this path.
+- **GitHub intake role's tracked `allowed_writes` are inaccurate** (`work/github/**`
+  vs the importer's actual `work/github-intake/**` and `work/code/**`). This is a
+  pre-existing Codex-side inaccuracy, not introduced here; flagged for a separate
+  fix. It does not affect the Claude surface (GitHub intake is Codex-only).
+- Provider-aware / substituted-provider independence gate stays future work
+  (needs a verified actual provider, not a manual label).
+
+## Superseded Residual Risks (canary)
+
+- Cross-case/round confinement: RESOLVED in B3c — the guard now fails closed
+  unless the parent exports `CLAUDE_REVIEW_CASE`/`CLAUDE_REVIEW_ROUND`, and
+  confines the write to that exact case/round. Exporting those at launch is a
+  documented parent responsibility (no automatic launcher yet).
 - The frontmatter `model: opus`/`effort: xhigh` is a default; env or
   per-invocation selection can override it. B3 must validate the effective
   launched model before treating a Claude pass as a semantic review.

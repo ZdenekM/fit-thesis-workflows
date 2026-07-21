@@ -37,11 +37,13 @@ provider is a thin adapter over the same role contract.
   inactive, stop with a clear message. Never silently continue with no
   independent review.
 
-## Provider execution matrix (target MVP)
+## Provider execution matrix
 
-The target MVP will support only these parent → reviewer directions; every
-other combination will be rejected with a clear message. Today only the
-Codex → Codex path exists; the rest is being built (slices B0–B3):
+These are the supported parent → reviewer directions; every other combination is
+rejected by `agent_providers` with a clear message. The Codex → Codex path,
+Claude reviewer adapters for 12 roles, and the provider-selection contract all
+exist; provider *selection* is applied by the parent following this document
+(automatic orchestration wiring is a further enhancement — see the status table):
 
 | Parent (writer/orchestrator) | Reviewer roles | Launch protocol |
 |---|---|---|
@@ -147,6 +149,42 @@ environment (`CLAUDE_CODE_SUBAGENT_MODEL`) or per-invocation selection can
 override it, so B3 validates the *effective* launched model/effort before
 treating a Claude pass as a semantic review.
 
+## Parent-mediated protocol (Claude reviewers)
+
+A Claude reviewer subagent is read-only-plus-its-own-output: it uses
+`Read`/`Grep`/`Glob` and writes only its **analysis output** (its `claude_writes`
+scope in the registry). Anything that needs shell, network, or a hash-bound
+record is performed by the **parent** on the reviewer's behalf, so every reviewer
+role can run under Claude without granting the subagent shell/network/MCP:
+
+| Role(s) | Claude reviewer writes | Parent performs (excluded from the reviewer's write scope) |
+|---|---|---|
+| Supervisor feedback / report review, opponent report review | the reviewed `outputs/*.md` | the hash-bound approval record (`write-review-approval` → `work/reviews/*_review.json`) |
+| Evidence calibrator | the packet `evidence_calibration_findings.md` files | the approval sidecar `work/reviews/*_review.json` |
+
+Three roles stay **Codex-only** for now because their reviewer deliverable is
+entangled with structured/hashed artifacts a read-only-plus-output Claude
+reviewer cannot finalize; each needs a tested two-phase parent-finalized handoff
+first:
+
+- **opponent-materials review** — a report trace with the finalized file's
+  SHA-256 (and, in calibration rounds, a calibration basis);
+- **literature/citation review** — a reviewer-owned `work/literature/source_acquisition.json`
+  with citation decisions, acquisition status, and hashes;
+- **GitHub intake** — the import produces structured `work/github-intake/**` /
+  `work/code/**` artifacts entangled with the role.
+
+The write guard enforces this: a Claude reviewer that tries to write a
+parent-mediated artifact (an import path or a `*_review.json` approval) is
+denied, because those paths are not in its `claude_writes` policy. The parent
+runs the corresponding helper itself; the approval still records the reviewer's
+identity, so generator/reviewer independence is unaffected.
+
+This is a documented parent-followed contract: orchestration still produces a
+provider-neutral role plan, and the parent performs the launches and the
+mediated steps. Wiring the plan to auto-annotate the selected provider and the
+mediated steps is a further enhancement, not required for the roles to run.
+
 ## Implementation status
 
 This model is being rolled out incrementally under
@@ -162,9 +200,11 @@ This model is being rolled out incrementally under
 | Provider *provenance* in review records + provider-aware independence gate | planned (slice B3) |
 | First Claude reviewer adapter + write-boundary guard (canary: `thesis-code-quality-reviewer`) | landed; live subagent write-boundary smoke pending maintainer |
 | 8 evidence-producer roles have Claude adapters; skill model notes generalized | landed (slice B2) |
-| 7 roles (GitHub intake, literature, 4 final-reviewers, evidence-calibrator) Claude-capable | planned (slice B3 — need shell/network or hash-bound approval) |
+| 12 reviewer roles Claude-capable via the parent-mediated protocol (3 stay Codex-only) | landed (slice B3c) |
+| Live end-to-end Claude review (parent exports `CLAUDE_REVIEW_CASE`/`ROUND`; readiness/model at launch) | pending maintainer's whole-pipeline validation |
 | Provider selection + capability detection (`agent_providers.py`) + scheduling docs | landed (slice B3a) |
-| Provenance (F2) in review records; parent-mediated protocol for the 7 Codex-only roles | planned (slice B3b/c) |
+| Provider provenance recorded as metadata in review records | landed (slice B3b) |
+| Provider-aware / substituted-provider independence gate (needs verified actual provider) | planned (future — currently name-only) |
 
 Until a capability is marked landed, the repository runs on the existing
 Codex-native path. Do not assume a planned capability is active.

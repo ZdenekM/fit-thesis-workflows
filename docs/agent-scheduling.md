@@ -19,13 +19,18 @@ the registry (`agent_profiles.py`) records which providers can incarnate each
 role.
 
 Status: this contract (capability detection, `resolve_run_provider`,
-`select_role_provider`) is implemented and tested but **not yet consumed by
-automatic orchestration enforcement** — that wiring is B3b/c. Today the parent
-applies the matrix by following this document: the 8 Claude reviewer adapters
-exist and can be spawned, and CLI presence can be probed, but the parent must
-still perform the launch and the launch-time readiness checks (Claude version,
-active hooks). Provider provenance and the provider-aware independence gate (F2)
-are also B3b/c.
+`select_role_provider`) is implemented and tested. Claude reviewer adapters exist
+for 12 roles (opponent-materials, literature, and GitHub intake stay
+Codex-only), CLI presence can be
+probed, and provider provenance is recorded in review records. The parent still
+**applies** the matrix by following this document — it performs the launch, the
+launch-time readiness checks (Claude version, active hooks), the parent-mediated
+steps (import/acquisition/approval), and it must export `CLAUDE_REVIEW_CASE` /
+`CLAUDE_REVIEW_ROUND` so the write guard can confine a reviewer to the active
+round (the guard fails closed without them). Not yet done: automatic
+orchestration wiring of the selection, a provider-aware / substituted-provider
+independence gate (currently name-only; needs a verified actual provider), and
+effective-launch model validation.
 
 Supported parent → reviewer directions (the operator picks the run provider in
 chat; the workflow **fails closed** — never silently continues without a
@@ -34,16 +39,16 @@ provider or an independent review):
 | Run provider | Reviewer roles | Notes |
 |---|---|---|
 | `codex` (default when present) | all Codex `.codex/agents/*` | the established path |
-| `claude` | the Claude-capable roles only (`.claude/agents/*`) | Codex-only roles must run on Codex |
+| `claude` | all reviewer roles (`.claude/agents/*`), read-only + own output | roles needing import/acquisition/approval use the parent-mediated protocol (docs/agent-workflow.md) |
 | `both` | generate with one, review with the other | **sequential**; one coordinator owns both launches; still ≤2 live agents total |
 
 Capability detection (`detect_available_providers`) probes the `codex`/`claude`
 CLIs on PATH. `resolve_run_provider` rejects a requested provider that is
 unavailable (and `both` unless both are present); `select_role_provider` refuses
-to run a role on a provider that has no adapter for it (e.g. GitHub intake,
-literature, and the final reviewers are Codex-only until the B3 parent-mediated
-protocol lands). The Claude reviewer path is POSIX-only for now (see
-`docs/agent-workflow.md`); native-Windows operators use Codex.
+to run a role on a provider that has no adapter for it. All 15 reviewer roles are
+now Claude-capable via the parent-mediated protocol (the parent performs
+import/acquisition/approval; see `docs/agent-workflow.md`). The Claude reviewer
+path is POSIX-only for now; native-Windows operators use Codex.
 
 ## Default Limit
 
