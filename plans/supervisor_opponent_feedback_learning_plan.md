@@ -3,6 +3,19 @@
 Status: in_progress
 Created: 2026-05-25
 
+## Start Here
+
+State: Slices 0-2 landed (operator contract and template, skill/role contract,
+structured artifacts and validator). Slices 3 and 4 are still `planned`.
+
+Next action: reconcile the commits after `b517f34` — they are the multi-provider
+plan (A1-B3c), which moved the role registry and reviewer wiring that Slice 3
+edits — then bring Slice 3 to a full charter per `plans/README.md`
+`## Slice Charters`, review that charter, and only then implement it.
+
+Do not read: the Slice 0-2 charters or their `## Progress` entries; those
+decisions are adjudicated.
+
 ## Goal
 
 Allow supervisor cases to ingest external opponent reports for theses the
