@@ -65,6 +65,19 @@ Plán má obsahovat cíl, auditní základ, scope, non-goals, malé implementač
 slices, přesné ověřovací příkazy, průběžný stav a final audit. Kontrakt je v
 [Plans](../plans/README.md).
 
+Kontrakt navíc drží plán malý a resumovatelný: aktivní plán má povinnou sekci
+`## Start Here` (stav, přesná další akce, co nečíst), plný charter nesou jen
+prováděný a následující slice a ostatní zůstávají stuby, uzavřené chartery a
+staré záznamy Decision Logu se verbatim přesouvají do
+`plans/archive/<plan_stem>/`, a živý text cituje `path::symbol` nebo jméno testu
+místo `path:line`. Mechanickou půlku hlídá `tests/test_plan_contract.py`
+(`pants test tests/test_plan_contract.py`, nebo samostatně
+`python3 tests/test_plan_contract.py`); ratchety na velikost plánu a na počet
+řádkových kotev jsou stropy proti bobtnání, takže snížit je smí kompakce, ale
+zvýšit jen záznam v `## Decision Log` s důvodem. Session se ukončuje aktualizací
+`## Start Here` a commitem, ne ručně psaným handoff promptem; další session
+startuje konstantní invokací `/plan-continue`.
+
 ## Workflow Příkazy
 
 Checklist pro nový operator workflow příkaz:

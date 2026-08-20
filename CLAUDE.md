@@ -26,6 +26,21 @@ templates, or focused docs.
   `.agents/skills/*/SKILL.md` are shared across providers and are named from
   `AGENTS.md` by path. Read the relevant `SKILL.md` directly; they are not
   packaged as Claude `/`-invocable skills.
+- **Plan discipline is mechanical where it can be.** `plans/README.md` is the
+  provider-neutral plan contract. Its deterministic half is
+  `tests/test_plan_contract.py` (`pants test tests/test_plan_contract.py`, or
+  standalone `python3 tests/test_plan_contract.py`), which
+  `.claude/hooks/post_tool_use_plan_lint.py` runs after every edit to a plan
+  file so review rounds stop spending themselves on lint work. Resume plan work
+  with the constant invocation `/plan-continue`
+  (`.claude/commands/plan-continue.md`) and end a session by updating
+  `## Start Here` — never with a hand-written handoff prompt.
+  `.claude/hooks/session_start_plan_state.py` prints the active plan's
+  unreconciled state and is wired in personal `.claude/settings.local.json`, not
+  in the shared settings, because on a shared checkout it would narrate plan
+  state to every developer. It is a Claude `/`-command rather than a repo-local
+  skill because `.agents/skills/**` is the thesis workflow surface, where the
+  profile-registry contract test requires a registered role per skill directory.
 - **Role separation and concurrency.** Independent review must come from a
   different agent than the generator. When spawning Claude subagents for review
   roles, do not grant them the `Agent` tool, and keep at most **two** spawned
