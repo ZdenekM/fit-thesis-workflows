@@ -240,5 +240,8 @@ __marimo__/
 /.claude/settings.local.json
 /CLAUDE.local.md
 
+# Machine-local MCP client wiring (absolute binary paths, workstation bridge ports)
+/.mcp.json
+
 # Streamlit
 .streamlit/secrets.toml

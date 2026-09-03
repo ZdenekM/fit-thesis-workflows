@@ -1,8 +1,17 @@
 # Local RAG Usage
 
-`mcp-local-rag` is a local discovery layer for Markdown-heavy repository
-knowledge. Use it to find candidate files and sections before spending context
-on broad reads.
+`mcp-local-rag` is the discovery layer for Markdown-heavy repository knowledge.
+Use it to find candidate files and sections before spending context on broad
+reads, and whenever you do not yet know which file or section answers a
+question. It is also where long Markdown goes instead of Serena; Serena stays
+for code symbols.
+
+It runs as **one shared server for the whole workstation**, a `systemd --user`
+service on `http://127.0.0.1:8775/mcp`, holding one index and one embedding
+model for every repository. Clients attach over HTTP at no extra memory cost.
+Never add a stdio `local-rag` entry to a client config; that recreates the
+per-client cost this arrangement exists to remove. Setup and rationale are in
+`~/.claude/docs/mcp-bridges.md`.
 
 ## Intended Uses
 
@@ -17,13 +26,25 @@ on broad reads.
 
 ## Safe Ingest Scope
 
+**Agents do not ingest.** The index is machine-level state shared by every
+session, refreshed outside any agent's run by a `systemd --user` timer. Never
+call `ingest_file`, `ingest_data`, `sync_start`, or `delete_file`. If a query
+returns nothing for content you can see on disk, the index is stale for that
+file: report it and fall back to `rg`. Do not fix it by ingesting.
+
+The scope rules below are the **operator's** contract for what the shared index
+is allowed to contain. They stay here because they define the privacy boundary
+that retrieved chunks inherit, and because an agent that notices a violation
+must be able to name it.
+
 - Prefer curated Markdown ingest over raw directory ingest. A raw ingest of
   `cases/` will also see prepared submitted-code roots and vendor/source
   documentation unless an exclude layer prevents it.
-- `BASE_DIRS` is only a reachability boundary for MCP/CLI operations; it is not
-  a file-level allowlist and does not by itself exclude unsafe subpaths. A broad
-  configured root such as `cases/` is acceptable only when bulk ingest uses a
-  separate curated file list or explicit safe subroots.
+- `BASE_DIRS` is bridge-level machine configuration, not a per-repo setting. It
+  is only a reachability boundary for MCP/CLI operations; it is not a file-level
+  allowlist and does not by itself exclude unsafe subpaths. A broad configured
+  root such as `cases/` is acceptable only when bulk ingest uses a separate
+  curated file list or explicit safe subroots.
 - For `cases/`, ingest these Markdown classes: `case.md`, `notes/`,
   `outputs/`, reviewer profiles, `work/*_draft.md`, `work/*_summary.md`,
   packet summaries, operation summaries, and other operator-authored review
@@ -46,9 +67,11 @@ on broad reads.
   when needed, but they mostly add file-list noise to semantic search. Keep
   smaller review-oriented inventory summaries, such as GitHub intake
   contribution maps, when they are written as evidence rather than raw listings.
-- If an accidental ingest includes excluded paths, purge those files from the
-  vector database or rebuild the affected local database, rerun ingest with the
-  corrected scope, and verify by path checks before relying on RAG results.
+- If retrieved results reveal that excluded paths were indexed, stop relying on
+  RAG for that area and report it to the operator with the offending paths. The
+  remedy - purging those files, rebuilding the affected database, and rerunning
+  the refresh with corrected scope - is an operator action on machine-level
+  state, not something an agent performs.
 - Root-level Markdown files such as `AGENTS.md`, `README.md`, `TODO.md`, and
   `WORKFLOW_MEMORY.md` are useful, but top-level repository roots are not a safe
   bulk-ingest target when they contain build/cache/vendor directories. Include
@@ -65,9 +88,9 @@ on broad reads.
   artifact before using a retrieved claim.
 - Cite authoritative paths, sections, pages, or line numbers in final outputs.
   Do not cite chunk IDs, scores, or RAG summaries as evidence.
-- Keep the local vector database and model cache outside this repository. Do
-  not copy indexed case text, retrieved private chunks, or database files into
-  tracked paths.
+- The vector database and model cache live outside every repository, as
+  machine-level state. Do not copy indexed case text, retrieved private chunks,
+  or database files into tracked paths.
 - Keep configured roots focused on documentation, plans, skills, profiles,
   notes, cases, and review artifacts. Do not point local RAG at whole repository
   roots when that would pull in build outputs, package caches, virtual
@@ -79,8 +102,9 @@ on broad reads.
   `cases/**/inputs/github/**` snapshots, nested non-evidence
   `cases/**/inputs/**` source trees, or extracted thesis text under
   `cases/**/extracted/**`; inspect submitted code and thesis text with the
-  relevant review workflow, `rg`, Serena, Omen, PDF/text extraction tools, and
-  direct source reads instead.
+  relevant review workflow, `rg`, Omen, PDF/text extraction tools, and direct
+  source reads instead. Serena is not among them: `cases/**` is in
+  `ignored_paths` in the tracked `.serena/project.yml`.
 - Retrieved case text is private case data. It may guide local orientation, but
   tracked docs and workflow changes must remain case-neutral.
 - Use required thesis-review skills, readiness checks, reviewer profiles,
@@ -104,10 +128,15 @@ on broad reads.
 
 ## Boundaries
 
-- For exact code behavior, identifiers, and implementation changes, prefer
-  `rg`, Serena, Omen, tests, and direct source inspection.
+- For exact code behavior, identifiers, and implementation changes in this
+  repository's own source, Serena comes first (`get_symbols_overview`, then
+  `find_symbol`, then `find_referencing_symbols`), with `rg` for discovery and
+  Omen and tests alongside. For submitted code under `cases/**`, use `rg` and
+  direct source reads. See `docs/serena-code-navigation.md`.
 - For thesis claims, negative findings, grading/report calibration, and
   student-facing feedback, RAG can help locate sources but cannot be the sole
   basis of the claim.
-- Re-ingest or refresh relevant files after substantial Markdown changes or
-  after new case outputs should become searchable.
+- Refreshing the index after substantial Markdown changes happens on the
+  machine-level timer, not on demand. Recent edits may therefore not be
+  searchable yet; when that matters, use `rg` for the current state of a file
+  and say that the index may lag.
