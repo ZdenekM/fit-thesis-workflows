@@ -197,6 +197,12 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
   - Add the `profiles/README.md` line admitting generic assignment-authoring
     preferences, and state there that factual field values are not profile
     content.
+  - Layer 2 must carry the open-solution-space criterion and its test, because
+    it is in direct tension with assessability: a point may leave the solution
+    open, and the reviewer must NOT push toward specifying it. What the reviewer
+    flags is openness without a criterion the choice can be judged against.
+    `Vyberte vhodnou metodu` alone is weak; the same point plus stated selection
+    criteria is assessable while staying open.
   - Add `Case kind:` to `templates/case-notes.md`, defaulting to
     `thesis-review` when absent, and document the variant and `Depends on
     topic:` semantics in `docs/assignment-authoring.md`.
@@ -462,6 +468,27 @@ Decision: the chain stops here per `## Plan-Change Review`. Why: the rule is
 one round plus one re-check, and a third round needs explicit user approval.
 
 Residual risk: this fix batch is itself unreviewed.
+
+### 2026-09-04 - Open solution space is norm, not a defect
+
+Trigger: the operator confirmed the probe's decision to leave the application
+domain to the student, with two reasons: a change of direction then does not
+require amending the assignment already approved in FIT IS, and the student
+keeps room for own initiative.
+
+- Attested in the assignment points of five of the six other supervisors and
+  six of the operator's own; evidence in the calibration case's
+  `work/assignment_style_calibration.md`. So layer 2, not layer 3.
+- The amendment-cost reason generalizes: an approved assignment is expensive to
+  change for any supervisor at this faculty.
+
+Decision: layer 2 carries the criterion AND its boundary — a point may leave
+the solution open, the reviewer must not push toward specifying it, and what
+gets flagged is openness with no stated criterion the choice can be judged
+against. Why: the naive assessability rule would have driven every assignment
+toward over-specification, which is the opposite of the norm.
+
+Residual risk: the weak/assessable line is a judgment the reviewer role owns.
 
 ### 2026-09-03 - Slice 0 shrinks to the hand probe
 
