@@ -245,3 +245,7 @@ launchery `dist\workflow-tools\bin\<tool>.cmd` nebo
   preference.
 - [Maintainer Reference](docs/maintainer-reference.md) - údržba workflow
   dokumentace, plánů, soukromí a developer hygiene.
+
+## Licence
+
+MIT, viz [LICENSE](LICENSE).
