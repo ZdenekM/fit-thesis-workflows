@@ -1,21 +1,21 @@
 # Assignment Authoring Plan
 
-Status: planned
+Status: in_progress
 Created: 2026-09-03
 
 ## Start Here
 
-State: calibration is done — 45 assignments by 7 supervisors, ingested and
-analyzed in the calibration case's `work/assignment_style_calibration.md`. One
-plan-critic round ran against the first charter set and returned
-`changes_required`; every finding is adjudicated in `## Decision Log`. No
-tracked template, profile section, or code exists yet.
+State: Slice 0 is done — the hand probe ran on a real topic and its eight
+findings are in `## Progress`. Four of them change what Slices 1, 3 and 4 must
+build. No tracked template, profile section, or code exists yet.
 
-Next action: run Slice 0 — hand-author one real topic end to end in an ignored
-topic case, with no tracked file touched, and record what the exercise refutes.
+Next action: write the full Slice 1 charter, folding in the four probe findings
+that change it — shared-plus-delta briefs, the citable-artifact intake slot, the
+three-way split of success criteria, and supervision conventions belonging to
+profile layer 3 — then review that charter before implementing it.
 
-Do not read: the calibration corpus itself, or the review transcript; their
-conclusions are in that work artifact and in `## Decision Log`.
+Do not read: the calibration corpus, the review transcripts, or the probe
+artifacts; their conclusions are in `## Progress` and `## Decision Log`.
 
 ## Goal
 
@@ -164,7 +164,7 @@ verification, not in this contract.
 
 ### Slice 0 - Hand probe
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Record the assignment authoring hand-probe findings`
 - Why: it is the cheapest action that produces new information, and it needs no
   template, profile section, or checker to run. Every later slice builds on the
@@ -175,9 +175,9 @@ verification, not in this contract.
   - Create an ignored topic case for one real topic and hand-author, with no
     tracked file touched: the intake, one `bp` variant, one `dp` variant of the
     same topic, and a brief for each.
-  - Prefer a topic whose published assignment is one of the operator-corpus
-    outliers, so the probe exercises missing literature or a missing semester
-    requirement rather than the easy path.
+  - The operator chose a NEW topic over a corpus outlier: extending the Mozart
+    DOI platform with a new application domain through its documented extension
+    seam. The outlier path was not exercised; the real-topic path was.
   - Record in `## Progress` what the exercise refuted: which intake questions
     produced nothing usable, whether the shared/escalation split holds for a
     real BP/DP pair, whether one reviewer role can judge assignment and brief
@@ -302,7 +302,49 @@ follow-up plan.
 
 ## Progress
 
-Slice 0 not started. Calibration and one plan-critic round are complete.
+Slice 0 is done. Calibration, one plan-critic round plus its narrow re-check,
+and the hand probe are complete. Slice 1 is next and needs a full charter
+review before implementation.
+
+### Slice 0 probe findings
+
+The probe hand-authored an intake, a `bp` and a `dp` assignment variant, and a
+brief per variant for one real topic. What it refuted or added:
+
+- **The brief must split shared from variant-specific.** Roughly 85% of the two
+  briefs is variant-independent — what the platform is, reading order,
+  develop-against-mocks, do not fork the core — and only the contribution
+  framing, milestones and assessment differ. Two whole briefs per topic will
+  drift. Slice 4 should carry a shared brief plus a variant delta, the same
+  shape the assignment already uses for literature.
+- **The intake needs a citable-artifact slot with identifiers.** The probe could
+  not supply the platform's DOI and had to leave an explicit operator TODO,
+  because an agent must not invent an identifier. This is the field that turns
+  the corpus's placeholder literature into real entries.
+- **Success criteria split three ways, not two.** One criterion — that a zero
+  count of out-of-seam edits is not the success condition, a complete and
+  justified enumeration is — fits the intake as rationale and the brief as
+  interpretation, but does not fit an assignment point's style. So the brief is
+  not merely derived from the assignment; it is where non-formalizable criteria
+  land. Slice 1 must state that in `docs/assignment-authoring.md`.
+- **Brief supervision conventions belong in the profile, not the intake.**
+  Reading order, milestone spacing, "write to me if you are stuck more than two
+  days" and commit-hygiene expectations are supervisor properties, not topic
+  properties. They belong in layer 3 of `## Assignment Authoring Style`.
+- **A boundary against sibling topics is not `Depends on topic:`.** This topic
+  had to declare two separately proposed topics out of scope. That is a mutual
+  exclusion between offered topics, not a dependency; the intake's out-of-scope
+  section must be able to name sibling topics.
+- **Confirmed: the variant model holds on a real pair.** The `dp` variant added
+  one point plus a comparison point and escalated the semester requirement,
+  matching the corpus construction. The shared/escalation split needed no
+  invention.
+- **Confirmed: one reviewer role for assignment and brief is right.** The probe
+  produced a real cross-artifact defect — the BP brief says six points and the
+  DP brief seven — which only a reviewer holding both artifacts can check.
+- **Unresolved metadata must be flagged, not guessed.** The academic year was an
+  assumption the probe marked in place. Slice 3's placeholder check must treat
+  such markers as publication blockers.
 
 ## Decision Log
 
