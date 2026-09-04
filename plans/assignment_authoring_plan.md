@@ -312,9 +312,12 @@ brief per variant for one real topic. What it refuted or added:
   one point plus a comparison point and escalated the semester requirement,
   matching the corpus construction. The shared/escalation split needed no
   invention.
-- **Confirmed: one reviewer role for assignment and brief is right.** The probe
-  produced a real cross-artifact defect — the BP brief says six points and the
-  DP brief seven — which only a reviewer holding both artifacts can check.
+- **One reviewer role for assignment and brief is right.** The brief restates
+  the assignment's point count and its semester obligation, so each brief is
+  coupled to its own variant's assignment and would silently go stale if a
+  point were added. Only a reviewer holding both artifacts can check that
+  coupling. No such defect occurred in the probe; the coupling is the evidence,
+  not a discovered error.
 - **Unresolved metadata must be flagged, not guessed.** The academic year was an
   assumption the probe marked in place. Slice 3's placeholder check must treat
   such markers as publication blockers.
