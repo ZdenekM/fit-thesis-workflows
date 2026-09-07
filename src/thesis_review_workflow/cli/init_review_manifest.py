@@ -51,6 +51,7 @@ from thesis_review_workflow.review_manifest import (
     merge_supporting_work_artifacts,
 )
 from thesis_review_workflow.supervisor_report_calibration import supervisor_report_calibration_profile_check_targets
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 from thesis_review_workflow.theses_checker_summary import (
     THESES_CHECKER_SUMMARY_REL,
     round_uses_theses_checker_summary,
@@ -148,6 +149,11 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
                 ("repo:profiles/local/default.md", root / "profiles" / "local" / "default.md"),
             ]
         )
+    if base_check_name in {"check-supervisor-ready", "check-feedback-language", "check-feedback-output"}:
+        # check-supervisor-ready validates the reading pass, and both feedback checks run it as a
+        # subprocess. Without this, a recorded pass stays fresh after the reading pass is added or
+        # edited, and closeout completes on a check that would no longer reproduce.
+        paths.append((f"round:{SUPERVISOR_READING_PASS_REL}", round_dir / SUPERVISOR_READING_PASS_REL))
     if base_check_name in {"check-feedback-language", "check-feedback-output"}:
         paths.append(("round:notes/assignment.md", round_dir / "notes" / "assignment.md"))
         # Both checks now read the declared review phase, so a trace edit that drops the

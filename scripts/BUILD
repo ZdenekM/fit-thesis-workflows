@@ -33,6 +33,7 @@ shell_sources(
         "check-supervisor-report",
         "check-supervisor-report-calibration-profile",
         "check-supervisor-report-ready",
+        "check-supervisor-reading-pass",
         "check-supervisor-ready",
         "check-theses-checker-summary",
         "check-theses-similarity-report",
@@ -180,6 +181,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_supervisor_report",
     "src/thesis_review_workflow/cli:check_supervisor_report_calibration_profile",
     "src/thesis_review_workflow/cli:check_supervisor_report_ready",
+    "src/thesis_review_workflow/cli:check_supervisor_reading_pass",
     "src/thesis_review_workflow/cli:check_supervisor_ready",
     "src/thesis_review_workflow/cli:check_theses_checker_summary",
     "src/thesis_review_workflow/cli:check_theses_similarity_report",
@@ -530,6 +532,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-supervisor-report-ready",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_supervisor_reading_pass_tool",
+    entry_point="thesis_review_workflow.cli.check_supervisor_reading_pass:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-supervisor-reading-pass",
     tags=["workflow-tool"],
 )
 

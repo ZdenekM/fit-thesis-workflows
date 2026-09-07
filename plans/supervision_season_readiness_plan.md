@@ -8,11 +8,12 @@ Created: 2026-09-07
 State: Slices 1 to 4 are done. The season gate is unblocked, an
 operator-declared review phase travels from `review-round-start` into
 materiality, coverage, closeout and both feedback checkers, the early phase
-defers three late-phase roles and detects a predecessor round, and early student
-feedback has its own six-section shape. Slices 5 to 7 are stubs.
+defers three late-phase roles and detects a predecessor round, early student
+feedback has its own six-section shape, and the operator reading pass has one
+template and one validated round path. Slice 6 and Slice 7 remain.
 
-Next action: Slices 5 and 6 carry full charters. Review both in one round before
-implementing either.
+Next action: implement Slice 6, whose charter is already reviewed. Then charter
+Slice 7, review it, and implement.
 
 Do not read: the retrospective's per-case detail or the review transcripts.
 Their conclusions are in `## Audit Base` and `## Decision Log`.
@@ -310,122 +311,19 @@ further down.
 
 ### Slice 5 - Operator reading-pass intake
 
-- Status: charter
-- Proposed commit message: `Give the operator reading pass one template and one wired round path`
-- Why: `## Audit Base` measured three rounds carrying a pre-draft reading pass
-  under three different filenames at 14-31 KB each, one of them the unrelated
-  `notes/opponent-report-review-intake.md` template pressed into service. It is
-  the largest unshaped operator input of the season, and the workflow does not
-  know the file exists: it reaches no packet, no evidence snapshot, no leak
-  pattern and no privacy pattern. The opponent track has a wired post-draft
-  surface in `notes/opponent-report-operator-feedback.md`; the supervisor
-  pre-draft reading pass has no equivalent. The notes are also not hand-written
-  prose but dictation an agent formalized, so a fixed shape costs the operator
-  nothing.
-- Expected paths: `templates/supervisor-reading-pass-intake.md`,
-  `src/thesis_review_workflow/paths.py`,
-  `src/thesis_review_workflow/structured_evidence.py`,
-  `src/thesis_review_workflow/review_delta.py`,
-  `src/thesis_review_workflow/cli/check_supervisor_reading_pass.py`,
-  `src/thesis_review_workflow/cli/check_supervisor_ready.py`,
-  `src/thesis_review_workflow/cli/check_feedback_output.py`,
-  `src/thesis_review_workflow/cli/check_opponent_materials.py`,
-  `src/thesis_review_workflow/cli/check_private.py`,
-  `src/thesis_review_workflow/cli/case_doctor.py`,
-  `src/thesis_review_workflow/commands.py`,
-  `src/thesis_review_workflow/cli/BUILD`, `scripts/check-supervisor-reading-pass`,
-  `scripts/BUILD`, `tests/test_supervisor_reading_pass.py`,
-  `tests/test_supervisor_ready.py`, `tests/test_check_private.py`,
-  `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
-  `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`,
-  `docs/operator-reference.md`, `docs/workflow-command-surface.md`
-- Tasks:
-  - Add `templates/supervisor-reading-pass-intake.md`: a metadata block naming the
-    artifact read, the date, whether the notes were dictated, the coverage and
-    what was not read, then repeated `###` observation blocks under one
-    `## Poznamky` heading, each carrying `Pozorovani:`, `Evidence:` and
-    `Routing:`. Match the ASCII-Czech label style of the existing supervisor
-    templates.
-  - Follow the `templates/supervisor-report-intake.md` model: the template is
-    created on demand and named by a "create it from" message. Do NOT add it to
-    the unconditional template list in `cli/import_round.py`; `## Audit Base`
-    measured 13 rounds carrying a byte-identical unfilled template, and Slice 7
-    owns that.
-  - Own the round path and the routing enum once, in `paths.py`, the only module
-    every consumer below already imports: the path
-    `notes/supervisor-reading-pass.md` and the four routing values
-    `student_feedback`, `internal_only`, `verify_first`, `discard`.
-  - Keep the template basename distinct from the round basename, as
-    `templates/supervisor-report-intake.md` already is from
-    `notes/supervisor-report-operator-input.md`. The `templates/` exception in
-    `check_private.allowed_sensitive_tracked` covers only `is_sensitive_artifact`;
-    the private-markdown check has no exception, so a tracked template sharing the
-    round basename would fail `check-private`.
-  - Add `scripts/check-supervisor-reading-pass` with its `cli` module, registered
-    in `scripts/BUILD`, `cli/BUILD` and `commands.py`. An absent file exits 0
-    with one line saying a round without a reading pass is valid. A present file
-    is validated structurally: the metadata labels exist, there is at least one
-    observation block, every block carries all three labels, `Routing:` holds one
-    of the four values, `Evidence:` is not a generic filler, and a block whose
-    evidence is the explicit unverified token must route to `verify_first` or
-    `discard`.
-  - Chain the checker from `check-supervisor-ready` after `check-round-ready` and
-    `supervisor-deadline`, so a malformed reading pass fails the gate the skill
-    already runs while a missing one does not block anything.
-  - Wire the path into every consumer that already carries the opponent-side
-    operator note, each a separate failure if missed:
-    `structured_evidence.CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS`,
-    `review_delta.APPEND_ONLY_OPERATOR_NOTE_REFS`,
-    `check_feedback_output.INTERNAL_PATTERNS`,
-    `check_opponent_materials.INTERNAL_WORKFLOW_PATTERNS` and
-    `check_private.PRIVATE_MARKDOWN_RE`. The opponent-side leak list is included
-    because both existing lists already carry `supervisor-intake.md`: a private
-    filename leaking into any sendable artifact is the same defect.
-  - Add the binding test that makes the sweep mechanical: one test asserts the
-    owned path appears in each of those five consumers, so a sixth consumer
-    cannot be added without it. This is the Slice 3 and Slice 4 lesson in
-    executable form.
-  - Skills: `thesis-supervisor-feedback` reads the reading pass in the step that
-    already reads `notes/supervisor-intake.md`, and its routing is binding in
-    three ways: a `student_feedback` item may become a student-facing action item
-    directly; a `verify_first` item may become one only after the claim is
-    confirmed against the authoritative artifact, and the confirming anchor
-    replaces the unverified token in the reading pass, which is what makes the
-    upgrade visible rather than implicit; an unconfirmable `verify_first` item and
-    every `internal_only` or `discard` item never reach the student output.
-    `thesis-supervisor-feedback-review` verifies the routing was honored and that
-    no student-facing item traces to an item still carrying the unverified
-    token.
-  - Docs: `docs/workflow-command-surface.md` gains the command and its Windows
-    launcher, `docs/operator-reference.md` the path, the template, the enum and
-    the optional-but-validated-when-present contract.
-  - Tests: the validator passes on an absent file and on a minimal valid pass,
-    and fails on a missing label, an unknown routing value, a generic evidence
-    cell, and an unverified evidence token routed to `student_feedback`;
-    `check-supervisor-ready` fails on a malformed pass and is unaffected by a
-    missing one; the tracked template passes `check-private` while a round-path
-    copy of the same content is rejected.
-- Out of scope: detecting the season's three legacy filenames, because
-  case-derived names must not become an active workflow rule and one of them is
-  a real template; the opponent pre-draft calibration stance, owned by
-  `plans/opponent_methodology_pipeline_plan.md`; any change to
-  `notes/opponent-report-operator-feedback.md` or to
-  `scripts/record-review-delta`; per-round scaffolding of the new template,
-  owned by Slice 7; making the reading pass a required input; and a smoke script,
-  since the validator is covered by pytest and no per-check smoke parity exists.
-- Verification:
-  - `pants test tests/test_supervisor_reading_pass.py tests/test_supervisor_ready.py`
-  - `pants test tests/test_check_private.py tests/test_structured_evidence.py`
-  - `pants test tests/test_review_delta.py tests/test_feedback_shape.py`
-  - `pants test tests/test_check_scripts_contracts.py tests/test_workflow_python_contracts.py`
-  - `pants lint src/thesis_review_workflow/ tests/`
-  - `scripts/check-supervisor-reading-pass --help`
-  - `scripts/smoke-feedback-output`
-  - `scripts/smoke-case-doctor`
-  - `scripts/check-scripts`
-  - `scripts/check-tooling`
-  - `scripts/check-private`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Give the operator reading pass one template and one wired round path`.
+
+The supervisor's dictated reading pass now has one tracked template, the
+canonical round path `notes/supervisor-reading-pass.md`, a structural validator
+chained inside `check-supervisor-ready` that an absent file passes, and a
+four-value routing enum in which only `student_feedback` permits student-facing
+use. `supervisor_reading_pass.py` owns the path, the enum and the parser; nine
+consumers read them from there, bound by one test. Full charter in
+`plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: the `## Decision Log` entry of 2026-09-07 on the reading-pass
+implementation review.
 
 ### Slice 6 - Early code surface
 
@@ -580,8 +478,10 @@ Every slice's verification block ran green, including `pants run :omen` for
 Slice 2 (grade A, 0 critical). Eleven review rounds are adjudicated in
 `## Decision Log`.
 
-Slices 5 and 6 carry full charters and are awaiting one shared charter review.
-Slice 7 remains a stub.
+Slice 5 is done: one template, one validated round path, a binding routing enum
+and nine wired consumers. Its verification block ran green, including the full
+`pants test tests::` sweep and `pants run :omen` (grade A, 0 critical). Slice 6
+carries a reviewed full charter and is next. Slice 7 remains a stub.
 
 ## Decision Log
 
@@ -818,6 +718,27 @@ finding reproduced against the tree.
 
 Decision: all five accepted, three changing what gets built. Why: each was
 reproducible. The lint gap that let a duplicated body pass goes to `TODO.md`.
+
+### 2026-09-07 - Slice 5: the enum was defeatable by a backtick
+
+Trigger: the implementation review, plus three consumers the parent found first.
+Eleven findings, all accepted, every one reproduced.
+
+- Two P1s in the one rule the enum exists for: an unverified observation routed
+  to `student_feedback` passed when the token carried backticks or a full stop,
+  and blocks outside `## Poznamky` parsed as absent while the gate said usable.
+  Both now normalize and fail loudly; a `####` block no longer merges into its
+  parent, and a self-correction leaving two `Routing:` lines is an error.
+- Nine consumers, not the chartered five. Missing were the packet base inputs,
+  its first role's inputs, the common briefing, and the manifest helper
+  dependency hashes; without the last, a recorded pass stayed fresh.
+- `verify_first` had no recorded outcome, so its review check was vacuous for an
+  anchored-but-unconfirmed claim. Promotion is now the routing value itself. The
+  owner is a dedicated module, not `paths.py`: it carries the parser too.
+
+Decision: all fixed in one batch; the binding test enumerates all nine. Why: a
+declared value with one owner is only worth having if every consumer reads it
+there, and this slice needed three passes to find them.
 
 ## Final Audit
 

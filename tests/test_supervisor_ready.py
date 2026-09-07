@@ -125,3 +125,37 @@ def test_supervisor_deadline_resolves_the_latest_configured_academic_year(
     assert result == 0, output
     assert f"Academic year: {latest}" in output
     assert "Recommended internal finish:" in output
+
+
+def test_supervisor_ready_chains_the_reading_pass_validator(monkeypatch, tmp_path: Path) -> None:
+    """A malformed reading pass must fail the gate the feedback skills already run."""
+    root = tmp_path / "repo"
+    (root / "cases" / "case-a" / "rounds" / "round-a").mkdir(parents=True)
+    monkeypatch.setattr(check_supervisor_ready, "repo_root", lambda: root)
+    called: list[str] = []
+
+    def fake_run_step(root_arg: Path, label: str, args: list[str]) -> Step:
+        called.append(label)
+        failed = label == "check-supervisor-reading-pass"
+        return Step(label=label, command=args, returncode=1 if failed else 0, output="")
+
+    monkeypatch.setattr(check_supervisor_ready, "run_step", fake_run_step)
+
+    result = check_supervisor_ready.main(["scripts/check-supervisor-ready", "case-a", "round-a"])
+
+    assert result == 1
+    assert called == ["check-round-ready", "supervisor-deadline", "check-supervisor-reading-pass"]
+
+
+def test_supervisor_ready_passes_when_no_reading_pass_exists(monkeypatch, tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    round_dir = root / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    monkeypatch.setattr(check_supervisor_ready, "repo_root", lambda: root)
+    monkeypatch.setattr(
+        check_supervisor_ready,
+        "run_step",
+        lambda root_arg, label, args: Step(label=label, command=args, returncode=0, output=""),
+    )
+
+    assert check_supervisor_ready.main(["scripts/check-supervisor-ready", "case-a", "round-a"]) == 0

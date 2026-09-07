@@ -48,6 +48,7 @@ WORKFLOW_COMMAND_MODULES = {
         "thesis_review_workflow.cli.check_supervisor_report_calibration_profile"
     ),
     "check-supervisor-report-ready": "thesis_review_workflow.cli.check_supervisor_report_ready",
+    "check-supervisor-reading-pass": "thesis_review_workflow.cli.check_supervisor_reading_pass",
     "check-supervisor-ready": "thesis_review_workflow.cli.check_supervisor_ready",
     "check-theses-similarity-report": "thesis_review_workflow.cli.check_theses_similarity_report",
     "check-theses-checker-summary": "thesis_review_workflow.cli.check_theses_checker_summary",

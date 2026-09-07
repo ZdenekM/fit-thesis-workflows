@@ -34,6 +34,7 @@ from thesis_review_workflow.submission_bundle import (
     render_submission_bundle_visibility_markdown,
     submission_bundle_visibility_lines,
 )
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 from thesis_review_workflow.theses_checker_summary import (
     THESES_CHECKER_SUMMARY_REL,
     validate_theses_checker_summary_artifact,
@@ -119,6 +120,7 @@ COMMON_BRIEFING_BASE_INPUTS = (
     "notes/assignment.md",
     "notes/round-notes.md",
     "outputs/revision_diff.md",
+    SUPERVISOR_READING_PASS_REL,
     "notes/supervisor-report-operator-input.md",
     "work/supervisor_report_feedback_history.json",
 )

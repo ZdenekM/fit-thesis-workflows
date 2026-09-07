@@ -21,6 +21,7 @@ cases/<case-id>/current-round.txt
 cases/<case-id>/rounds/<round-id>/
   notes/assignment.md
   notes/supervisor-intake.md
+  notes/supervisor-reading-pass.md
   notes/round-notes.md
   notes/previous-feedback-index.md
   inputs/
@@ -38,7 +39,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 3. Run `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop before generating any draft/output and ask the user to add the missing formal assignment, private assignment notes, academic year, work type, deadline override, or valid reviewer profile. Keep the script output as deadline context for the feedback.
 4. Run `scripts/check-feedback-language --config-only <case-id>`. If it fails, stop before drafting and fix `Student feedback language` in `case.md`; missing or empty means `cs`, supported values are only `cs` and `en`.
 5. Read the effective profile files from the readiness output, or rerun `scripts/check-reviewer-profile <case-id>` if the file list is no longer visible. Profiles apply only to preference conflicts. They never override case workflow configuration, readiness gates, output language, evidence requirements, verified supervisor notes, or this skill.
-6. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, and `notes/round-notes.md`. Resolve and keep the configured student feedback language.
+6. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, `notes/supervisor-reading-pass.md` when it exists, and `notes/round-notes.md`. Resolve and keep the configured student feedback language. A round without a reading pass is normal; `scripts/check-supervisor-ready` validates one that is present.
 7. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
 8. State review limits before analysis: what was available, what was static-only, and what was not checked.
 9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. If agent authorization is missing, stop before final output and ask for authorization instead of recording an agent-review limitation.
@@ -129,6 +130,19 @@ For each supervisor note:
 - write only the resulting student-relevant synthesis into `outputs/feedback_student.md`.
 
 Do not include the private classification table in student-facing feedback. If an operator artifact such as `outputs/revision_diff.md` is already being written, it may record the classification or evidence there. If a supervisor note is mainly a preference, include it only when it is useful for the current phase and can be framed as an actionable recommendation.
+
+### Reading Pass Routing
+
+`notes/supervisor-reading-pass.md` is the supervisor's own reading pass, usually dictated and then formalized. Unlike free-form notes it carries a routing decision per observation, and only one routing value permits student-facing use:
+
+- `student_feedback`: may become a student-facing action item, subject to the phase and priority rules.
+- `verify_first`: not promotable as it stands. It may become a student-facing item only by being promoted in the reading pass itself: confirm the claim against the authoritative artifact, write the confirming anchor into `Evidence:`, and change `Routing:` to `student_feedback`. Promoting the routing value rather than only the evidence is what makes the verification recorded instead of implicit in a draft. When the claim cannot be confirmed from the available inputs, leave the routing as it is; it does not enter the student output, and it belongs in a limitation or an operator question instead.
+- `internal_only`: the supervisor's own note. It may inform priorities and internal evidence artifacts, and it never appears in `outputs/feedback_student.md`.
+- `discard`: already considered and dropped. Do not reintroduce it, and do not raise it again in a later round unless new evidence changes it.
+
+Promoting an observation edits a file that `work/current_evidence_snapshot.json` may already hash. When that snapshot exists, rerun `scripts/refresh-round-hashes <case-id> [round-id]` after the edit, or closeout will fail on a stale support hash caused by an instruction this skill gave.
+
+Never copy the file path or its wording into student-facing output; `scripts/check-feedback-output` rejects the filename as an internal reference.
 
 ## Thesis Heading Review
 

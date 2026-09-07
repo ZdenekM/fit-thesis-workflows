@@ -38,6 +38,7 @@ PRIVATE_MARKDOWN_RE = re.compile(
     r"reference_report_comparison|opponent_reading_packet|reviewer_calibration_profile|"
     r"supervisor_report_calibration_profile|profile_change_log|"
     r"reviewer_profile_change_log|profile_review|opponent-report-operator-feedback|"
+    r"supervisor-reading-pass|"
     r"supervisor-report-operator-input|vedouci_posudek_draft|vedouci_posudek_revidovany|"
     r"oponent_podklady|oponent_podklady_draft|"
     r"oponent_podklady_revidovane|oponent_posudek_draft|theses_similarity_review)\.md$"

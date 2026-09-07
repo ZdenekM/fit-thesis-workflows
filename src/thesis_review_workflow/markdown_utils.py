@@ -6,6 +6,37 @@ import re
 from collections.abc import Callable
 
 
+def normalized_text(value: str) -> str:
+    """Fold a Markdown field value to a comparable form.
+
+    Strips inline code spans, folds Czech diacritics, collapses whitespace, lowercases,
+    and drops trailing punctuation. Field comparisons that skip this accept a value that
+    only differs by backticks or a full stop, which is how a formalized dictation is
+    actually written.
+    """
+
+    value = re.sub(r"`([^`]*)`", r"\1", value)
+    for accented, plain in (
+        ("ě", "e"),
+        ("š", "s"),
+        ("č", "c"),
+        ("ř", "r"),
+        ("ž", "z"),
+        ("ý", "y"),
+        ("á", "a"),
+        ("í", "i"),
+        ("é", "e"),
+        ("ú", "u"),
+        ("ů", "u"),
+        ("ň", "n"),
+        ("ť", "t"),
+        ("ď", "d"),
+    ):
+        value = value.replace(accented, plain)
+    value = re.sub(r"\s+", " ", value.strip().lower())
+    return value.strip(" .;:-")
+
+
 def section_body(lines: list[str], heading: str, *, stop_pattern: str = r"^#{1,2}\s+") -> list[str] | None:
     start = None
     for index, line in enumerate(lines):

@@ -13,6 +13,7 @@ from typing import Any
 from thesis_review_workflow.artifact_validation import sha256_file
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.review_profiles import get_workflow_review_profile
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 
 REVIEW_DELTA_SCHEMA = "review-delta-v1"
 REVIEW_DELTA_DIR_REL = "work/review_deltas"
@@ -47,6 +48,7 @@ APPEND_ONLY_OPERATOR_NOTE_REFS = {
     "notes/operator-late-communications.md",
     "notes/opponent-report-operator-feedback.md",
     "notes/round-notes.md",
+    SUPERVISOR_READING_PASS_REL,
 }
 
 

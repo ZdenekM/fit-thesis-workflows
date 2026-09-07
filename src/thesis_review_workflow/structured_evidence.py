@@ -21,6 +21,7 @@ from thesis_review_workflow.report_calibration import (
 )
 from thesis_review_workflow.semantic_source_refs import validate_long_lived_semantic_source_refs
 from thesis_review_workflow.submission_bundle import SUBMISSION_BUNDLE_VISIBILITY_REFS
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 from thesis_review_workflow.theses_checker_summary import (
     THESES_CHECKER_SUMMARY_REL,
     validate_theses_checker_summary_artifact,
@@ -169,6 +170,7 @@ CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS = (
     "notes/operator-late-communications.md",
     "notes/late-communications.md",
     "notes/round-notes.md",
+    SUPERVISOR_READING_PASS_REL,
 )
 CURRENT_EVIDENCE_REVIEW_RECORD_GLOB = "work/reviews/*_review.json"
 REQUIRED_OPPONENT_IS_ITEM_IDS = {

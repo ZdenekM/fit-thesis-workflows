@@ -52,7 +52,7 @@ def main(argv: list[str]) -> int:
             print("Submission Bundle Inventory")
             for line in bundle_lines:
                 print(line)
-    for command in ("check-round-ready", "supervisor-deadline"):
+    for command in ("check-round-ready", "supervisor-deadline", "check-supervisor-reading-pass"):
         step = run_step(root, command, [f"scripts/{command}", *command_args])
         if step.output:
             print(step.output)

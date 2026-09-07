@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
-from thesis_review_workflow.markdown_utils import extract_table, section_body, section_text
+from thesis_review_workflow.markdown_utils import extract_table, normalized_text, section_body, section_text
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -99,6 +99,7 @@ INTERNAL_WORKFLOW_PATTERNS = (
     r"\bfeedback_student\.md\b",
     r"\bround-notes\.md\b",
     r"\bsupervisor-intake\.md\b",
+    r"\bsupervisor-reading-pass\.md\b",
     r"\bprevious-feedback-index\.md\b",
 )
 
@@ -254,14 +255,7 @@ def run_round_ready(root: Path, case_id: str, round_id: str, errors: list[str]) 
 
 
 def normalized(value: str) -> str:
-    value = re.sub(r"`([^`]*)`", r"\1", value)
-    value = value.replace("ě", "e").replace("š", "s").replace("č", "c")
-    value = value.replace("ř", "r").replace("ž", "z").replace("ý", "y")
-    value = value.replace("á", "a").replace("í", "i").replace("é", "e")
-    value = value.replace("ú", "u").replace("ů", "u").replace("ň", "n")
-    value = value.replace("ť", "t").replace("ď", "d")
-    value = re.sub(r"\s+", " ", value.strip().lower())
-    return value.strip(" .;:-")
+    return normalized_text(value)
 
 
 def check_headings(lines: list[str], errors: list[str]) -> None:

@@ -52,6 +52,13 @@ from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
 from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
 from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
+from thesis_review_workflow.supervisor_reading_pass import (
+    SUPERVISOR_READING_PASS_REL,
+    SUPERVISOR_READING_PASS_TEMPLATE,
+    reading_pass_path,
+    routing_counts,
+    validate_reading_pass_text,
+)
 
 MANIFEST_REL = Path("work/review_manifest.json")
 LARGE_ARCHIVE_BYTES = 100 * 1024 * 1024
@@ -362,6 +369,38 @@ def collect_feedback_rounds(case_dir: Path, current_round_id: str) -> tuple[list
             else:
                 other.append(feedback)
     return previous, other
+
+
+def reading_pass_lines(round_dir: Path, issues: list[Issue]) -> list[str]:
+    """Summarize the supervisor reading pass; absence is a valid state, not a finding."""
+
+    path = reading_pass_path(round_dir)
+    if not path.is_file():
+        return [
+            f"- {SUPERVISOR_READING_PASS_REL}: absent, which is valid",
+            f"- Create it from {SUPERVISOR_READING_PASS_TEMPLATE} when the supervisor dictates a reading pass.",
+        ]
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        add_issue(issues, "WARNING", f"Could not read {SUPERVISOR_READING_PASS_REL}: {exc}")
+        return [f"- {SUPERVISOR_READING_PASS_REL}: unreadable"]
+    errors, warnings = validate_reading_pass_text(text)
+    lines = [f"- {SUPERVISOR_READING_PASS_REL}: present"]
+    lines.append("- Routing: " + ", ".join(f"{role} {count}" for role, count in routing_counts(text).items()))
+    for warning in warnings:
+        lines.append(f"- Warning: {warning}")
+    if errors:
+        add_issue(
+            issues,
+            "WARNING",
+            f"{SUPERVISOR_READING_PASS_REL} is present but not usable; "
+            "run scripts/check-supervisor-reading-pass for the full list.",
+        )
+        lines.extend(f"- Error: {error}" for error in errors[:5])
+        if len(errors) > 5:
+            lines.append(f"- ... {len(errors) - 5} more structural errors")
+    return lines
 
 
 def manifest_summary(round_dir: Path, outputs: list[Path], issues: list[Issue]) -> list[str]:
@@ -686,6 +725,8 @@ def main(argv: list[str]) -> int:
         f"- Thesis source workspace: {'present' if thesis_source.is_dir() else 'missing'}",
     ]
     output_section("Inputs And Extracts", input_lines + pdf_lines)
+
+    output_section("Operator Reading Pass", reading_pass_lines(round_dir, issues))
 
     archive_lines: list[str] = []
     for info in archives:

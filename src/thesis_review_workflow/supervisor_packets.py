@@ -26,6 +26,7 @@ from thesis_review_workflow.review_packets import (
     write_common_briefing,
     write_text_if_changed,
 )
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_EXTRACTED_TEXT_REL,
@@ -39,6 +40,7 @@ SCHEMA_VERSION = "supervisor-feedback-packet-v1"
 BASE_INPUTS = (
     "notes/assignment.md",
     "notes/round-notes.md",
+    SUPERVISOR_READING_PASS_REL,
     "outputs/revision_diff.md",
 )
 ADVISORY_ARTIFACTS = (
@@ -80,6 +82,7 @@ PACKET_ROLES = (
         ),
         role_inputs=(
             "notes/assignment.md",
+            SUPERVISOR_READING_PASS_REL,
             "outputs/revision_diff.md",
             "work/assignment_coverage_agent.json",
         ),

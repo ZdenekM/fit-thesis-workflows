@@ -193,6 +193,34 @@ zamlčených materiálních omezení.
 `case-doctor <case-id> [round-id]` zůstává read-only snapshot. Pomáhá se
 zorientovat, ale nenahrazuje workflow gates ani finální closeout.
 
+### Čtenářský Průchod Vedoucího
+
+Když si vedoucí sám přečte práci a nadiktuje k tomu poznámky, jejich místem je
+`notes/supervisor-reading-pass.md` v aktuálním roundu, vytvořený z
+`templates/supervisor-reading-pass-intake.md`. Soubor je nepovinný: round bez
+něj je platný a `check-supervisor-ready` na jeho absenci neselže. Když ale
+existuje, `check-supervisor-reading-pass <case-id> [round-id]` je součástí té
+brány a kontroluje jeho strukturu.
+
+Každé pozorování stojí pod vlastním nadpisem v sekci `## Poznamky` a nese tři
+pole: `Pozorovani:`, `Evidence:` a `Routing:`. `Evidence:` pojmenuje kapitolu,
+sekci, stranu, soubor, obrázek nebo tabulku; dokud pozorování ukotvené není,
+patří tam token `neoverovano` a takový záznam musí mít routing `verify_first`
+nebo `discard`.
+
+Routing je pro agenta závazný a studentovi smí jít jen `student_feedback`.
+`verify_first` znamená "takhle to poslat nelze": agent ho může použít teprve
+tehdy, když tvrzení ověří proti autoritativnímu artefaktu, doplní kotvu do
+`Evidence:` a přepíše `Routing:` na `student_feedback` přímo v průchodu. Ověření
+se tak zapíše do roundu, místo aby zůstalo v draftu. `internal_only` a `discard`
+do studentského výstupu nejdou nikdy.
+
+Když se průchod během roundu upravuje a `work/current_evidence_snapshot.json` už
+ho hashuje, je potřeba po editaci spustit `refresh-round-hashes <case-id>
+[round-id]`, jinak closeout spadne na zastaralém support hashi. Cesta k souboru
+ani jeho formulace se do studentského výstupu nekopírují -
+`check-feedback-output` interní odkaz odmítne.
+
 ## Round Lifecycle
 
 Normální agentní workflow nejde přímo od readiness checku k syntéze. Sdílená

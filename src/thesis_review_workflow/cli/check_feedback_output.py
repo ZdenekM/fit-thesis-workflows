@@ -91,6 +91,7 @@ INTERNAL_PATTERNS = (
     r"\brevision_diff\.md\b",
     r"\bround-notes\.md\b",
     r"\bsupervisor-intake\.md\b",
+    r"\bsupervisor-reading-pass\.md\b",
     r"\bprevious-feedback-index\.md\b",
 )
 

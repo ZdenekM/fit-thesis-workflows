@@ -174,6 +174,15 @@ The launchers:
 - default `PEX_ROOT` to `.pants.d/pex_root` inside the repository;
 - require Python 3.12, with `WORKFLOW_TOOLS_PYTHON` as an explicit override.
 
+`check-supervisor-reading-pass <case-id> [round-id]` is the newest operator tool
+and follows the same contract: a wrapper, a CLI module, a
+`WORKFLOW_COMMAND_MODULES` entry, a packaged `pex_binary` and generated
+`.cmd`/`.ps1` launchers. Windows operators run
+`dist\workflow-tools\bin\check-supervisor-reading-pass.cmd`. It is chained
+inside `check-supervisor-ready`, so a supervisor-feedback round validates its
+reading pass without a separate operator step; running it directly is for
+checking a reading pass while writing one.
+
 Generated provenance such as `work/review_manifest.json` stores helper check
 commands as logical workflow command names, for example
 `check-supervisor-ready <case-id> [round-id]`, not as POSIX wrapper
