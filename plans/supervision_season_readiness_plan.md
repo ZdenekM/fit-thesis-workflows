@@ -210,28 +210,126 @@ operator-declared `review_phase` now travels from `review-round-start` through
 Decisions: `## Decision Log` entries of 2026-09-07 on the plan-critic round, the
 narrow re-check, and the Slice 2 implementation review.
 
-### Slice 3 - Early-phase role set
+### Slice 3 - Early-phase role deferral and revision-diff detection
 
-Charter form: stub
-
-Objective: an `early` role set with its own required/advisory split, and a
-revision-diff requirement for any round that follows a predecessor.
-
-Boundary: no change to the output shape, and no relaxation of a role a `final`
-round requires.
-
-Serves: the first early rounds, and Slice 4, which writes against this set.
+- Status: planned
+- Proposed commit message: `Defer late-phase roles in the early phase and detect a predecessor round`
+- Why: Slice 2 made `early` declarable and carried it end to end, but it changes
+  nothing — a test asserts its decision set equals `non_final`. An early round
+  would summon typography, literature and figure review the moment their evidence
+  exists, on material that does not exist yet. Separately, `## Audit Base`
+  measured revision diff produced in 4 of the 14 rounds that followed a
+  predecessor, with nothing in the pipeline noticing the predecessor at all.
+- Expected paths: `src/thesis_review_workflow/review_materiality.py`,
+  `src/thesis_review_workflow/cases.py`,
+  `src/thesis_review_workflow/cli/update_round_reuse_index.py`,
+  `tests/test_review_materiality.py`, `tests/test_review_pipeline_orchestration.py`,
+  `docs/agent-profile-matrix.md`, `docs/operator-reference.md`
+- Tasks:
+  - Defer only `typography_formal`, `literature_citation` and `figure_media` in
+    the early phase. `code_consistency` is NOT deferred: `review_profiles.py`
+    gives every profile `code_bearing_roles = ("code_consistency",
+    "code_quality")`, `review_pipeline_orchestration.py::code_bearing_contract`
+    returns `blocked` unless both are satisfied when code evidence is present,
+    and `AGENTS.md` requires both code reviews for a code-bearing round.
+  - Implement the deferral as a filter after the evidence triggers that replaces a
+    material decision with a non-material one carrying a scope that names the
+    phase, so the round records why a role was deferred. This needs
+    `not_material_decision` to accept a scope; today it hardcodes
+    `scope="not_triggered"`. Keep that default for every existing caller.
+  - Skip the filter for any decision whose scope is `explicit_request` or
+    `existing_review_output`, so an operator request wins and an artifact the
+    round already carries stays visible to synthesis.
+  - Add `revision_diff` to `MATERIALITY_ROLES` and `MATERIALITY_ROLE_ARTIFACTS`
+    (`outputs/revision_diff.md`), and add its impact string to every branch of
+    `impact_for`, which raises `KeyError` for an unmapped role and is called by
+    `not_material_decision` for every role in every profile.
+  - Detect the predecessor with the existing structural contract rather than a new
+    one: move `update_round_reuse_index.py::previous_round_ids` into
+    `cases.py` unchanged — lexical sort over non-hidden round directories — and
+    call it from both places. Mark `revision_diff` material when any earlier round
+    carries the workflow's synthesis artifact from `SYNTHESIS_ARTIFACT_BY_WORKFLOW`.
+  - State the limitation in `docs/operator-reference.md`: `ids.py` permits any safe
+    id, so ordering is lexical and a case whose round ids are not
+    timestamp-prefixed may order differently from its real chronology.
+  - Scope this as advisory detection, not enforcement. Role records are built from
+    packet roles in `review_pipeline_orchestration.py`, `revision_diff` has no
+    producer role there, and `NEXT_ACTION_ROLES` covers only `github_intake`,
+    `quantitative_claims` and `theses_similarity`. So this slice makes the
+    predecessor visible in the materiality decision; wiring a required producer
+    role or a next action is not in it.
+  - Tests: the three roles are deferred in `early` with their evidence present;
+    `code_consistency` and `code_quality` stay material in `early` with a code
+    workspace, and `code_bearing_contract` still reports `satisfied`;
+    `--request-role` and an existing review output both override the deferral;
+    `revision_diff` is material when an earlier round carries
+    `outputs/feedback_student.md` and not material in a first round;
+    `impact_for` returns a string for `revision_diff` in all three profiles; and
+    the `non_final` and `final` decision sets are unchanged for the existing eight
+    roles. Replace the Slice 2 test asserting `early` equals `non_final` with one
+    that gives the fixture triggering evidence, since an empty round is equal
+    under both phases either way.
+- Out of scope: the student-facing output shape (Slice 4); what any role does;
+  a producer role, packet or next action for `revision_diff`; and any change to
+  how `final` behaves.
+- Verification:
+  - `pants test tests/test_review_materiality.py`
+  - `pants test tests/test_review_pipeline_orchestration.py`
+  - `pants test tests/test_round_reuse_index.py`
+  - `scripts/smoke-prepare-review-round`
+  - `scripts/smoke-round-reuse-index`
+  - `scripts/check-scripts`
+  - `python3 tests/test_plan_contract.py`
 
 ### Slice 4 - Early-phase feedback shape
 
-Charter form: stub
-
-Objective: an early-phase output shape and length budget in the supervisor
-feedback skill and its reviewer skill, replacing the one shared 12-section form.
-
-Boundary: one shape per phase band, not per case; no new artifact path.
-
-Serves: the first feedback each new student receives.
+- Status: planned
+- Proposed commit message: `Give early-phase student feedback its own shape and heading contract`
+- Why: `## Audit Base` measured the same 12-section shape in every round of every
+  iterated case, first round and final alike, with only length moving from 17 KB
+  to 9.5 KB. A student with a chapter skeleton receives the artifact designed for
+  a submission check. The shape is not only convention: `check_feedback_language`
+  holds fixed `CS_REQUIRED_HEADINGS` and `EN_REQUIRED_HEADINGS` lists and requires
+  every heading, and `check_feedback_output` invokes it, so a skill instruction to
+  omit a section would produce feedback that fails its own gate.
+- Expected paths: `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
+  `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`,
+  `src/thesis_review_workflow/cli/check_feedback_language.py`,
+  `src/thesis_review_workflow/cli/check_feedback_output.py`,
+  `tests/test_feedback_shape.py` (new: the two feedback checkers have no pytest
+  coverage today, only `scripts/smoke-feedback-language` and
+  `scripts/smoke-feedback-output`), `docs/operator-reference.md`
+- Tasks:
+  - Make the heading contract phase-aware: an early-phase required-heading set
+    that is a subset of the existing one, selected from the declared
+    `review_phase` in `work/review_run_trace.json`, with the existing set as the
+    default when no phase is declared. Language selection and the diacritics rule
+    stay exactly as they are; only the section requirement moves.
+  - Add an early-phase output shape to the feedback skill beside the existing one:
+    which sections are written, which are omitted outright rather than filled with
+    a placeholder, and a priority cap so an early round cannot ship a full
+    late-phase action list.
+  - State in the skill that the shape follows the declared phase rather than the
+    agent's impression of the draft, and that a role Slice 3 defers must not
+    reappear as a feedback item.
+  - Keep the iteration rules intact: an early second round still compares against
+    the previous round and still must not repeat addressed feedback.
+  - In the reviewer skill, add the check that the shape matches the declared phase
+    and that no deferred role's findings leaked into the feedback.
+  - Tests: an early-shape Czech feedback file passes with a declared early phase
+    and fails without one; a late-shape file still passes as today; an early file
+    missing a heading the early set requires fails; and the diacritics and
+    language checks behave identically in both phases.
+  - Note the two shapes in `docs/operator-reference.md`.
+- Out of scope: any change to the late-phase heading set or shape;
+  `outputs/feedback_student.md` as a path; the feedback-language selection
+  contract; and the operator reading-pass intake, which is Slice 5.
+- Verification:
+  - `pants test tests/test_feedback_shape.py`
+  - `scripts/smoke-feedback-output`
+  - `scripts/smoke-feedback-language`
+  - `scripts/check-scripts`
+  - `python3 tests/test_plan_contract.py`
 
 ### Slice 5 - Operator reading-pass intake
 
