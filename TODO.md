@@ -129,3 +129,7 @@
    - Consider Zotero-compatible import/export formats such as BibTeX/RIS/CSL JSON for operator handoff.
    - Keep downloaded papers, metadata cache, and derived evidence inside the ignored case workspace.
    - Preserve the manual `thesis-literature-citation-review` workflow as the source of judgment.
+- [ ] Make the plan contract reject a duplicated section sequence.
+   - A scripted edit that resolved a section boundary against the first textual match duplicated an entire plan body, and `tests/test_plan_contract.py` still passed: the required headings were all present, so the second copy read as valid.
+   - Assert each required top-level heading appears exactly once, and that no slice heading repeats, so the next scripted edit cannot leave two authoritative copies of one charter.
+   - Keep it deterministic and structural; this is heading arithmetic, not prose analysis.

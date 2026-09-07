@@ -5,12 +5,14 @@ Created: 2026-09-07
 
 ## Start Here
 
-State: Slices 1 and 2 are done. The season gate is unblocked, an
-operator-declared review phase travels end to end, and supervisor-report
-calibration exists at version 5, reviewed with notes. Slices 3-7 are stubs.
+State: Slices 1 to 4 are done. The season gate is unblocked, an
+operator-declared review phase travels from `review-round-start` into
+materiality, coverage, closeout and both feedback checkers, the early phase
+defers three late-phase roles and detects a predecessor round, and early student
+feedback has its own six-section shape. Slices 5 to 7 are stubs.
 
-Next action: write the Slice 3 charter (early-phase role set, plus revision diff
-for rounds with a predecessor) and review it before implementing.
+Next action: Slices 5 and 6 carry full charters. Review both in one round before
+implementing either.
 
 Do not read: the retrospective's per-case detail or the review transcripts.
 Their conclusions are in `## Audit Base` and `## Decision Log`.
@@ -308,28 +310,244 @@ further down.
 
 ### Slice 5 - Operator reading-pass intake
 
-Charter form: stub
-
-Objective: one tracked template and one wired round path for the operator's
-dictated reading pass, each note carrying an evidence answer and a routing
-decision, replacing three ad-hoc filenames.
-
-Boundary: supervisor track and raw reading notes only; opponent pre-draft
-calibration stance and routing stay with the methodology plan.
-
-Serves: the largest unshaped operator input measured.
+- Status: charter
+- Proposed commit message: `Give the operator reading pass one template and one wired round path`
+- Why: `## Audit Base` measured three rounds carrying a pre-draft reading pass
+  under three different filenames at 14-31 KB each, one of them the unrelated
+  `notes/opponent-report-review-intake.md` template pressed into service. It is
+  the largest unshaped operator input of the season, and the workflow does not
+  know the file exists: it reaches no packet, no evidence snapshot, no leak
+  pattern and no privacy pattern. The opponent track has a wired post-draft
+  surface in `notes/opponent-report-operator-feedback.md`; the supervisor
+  pre-draft reading pass has no equivalent. The notes are also not hand-written
+  prose but dictation an agent formalized, so a fixed shape costs the operator
+  nothing.
+- Expected paths: `templates/supervisor-reading-pass-intake.md`,
+  `src/thesis_review_workflow/paths.py`,
+  `src/thesis_review_workflow/structured_evidence.py`,
+  `src/thesis_review_workflow/review_delta.py`,
+  `src/thesis_review_workflow/cli/check_supervisor_reading_pass.py`,
+  `src/thesis_review_workflow/cli/check_supervisor_ready.py`,
+  `src/thesis_review_workflow/cli/check_feedback_output.py`,
+  `src/thesis_review_workflow/cli/check_opponent_materials.py`,
+  `src/thesis_review_workflow/cli/check_private.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
+  `src/thesis_review_workflow/commands.py`,
+  `src/thesis_review_workflow/cli/BUILD`, `scripts/check-supervisor-reading-pass`,
+  `scripts/BUILD`, `tests/test_supervisor_reading_pass.py`,
+  `tests/test_supervisor_ready.py`, `tests/test_check_private.py`,
+  `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
+  `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`,
+  `docs/operator-reference.md`, `docs/workflow-command-surface.md`
+- Tasks:
+  - Add `templates/supervisor-reading-pass-intake.md`: a metadata block naming the
+    artifact read, the date, whether the notes were dictated, the coverage and
+    what was not read, then repeated `###` observation blocks under one
+    `## Poznamky` heading, each carrying `Pozorovani:`, `Evidence:` and
+    `Routing:`. Match the ASCII-Czech label style of the existing supervisor
+    templates.
+  - Follow the `templates/supervisor-report-intake.md` model: the template is
+    created on demand and named by a "create it from" message. Do NOT add it to
+    the unconditional template list in `cli/import_round.py`; `## Audit Base`
+    measured 13 rounds carrying a byte-identical unfilled template, and Slice 7
+    owns that.
+  - Own the round path and the routing enum once, in `paths.py`, the only module
+    every consumer below already imports: the path
+    `notes/supervisor-reading-pass.md` and the four routing values
+    `student_feedback`, `internal_only`, `verify_first`, `discard`.
+  - Keep the template basename distinct from the round basename, as
+    `templates/supervisor-report-intake.md` already is from
+    `notes/supervisor-report-operator-input.md`. The `templates/` exception in
+    `check_private.allowed_sensitive_tracked` covers only `is_sensitive_artifact`;
+    the private-markdown check has no exception, so a tracked template sharing the
+    round basename would fail `check-private`.
+  - Add `scripts/check-supervisor-reading-pass` with its `cli` module, registered
+    in `scripts/BUILD`, `cli/BUILD` and `commands.py`. An absent file exits 0
+    with one line saying a round without a reading pass is valid. A present file
+    is validated structurally: the metadata labels exist, there is at least one
+    observation block, every block carries all three labels, `Routing:` holds one
+    of the four values, `Evidence:` is not a generic filler, and a block whose
+    evidence is the explicit unverified token must route to `verify_first` or
+    `discard`.
+  - Chain the checker from `check-supervisor-ready` after `check-round-ready` and
+    `supervisor-deadline`, so a malformed reading pass fails the gate the skill
+    already runs while a missing one does not block anything.
+  - Wire the path into every consumer that already carries the opponent-side
+    operator note, each a separate failure if missed:
+    `structured_evidence.CURRENT_EVIDENCE_DEFAULT_SOURCE_REFS`,
+    `review_delta.APPEND_ONLY_OPERATOR_NOTE_REFS`,
+    `check_feedback_output.INTERNAL_PATTERNS`,
+    `check_opponent_materials.INTERNAL_WORKFLOW_PATTERNS` and
+    `check_private.PRIVATE_MARKDOWN_RE`. The opponent-side leak list is included
+    because both existing lists already carry `supervisor-intake.md`: a private
+    filename leaking into any sendable artifact is the same defect.
+  - Add the binding test that makes the sweep mechanical: one test asserts the
+    owned path appears in each of those five consumers, so a sixth consumer
+    cannot be added without it. This is the Slice 3 and Slice 4 lesson in
+    executable form.
+  - Skills: `thesis-supervisor-feedback` reads the reading pass in the step that
+    already reads `notes/supervisor-intake.md`, and its routing is binding in
+    three ways: a `student_feedback` item may become a student-facing action item
+    directly; a `verify_first` item may become one only after the claim is
+    confirmed against the authoritative artifact, and the confirming anchor
+    replaces the unverified token in the reading pass, which is what makes the
+    upgrade visible rather than implicit; an unconfirmable `verify_first` item and
+    every `internal_only` or `discard` item never reach the student output.
+    `thesis-supervisor-feedback-review` verifies the routing was honored and that
+    no student-facing item traces to an item still carrying the unverified
+    token.
+  - Docs: `docs/workflow-command-surface.md` gains the command and its Windows
+    launcher, `docs/operator-reference.md` the path, the template, the enum and
+    the optional-but-validated-when-present contract.
+  - Tests: the validator passes on an absent file and on a minimal valid pass,
+    and fails on a missing label, an unknown routing value, a generic evidence
+    cell, and an unverified evidence token routed to `student_feedback`;
+    `check-supervisor-ready` fails on a malformed pass and is unaffected by a
+    missing one; the tracked template passes `check-private` while a round-path
+    copy of the same content is rejected.
+- Out of scope: detecting the season's three legacy filenames, because
+  case-derived names must not become an active workflow rule and one of them is
+  a real template; the opponent pre-draft calibration stance, owned by
+  `plans/opponent_methodology_pipeline_plan.md`; any change to
+  `notes/opponent-report-operator-feedback.md` or to
+  `scripts/record-review-delta`; per-round scaffolding of the new template,
+  owned by Slice 7; making the reading pass a required input; and a smoke script,
+  since the validator is covered by pytest and no per-check smoke parity exists.
+- Verification:
+  - `pants test tests/test_supervisor_reading_pass.py tests/test_supervisor_ready.py`
+  - `pants test tests/test_check_private.py tests/test_structured_evidence.py`
+  - `pants test tests/test_review_delta.py tests/test_feedback_shape.py`
+  - `pants test tests/test_check_scripts_contracts.py tests/test_workflow_python_contracts.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
+  - `scripts/check-supervisor-reading-pass --help`
+  - `scripts/smoke-feedback-output`
+  - `scripts/smoke-case-doctor`
+  - `scripts/check-scripts`
+  - `scripts/check-tooling`
+  - `scripts/check-private`
+  - `python3 tests/test_plan_contract.py`
 
 ### Slice 6 - Early code surface
 
-Charter form: stub
-
-Objective: make the existing GitHub intake the discoverable default code path
-for rounds with no submitted archive or code directory.
-
-Boundary: no new intake capability and no change to
-`scripts/prepare-code-workspace`; PR-contribution depth stays in `TODO.md`.
-
-Serves: early rounds, where a submitted archive does not yet exist.
+- Status: charter
+- Proposed commit message: `Declare a GitHub-only code source and make the intake its next action`
+- Why: `## Audit Base` measured GitHub intake in 4 rounds while code quality ran
+  in 26, and established the capability is not missing:
+  `cli/import_github_code.py` already clones a standalone repository, records the
+  selected ref and records a live-ref limitation. The gap is what an early round
+  declares. `review_materiality.github_structured_refs` marks `github_intake`
+  material only once `inputs/github` or `work/github-intake` exists, and
+  `code_consistency` and `code_quality` only once a prepared workspace exists. So
+  a round whose only code is a live repository is silent - no material role, no
+  next action, no typed limitation - and `scripts/prepare-code-workspace` finds
+  nothing to say. Early rounds are exactly that shape, because a submitted
+  archive does not exist yet.
+- Expected paths: `src/thesis_review_workflow/review_materiality.py`,
+  `src/thesis_review_workflow/review_pipeline_orchestration.py`,
+  `src/thesis_review_workflow/code_workspace.py`,
+  `src/thesis_review_workflow/cli/review_round_start.py`,
+  `src/thesis_review_workflow/cli/prepare_review_round.py`,
+  `src/thesis_review_workflow/cli/review_round_closeout.py`,
+  `src/thesis_review_workflow/cli/prepare_code_workspace.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
+  `tests/test_review_materiality.py`,
+  `tests/test_review_pipeline_orchestration.py`,
+  `tests/test_review_round_closeout.py`, `tests/test_case_doctor_summary.py`,
+  `docs/operator-reference.md`, `docs/agent-profile-matrix.md`,
+  `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
+  `.agents/skills/thesis-github-code-intake/SKILL.md`
+- Tasks:
+  - Add `--code-source {auto,github}` to `review-round-start` and
+    `prepare-review-round`, with `auto` the default meaning undeclared, mirroring
+    `--review-phase`. Only values that change behavior exist: the Slice 2 review
+    found an added enum value with no reachable behavior, and `archive` and
+    `none` would be exactly that, since evidence detection already covers an
+    archive and a round with no code already produces no code roles.
+  - Carry it as the round-level trace field `code_source` beside `review_phase`,
+    through `build_review_run_trace_payload` and
+    `validate_review_run_trace_payload`. Unlike the phase it applies to every
+    profile - a GitHub-only submission is not specific to supervisor feedback -
+    so it gets no out-of-scope rejection guard.
+  - One owner: `declared_code_source_from_trace` in `review_materiality.py`,
+    beside `declared_review_phase_from_trace`, with the same contract that an
+    undeclared value is the documented default and not an error.
+  - Resolve flag-or-trace once and re-emit the value in the recorded invocation,
+    in the closeout recovery command, and through closeout's schema-mismatch
+    trace rebuild - the three places where the Slice 2 review found
+    `review_phase` erased.
+  - Materiality: when the declared source is `github` and
+    `github_structured_refs` is empty, mark `github_intake` material with scope
+    `declared_github_code_source` and the synthetic source ref
+    `code-source:github`, adding that prefix to `ALLOWED_SYNTHETIC_REFS`. The
+    existing `github_intake` entry in `NEXT_ACTION_CONFIG` already carries the
+    `import-github-code` command and the `thesis-github-code-intake` skill, so
+    the next action comes from the machinery that exists.
+  - Charter the consequence rather than calling this discoverability. Reused
+    next actions are built with `severity="required"`, `review_wave_gate` turns
+    an unresolved one into a wave error, and
+    `cli/supervisor_report_closeout.py` blocks on unresolved final actions. So a
+    declared `github` round cannot pass its wave or close until either the intake
+    artifact exists or an accepted typed limitation with scope `github_intake` is
+    recorded. That is the intended discipline - a declaration the operator made
+    and then ignored should not pass silently - and the escape already exists, so
+    this slice adds no new escape hatch. It also means the declaration must not
+    be made casually on a late round.
+  - Leave `code_consistency` and `code_quality` declaration-independent. Making
+    them material on a declaration alone would make
+    `review_pipeline_orchestration.code_bearing_contract` block a round whose
+    code has not been fetched yet, which inverts the intent.
+  - Close the empty-preparation trap that would otherwise defeat that premise.
+    `code_workspace.prepare_workspace` calls `write_workspace_manifest` and
+    `write_report` unconditionally, so a run that prepares zero sources still
+    creates `work/code/.prepare-code-workspace-manifest.json` and
+    `work/code_workspace.md` - two of the three `CODE_WORKSPACE_PATHS` markers
+    materiality tests with a bare existence check. Today that already makes both
+    code roles material with no code present; on a GitHub-only round it is the
+    operator's first move. Give `code_workspace.py` one exported predicate over
+    the manifest's recorded sources - the module already exposes
+    `manifest_sources` and `workspace_source_fingerprint_records` - and have
+    `review_materiality` require it instead of bare existence.
+    `code_workspace.py` imports no module that imports materiality, so the
+    direction is cycle-free.
+  - `prepare-code-workspace`: when it prepares no source, print the declared code
+    source when there is one and the `import-github-code` pointer either way,
+    instead of ending with no next step. The behavior lives in
+    `code_workspace.py`; `cli/prepare_code_workspace.py` only forwards to it.
+  - `case-doctor`: report the declared code source beside the existing
+    code-evidence line, so the read-only snapshot shows a declaration that has
+    not been acted on.
+  - Docs and skills: `docs/operator-reference.md` documents the flag and that a
+    live repository ref is a moving target rather than a submitted artifact,
+    `docs/agent-profile-matrix.md` records the new `github_intake` trigger, and
+    the code step of `thesis-supervisor-feedback` plus
+    `thesis-github-code-intake` name the declaration.
+  - Tests: a declared `github` with no evidence makes `github_intake` material
+    and produces its unresolved next action, the wave gate reports it as an
+    error, and an accepted typed limitation with scope `github_intake` clears
+    both; a declaration alongside existing GitHub evidence changes nothing;
+    `code_consistency` and `code_quality` stay non-material after a
+    zero-source `prepare-code-workspace` run while a run with one prepared source
+    still makes them material and keeps `code_bearing_contract` satisfied; a
+    flagless rerun preserves the value; closeout's rebuild preserves it; the
+    trace validator rejects an unknown value; and the dry-run CLI writes it to
+    disk.
+- Out of scope: PR-contribution depth, which `TODO.md` owns; any change to
+  `cli/import_github_code.py` or to `scripts/prepare-code-workspace`'s copying
+  and unpacking; a second intake design; and archive-versus-GitHub authority,
+  which `AGENTS.md` already settles.
+- Verification:
+  - `pants test tests/test_review_materiality.py tests/test_review_pipeline_orchestration.py`
+  - `pants test tests/test_review_round_closeout.py tests/test_case_doctor_summary.py`
+  - `pants test tests/test_agent_coverage.py tests/test_github_intake.py`
+  - `pants test tests/test_review_wave_gate.py tests/test_code_reproducibility.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
+  - `scripts/smoke-prepare-review-round`
+  - `scripts/smoke-prepare-code-workspace`
+  - `scripts/smoke-github-code-intake`
+  - `scripts/smoke-review-round-closeout`
+  - `scripts/smoke-case-doctor`
+  - `scripts/check-scripts`
+  - `python3 tests/test_plan_contract.py`
 
 ### Slice 7 - Round scaffolding and input ergonomics
 
@@ -345,21 +563,25 @@ Serves: every round of the new season.
 
 ## Progress
 
-Slice 2 is done: 2026/2027 BP and DP deadline rows, an `early` materiality
-phase, and a `review_phase` carrier from `review-round-start` through the run
-trace into the materiality refresh, scoped to `supervisor_feedback`. Its
-verification block ran green, including `pants run :omen` (grade A, 0 critical).
-Three review rounds are adjudicated in `## Decision Log`: the plan-critic round,
-its narrow re-check, and the implementation review.
+Slices 1 to 4 are done. Slice 1 produced a supervisor-report calibration profile
+at version 5, `reviewed_with_notes`, gated to BP reports in the A and B bands and
+backed by a deterministic correction ledger; its calibration content is seven
+correction patterns, seven of eight carrying a counter-attestation, and the
+private profile layer carries only a pointer. Slice 2 added the 2026/2027 BP and
+DP deadline rows and the `review_phase` carrier from `review-round-start` through
+the run trace into the materiality refresh. Slice 3 deferred `typography_formal`,
+`literature_citation` and `figure_media` in the early phase, kept both code roles
+mandatory, and made a predecessor round visible as `revision_diff` materiality.
+Slice 4 gave early student feedback a six-section heading contract, dropped the
+checklist requirement and capped priorities at five rows and two `P0`, enforced
+by both feedback checkers.
 
-Slice 1 is done. The calibration profile is version 5, `reviewed_with_notes`,
-gated to BP reports in the A and B bands, and backed by a deterministic
-correction ledger rather than hand-counted prose. Its calibration content is
-seven correction patterns, seven of eight carrying a counter-attestation. The
-private profile layer carries only a pointer. All four operator questions are
-answered; two skill questions the reviewer raised are recorded for the operator.
-Slices 3-7 remain stubs; Slice 3 needs a full charter and a charter review before
-implementation.
+Every slice's verification block ran green, including `pants run :omen` for
+Slice 2 (grade A, 0 critical). Eleven review rounds are adjudicated in
+`## Decision Log`.
+
+Slices 5 and 6 carry full charters and are awaiting one shared charter review.
+Slice 7 remains a stub.
 
 ## Decision Log
 
@@ -575,6 +797,27 @@ Decision: version 1 is `reviewed_with_notes` and applicability-gated; the privat
 layer carries only a pointer. Why: a corpus that cannot separate house style from
 a one-off instruction must not become an always-on preference. Residual risk:
 four operator questions are recorded in the review rather than answered.
+
+### 2026-09-07 - Charter round for Slices 5 and 6: five findings, all accepted
+
+Trigger: one `plan-critic` round over both charters, `changes_required`; every
+finding reproduced against the tree.
+
+- P1 the private-markdown check has no `templates/` exception, so a template
+  sharing the round basename fails `check-private`. Renamed with `-intake`.
+- P2 the GitHub declaration is not discoverability: reused next actions carry
+  `severity="required"`, so a declared round is blocked by the wave gate and by
+  supervisor-report closeout until the intake exists or a typed limitation is
+  accepted. Kept, now chartered as enforcement with its existing escape.
+- P2 a zero-source `prepare-code-workspace` run already writes two of the three
+  markers materiality tests by existence, making both code roles material with no
+  code. Slice 6 closes it, keyed on the manifest's sources.
+- P2 `verify_first` had no successful outcome; verification now upgrades the item
+  by replacing the unverified token with the confirming anchor. P3 my Progress
+  edit duplicated the plan body, matching its mention in `## Start Here`.
+
+Decision: all five accepted, three changing what gets built. Why: each was
+reproducible. The lint gap that let a duplicated body pass goes to `TODO.md`.
 
 ## Final Audit
 
