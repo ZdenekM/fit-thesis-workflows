@@ -18,11 +18,14 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import run_step
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_RUN_TRACE_REL,
     build_review_role_plan_payload,
+    declared_review_phase_from_trace,
     packet_contract_for_profile,
+    reject_out_of_scope_review_phase,
 )
 from thesis_review_workflow.review_profiles import get_workflow_review_profile, profiles_by_id
 
@@ -42,6 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile",
         choices=sorted(profiles_by_id()),
         help=f"Workflow review profile. Defaults to {REVIEW_RUN_TRACE_REL} when present.",
+    )
+    parser.add_argument(
+        "--phase",
+        choices=sorted(DECLARABLE_PHASES),
+        default=None,
+        help=(
+            f"operator-declared review phase for the materiality refresh. Defaults to "
+            f"review_phase in {REVIEW_RUN_TRACE_REL} when present; pass it here for a round whose "
+            "trace predates that field."
+        ),
     )
     parser.add_argument("--skip-ready-check", action="store_true")
     parser.add_argument("--skip-materiality-check", action="store_true")
@@ -103,6 +116,7 @@ def refresh_materiality_before_packets(
     case_id: str,
     round_id: str,
     skip_materiality_check: bool,
+    declared_phase: str | None,
 ) -> bool:
     if skip_materiality_check:
         return False
@@ -122,6 +136,8 @@ def refresh_materiality_before_packets(
     command = ["check-review-materiality", "--workflow", materiality_profile]
     if profile_id == "supervisor_report":
         command.extend(["--phase", "final"])
+    elif declared_phase is not None and materiality_profile == "supervisor_feedback":
+        command.extend(["--phase", declared_phase])
     command.extend([case_id, round_id])
     materiality = run_step(root, "review materiality", command)
     if materiality.output:
@@ -178,6 +194,10 @@ def main(argv: list[str] | None = None) -> int:
     if profile_id is None:
         print(f"ERROR: --profile is required when {REVIEW_RUN_TRACE_REL} is missing or unreadable", file=sys.stderr)
         return 2
+    phase_error = reject_out_of_scope_review_phase(profile_id, args.phase, option="--phase")
+    if phase_error is not None:
+        print(f"ERROR: {phase_error}", file=sys.stderr)
+        return 2
 
     try:
         packet_command_args(args, profile_id=profile_id, case_id=args.case_id, round_id=round_id)
@@ -187,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
             case_id=args.case_id,
             round_id=round_id,
             skip_materiality_check=args.skip_materiality_check,
+            declared_phase=args.phase or declared_review_phase_from_trace(round_dir),
         )
         command_args = packet_command_args(
             args,

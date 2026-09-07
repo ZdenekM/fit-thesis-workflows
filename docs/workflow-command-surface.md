@@ -71,7 +71,10 @@ these are not Codex agent profiles. The command deliberately stops at the
 `work/review_role_plan.json`.
 
 `prepare-review-round` is the next deterministic boundary. It reads the
-`review-round-start` trace, delegates packet emission to the existing
+`review-round-start` trace — including the operator-declared `review_phase`,
+which it forwards to the materiality refresh for the `supervisor_feedback`
+profile only, with `--phase` as the override for a trace that predates the field
+— delegates packet emission to the existing
 profile-specific packet command, and writes `work/review_role_plan.json` with
 role states, packet refs, bounded wave schedule, materiality next-action states,
 reuse projection, and code-bearing role coverage. It prepares files for the

@@ -2,6 +2,7 @@ python_tests(
     name="tests",
     dependencies=[
         "//.claude/hooks:hooks",
+        "//config:deadline_config",
         "//plans:plan_documents",
         "//:agent_profile_registry_metadata",
         "//:codex_agent_profile_metadata",

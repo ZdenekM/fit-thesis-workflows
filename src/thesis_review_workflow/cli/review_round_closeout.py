@@ -27,6 +27,7 @@ from thesis_review_workflow.commands import (
     run_step,
 )
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
@@ -34,6 +35,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_SCHEMA,
     ReviewRunTraceEvent,
     closeout_wave_for_profile,
+    declared_review_phase_from_trace,
     load_review_role_plan,
     validate_review_role_plan_payload,
     validate_review_run_trace_payload,
@@ -127,8 +129,19 @@ def prepare_review_round_command(
     return command
 
 
-def review_round_start_command(profile_id: str, case_id: str, round_id: str) -> list[str]:
-    return ["scripts/review-round-start", "--profile", profile_id, case_id, round_id]
+def review_round_start_command(
+    profile_id: str,
+    case_id: str,
+    round_id: str,
+    review_phase: str | None = None,
+) -> list[str]:
+    command = ["scripts/review-round-start", "--profile", profile_id]
+    if review_phase is not None:
+        # Rerunning without the flag would erase the declaration, so the recovery command
+        # this closeout prints must carry it.
+        command.extend(["--review-phase", review_phase])
+    command.extend([case_id, round_id])
+    return command
 
 
 def logical_command_args(command: list[str]) -> list[str]:
@@ -348,7 +361,9 @@ def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, pro
             if loaded.get(field) != expected:
                 errors.append(f"{rel_path} records {field}={loaded.get(field)!r}, expected {expected!r}")
     if errors:
-        start_command = review_round_start_command(profile_id, case_id, round_id)
+        start_command = review_round_start_command(
+            profile_id, case_id, round_id, declared_review_phase_from_trace(round_dir)
+        )
         prepare_command = prepare_review_round_command(profile_id, case_id, round_id)
         recovery = [
             "Regenerate the profile transition artifacts before closeout mutates manifest state:",
@@ -702,6 +717,9 @@ def append_closeout_trace(
             "trace_path": REVIEW_RUN_TRACE_REL,
             "events": [event.to_json()],
         }
+        rebuilt_phase = loaded.get("review_phase") if isinstance(loaded, dict) else None
+        if isinstance(rebuilt_phase, str) and rebuilt_phase in DECLARABLE_PHASES:
+            payload["review_phase"] = rebuilt_phase
     errors = validate_review_run_trace_payload(payload)
     if errors:
         raise ValueError("; ".join(errors))

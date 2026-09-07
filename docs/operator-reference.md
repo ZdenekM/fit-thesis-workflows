@@ -176,7 +176,10 @@ review deltu podle profilu.
 ## Povinné Gate Před Generováním
 
 Před studentskou zpětnou vazbou od vedoucího agent spouští
-`check-supervisor-ready <case-id> [round-id]`. Brána ověřuje zadání, deadline
+`check-supervisor-ready <case-id> [round-id]`. Před začátkem každé sezóny musí
+mít `config/supervisor-deadlines.tsv` řádky pro nový akademický rok se všemi
+sloupci; bez nich brána selže a prázdný `recommended_finish` tiše přesune
+kalibraci na pozdější oficiální termín. Brána ověřuje zadání, deadline
 kontext a reviewer profile. Před draftingem má také ověřit konfiguraci jazyka
 feedbacku přes `check-feedback-language --config-only <case-id> [round-id]`.
 Když některá brána selže, agent nemá psát sendable feedback a má si vyžádat
@@ -197,9 +200,17 @@ kostra je:
 
 1. `review-round-start --profile <workflow-profile> <case-id> [round-id]`
    zaregistruje aktuální materiály, obnoví evidence snapshot a zapíše
-   `work/review_run_trace.json`.
+   `work/review_run_trace.json`. U zpětné vazby vedoucího deklarujte fázi práce
+   přes `--review-phase early|non_final|final`; uloží se do trace jako
+   `review_phase` a `prepare-review-round` ji předá materiality refreshi.
+   Vlastní role sadu pro `early` zavede až navazující slice, takže dnes se
+   `early` chová jako `non_final`. Fáze se nikdy neodvozuje z obsahu roundu:
+   bez deklarace platí `non_final` a opakované spuštění bez příznaku deklaraci
+   nesmaže. Příznak platí jen pro `supervisor_feedback`; oponentní a reportové
+   profily jsou vždy finální a příznak odmítnou. Closeout gate běží na `final`.
 2. `prepare-review-round --profile <workflow-profile> <case-id> [round-id]`
-   připraví role packets a `work/review_role_plan.json`.
+   připraví role packets a `work/review_role_plan.json`. Pro round, jehož trace
+   je starší než pole `review_phase`, lze fázi předat přes `--phase`.
 3. Parent agent spustí autorizované role agenty podle plánu a po hlavních
    vlnách použije příslušné `check-review-wave` gate.
 4. Po syntéze a nezávislém review se workflow zavře přes

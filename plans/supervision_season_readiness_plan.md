@@ -1,17 +1,18 @@
 # Supervision Season Readiness Plan
 
-Status: planned
+Status: in_progress
 Created: 2026-09-07
 
 ## Start Here
 
-State: not started, one plan-critic round adjudicated (`## Decision Log`).
-Slices 1-2 carry full charters; Slices 3-7 are stubs.
+State: Slice 2 is done — the season gate is unblocked and an operator-declared
+review phase travels end to end. Slice 1 waits on explicit agent authorization.
+Slices 3-7 are stubs.
 
-Next action: decide the plan-state conflict in `## Decision Log`, then run
-Slice 1, which uses an existing workflow and writes no code.
+Next action: ask the operator to authorize agents for Slice 1; if they decline
+for now, write the Slice 3 charter and review it before implementing.
 
-Do not read: the retrospective's per-case detail or the review transcript.
+Do not read: the retrospective's per-case detail or the review transcripts.
 Their conclusions are in `## Audit Base` and `## Decision Log`.
 
 ## Goal
@@ -219,55 +220,17 @@ Non-goals:
 
 ### Slice 2 - Carry an explicit early phase end to end, and unblock the season gate
 
-- Status: planned
-- Proposed commit message: `Add 2026/2027 deadlines and carry an explicit early review phase`
-- Why: the readiness gate fails for the new academic year, and the phase that
-  every later slice keys on cannot reach the deterministic layer at all. Adding
-  the enum value without its carrier would produce unreachable code, so the
-  carrier and the enum land together with end-to-end tests.
-- Expected paths: `config/supervisor-deadlines.tsv`,
-  `src/thesis_review_workflow/review_materiality.py`,
-  `src/thesis_review_workflow/review_pipeline_orchestration.py`,
-  `src/thesis_review_workflow/cli/review_round_start.py`,
-  `src/thesis_review_workflow/cli/prepare_review_round.py`,
-  `tests/test_review_materiality.py`,
-  `tests/test_review_pipeline_orchestration.py`,
-  `tests/test_supervisor_ready.py`, `docs/operator-reference.md`,
-  `docs/workflow-command-surface.md`
-- Tasks:
-  - Add 2026/2027 BP and DP rows with every column filled from
-    operator-supplied values: `official_deadline`, `recommended_finish`,
-    `deferred_window`, `notes`. Do not guess or leave a field blank; stop for
-    the operator when a value is unknown, because a blank `recommended_finish`
-    silently retargets calibration to the official deadline.
-  - Add an `early` phase to the materiality phase set and to the
-    `check-review-materiality` argument surface.
-  - Add an explicit review-phase option to `scripts/review-round-start`, persist
-    it as a validated top-level `review_phase` field of
-    `work/review_run_trace.json` — `phase` is already taken by the per-event
-    `review_pipeline_orchestration.py::TracePhase` — and read it in
-    `prepare_review_round.py::refresh_materiality_before_packets` so the
-    materiality refresh passes the declared phase instead of defaulting to
-    `auto`. Keep `supervisor_report` pinned to `final`.
-  - Add a pass-through phase option to `scripts/prepare-review-round` for a
-    round whose trace predates the field.
-  - Extend the tests: `early` is accepted end to end from round start to the
-    materiality decision, an absent field still resolves as today, an unknown
-    phase still errors, and a 2026/2027 case reaches a passing
-    `check-supervisor-ready` with a recommended-finish-based calibration line.
-  - Regenerate the packaged launchers if the command surface changed, and note
-    the new option and the deadline prerequisite in `docs/operator-reference.md`.
-- Out of scope: the early-phase role set (Slice 3), the feedback output shape
-  (Slice 4), inference of the phase from round contents, and any change to how
-  `final` behaves.
-- Verification:
-  - `pants test tests/test_review_materiality.py`
-  - `pants test tests/test_review_pipeline_orchestration.py`
-  - `pants test tests/test_supervisor_ready.py`
-  - `scripts/smoke-prepare-review-round`
-  - `scripts/smoke-review-round-start`
-  - `scripts/check-scripts`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Add 2026/2027 deadlines and carry an explicit early review phase`.
+
+2026/2027 BP and DP deadline rows unblocked `check-supervisor-ready`, and an
+operator-declared `review_phase` now travels from `review-round-start` through
+`work/review_run_trace.json` into the materiality refresh, scoped to
+`supervisor_feedback` and surviving reruns. Full charter in
+`plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: `## Decision Log` entries of 2026-09-07 on the plan-critic round, the
+narrow re-check, and the Slice 2 implementation review.
 
 ### Slice 3 - Early-phase role set
 
@@ -331,11 +294,17 @@ Serves: every round of the new season.
 
 ## Progress
 
-Not started. One plan-critic round plus its narrow re-check are adjudicated
-below and the review chain is closed; Slices 1-2 were re-derived from them and
-from parent verification, and the former Slice 6 was dropped. Slice 1 is next
-and needs no new code. Slice 2 needs one operator input: the full 2026/2027 BP
-and DP deadline rows.
+Slice 2 is done: 2026/2027 BP and DP deadline rows, an `early` materiality
+phase, and a `review_phase` carrier from `review-round-start` through the run
+trace into the materiality refresh, scoped to `supervisor_feedback`. Its
+verification block ran green, including `pants run :omen` (grade A, 0 critical).
+Three review rounds are adjudicated in `## Decision Log`: the plan-critic round,
+its narrow re-check, and the implementation review.
+
+Slice 1 is unstarted and blocked on explicit agent authorization, which
+`AGENTS.md` and its skill both require before a semantic calibration workflow
+reads private supervisor reports. Slices 3-7 remain stubs; Slice 3 needs a full
+charter and a charter review before implementation.
 
 ## Decision Log
 
@@ -432,6 +401,41 @@ across providers. Verdict `changes_required`; every defect reproduced.
 Decision: all fixed in this batch; the chain ends here, no third round. Why: the
 stopping rule caps a chain at one round plus one re-check, and these were prose
 and command exactness, not scope errors.
+
+### 2026-09-07 - This plan takes `in_progress`; Slice 2 runs before Slice 1
+
+Trigger: the operator directed work to this plan and supplied the 2026/2027 BP
+and DP submission dates, which was Slice 2's only missing input.
+
+- The two previously active plans are demoted to `planned`: neither is being
+  executed right now, and the session-start hook blocks plan work while more
+  than one plan claims `in_progress`.
+- Slice 1 runs a semantic calibration workflow over private supervisor reports,
+  which `AGENTS.md` and its skill both gate behind explicit agent authorization
+  in the current request. That authorization has not been given.
+- Slice 2 is deterministic config, code and tests, and Slice 1's dependency on
+  it is soft: its lessons inform Slices 3-4, not Slice 2.
+
+Decision: this plan is `in_progress`, Slice 2 executes first, and Slice 1 waits
+for authorization. Why: the cheapest unblocked slice runs rather than the queue
+stalling on a permission.
+
+Residual risk: assignment authoring shows `planned` while the operator may still
+be writing assignments; one status line flips it back.
+
+### 2026-09-07 - Slice 2 implementation review: seven findings, all fixed
+
+Trigger: independent read-only review of the Slice 2 diff, the Claude-internal round of the
+funnel; the cross-provider round was spent on the plan. Verdict `changes_required`.
+
+- P2 a rerun erased the declaration, because `write_trace` rebuilds the trace and closeout printed a recovery command without the flag: the phase is now resolved once from flag-or-trace and the recovery command carries it.
+- P2 no test covered the CLI-to-trace hop: the dry-run CLI test now asserts `review_phase` on disk, a flagless rerun, and the out-of-scope rejection.
+- P2 a declared phase was forwarded for opponent profiles, overriding their intrinsic `final`: added `reject_out_of_scope_review_phase` plus a materiality-profile guard in the refresh.
+- P3 `early` is behaviorally identical to `non_final` and one assertion was vacuous: the test now asserts that identity so Slice 3 must change it, and the docs no longer claim calibration.
+- P3 closeout's schema-mismatch rebuild dropped the field, the trace's recorded invocation omitted the flag, and no test drove `supervisor-deadline` for the new year: all three fixed.
+
+Decision: all seven fixed in this batch and the chain ends here. Why: five were
+one-line contract fixes and two were test gaps; none changed the slice's shape.
 
 ## Final Audit
 

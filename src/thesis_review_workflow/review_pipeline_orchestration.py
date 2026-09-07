@@ -13,6 +13,7 @@ from thesis_review_workflow.code_quality_omen import CODE_QUALITY_OMEN_REL, load
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import artifact_role_for_role_plan_role
 from thesis_review_workflow.review_materiality import (
+    DECLARABLE_PHASES,
     profile_index_rel,
     role_file_for_profile,
     unresolved_required_next_actions,
@@ -238,6 +239,43 @@ class ReviewRunTraceEvent:
         return payload
 
 
+def reject_out_of_scope_review_phase(profile_id: str, review_phase: str | None, *, option: str) -> str | None:
+    """Return an error message when a review phase is declared for a profile that cannot use it.
+
+    Only the supervisor-feedback materiality profile acts on a declared phase: opponent and
+    supervisor-report rounds are intrinsically final. Silently accepting the flag there would
+    record a phase no role set will ever honor.
+    """
+    if review_phase is None:
+        return None
+    if get_workflow_review_profile(profile_id).effective_materiality_profile == "supervisor_feedback":
+        return None
+    return (
+        f"{option} applies only to the supervisor_feedback materiality profile; "
+        f"profile {profile_id} is intrinsically final"
+    )
+
+
+def declared_review_phase_from_trace(round_dir: Path) -> str | None:
+    """Read the operator-declared review phase from a round's run trace.
+
+    Returns None when no phase was declared, when the trace is absent, or when it is
+    unreadable: an undeclared phase is the documented default, not an error. `auto` is
+    not declarable, so a trace carrying it is treated as undeclared.
+    """
+    path = round_dir / REVIEW_RUN_TRACE_REL
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    phase = loaded.get("review_phase")
+    return phase if isinstance(phase, str) and phase in DECLARABLE_PHASES else None
+
+
 def build_review_run_trace_payload(
     *,
     case_id: str,
@@ -245,9 +283,10 @@ def build_review_run_trace_payload(
     profile_id: str,
     generated_at: str,
     events: tuple[ReviewRunTraceEvent, ...],
+    review_phase: str | None = None,
 ) -> dict[str, Any]:
     profile = get_workflow_review_profile(profile_id)
-    payload = {
+    payload: dict[str, Any] = {
         "schema_version": REVIEW_RUN_TRACE_SCHEMA,
         "case_id": case_id,
         "round_id": round_id,
@@ -259,6 +298,11 @@ def build_review_run_trace_payload(
         "trace_path": REVIEW_RUN_TRACE_REL,
         "events": [event.to_json() for event in events],
     }
+    # The operator-declared review phase is a round-level fact, not a per-event one: the
+    # per-event `phase` field is the pipeline stage (`TracePhase`). Absent when not declared,
+    # so a round that never declared one keeps its existing trace shape.
+    if review_phase is not None:
+        payload["review_phase"] = review_phase
     errors = validate_review_run_trace_payload(payload)
     if errors:
         raise ValueError("; ".join(errors))
@@ -1423,6 +1467,8 @@ def validate_review_run_trace_payload(payload: dict[str, Any]) -> list[str]:
     trace_path = payload.get("trace_path")
     if trace_path != REVIEW_RUN_TRACE_REL:
         errors.append(f"trace_path must be {REVIEW_RUN_TRACE_REL}")
+    if "review_phase" in payload and payload.get("review_phase") not in DECLARABLE_PHASES:
+        errors.append(f"review_phase must be one of {sorted(DECLARABLE_PHASES)} when present")
     profile_id = payload.get("profile_id")
     if isinstance(profile_id, str) and profile_id.strip():
         try:

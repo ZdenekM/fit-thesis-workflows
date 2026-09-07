@@ -24,6 +24,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import Step, run_step
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo, resolve_caller_path
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_REL,
     ReviewRunTraceEvent,
@@ -31,7 +32,9 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     RoundStartAction,
     TracePhase,
     build_review_run_trace_payload,
+    declared_review_phase_from_trace,
     plan_review_round_start,
+    reject_out_of_scope_review_phase,
 )
 from thesis_review_workflow.review_profiles import profiles_by_id
 from thesis_review_workflow.submission_bundle import (
@@ -112,6 +115,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=BundleExpansionLimits.max_file_bytes,
         help="Maximum single file size for automatic work/submission_bundle expansion.",
+    )
+    parser.add_argument(
+        "--review-phase",
+        choices=sorted(DECLARABLE_PHASES),
+        default=None,
+        help=(
+            "operator-declared thesis review phase for this round; recorded in the run trace and "
+            "used by the materiality refresh. Never inferred from round contents."
+        ),
     )
     parser.add_argument(
         "--metadata",
@@ -240,6 +252,7 @@ def write_trace(
     profile_id: str,
     generated_at: str,
     events: list[ReviewRunTraceEvent],
+    review_phase: str | None = None,
 ) -> Path:
     target = round_dir / REVIEW_RUN_TRACE_REL
     ensure_private_trace_target(root, target)
@@ -249,6 +262,7 @@ def write_trace(
         profile_id=profile_id,
         generated_at=generated_at,
         events=tuple(events),
+        review_phase=review_phase,
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -456,6 +470,11 @@ def run_round_start(argv: list[str]) -> int:
     if args.round_id is not None:
         validate_id("ROUND_ID", args.round_id, stderr=True)
 
+    phase_error = reject_out_of_scope_review_phase(args.profile, args.review_phase, option="--review-phase")
+    if phase_error is not None:
+        print(f"ERROR: {phase_error}", file=sys.stderr)
+        return 2
+
     try:
         fields = metadata_fields(args.metadata, args.metadata_file)
     except (OSError, UnicodeDecodeError, ValueError) as exc:
@@ -487,7 +506,12 @@ def run_round_start(argv: list[str]) -> int:
         metadata_fields=fields,
     )
     generated_at = args.generated_at or utc_now()
+    # A rerun without the flag must not erase an earlier declaration: `write_trace` rebuilds
+    # the trace from scratch, and the recovery commands this repo prints omit the flag.
+    review_phase = args.review_phase or declared_review_phase_from_trace(round_dir)
     invocation = f"review-round-start --profile {args.profile} {args.case_id} {round_id}"
+    if review_phase is not None:
+        invocation += f" --review-phase {review_phase}"
     if args.dry_run:
         invocation += " --dry-run"
     events: list[ReviewRunTraceEvent] = [
@@ -523,6 +547,7 @@ def run_round_start(argv: list[str]) -> int:
             profile_id=args.profile,
             generated_at=generated_at,
             events=events,
+            review_phase=review_phase,
         )
         for blocker in plan.blockers:
             print(f"BLOCKER: {blocker.code}: {blocker.message}", file=sys.stderr)
@@ -537,6 +562,7 @@ def run_round_start(argv: list[str]) -> int:
             profile_id=args.profile,
             generated_at=generated_at,
             events=events,
+            review_phase=review_phase,
         )
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -563,6 +589,7 @@ def run_round_start(argv: list[str]) -> int:
                 profile_id=args.profile,
                 generated_at=generated_at,
                 events=events,
+                review_phase=review_phase,
             )
             print(f"SKIP {action.action_id}: dry run")
             continue
@@ -584,6 +611,7 @@ def run_round_start(argv: list[str]) -> int:
                 profile_id=args.profile,
                 generated_at=generated_at,
                 events=events,
+                review_phase=review_phase,
             )
 
         try:
@@ -618,6 +646,7 @@ def run_round_start(argv: list[str]) -> int:
             profile_id=args.profile,
             generated_at=generated_at,
             events=events,
+            review_phase=review_phase,
         )
         print(f"{executed.status.upper()} {action.action_id}")
         if executed.status == "failed":

@@ -386,6 +386,65 @@ def test_final_supervisor_phase_marks_typography_material(tmp_path: Path) -> Non
     assert "literature_citation" not in roles
 
 
+def test_declared_early_phase_is_recorded_and_not_yet_behavioral(tmp_path: Path) -> None:
+    """`early` is carried and recorded; the role set that acts on it is Slice 3 of
+    `plans/supervision_season_readiness_plan.md`. This asserts the current identity with
+    `non_final` on purpose, so the slice that differentiates them has to change this test
+    rather than silently leave the phase inert.
+    """
+    round_dir = make_round(tmp_path)
+
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+
+    assert errors == []
+    assert phase == "early"
+    assert {decision.role: decision.material for decision in decisions} == {
+        decision.role: decision.material
+        for decision in build_materiality_decisions(
+            round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            workflow_profile="supervisor_feedback",
+            phase="non_final",
+        )[0]
+    }
+
+
+def test_early_phase_is_never_inferred_without_an_operator_declaration(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    _, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert errors == []
+    assert phase == "non_final"
+
+
+def test_unknown_phase_is_still_rejected(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="rana-kostra",
+    )
+
+    assert decisions == []
+    assert errors == ["unknown phase: rana-kostra"]
+
+
 def test_supervisor_auto_phase_does_not_route_from_free_text_notes(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     (round_dir / "notes" / "supervisor-intake.md").write_text(

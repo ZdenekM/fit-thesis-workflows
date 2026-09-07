@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
-from thesis_review_workflow.cli import prepare_review_round, review_round_start
+from thesis_review_workflow.cli import prepare_review_round, review_round_closeout, review_round_start
 from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
@@ -23,6 +23,7 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     build_review_run_trace_payload,
     closeout_wave_for_profile,
     coverage_role_for_packet_role,
+    declared_review_phase_from_trace,
     normalize_metadata_fields,
     plan_review_round_start,
     trace_profile_summary,
@@ -161,6 +162,73 @@ def test_prepare_review_round_skips_legacy_round_ready_for_opponent_report_revie
     assert command == ["prepare-opponent-packets", "case-a", "round-a", "--skip-ready-check"]
 
 
+def test_materiality_refresh_forwards_a_declared_supervisor_phase(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_step(root: Path, label: str, args: list[str]) -> Step:
+        calls.append(args)
+        return Step(label=label, command=args, returncode=0, output="")
+
+    monkeypatch.setattr(prepare_review_round, "run_step", fake_run_step)
+
+    prepare_review_round.refresh_materiality_before_packets(
+        Path("."),
+        profile_id="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+        skip_materiality_check=False,
+        declared_phase="early",
+    )
+
+    assert calls[-1] == [
+        "check-review-materiality",
+        "--workflow",
+        "supervisor_feedback",
+        "--phase",
+        "early",
+        "case-a",
+        "round-a",
+    ]
+
+
+def test_materiality_refresh_keeps_the_supervisor_report_phase_pinned(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_step(root: Path, label: str, args: list[str]) -> Step:
+        calls.append(args)
+        return Step(label=label, command=args, returncode=0, output="")
+
+    monkeypatch.setattr(prepare_review_round, "run_step", fake_run_step)
+
+    prepare_review_round.refresh_materiality_before_packets(
+        Path("."),
+        profile_id="supervisor_report",
+        case_id="case-a",
+        round_id="round-a",
+        skip_materiality_check=False,
+        declared_phase="early",
+    )
+
+    assert calls[-1][:5] == ["check-review-materiality", "--workflow", "supervisor_report", "--phase", "final"]
+
+
+def test_declared_review_phase_is_read_from_the_run_trace(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    trace = round_dir / "work" / "review_run_trace.json"
+
+    assert prepare_review_round.declared_review_phase_from_trace(round_dir) is None
+
+    trace.write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
+    assert prepare_review_round.declared_review_phase_from_trace(round_dir) == "early"
+
+    trace.write_text(json.dumps({"review_phase": "auto"}), encoding="utf-8")
+    assert prepare_review_round.declared_review_phase_from_trace(round_dir) is None
+
+    trace.write_text("{ not json", encoding="utf-8")
+    assert prepare_review_round.declared_review_phase_from_trace(round_dir) is None
+
+
 def test_prepare_review_round_refreshes_materiality_before_packet_generation(monkeypatch) -> None:
     calls: list[list[str]] = []
 
@@ -176,6 +244,7 @@ def test_prepare_review_round_refreshes_materiality_before_packet_generation(mon
         case_id="case-a",
         round_id="round-a",
         skip_materiality_check=False,
+        declared_phase=None,
     )
 
     assert refreshed is True
@@ -253,6 +322,59 @@ def test_trace_payload_is_profile_bound_and_path_oriented() -> None:
     assert payload["workflow_profile"] == "supervisor_feedback"
     assert payload["materiality_profile"] == "supervisor_feedback"
     assert validate_review_run_trace_payload(payload) == []
+
+
+def _trace_event() -> ReviewRunTraceEvent:
+    return ReviewRunTraceEvent(
+        phase="start",
+        status="passed",
+        command="review-round-start --profile supervisor_feedback case-a round-a",
+        output_refs=("work/review_run_trace.json",),
+    )
+
+
+def test_trace_payload_carries_the_declared_review_phase() -> None:
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T12:00:00Z",
+        events=(_trace_event(),),
+        review_phase="early",
+    )
+
+    assert payload["review_phase"] == "early"
+    assert payload["events"][0]["phase"] == "start"
+    assert validate_review_run_trace_payload(payload) == []
+
+
+def test_trace_payload_omits_review_phase_when_none_was_declared() -> None:
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T12:00:00Z",
+        events=(_trace_event(),),
+    )
+
+    assert "review_phase" not in payload
+    assert validate_review_run_trace_payload(payload) == []
+
+
+def test_trace_payload_rejects_an_unknown_or_inferred_review_phase() -> None:
+    for value in ("rana-kostra", "auto"):
+        payload = build_review_run_trace_payload(
+            case_id="case-a",
+            round_id="round-a",
+            profile_id="supervisor_feedback",
+            generated_at="2026-09-07T12:00:00Z",
+            events=(_trace_event(),),
+        )
+        payload["review_phase"] = value
+
+        errors = validate_review_run_trace_payload(payload)
+
+        assert errors == ["review_phase must be one of ['early', 'final', 'non_final'] when present"]
 
 
 def test_trace_payload_rejects_private_or_absolute_paths() -> None:
@@ -1694,6 +1816,8 @@ def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypat
                 "inputs/thesis.pdf",
                 "--metadata",
                 "assignment=First line\\nSecond line",
+                "--review-phase",
+                "early",
                 "--dry-run",
                 "--generated-at",
                 "2026-05-15T12:00:00Z",
@@ -1705,11 +1829,69 @@ def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypat
         trace = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
         assert trace["schema_version"] == REVIEW_RUN_TRACE_SCHEMA
         assert trace["profile_id"] == "supervisor_feedback"
+        assert trace["review_phase"] == "early"
+        assert any("--review-phase early" in event["command"] for event in trace["events"])
         assert trace["generated_at"] == "2026-05-15T12:00:00Z"
         assert any(event["phase"] == "extraction" and event["status"] == "skipped" for event in trace["events"])
         assert any(event["phase"] == "role_plan" and event["status"] == "planned" for event in trace["events"])
+
+        rerun = review_round_start.run_round_start(
+            [
+                "review-round-start",
+                case_id,
+                round_id,
+                "--profile",
+                "supervisor_feedback",
+                "--fresh-materials-expected",
+                "--thesis-pdf",
+                "inputs/thesis.pdf",
+                "--dry-run",
+                "--generated-at",
+                "2026-05-15T13:00:00Z",
+            ]
+        )
+
+        assert rerun == 0
+        reread = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
+        assert reread["review_phase"] == "early", "a rerun without the flag must not erase the declaration"
+
+        rejected = review_round_start.run_round_start(
+            [
+                "review-round-start",
+                case_id,
+                round_id,
+                "--profile",
+                "opponent_materials",
+                "--review-phase",
+                "early",
+                "--dry-run",
+            ]
+        )
+
+        assert rejected == 2
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_review_round_start_command_carries_a_declared_phase_into_recovery(tmp_path: Path) -> None:
+    round_dir = tmp_path / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "work" / "review_run_trace.json").write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
+
+    assert review_round_closeout.review_round_start_command(
+        "supervisor_feedback",
+        "case-a",
+        "round-a",
+        declared_review_phase_from_trace(round_dir),
+    ) == [
+        "scripts/review-round-start",
+        "--profile",
+        "supervisor_feedback",
+        "--review-phase",
+        "early",
+        "case-a",
+        "round-a",
+    ]
 
 
 def test_review_round_start_cli_blocks_unsafe_material_and_records_trace(monkeypatch) -> None:

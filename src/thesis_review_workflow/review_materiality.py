@@ -40,7 +40,10 @@ DECISION_SCHEMA = "review-materiality-decision-v1"
 INDEX_SCHEMA = "review-materiality-index-v1"
 
 WORKFLOW_PROFILES = {"supervisor_feedback", "supervisor_report", "opponent_review"}
-PHASES = {"auto", "non_final", "final"}
+PHASES = {"auto", "early", "non_final", "final"}
+# The phases an operator may declare for a round. `auto` is a request for inference, and
+# `early` is never inferred: only an explicit operator declaration selects it.
+DECLARABLE_PHASES = {"early", "non_final", "final"}
 MATERIALITY_ROLES = (
     "code_consistency",
     "code_quality",
@@ -329,6 +332,13 @@ def github_structured_refs(round_dir: Path) -> list[str]:
 
 
 def infer_phase(round_dir: Path, workflow_profile: str, requested_phase: str) -> str:
+    """Resolve the phase for a round.
+
+    An explicitly requested phase always wins, including the operator-declared `early`
+    phase, which is never inferred from round contents: inferring a thesis phase would
+    mean reading free-form round material, which `AGENTS.md` reserves for authorized
+    agent workflows writing structured artifacts.
+    """
     if requested_phase != "auto":
         return requested_phase
     if workflow_profile in {"opponent_review", "supervisor_report"}:
