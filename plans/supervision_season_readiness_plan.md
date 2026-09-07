@@ -5,12 +5,12 @@ Created: 2026-09-07
 
 ## Start Here
 
-State: Slice 2 is done — the season gate is unblocked and an operator-declared
-review phase travels end to end. Slice 1 waits on explicit agent authorization.
-Slices 3-7 are stubs.
+State: Slices 1 and 2 are done. The season gate is unblocked, an
+operator-declared review phase travels end to end, and supervisor-report
+calibration exists at version 1, reviewed with notes. Slices 3-7 are stubs.
 
-Next action: ask the operator to authorize agents for Slice 1; if they decline
-for now, write the Slice 3 charter and review it before implementing.
+Next action: write the Slice 3 charter (early-phase role set, plus revision diff
+for rounds with a predecessor) and review it before implementing.
 
 Do not read: the retrospective's per-case detail or the review transcripts.
 Their conclusions are in `## Audit Base` and `## Decision Log`.
@@ -183,40 +183,18 @@ Non-goals:
 
 ### Slice 1 - Run the supervisor-report calibration that never ran
 
-- Status: planned
-- Proposed commit message: `Route supervisor-report calibration lessons to their owners`
-- Why: the season produced five final supervisor reports and the calibration
-  workflow for them has never been exercised, so the next cohort's reports start
-  from an uncalibrated baseline while the opponent track already runs at profile
-  version 3. This slice needs no new code, and its lessons decide whether any
-  later slice is even needed.
-- Expected paths: ignored `cases/<supervisor-calibration-case>/`, ignored
-  `profiles/local/default.md`, `TODO.md`, `WORKFLOW_MEMORY.md`
-- Tasks:
-  - Follow `.agents/skills/historical-supervisor-report-calibration/SKILL.md`
-    against the season's final supervisor-report rounds: per-case analyses,
-    synthesized profile, profile metadata, checklist, history entry, change log,
-    and the independent anti-overfit review it requires.
-  - Triage every candidate lesson by ownership exactly as the opponent workflow
-    does: baseline-workflow-owned, methodology-owned, calibration-profile-owned,
-    or do-not-duplicate.
-  - Keep calibration-profile-owned lessons in the calibration artifacts, and
-    durable personal style in ignored `profiles/local/default.md`. Do not touch
-    tracked `profiles/default.md`: this season is one reviewer's evidence, which
-    `profiles/README.md` excludes from the tracked default.
-  - Promote a baseline or methodology lesson directly to its active owner —
-    skill, doc, template, or `TODO.md`. Use `WORKFLOW_MEMORY.md` only for a
-    lesson that is not yet an active rule, never as a parking lot for one.
-  - Record in `## Progress` which lessons were rejected as case-specific, and
-    whether any early-phase slice below changed as a result.
-- Out of scope: the opponent calibration profile, which is current; tracked
-  `profiles/default.md`; a new correction ledger; and any change to the
-  supervisor-report skills themselves.
-- Verification:
-  - `scripts/check-supervisor-report-calibration-profile <calibration-case-id>`
-  - `scripts/smoke-supervisor-report-calibration-profile`
-  - `scripts/check-private`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Route supervisor-report calibration lessons to their owners`.
+
+The calibration workflow ran for the first time over the season's five final
+supervisor reports: five per-case analyses by two authorized agents, a
+version-1 profile with per-statement attestation counts, an eleven-item
+checklist, history, change log, two independent anti-overfit review rounds, and
+a passing `check-supervisor-report-calibration-profile`. Baseline and
+methodology lessons went to their owners rather than into the profile. Full
+charter in `plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: the `## Decision Log` entry of 2026-09-07 on the calibration run.
 
 ### Slice 2 - Carry an explicit early phase end to end, and unblock the season gate
 
@@ -301,10 +279,12 @@ verification block ran green, including `pants run :omen` (grade A, 0 critical).
 Three review rounds are adjudicated in `## Decision Log`: the plan-critic round,
 its narrow re-check, and the implementation review.
 
-Slice 1 is unstarted and blocked on explicit agent authorization, which
-`AGENTS.md` and its skill both require before a semantic calibration workflow
-reads private supervisor reports. Slices 3-7 remain stubs; Slice 3 needs a full
-charter and a charter review before implementation.
+Slice 1 is done. The calibration profile is version 1, `reviewed_with_notes`,
+and gated to BP reports in the A and B bands; the private profile layer carries
+only a pointer to it, because the corpus cannot yet separate house style from
+one-off instruction. Four operator questions are recorded in the review. Slices
+3-7 remain stubs; Slice 3 needs a full charter and a charter review before
+implementation.
 
 ## Decision Log
 
@@ -436,6 +416,27 @@ funnel; the cross-provider round was spent on the plan. Verdict `changes_require
 
 Decision: all seven fixed in this batch and the chain ends here. Why: five were
 one-line contract fixes and two were test gaps; none changed the slice's shape.
+
+### 2026-09-07 - Slice 1 calibration run: what the corpus could and could not support
+
+Trigger: the first run of the supervisor-report calibration workflow over the
+season's five final reports, with explicit agent authorization.
+
+- Round 1: four P0s, including a fabricated Czech ceiling quotation whose wording
+  inverted the supervisor's meaning; all reproduced against the primary reports.
+- Round 2: ten notes in the attestation layer the rewrite added; nine closed in
+  the same pass, one a partial false positive because the counts it called
+  approximations were `wc -w` measurements it had no shell to reproduce.
+- Corpus is BP-only, A and B bands only, code-bearing only, and four of five
+  intakes are dated the same day as their report.
+- Routed away from the profile: two evidence rules to the supervisor-report
+  skill, unclosed-round visibility to `TODO.md`, a stale-manifest instance to
+  the repair plan.
+
+Decision: version 1 is `reviewed_with_notes` and applicability-gated; the private
+layer carries only a pointer. Why: a corpus that cannot separate house style from
+a one-off instruction must not become an always-on preference. Residual risk:
+four operator questions are recorded in the review rather than answered.
 
 ## Final Audit
 

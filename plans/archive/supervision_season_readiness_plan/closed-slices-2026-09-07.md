@@ -68,3 +68,42 @@ Append-only. Each entry is the charter as it stood when the slice closed.
   - `scripts/check-scripts`
   - `python3 tests/test_plan_contract.py`
 
+### Slice 1 - Run the supervisor-report calibration that never ran
+
+- Status: done
+- Proposed commit message: `Route supervisor-report calibration lessons to their owners`
+- Why: the season produced five final supervisor reports and the calibration
+  workflow for them has never been exercised, so the next cohort's reports start
+  from an uncalibrated baseline while the opponent track already runs at profile
+  version 3. This slice needs no new code, and its lessons decide whether any
+  later slice is even needed.
+- Expected paths: ignored `cases/<supervisor-calibration-case>/`, ignored
+  `profiles/local/default.md`, `TODO.md`,
+  `.agents/skills/thesis-supervisor-report/SKILL.md`,
+  `plans/review_manifest_closeout_repair_plan.md`
+- Tasks:
+  - Follow `.agents/skills/historical-supervisor-report-calibration/SKILL.md`
+    against the season's final supervisor-report rounds: per-case analyses,
+    synthesized profile, profile metadata, checklist, history entry, change log,
+    and the independent anti-overfit review it requires.
+  - Triage every candidate lesson by ownership exactly as the opponent workflow
+    does: baseline-workflow-owned, methodology-owned, calibration-profile-owned,
+    or do-not-duplicate.
+  - Keep calibration-profile-owned lessons in the calibration artifacts, and
+    durable personal style in ignored `profiles/local/default.md`. Do not touch
+    tracked `profiles/default.md`: this season is one reviewer's evidence, which
+    `profiles/README.md` excludes from the tracked default.
+  - Promote a baseline or methodology lesson directly to its active owner —
+    skill, doc, template, or `TODO.md`. Use `WORKFLOW_MEMORY.md` only for a
+    lesson that is not yet an active rule, never as a parking lot for one.
+  - Record in `## Progress` which lessons were rejected as case-specific, and
+    whether any early-phase slice below changed as a result.
+- Out of scope: the opponent calibration profile, which is current; tracked
+  `profiles/default.md`; a new correction ledger; and any change to the
+  supervisor-report skills themselves.
+- Verification:
+  - `scripts/check-supervisor-report-calibration-profile <calibration-case-id>`
+  - `scripts/smoke-reviewer-profile`
+  - `scripts/check-private`
+  - `python3 tests/test_plan_contract.py`
+

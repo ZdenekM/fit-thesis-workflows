@@ -25,11 +25,30 @@ through the intended review/export/review path. The concrete case artifacts are
 private and remain under ignored `cases/`; this plan records only case-neutral
 workflow failures.
 
+A second instance was measured on 2026-09-07 while running the supervisor-report
+calibration of the completed season, and it is worse than the original one
+because nothing failed loudly at the time: in one finished final
+supervisor-report round the reviewed report text on disk no longer matches the
+hash recorded for it in `work/review_manifest.json`,
+`work/reviews/supervisor_report_review.json`, `work/common_briefing.json` and
+`work/current_evidence_snapshot.json`, and the round carries no
+`work/review_deltas/` record and no amendment. So the artifact was edited after
+its independent review approved it and the round was left with a manifest that
+describes a text that no longer exists. `scripts/check-review-manifest
+--require-complete <case-id> <round-id>` reports it as stale in five places,
+alongside pre-existing `checks_observed` helper-id drift. A sibling round in the
+same corpus is clean, with report text, review record and confirmation record all
+on one hash, which is what the recovery path has to be able to restore.
+
 Observed failure classes:
 
 - `scripts/check-review-wave --workflow opponent_report_review --wave final`
   passed after independent review and approval refresh, but
   `scripts/check-review-manifest --require-complete` still failed.
+- A reviewed artifact was edited after approval with no review delta and no
+  amendment, leaving manifest, review record, briefing and evidence snapshot all
+  stale on the same artifact, and nothing in the closeout path forced the
+  operator to notice before the round was abandoned.
 - `work/common_briefing.json` and `work/current_evidence_snapshot.json` behaved
   like independent stale evidence gates even though they are derived support
   surfaces for agent context and should be safely regenerable when the semantic

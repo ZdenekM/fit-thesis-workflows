@@ -23,6 +23,18 @@
    - Add write-mode `scripts/migrate-case` and bulk `scripts/migrate-cases` only after the dry-run contract is reviewed against real operator needs.
    - Include `--backup`, `--case`, `--all`, and `--from/--to` style controls with explicit idempotence tests.
    - Preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
+- [ ] Make an unclosed review round visibly unclosed.
+   - Measured on the completed season: three of five final supervisor-report rounds carry no
+     `work/supervisor_report_confirmation.json`, so `supervisor-report-closeout` and its
+     `check-supervisor-report --require-confirmation` step never ran, and one of those rounds also
+     had its reviewed report edited afterwards with no recorded delta.
+   - A round abandoned at the reviewed stage currently looks the same as a closed one in
+     `case-doctor` and in the case tree; the operator learns nothing until a later session audits it.
+   - Prefer a read-only signal over a new gate: report closeout state per round, and say which
+     command would close it. Do not block ordinary work on it.
+   - Recovery of a stale manifest after a legitimate late change stays owned by
+     `plans/review_manifest_closeout_repair_plan.md`; this item is only about visibility of the
+     never-closed case.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
 

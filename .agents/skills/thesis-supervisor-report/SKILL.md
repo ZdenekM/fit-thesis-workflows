@@ -148,6 +148,15 @@ Cover these sections:
 - Do not infer student activity, independence, preparedness, communication, or
   deadline behavior from indirect artifacts when supervisor input is missing.
 - Do not treat absence of prior feedback as negative evidence.
+- State process facts without attributing a cause or motive. Name what was
+  observable, such as a slower start or an irregular consultation cadence, and
+  stop there, even when a cause is privately suspected, including a
+  supervisor-side one.
+- Word bounded or unexecuted evidence as limited scope, never as
+  non-functionality. An unexecuted runtime, orientation-only manual testing, or
+  an operational number that was reported but not independently reproduced
+  becomes a limited-verification statement, not a claim that the result does not
+  work.
 - Do not copy student-facing feedback into the report without adapting it to the
   official FIT IS fields and current grade/points calibration.
 - Do not name publications, awards, open-source release, external impact, or
