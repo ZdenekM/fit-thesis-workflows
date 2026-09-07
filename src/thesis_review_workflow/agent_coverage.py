@@ -20,6 +20,7 @@ from thesis_review_workflow.artifact_classification import (
     folded,
 )
 from thesis_review_workflow.artifact_registry import final_output_paths, opponent_final_output_paths
+from thesis_review_workflow.code_workspace import code_workspace_holds_code
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import (
     REUSE_INDEX_SCHEMA_VERSION,
@@ -271,7 +272,9 @@ def archive_contains_code(path: Path, *, max_entries: int = 5000) -> bool:
 
 
 def code_evidence_present(round_dir: Path, manifest: dict[str, Any]) -> bool:
-    if (round_dir / "work" / "code").is_dir():
+    # An existing but empty `work/code` is what a zero-source prepare-code-workspace run
+    # leaves behind, so ask the owner of that question instead of testing the directory.
+    if code_workspace_holds_code(round_dir):
         return True
     if source_like_input_present(round_dir):
         return True

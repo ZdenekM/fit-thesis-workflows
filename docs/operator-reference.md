@@ -124,6 +124,38 @@ autoritativní odevzdávka, pokud case nebo round notes výslovně neříkají, 
 GitHub snapshot je odevzdaný zdroj. Pokud tyto dvě vrstvy nebyly porovnané, musí
 to downstream review nést jako omezení.
 
+#### Deklarace Zdroje Kódu V Rané Fázi
+
+V rané fázi ještě odevzdaný archiv neexistuje a kód žije jen v živém
+repozitáři. Takový round o kódu sám od sebe neřekne nic: žádná evidence
+netriggeruje roli, takže nevznikne ani next action, ani omezení.
+`review-round-start --profile <workflow-profile> --code-source github <case-id>
+[round-id]` to zapíše do `work/review_run_trace.json` a materiality z toho udělá
+požadovanou next action pro GitHub intake. Deklarace platí pro každý profil, ne
+jen pro zpětnou vazbu vedoucího. Na už rozjetém roundu ji lze doplnit přes
+`prepare-review-round --code-source github`; `review-round-start` se pro to
+znovu pouštět nemá, protože trace přestavuje z aktuálního volání a round
+rozjetý s bundle/PDF přepínači by o svůj materiálový pohled přišel.
+`--code-source auto` deklaraci odvolá. Pokud round startoval s `--github-url`,
+deklarace vznikne sama - je to totéž tvrzení a intake si ten přepínač i sám
+naplánuje.
+
+Je to vynucení, ne nápověda: dokud nevznikne `outputs/github_code_intake.md`
+nebo se nepřijme typované omezení se scope `github_intake`, wave gate i closeout
+round zablokují. Na deklaraci se proto nesahá u pozdního roundu, kde je
+odevzdaný archiv autoritativní. Živý ref je navíc pohyblivý cíl, ne odevzdaný
+artefakt - `import-github-code` si vybraný ref zaznamená a nese k tomu omezení.
+
+`case-doctor` deklaraci ukazuje v sekci Code Evidence a hlásí, dokud chybí
+`outputs/github_code_intake.md`. Samotný `prepare-code-workspace` kód z
+repozitáře nestahuje; kopíruje jen to, co je v `inputs/`. Když nepřipraví nic,
+řekne to a odkáže na `import-github-code` místo aby skončil bez dalšího kroku.
+Po intake ho ale stojí za to spustit: doplní `work/serena_roots.json` a
+`work/code_workspace.md`, tedy inventář, ze kterého kódové review vychází.
+Kódové role samotné už na něj nečekají - checkout pod `work/code` je evidence
+sám o sobě. Pozor na `--refresh`: přepíše celý `work/code` a naklonovaný
+checkout tím smaže.
+
 ## Výstupy
 
 Nejběžnější výstupy:

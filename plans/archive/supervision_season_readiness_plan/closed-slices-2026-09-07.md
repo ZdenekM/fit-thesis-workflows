@@ -293,3 +293,125 @@ Append-only. Each entry is the charter as it stood when the slice closed.
   - `scripts/check-tooling`
   - `scripts/check-private`
   - `python3 tests/test_plan_contract.py`
+
+### Slice 6 - Early code surface
+
+- Status: done
+- Proposed commit message: `Declare a GitHub-only code source and make the intake its next action`
+- Why: `## Audit Base` measured GitHub intake in 4 rounds while code quality ran
+  in 26, and established the capability is not missing:
+  `cli/import_github_code.py` already clones a standalone repository, records the
+  selected ref and records a live-ref limitation. The gap is what an early round
+  declares. `review_materiality.github_structured_refs` marks `github_intake`
+  material only once `inputs/github` or `work/github-intake` exists, and
+  `code_consistency` and `code_quality` only once a prepared workspace exists. So
+  a round whose only code is a live repository is silent - no material role, no
+  next action, no typed limitation - and `scripts/prepare-code-workspace` finds
+  nothing to say. Early rounds are exactly that shape, because a submitted
+  archive does not exist yet.
+- Expected paths: `src/thesis_review_workflow/review_materiality.py`,
+  `src/thesis_review_workflow/review_pipeline_orchestration.py`,
+  `src/thesis_review_workflow/code_workspace.py`,
+  `src/thesis_review_workflow/cli/review_round_start.py`,
+  `src/thesis_review_workflow/cli/prepare_review_round.py`,
+  `src/thesis_review_workflow/cli/review_round_closeout.py`,
+  `src/thesis_review_workflow/cli/prepare_code_workspace.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
+  `tests/test_review_materiality.py`,
+  `tests/test_review_pipeline_orchestration.py`,
+  `tests/test_review_round_closeout.py`, `tests/test_case_doctor_summary.py`,
+  `docs/operator-reference.md`, `docs/agent-profile-matrix.md`,
+  `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
+  `.agents/skills/thesis-github-code-intake/SKILL.md`
+- Tasks:
+  - Add `--code-source {auto,github}` to `review-round-start` and
+    `prepare-review-round`, with `auto` the default meaning undeclared, mirroring
+    `--review-phase`. Only values that change behavior exist: the Slice 2 review
+    found an added enum value with no reachable behavior, and `archive` and
+    `none` would be exactly that, since evidence detection already covers an
+    archive and a round with no code already produces no code roles.
+  - Carry it as the round-level trace field `code_source` beside `review_phase`,
+    through `build_review_run_trace_payload` and
+    `validate_review_run_trace_payload`. Unlike the phase it applies to every
+    profile - a GitHub-only submission is not specific to supervisor feedback -
+    so it gets no out-of-scope rejection guard.
+  - One owner: `declared_code_source_from_trace` in `review_materiality.py`,
+    beside `declared_review_phase_from_trace`, with the same contract that an
+    undeclared value is the documented default and not an error.
+  - Resolve flag-or-trace once and re-emit the value in the recorded invocation,
+    in the closeout recovery command, and through closeout's schema-mismatch
+    trace rebuild - the three places where the Slice 2 review found
+    `review_phase` erased.
+  - Materiality: when the declared source is `github` and
+    `github_structured_refs` is empty, mark `github_intake` material with scope
+    `declared_github_code_source` and the synthetic source ref
+    `code-source:github`, adding that prefix to `ALLOWED_SYNTHETIC_REFS`. The
+    existing `github_intake` entry in `NEXT_ACTION_CONFIG` already carries the
+    `import-github-code` command and the `thesis-github-code-intake` skill, so
+    the next action comes from the machinery that exists.
+  - Charter the consequence rather than calling this discoverability. Reused
+    next actions are built with `severity="required"`, `review_wave_gate` turns
+    an unresolved one into a wave error, and
+    `cli/supervisor_report_closeout.py` blocks on unresolved final actions. So a
+    declared `github` round cannot pass its wave or close until either the intake
+    artifact exists or an accepted typed limitation with scope `github_intake` is
+    recorded. That is the intended discipline - a declaration the operator made
+    and then ignored should not pass silently - and the escape already exists, so
+    this slice adds no new escape hatch. It also means the declaration must not
+    be made casually on a late round.
+  - Leave `code_consistency` and `code_quality` declaration-independent. Making
+    them material on a declaration alone would make
+    `review_pipeline_orchestration.code_bearing_contract` block a round whose
+    code has not been fetched yet, which inverts the intent.
+  - Close the empty-preparation trap that would otherwise defeat that premise.
+    `code_workspace.prepare_workspace` calls `write_workspace_manifest` and
+    `write_report` unconditionally, so a run that prepares zero sources still
+    creates `work/code/.prepare-code-workspace-manifest.json` and
+    `work/code_workspace.md` - two of the three `CODE_WORKSPACE_PATHS` markers
+    materiality tests with a bare existence check. Today that already makes both
+    code roles material with no code present; on a GitHub-only round it is the
+    operator's first move. Give `code_workspace.py` one exported predicate over
+    the manifest's recorded sources - the module already exposes
+    `manifest_sources` and `workspace_source_fingerprint_records` - and have
+    `review_materiality` require it instead of bare existence.
+    `code_workspace.py` imports no module that imports materiality, so the
+    direction is cycle-free.
+  - `prepare-code-workspace`: when it prepares no source, print the declared code
+    source when there is one and the `import-github-code` pointer either way,
+    instead of ending with no next step. The behavior lives in
+    `code_workspace.py`; `cli/prepare_code_workspace.py` only forwards to it.
+  - `case-doctor`: report the declared code source beside the existing
+    code-evidence line, so the read-only snapshot shows a declaration that has
+    not been acted on.
+  - Docs and skills: `docs/operator-reference.md` documents the flag and that a
+    live repository ref is a moving target rather than a submitted artifact,
+    `docs/agent-profile-matrix.md` records the new `github_intake` trigger, and
+    the code step of `thesis-supervisor-feedback` plus
+    `thesis-github-code-intake` name the declaration.
+  - Tests: a declared `github` with no evidence makes `github_intake` material
+    and produces its unresolved next action, the wave gate reports it as an
+    error, and an accepted typed limitation with scope `github_intake` clears
+    both; a declaration alongside existing GitHub evidence changes nothing;
+    `code_consistency` and `code_quality` stay non-material after a
+    zero-source `prepare-code-workspace` run while a run with one prepared source
+    still makes them material and keeps `code_bearing_contract` satisfied; a
+    flagless rerun preserves the value; closeout's rebuild preserves it; the
+    trace validator rejects an unknown value; and the dry-run CLI writes it to
+    disk.
+- Out of scope: PR-contribution depth, which `TODO.md` owns; any change to
+  `cli/import_github_code.py` or to `scripts/prepare-code-workspace`'s copying
+  and unpacking; a second intake design; and archive-versus-GitHub authority,
+  which `AGENTS.md` already settles.
+- Verification:
+  - `pants test tests/test_review_materiality.py tests/test_review_pipeline_orchestration.py`
+  - `pants test tests/test_review_round_closeout.py tests/test_case_doctor_summary.py`
+  - `pants test tests/test_agent_coverage.py tests/test_github_intake.py`
+  - `pants test tests/test_review_wave_gate.py tests/test_code_reproducibility.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
+  - `scripts/smoke-prepare-review-round`
+  - `scripts/smoke-prepare-code-workspace`
+  - `scripts/smoke-github-code-intake`
+  - `scripts/smoke-review-round-closeout`
+  - `scripts/smoke-case-doctor`
+  - `scripts/check-scripts`
+  - `python3 tests/test_plan_contract.py`

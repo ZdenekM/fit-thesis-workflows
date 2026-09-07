@@ -51,6 +51,7 @@ from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
 from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
+from thesis_review_workflow.review_materiality import declared_code_source_from_trace
 from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
 from thesis_review_workflow.supervisor_reading_pass import (
     SUPERVISOR_READING_PASS_REL,
@@ -369,6 +370,26 @@ def collect_feedback_rounds(case_dir: Path, current_round_id: str) -> tuple[list
             else:
                 other.append(feedback)
     return previous, other
+
+
+def declared_code_source_lines(round_dir: Path) -> list[str]:
+    """Report the declared code source and whether anything has acted on it.
+
+    Keyed on the artifact that actually clears the next action, not on the intake directory:
+    `import-github-code` creates `work/github-intake` long before
+    `outputs/github_code_intake.md` exists, so keying on the directory would go quiet while
+    the round is still blocked - the exact confusion this line exists to prevent.
+    """
+
+    declared = declared_code_source_from_trace(round_dir)
+    lines = [f"- Declared code source: {declared or '(none declared)'}"]
+    if declared == "github" and not (round_dir / "outputs" / "github_code_intake.md").is_file():
+        lines.append(
+            "- The declaration is unresolved: outputs/github_code_intake.md is missing. Run "
+            "import-github-code and the intake skill, or accept a typed github_intake "
+            "limitation; otherwise the wave gate and closeout block."
+        )
+    return lines
 
 
 def reading_pass_lines(round_dir: Path, issues: list[Issue]) -> list[str]:
@@ -744,6 +765,7 @@ def main(argv: list[str]) -> int:
     output_section("Submission Bundle Inventory", submission_bundle_visibility_lines(round_dir))
 
     code_lines: list[str] = [f"- Code evidence detected: {'yes' if code_present else 'no'}"]
+    code_lines.extend(declared_code_source_lines(round_dir))
     code_workspace_report = round_dir / "work" / "code_workspace.md"
     serena_roots = round_dir / "work" / "serena_roots.json"
     code_lines.append(f"- Code workspace report: {'present' if code_workspace_report.is_file() else 'missing'}")

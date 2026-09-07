@@ -10,10 +10,11 @@ operator-declared review phase travels from `review-round-start` into
 materiality, coverage, closeout and both feedback checkers, the early phase
 defers three late-phase roles and detects a predecessor round, early student
 feedback has its own six-section shape, and the operator reading pass has one
-template and one validated round path. Slice 6 and Slice 7 remain.
+template and one validated round path, and a declared GitHub code source makes
+the intake a required next action. Only Slice 7 remains.
 
-Next action: implement Slice 6, whose charter is already reviewed. Then charter
-Slice 7, review it, and implement.
+Next action: review the Slice 7 charter, then implement it. It is the last
+slice; `## Final Audit` is owed on closure.
 
 Do not read: the retrospective's per-case detail or the review transcripts.
 Their conclusions are in `## Audit Base` and `## Decision Log`.
@@ -327,137 +328,117 @@ implementation review.
 
 ### Slice 6 - Early code surface
 
-- Status: charter
-- Proposed commit message: `Declare a GitHub-only code source and make the intake its next action`
-- Why: `## Audit Base` measured GitHub intake in 4 rounds while code quality ran
-  in 26, and established the capability is not missing:
-  `cli/import_github_code.py` already clones a standalone repository, records the
-  selected ref and records a live-ref limitation. The gap is what an early round
-  declares. `review_materiality.github_structured_refs` marks `github_intake`
-  material only once `inputs/github` or `work/github-intake` exists, and
-  `code_consistency` and `code_quality` only once a prepared workspace exists. So
-  a round whose only code is a live repository is silent - no material role, no
-  next action, no typed limitation - and `scripts/prepare-code-workspace` finds
-  nothing to say. Early rounds are exactly that shape, because a submitted
-  archive does not exist yet.
-- Expected paths: `src/thesis_review_workflow/review_materiality.py`,
-  `src/thesis_review_workflow/review_pipeline_orchestration.py`,
-  `src/thesis_review_workflow/code_workspace.py`,
-  `src/thesis_review_workflow/cli/review_round_start.py`,
-  `src/thesis_review_workflow/cli/prepare_review_round.py`,
-  `src/thesis_review_workflow/cli/review_round_closeout.py`,
-  `src/thesis_review_workflow/cli/prepare_code_workspace.py`,
-  `src/thesis_review_workflow/cli/case_doctor.py`,
-  `tests/test_review_materiality.py`,
-  `tests/test_review_pipeline_orchestration.py`,
-  `tests/test_review_round_closeout.py`, `tests/test_case_doctor_summary.py`,
-  `docs/operator-reference.md`, `docs/agent-profile-matrix.md`,
-  `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
-  `.agents/skills/thesis-github-code-intake/SKILL.md`
-- Tasks:
-  - Add `--code-source {auto,github}` to `review-round-start` and
-    `prepare-review-round`, with `auto` the default meaning undeclared, mirroring
-    `--review-phase`. Only values that change behavior exist: the Slice 2 review
-    found an added enum value with no reachable behavior, and `archive` and
-    `none` would be exactly that, since evidence detection already covers an
-    archive and a round with no code already produces no code roles.
-  - Carry it as the round-level trace field `code_source` beside `review_phase`,
-    through `build_review_run_trace_payload` and
-    `validate_review_run_trace_payload`. Unlike the phase it applies to every
-    profile - a GitHub-only submission is not specific to supervisor feedback -
-    so it gets no out-of-scope rejection guard.
-  - One owner: `declared_code_source_from_trace` in `review_materiality.py`,
-    beside `declared_review_phase_from_trace`, with the same contract that an
-    undeclared value is the documented default and not an error.
-  - Resolve flag-or-trace once and re-emit the value in the recorded invocation,
-    in the closeout recovery command, and through closeout's schema-mismatch
-    trace rebuild - the three places where the Slice 2 review found
-    `review_phase` erased.
-  - Materiality: when the declared source is `github` and
-    `github_structured_refs` is empty, mark `github_intake` material with scope
-    `declared_github_code_source` and the synthetic source ref
-    `code-source:github`, adding that prefix to `ALLOWED_SYNTHETIC_REFS`. The
-    existing `github_intake` entry in `NEXT_ACTION_CONFIG` already carries the
-    `import-github-code` command and the `thesis-github-code-intake` skill, so
-    the next action comes from the machinery that exists.
-  - Charter the consequence rather than calling this discoverability. Reused
-    next actions are built with `severity="required"`, `review_wave_gate` turns
-    an unresolved one into a wave error, and
-    `cli/supervisor_report_closeout.py` blocks on unresolved final actions. So a
-    declared `github` round cannot pass its wave or close until either the intake
-    artifact exists or an accepted typed limitation with scope `github_intake` is
-    recorded. That is the intended discipline - a declaration the operator made
-    and then ignored should not pass silently - and the escape already exists, so
-    this slice adds no new escape hatch. It also means the declaration must not
-    be made casually on a late round.
-  - Leave `code_consistency` and `code_quality` declaration-independent. Making
-    them material on a declaration alone would make
-    `review_pipeline_orchestration.code_bearing_contract` block a round whose
-    code has not been fetched yet, which inverts the intent.
-  - Close the empty-preparation trap that would otherwise defeat that premise.
-    `code_workspace.prepare_workspace` calls `write_workspace_manifest` and
-    `write_report` unconditionally, so a run that prepares zero sources still
-    creates `work/code/.prepare-code-workspace-manifest.json` and
-    `work/code_workspace.md` - two of the three `CODE_WORKSPACE_PATHS` markers
-    materiality tests with a bare existence check. Today that already makes both
-    code roles material with no code present; on a GitHub-only round it is the
-    operator's first move. Give `code_workspace.py` one exported predicate over
-    the manifest's recorded sources - the module already exposes
-    `manifest_sources` and `workspace_source_fingerprint_records` - and have
-    `review_materiality` require it instead of bare existence.
-    `code_workspace.py` imports no module that imports materiality, so the
-    direction is cycle-free.
-  - `prepare-code-workspace`: when it prepares no source, print the declared code
-    source when there is one and the `import-github-code` pointer either way,
-    instead of ending with no next step. The behavior lives in
-    `code_workspace.py`; `cli/prepare_code_workspace.py` only forwards to it.
-  - `case-doctor`: report the declared code source beside the existing
-    code-evidence line, so the read-only snapshot shows a declaration that has
-    not been acted on.
-  - Docs and skills: `docs/operator-reference.md` documents the flag and that a
-    live repository ref is a moving target rather than a submitted artifact,
-    `docs/agent-profile-matrix.md` records the new `github_intake` trigger, and
-    the code step of `thesis-supervisor-feedback` plus
-    `thesis-github-code-intake` name the declaration.
-  - Tests: a declared `github` with no evidence makes `github_intake` material
-    and produces its unresolved next action, the wave gate reports it as an
-    error, and an accepted typed limitation with scope `github_intake` clears
-    both; a declaration alongside existing GitHub evidence changes nothing;
-    `code_consistency` and `code_quality` stay non-material after a
-    zero-source `prepare-code-workspace` run while a run with one prepared source
-    still makes them material and keeps `code_bearing_contract` satisfied; a
-    flagless rerun preserves the value; closeout's rebuild preserves it; the
-    trace validator rejects an unknown value; and the dry-run CLI writes it to
-    disk.
-- Out of scope: PR-contribution depth, which `TODO.md` owns; any change to
-  `cli/import_github_code.py` or to `scripts/prepare-code-workspace`'s copying
-  and unpacking; a second intake design; and archive-versus-GitHub authority,
-  which `AGENTS.md` already settles.
-- Verification:
-  - `pants test tests/test_review_materiality.py tests/test_review_pipeline_orchestration.py`
-  - `pants test tests/test_review_round_closeout.py tests/test_case_doctor_summary.py`
-  - `pants test tests/test_agent_coverage.py tests/test_github_intake.py`
-  - `pants test tests/test_review_wave_gate.py tests/test_code_reproducibility.py`
-  - `pants lint src/thesis_review_workflow/ tests/`
-  - `scripts/smoke-prepare-review-round`
-  - `scripts/smoke-prepare-code-workspace`
-  - `scripts/smoke-github-code-intake`
-  - `scripts/smoke-review-round-closeout`
-  - `scripts/smoke-case-doctor`
-  - `scripts/check-scripts`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Declare a GitHub-only code source and make the intake its next action`.
+
+`review-round-start --code-source github` and `prepare-review-round
+--code-source` record an operator-declared code source in the run trace, `auto`
+retracts it, and `--github-url` implies it. When no GitHub evidence exists the
+declaration makes `github_intake` material, which is a required next action that
+blocks the wave gate and closeout until the intake artifact exists or a typed
+limitation is accepted. Separately, `code_workspace_holds_code` became the one
+owner of the code-evidence question across materiality, packets and coverage, so
+a zero-source workspace preparation no longer activates both code roles on no
+code. Full charter in
+`plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: the `## Decision Log` entry of 2026-09-07 on the code-evidence
+question having three answers.
 
 ### Slice 7 - Round scaffolding and input ergonomics
 
-Charter form: stub
-
-Objective: kind-aware round scaffolding instead of every intake template in
-every round, plus input normalization at import: identical-file dedup, stable
-filenames, original name kept in provenance.
-
-Boundary: ergonomics only; the case layout contract stays with its own plan.
-
-Serves: every round of the new season.
+- Status: charter
+- Proposed commit message: `Scaffold rounds by kind and normalize imported inputs`
+- Why: `## Audit Base` measured 13 rounds carrying a byte-identical unfilled
+  `notes/supervisor-intake.md` - eight of the ten opponent rounds plus every
+  final supervisor-report round, which has its own operator input file - and two
+  rounds storing the same similarity report twice under two names, extracting
+  both copies, plus filenames with download suffixes and one broken-encoding
+  name. `cli/import_round.py` copies five templates unconditionally and
+  `copy_input` stores every input under its original basename, so the round
+  cannot tell the operator which notes are for it and cannot tell two copies of
+  one file apart. The kind is not even missing information:
+  `cli/bootstrap_case.py` already takes a `supervisor`/`opponent` mode and then
+  calls `import-round`, which drops it.
+- Expected paths: `src/thesis_review_workflow/round_scaffolding.py`,
+  `src/thesis_review_workflow/cli/import_round.py`,
+  `src/thesis_review_workflow/cli/bootstrap_case.py`,
+  `src/thesis_review_workflow/input_provenance.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
+  `tests/test_round_scaffolding.py`, `tests/test_input_provenance.py`,
+  `scripts/smoke-bootstrap-case`, `docs/operator-reference.md`,
+  `docs/workflow-command-surface.md`
+- Tasks:
+  - Own the round kind once and reuse the ids that already exist: the five
+    `profile_id` values in `review_profiles.py`. A round kind is not a new
+    vocabulary, and inventing one would give the repo two names for one thing.
+  - Add `--kind` to `import-round` and map each kind to its templates in one
+    table: every kind gets `round-notes.md` and `assignment.md`;
+    `supervisor_feedback` adds `supervisor-intake.md`; `supervisor_report` adds
+    `supervisor-report-intake.md`, copied to its consumed name
+    `notes/supervisor-report-operator-input.md` so the round starts with the file
+    `supervisor_report.check_supervisor_report_intake` asks for;
+    `opponent_materials` and `opponent_review` add `opponent-intake.md`; and
+    `opponent_report_review` adds both the opponent intake and
+    `opponent-report-review-intake.md`.
+  - Keep `--kind` optional and default to the current full set, but print which
+    kind would have been used and what it would have skipped. A required flag
+    would break `bootstrap-case` and every operator habit at once; an optional
+    one with a visible default lets the kind spread by use.
+  - Thread the kind from `bootstrap-case`, which knows it: map its `supervisor`
+    mode to `supervisor_feedback` and `opponent` to `opponent_materials`, and add
+    `--round-kind` to override for a report or report-review round.
+  - Add the guard that stops the regression this slice fixes: one test asserts
+    every `templates/*.md` file is either mapped to at least one kind or listed in
+    an explicit on-demand set. `supervisor-reading-pass-intake.md` belongs in the
+    on-demand set - a reading pass is optional per round, unlike a report intake,
+    which is required for a report round.
+  - Normalize an imported filename deterministically in one owner: NFC-normalize,
+    percent-decode, drop a trailing ` (n)` download suffix, replace characters
+    that are unsafe on Windows, collapse whitespace and repeated separators, and
+    lowercase the suffix. The stem must stay recognizable; this is tidying, not
+    slugging to a hash.
+  - Deduplicate identical content rather than identical names: hash every file
+    input, store the first copy, and record any later input with the same hash as
+    an alias instead of copying it. Also skip an input whose hash already matches
+    a file in `inputs/`. Directories keep the existing `copytree` behavior with a
+    normalized name; tree hashing is not in this slice.
+  - Record provenance in `work/input_provenance.json` with a schema version, the
+    case and round ids, and one record per stored file: stored ref, original
+    name, sha256, byte size, aliases and import timestamp. Validate it like the
+    other work artifacts, so a hand-edited record fails rather than misleading.
+  - Keep the existing same-basename rejection in `import_round.main`, but apply it
+    to normalized names, since two different originals can now normalize to one
+    name. Content-identical inputs are resolved by dedup before that check.
+  - PDF extraction does need a change, contrary to the obvious assumption:
+    `import_round.main` builds both `inputs/<source.name>` and
+    `extracted/<source.stem>.txt` from the ORIGINAL path, so normalizing the
+    stored name without touching this would extract to a name that no longer
+    matches its PDF. Derive both from the stored file and assert the pairing.
+  - Register `work/input_provenance.json` in
+    `work_artifacts.KNOWN_JSON_ARTIFACT_SCHEMAS` with its schema version, the way
+    every other structured work artifact is, so a malformed record is reported
+    rather than collected as an unknown file.
+  - `case-doctor` reports the stored-versus-original names and the aliases, so an
+    operator who cannot find a file by its download name can see where it went.
+  - Docs: `docs/operator-reference.md` documents the kinds, what each scaffolds
+    and that a reading pass stays on demand; `docs/workflow-command-surface.md`
+    keeps its contract list accurate for the changed commands.
+- Out of scope: renaming or deduplicating inputs in rounds that already exist,
+  which is a migration and belongs with
+  `plans/case_format_migration_contract_plan.md`; re-extracting text for
+  already-imported inputs; the case layout contract; tree hashing for directory
+  inputs; and any change to what a template says.
+- Verification:
+  - `pants test tests/test_round_scaffolding.py tests/test_input_provenance.py`
+  - `pants test tests/test_case_doctor_summary.py tests/test_work_artifacts.py`
+  - `pants test tests/test_check_scripts_contracts.py tests/test_workflow_python_contracts.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
+  - `scripts/smoke-bootstrap-case`
+  - `scripts/smoke-case-doctor`
+  - `scripts/check-scripts`
+  - `scripts/check-private`
+  - `python3 tests/test_plan_contract.py`
 
 ## Progress
 
@@ -479,9 +460,12 @@ Slice 2 (grade A, 0 critical). Eleven review rounds are adjudicated in
 `## Decision Log`.
 
 Slice 5 is done: one template, one validated round path, a binding routing enum
-and nine wired consumers. Its verification block ran green, including the full
-`pants test tests::` sweep and `pants run :omen` (grade A, 0 critical). Slice 6
-carries a reviewed full charter and is next. Slice 7 remains a stub.
+and nine wired consumers. Slice 6 is done: a declared code source that is
+enforced rather than advisory, and one owner for the code-evidence question that
+three consumers used to answer separately. Both verification blocks ran green,
+including the full `pants test tests::` sweep and `pants run :omen` (grade A, 0
+critical each time). Slice 7 carries a full charter and needs a charter review
+before implementation.
 
 ## Decision Log
 
@@ -739,6 +723,27 @@ Eleven findings, all accepted, every one reproduced.
 Decision: all fixed in one batch; the binding test enumerates all nine. Why: a
 declared value with one owner is only worth having if every consumer reads it
 there, and this slice needed three passes to find them.
+
+### 2026-09-07 - Slice 6: the code-evidence question had three answers
+
+Trigger: the implementation review, eleven findings; the P0 was mine.
+
+- P0: keying the predicate on `CODE_SUFFIX_LANGUAGES` meant a VHDL, Dart, web or
+  shell submission lost both mandatory code roles with no limitation, and the
+  whole suite passed. It is now language-blind.
+- P1: the documented path dead-ended. `import-github-code` writes no marker, so
+  materiality wanted one while coverage saw the checkout and
+  `prepare-review-round` failed with a blocked contract. A checkout is now
+  evidence itself, and the three consumers that answered "is there code"
+  separately all ask one owner.
+- P2s: three copy-pasteable commands omitted the required `--profile`;
+  `case-doctor` keyed on the intake directory, which appears long before the
+  artifact that clears the gate; a declaration could not be retracted, so a slip
+  blocked a round permanently; and `--github-url` already declared the same fact.
+
+Decision: all eleven fixed in one batch. Why: the P0 shows a suffix allowlist
+cannot answer whether a thesis has code. Risk: `--refresh` still deletes an
+imported checkout (`TODO.md`).
 
 ## Final Audit
 

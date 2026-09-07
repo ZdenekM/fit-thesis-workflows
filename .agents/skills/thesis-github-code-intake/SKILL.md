@@ -22,6 +22,14 @@ live source; if the helper reads metadata, diffs, comments, checks, and checkout
 state through separate commands, keep possible same-import drift as a caveat
 unless a pinned SHA or submitted archive anchors the review.
 
+A round whose code exists only in a live repository can declare that with
+`scripts/review-round-start --profile <workflow-profile> --code-source github <case-id> [round-id]`, or `scripts/prepare-review-round --code-source github <case-id> [round-id]` on a round that already started. The
+declaration makes this intake a required materiality next action, so the round
+records that its code was expected rather than silently carrying no code
+evidence. Resolve it by producing `outputs/github_code_intake.md` or by
+accepting a typed limitation scoped to `github_intake`; until then the wave gate
+and closeout block.
+
 ## Inputs
 
 Use the active round unless the user specifies another:

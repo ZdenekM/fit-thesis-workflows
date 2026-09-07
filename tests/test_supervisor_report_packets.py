@@ -15,6 +15,28 @@ from thesis_review_workflow.supervisor_report_packets import generate_packets
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
+def write_prepared_code_workspace(round_dir: Path) -> None:
+    """Write what a real prepare-code-workspace run leaves behind.
+
+    The report alone is written by a run that prepared nothing, so it is not evidence of
+    code on its own; the manifest's recorded sources are what materiality and the
+    code-bearing contract read.
+    """
+
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (workspace / ".prepare-code-workspace-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "prepare-code-workspace-manifest-v1",
+                "sources": {"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def make_round(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
@@ -79,7 +101,7 @@ def test_generate_supervisor_report_packets_starts_with_mandatory_roles(tmp_path
 
 def test_supervisor_report_packets_emit_code_and_report_review_when_triggered(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "vedouci_posudek_draft.md").write_text("# Návrh posudku vedoucího\n", encoding="utf-8")
 
     written = generate_packets("case-a", "round-a", "2026-05-12T00:00:00Z", round_dir)

@@ -18,13 +18,19 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import run_step
 from thesis_review_workflow.paths import rel_repo
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
+from thesis_review_workflow.review_materiality import (
+    CODE_SOURCE_CLEARED,
+    DECLARABLE_CODE_SOURCES,
+    DECLARABLE_PHASES,
+    declared_review_phase_from_trace,
+)
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_RUN_TRACE_REL,
     build_review_role_plan_payload,
     packet_contract_for_profile,
     reject_out_of_scope_review_phase,
+    validate_review_run_trace_payload,
 )
 from thesis_review_workflow.review_profiles import get_workflow_review_profile, profiles_by_id
 
@@ -53,6 +59,16 @@ def build_parser() -> argparse.ArgumentParser:
             f"operator-declared review phase for the materiality refresh. Defaults to "
             f"review_phase in {REVIEW_RUN_TRACE_REL} when present; pass it here for a round whose "
             "trace predates that field."
+        ),
+    )
+    parser.add_argument(
+        "--code-source",
+        choices=[*sorted(DECLARABLE_CODE_SOURCES), CODE_SOURCE_CLEARED],
+        default=None,
+        help=(
+            "declare, or with `auto` retract, this round's code source without rerunning "
+            f"review-round-start. Unlike --phase this is persisted into {REVIEW_RUN_TRACE_REL}, "
+            "because materiality reads the code source from the trace rather than from a flag."
         ),
     )
     parser.add_argument("--skip-ready-check", action="store_true")
@@ -106,6 +122,42 @@ def infer_profile_from_trace(round_dir: Path) -> str | None:
         return None
     profile_id = loaded.get("profile_id")
     return profile_id if isinstance(profile_id, str) and profile_id in profiles_by_id() else None
+
+
+def update_declared_code_source(round_dir: Path, requested: str, *, profile_id: str) -> str | None:
+    """Persist or retract the declared code source in an existing run trace.
+
+    `--phase` can be forwarded to the materiality command as a flag, but the code source is
+    read from the trace by materiality itself, so declaring it late has to write there.
+    Rerunning `review-round-start` is not a safe alternative: it rebuilds the trace from the
+    current invocation, so a round started with submission-bundle or thesis-pdf flags would
+    lose its material view. This updates the one field and leaves the rest untouched.
+    """
+
+    path = round_dir / REVIEW_RUN_TRACE_REL
+    if not path.is_file():
+        raise ValueError(f"cannot declare a code source before {REVIEW_RUN_TRACE_REL} exists; run review-round-start")
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"{REVIEW_RUN_TRACE_REL} is unreadable: {exc}") from exc
+    if not isinstance(loaded, dict):
+        raise ValueError(f"{REVIEW_RUN_TRACE_REL} is not an object")
+    if loaded.get("profile_id") != profile_id:
+        raise ValueError(
+            f"{REVIEW_RUN_TRACE_REL} belongs to profile {loaded.get('profile_id')!r}, not {profile_id!r}"
+        )
+    if requested == CODE_SOURCE_CLEARED:
+        loaded.pop("code_source", None)
+        resolved = None
+    else:
+        loaded["code_source"] = requested
+        resolved = requested
+    errors = validate_review_run_trace_payload(loaded)
+    if errors:
+        raise ValueError("; ".join(errors))
+    path.write_text(json.dumps(loaded, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return resolved
 
 
 def refresh_materiality_before_packets(
@@ -197,6 +249,13 @@ def main(argv: list[str] | None = None) -> int:
     if phase_error is not None:
         print(f"ERROR: {phase_error}", file=sys.stderr)
         return 2
+    if args.code_source is not None:
+        try:
+            changed = update_declared_code_source(round_dir, args.code_source, profile_id=profile_id)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(f"Declared code source: {changed or '(cleared)'}")
 
     try:
         packet_command_args(args, profile_id=profile_id, case_id=args.case_id, round_id=round_id)

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.cases import previous_round_ids
+from thesis_review_workflow.code_workspace import code_workspace_holds_code
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import CoverageSatisfiedBy, coverage_satisfies_without_fresh_review
 from thesis_review_workflow.structured_evidence import (
@@ -45,6 +46,20 @@ PHASES = {"auto", "early", "non_final", "final"}
 # The phases an operator may declare for a round. `auto` is a request for inference, and
 # `early` is never inferred: only an explicit operator declaration selects it.
 DECLARABLE_PHASES = {"early", "non_final", "final"}
+DECLARABLE_CODE_SOURCES = {"github"}
+"""Operator-declarable code sources.
+
+Only values that change behavior belong here: an expected submitted archive is already
+covered by evidence detection, and a round with no code already produces no code roles,
+so neither would be reachable. The Slice 2 review rejected exactly that shape.
+"""
+
+CODE_SOURCE_CLEARED = "auto"
+"""Flag-level value that retracts a declaration; never written to the trace.
+
+Retraction is itself a behavior: without it an accidental declaration blocks a round's wave
+gate and both closeouts with no exit but hand-editing an ignored file.
+"""
 MATERIALITY_ROLES = (
     "code_consistency",
     "code_quality",
@@ -164,7 +179,13 @@ SYNTHESIS_ARTIFACT_BY_WORKFLOW = {
 REVIEWED_MANIFEST_STATUSES = {"reviewed", "reviewed_with_notes"}
 SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS = {"supervisor_report", "opponent_review"}
 
-ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:", "previous-round:")
+ALLOWED_SYNTHETIC_REFS = (
+    "operator-request:",
+    "workflow-profile:",
+    "phase:",
+    "previous-round:",
+    "code-source:",
+)
 SUPPORT_REFRESH_REFS = {COMMON_BRIEFING_REL, CURRENT_EVIDENCE_SNAPSHOT_REL}
 
 
@@ -379,6 +400,28 @@ def declared_review_phase_from_trace(round_dir: Path) -> str | None:
     return phase if isinstance(phase, str) and phase in DECLARABLE_PHASES else None
 
 
+def declared_code_source_from_trace(round_dir: Path) -> str | None:
+    """Read the operator-declared code source from a round's run trace.
+
+    Returns None when nothing was declared, when the trace is absent, or when it is
+    unreadable: an undeclared code source is the documented default, not an error. Unlike
+    the review phase this applies to every workflow profile, because a submission whose
+    code lives in a remote repository is not specific to supervisor feedback.
+    """
+
+    path = round_dir / REVIEW_RUN_TRACE_REL
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    source = loaded.get("code_source")
+    return source if isinstance(source, str) and source in DECLARABLE_CODE_SOURCES else None
+
+
 def predecessor_synthesis_refs(round_dir: Path, workflow_profile: str, round_id: str) -> list[str]:
     """Round-relative refs to earlier rounds that carry this workflow's synthesis artifact.
 
@@ -578,7 +621,15 @@ def build_materiality_decisions(
             source_refs=[f"operator-request:{role}"],
         )
 
-    code_refs = first_existing(round_dir, CODE_WORKSPACE_PATHS)
+    # A checked-out repository is code evidence even before `prepare-code-workspace` runs:
+    # `import-github-code` writes no marker, and requiring one made the documented early path
+    # dead-end in `prepare-review-round` with a blocked code-bearing contract and no next
+    # action naming the fix. So the refs are the markers when they exist and the workspace
+    # itself otherwise, with `code_workspace_holds_code` deciding whether there is anything
+    # there at all.
+    code_refs: list[str] = []
+    if code_workspace_holds_code(round_dir):
+        code_refs = first_existing(round_dir, CODE_WORKSPACE_PATHS) or ["work/code"]
     if code_refs:
         for role in ("code_consistency", "code_quality"):
             merge_material(
@@ -599,6 +650,19 @@ def build_materiality_decisions(
             scope="github_or_pr_evidence",
             reason="structured GitHub/PR evidence is present",
             source_refs=github_refs,
+        )
+    elif declared_code_source_from_trace(round_dir) == "github":
+        # The declaration is the only signal an early round has: the submitted archive does
+        # not exist yet, so no evidence trigger can fire. This produces the same required
+        # next action as real evidence would, resolvable by running the intake or by an
+        # accepted typed limitation scoped to `github_intake`.
+        merge_material(
+            decisions,
+            workflow_profile,
+            "github_intake",
+            scope="declared_github_code_source",
+            reason="the operator declared that this round's code lives in a GitHub repository",
+            source_refs=["code-source:github"],
         )
 
     if theses_similarity_materiality_evidence_present(round_dir):

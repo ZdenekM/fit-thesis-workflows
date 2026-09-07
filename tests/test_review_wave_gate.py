@@ -956,3 +956,74 @@ def test_wave_gate_consumes_agent_coverage_reuse_state(tmp_path: Path) -> None:
         "agent coverage: code_consistency: reuse decision must be unchanged_reusable" in error
         for error in result.errors
     )
+
+
+def test_wave_gate_blocks_a_declared_github_code_source_until_it_is_resolved(tmp_path: Path) -> None:
+    """Declaring the code source is enforcement, not a hint: the wave blocks until it resolves.
+
+    The escape is the one the next-action machinery already has, so this asserts both halves.
+    """
+    round_dir = make_round(tmp_path)
+    draft = round_dir / "work" / "feedback_student_draft.md"
+    draft.parent.mkdir(parents=True, exist_ok=True)
+    draft.write_text("# Draft\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="github_intake",
+                recommendation="material",
+                scope="declared_github_code_source",
+                impact="student-action priority: freeze and scope GitHub/PR evidence before code feedback",
+                reason="the operator declared that this round's code lives in a GitHub repository",
+                source_refs=("code-source:github",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+        generated_at="2026-09-07T00:00:00Z",
+    )
+
+    blocked = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("supervisor-feedback", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert any("materiality next action unresolved" in error for error in blocked.errors)
+    assert any("github_intake" in error for error in blocked.errors)
+
+    (round_dir / "outputs").mkdir(parents=True, exist_ok=True)
+    (round_dir / "outputs" / "github_code_intake.md").write_text("# GitHub Code Intake\n", encoding="utf-8")
+    write_materiality_decisions(
+        round_dir,
+        [
+            MaterialityDecision(
+                role="github_intake",
+                recommendation="material",
+                scope="declared_github_code_source",
+                impact="student-action priority: freeze and scope GitHub/PR evidence before code feedback",
+                reason="the operator declared that this round's code lives in a GitHub repository",
+                source_refs=("code-source:github",),
+            )
+        ],
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+        generated_at="2026-09-07T01:00:00Z",
+    )
+
+    resolved = validate_wave(
+        tmp_path / "repo",
+        round_dir,
+        builtin_wave_spec("supervisor-feedback", "draft"),
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert not any("github_intake" in error for error in resolved.errors)

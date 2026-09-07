@@ -60,6 +60,16 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def write_code_workspace(round_dir: Path, *, sources: dict[str, object], code_file: bool) -> None:
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True, exist_ok=True)
+    write_json(workspace / ".prepare-code-workspace-manifest.json", {"schema": "x", "sources": sources})
+    (round_dir / "work" / "code_workspace.md").write_text("# Code Workspace\n", encoding="utf-8")
+    if code_file:
+        (workspace / "project").mkdir(exist_ok=True)
+        (workspace / "project" / "main.py").write_text("x = 1\n", encoding="utf-8")
+
+
 def quantitative_claims_payload() -> dict[str, object]:
     return {
         "schema_version": "quantitative-claims-v1",
@@ -490,8 +500,11 @@ def test_non_final_and_final_decision_sets_are_unchanged_for_the_pre_existing_ro
 def test_early_phase_keeps_both_mandatory_code_roles(tmp_path: Path) -> None:
     """Deferral must never touch a code role: `code_bearing_contract` blocks without them."""
     round_dir = make_round(tmp_path)
-    (round_dir / "work").mkdir(exist_ok=True)
-    (round_dir / "work" / "code_workspace.md").write_text("# code\n", encoding="utf-8")
+    write_code_workspace(
+        round_dir,
+        sources={"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+        code_file=False,
+    )
 
     roles = material_roles(round_dir, phase="early")
 
@@ -607,8 +620,11 @@ def test_supervisor_auto_phase_does_not_route_from_free_text_notes(tmp_path: Pat
 
 def test_code_workspace_marks_code_roles_without_optional_packet_files(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
-    (round_dir / "work").mkdir()
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared workspace.\n", encoding="utf-8")
+    write_code_workspace(
+        round_dir,
+        sources={"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+        code_file=False,
+    )
 
     decisions, errors, phase = build_materiality_decisions(
         round_dir,
@@ -1754,3 +1770,245 @@ def test_cli_writes_and_prunes_role_files(tmp_path: Path, monkeypatch, capsys) -
     output = capsys.readouterr().out
     assert "Review materiality check passed" in output
     assert not (round_dir / "work" / "review_materiality" / "supervisor_feedback" / "typography_formal.json").exists()
+
+
+def write_trace_with_code_source(round_dir: Path, code_source: str | None) -> None:
+    payload: dict[str, object] = {
+        "schema_version": "review-run-trace-v1",
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "profile_id": "supervisor_feedback",
+        "trace_path": "work/review_run_trace.json",
+        "events": [],
+    }
+    if code_source is not None:
+        payload["code_source"] = code_source
+    write_json(round_dir / "work" / "review_run_trace.json", payload)
+
+
+def test_declared_github_code_source_makes_the_intake_material_without_evidence(tmp_path: Path) -> None:
+    """An early round's only code signal is the declaration; no evidence trigger can fire."""
+    round_dir = make_round(tmp_path)
+
+    assert "github_intake" not in material_roles(round_dir)
+
+    write_trace_with_code_source(round_dir, "github")
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+
+    assert errors == []
+    intake = next(decision for decision in decisions if decision.role == "github_intake")
+    assert intake.material
+    assert intake.scope == "declared_github_code_source"
+    assert intake.source_refs == ("code-source:github",)
+
+
+def test_declared_github_code_source_yields_a_required_next_action(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_trace_with_code_source(round_dir, "github")
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+        generated_at="2026-09-07T00:00:00Z",
+    )
+
+    actions, errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert errors == []
+    assert [action["role"] for action in actions] == ["github_intake"]
+    assert actions[0]["required_artifact_path"] == "outputs/github_code_intake.md"
+    assert actions[0]["severity"] == "required"
+
+
+def test_real_github_evidence_keeps_its_own_scope(tmp_path: Path) -> None:
+    """The declaration is a fallback for a round with nothing; evidence still wins."""
+    round_dir = make_round(tmp_path)
+    write_trace_with_code_source(round_dir, "github")
+    (round_dir / "work" / "github-intake").mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "github-intake" / "snapshot-manifest.json").write_text("{}", encoding="utf-8")
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+
+    assert errors == []
+    intake = next(decision for decision in decisions if decision.role == "github_intake")
+    assert intake.scope == "github_or_pr_evidence"
+
+
+def test_declared_code_source_applies_to_every_workflow_profile(tmp_path: Path) -> None:
+    for profile in sorted(WORKFLOW_PROFILES):
+        round_dir = make_round(tmp_path / profile)
+        write_trace_with_code_source(round_dir, "github")
+        assert "github_intake" in material_roles(round_dir, workflow_profile=profile), profile
+
+
+def test_an_unknown_declared_code_source_is_ignored_rather_than_failing(tmp_path: Path) -> None:
+    """An undeclared or unreadable value is the documented default, like the review phase."""
+    round_dir = make_round(tmp_path)
+    write_trace_with_code_source(round_dir, "gitlab")
+
+    assert "github_intake" not in material_roles(round_dir)
+
+
+def test_an_empty_code_workspace_preparation_does_not_make_the_code_roles_material(tmp_path: Path) -> None:
+    """prepare-code-workspace writes its markers even when it prepares nothing.
+
+    Before this, running it on a round whose code had not been fetched activated both code
+    reviews on no code at all, and the code-bearing contract then blocked the round.
+    """
+    round_dir = make_round(tmp_path)
+    write_code_workspace(round_dir, sources={}, code_file=False)
+
+    roles = material_roles(round_dir)
+
+    assert "code_consistency" not in roles
+    assert "code_quality" not in roles
+
+
+def test_a_prepared_code_source_still_makes_the_code_roles_material(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_code_workspace(
+        round_dir,
+        sources={"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+        code_file=False,
+    )
+
+    roles = material_roles(round_dir)
+
+    assert {"code_consistency", "code_quality"} <= roles
+
+
+def test_code_checked_out_without_a_prepare_manifest_still_counts(tmp_path: Path) -> None:
+    """import-github-code checks out under work/code without writing the prepare manifest."""
+    round_dir = make_round(tmp_path)
+    write_code_workspace(round_dir, sources={}, code_file=True)
+
+    roles = material_roles(round_dir)
+
+    assert {"code_consistency", "code_quality"} <= roles
+
+
+def test_a_checked_out_repository_is_code_evidence_without_a_prepare_marker(tmp_path: Path) -> None:
+    """import-github-code writes no marker; requiring one dead-ended the documented path."""
+    round_dir = make_round(tmp_path)
+    checkout = round_dir / "work" / "code" / "owner-repo__standalone"
+    checkout.mkdir(parents=True)
+    (checkout / "main.py").write_text("x = 1\n", encoding="utf-8")
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert errors == []
+    code = {decision.role: decision for decision in decisions if decision.role.startswith("code_")}
+    assert code["code_consistency"].material
+    assert code["code_quality"].material
+    assert code["code_consistency"].source_refs == ("work/code",)
+
+
+def test_code_evidence_detection_is_language_blind(tmp_path: Path) -> None:
+    """A suffix allowlist would drop both mandatory code roles for an unlisted language.
+
+    `CODE_SUFFIX_LANGUAGES` omits hardware description, Dart, web and shell sources, so a
+    thesis in any of them would pass every gate with no code review and no limitation.
+    """
+    for index, filename in enumerate(("top.vhd", "main.dart", "run.sh", "app.svelte", "solver.py")):
+        round_dir = make_round(tmp_path / str(index))
+        checkout = round_dir / "work" / "code" / "checkout"
+        checkout.mkdir(parents=True)
+        (checkout / filename).write_text("x\n", encoding="utf-8")
+
+        assert {"code_consistency", "code_quality"} <= material_roles(round_dir), filename
+
+
+def test_a_workspace_holding_only_skipped_directories_is_not_code_evidence(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    vendored = round_dir / "work" / "code" / "checkout" / "node_modules"
+    vendored.mkdir(parents=True)
+    (vendored / "index.js").write_text("x\n", encoding="utf-8")
+
+    assert "code_consistency" not in material_roles(round_dir)
+
+
+def test_a_declared_code_source_next_action_resolves_with_a_typed_limitation(tmp_path: Path) -> None:
+    """The declaration blocks, so the documented escape has to be asserted, not assumed."""
+    round_dir = make_round(tmp_path)
+    write_trace_with_code_source(round_dir, "github")
+    write_json(
+        round_dir / "work" / "review_manifest.json",
+        {
+            "schema_version": "review-manifest-v1",
+            "case_id": "case-a",
+            "round_id": "round-a",
+            "workflow_limitations": [
+                {
+                    "type": "unavailable_evidence",
+                    "scope": "github_intake",
+                    "trigger": "materiality_next_action",
+                    "required_for": ["supervisor_feedback"],
+                    "description": "The declared repository was not reachable in this round.",
+                    "impact": "No code evidence; code findings are out of scope for this round.",
+                    "status": "accepted",
+                    "accepted_by": "test-reviewer",
+                }
+            ],
+        },
+    )
+
+    decisions, errors, phase = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+    assert errors == []
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-09-07T00:00:00Z",
+    )
+
+    actions, action_errors = unresolved_required_next_actions(
+        round_dir,
+        workflow_profile="supervisor_feedback",
+        case_id="case-a",
+        round_id="round-a",
+    )
+
+    assert action_errors == []
+    assert actions == []

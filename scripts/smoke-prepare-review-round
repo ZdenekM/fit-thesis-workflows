@@ -42,6 +42,20 @@ printf '%s\n' "%PDF synthetic smoke" >"$round_dir/inputs/thesis.pdf"
 printf '%s\n' "Synthetic extracted thesis text." >"$round_dir/extracted/thesis.txt"
 printf '%s\n' "Prepared code root: inputs/submitted-src" >"$round_dir/work/code_workspace.md"
 printf '%s\n' '{"classification": "static_setup_present"}' >"$round_dir/work/code_reproducibility.json"
+# A real prepare-code-workspace run records its sources. The report alone is also written by a
+# run that prepared nothing, so materiality reads the manifest rather than the report's presence.
+mkdir -p "$round_dir/work/code"
+cat >"$round_dir/work/code/.prepare-code-workspace-manifest.json" <<'EOF'
+{
+  "schema": "prepare-code-workspace-manifest-v1",
+  "sources": {
+    "inputs/submitted-src.zip": {
+      "target": "work/code/submitted-src",
+      "fingerprint": "smoke"
+    }
+  }
+}
+EOF
 
 "$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
   --profile supervisor_feedback \
@@ -76,5 +90,47 @@ assert payload["code_bearing_contract"]["required_roles"] == ["code_consistency"
 assert all(len(wave["roles"]) <= 2 for wave in payload["wave_schedule"])
 assert all("blocked_with_typed_limitation" not in wave["roles"] for wave in payload["wave_schedule"])
 PY
+
+# Second scenario: an empty prepare-code-workspace run writes the report and the manifest but
+# prepares nothing. That state must not summon the code roles, because on an early round whose
+# code has not been fetched it would block the code-bearing contract on no code at all.
+cat >"$round_dir/work/code/.prepare-code-workspace-manifest.json" <<'EOF'
+{
+  "schema": "prepare-code-workspace-manifest-v1",
+  "sources": {}
+}
+EOF
+"$repo_root/scripts/review-round-start" "$case_id" "$round_id" \
+  --profile supervisor_feedback \
+  --thesis-pdf inputs/thesis.pdf \
+  --code-source github \
+  --dry-run >"$out_file" 2>"$err_file"
+
+"$repo_root/scripts/prepare-review-round" "$case_id" "$round_id" \
+  --skip-ready-check >"$out_file" 2>"$err_file" || {
+  cat "$out_file" "$err_file" >&2
+  exit 1
+}
+
+python3 - "$role_plan" "$round_dir/work/review_materiality/supervisor_feedback/index.json" <<'DECLARED'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+roles = {item["role"]: item for item in payload["role_states"]}
+assert roles["code_consistency"]["state"] == "not_material", roles["code_consistency"]
+assert roles["code_quality"]["state"] == "not_material", roles["code_quality"]
+assert payload["code_bearing_contract"]["status"] != "blocked", payload["code_bearing_contract"]
+
+# github_intake has no producer role in the role plan by design, so the declaration is
+# asserted where it lands: the materiality index and its required next action.
+index = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+decisions = {item["role"]: item for item in index["decisions"]}
+intake = decisions["github_intake"]
+assert intake["recommendation"] == "material", intake
+assert intake["scope"] == "declared_github_code_source", intake
+assert [action["role"] for action in index["next_actions"]] == ["github_intake"], index["next_actions"]
+DECLARED
 
 echo "Prepare review round smoke passed"

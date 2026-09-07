@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, validate_claim_review_basis_payload
+from thesis_review_workflow.code_workspace import code_workspace_holds_code
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULES_REL, validate_evidence_capsules_payload
 from thesis_review_workflow.paths import is_safe_round_relative_path
@@ -543,7 +544,18 @@ def reusable_handoff_refs_section(
 
 
 def has_code_evidence(round_dir: Path) -> bool:
-    return any((round_dir / rel_path).exists() for rel_path in CODE_WORKSPACE_PATHS)
+    """Whether this round's code workspace carries code.
+
+    Marker existence is not enough: `prepare-code-workspace` writes its report and its
+    manifest even when it prepares nothing, so the markers alone report code on a round
+    whose code has not been fetched. `code_workspace_holds_code` owns that question, and
+    materiality asks it too, so the two cannot disagree about the workspace. They can still
+    differ about an unprepared archive under `inputs/`, which `code_bearing_contract`
+    deliberately treats as evidence through `agent_coverage.code_evidence_present` in order
+    to nudge the operator into preparing it.
+    """
+
+    return code_workspace_holds_code(round_dir)
 
 
 def check_passes(root: Path, args: tuple[str, ...], *, case_id: str, round_id: str) -> bool:

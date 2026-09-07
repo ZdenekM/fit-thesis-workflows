@@ -24,7 +24,13 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import Step, run_step
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo, resolve_caller_path
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
+from thesis_review_workflow.review_materiality import (
+    CODE_SOURCE_CLEARED,
+    DECLARABLE_CODE_SOURCES,
+    DECLARABLE_PHASES,
+    declared_code_source_from_trace,
+    declared_review_phase_from_trace,
+)
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_REL,
     ReviewRunTraceEvent,
@@ -122,6 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "operator-declared thesis review phase for this round; recorded in the run trace and "
             "used by the materiality refresh. Never inferred from round contents."
+        ),
+    )
+    parser.add_argument(
+        "--code-source",
+        choices=[*sorted(DECLARABLE_CODE_SOURCES), CODE_SOURCE_CLEARED],
+        default=None,
+        help=(
+            "operator-declared location of this round's code when it is not a submitted "
+            "archive; recorded in the run trace and read by materiality. Declaring it makes "
+            f"GitHub intake a required next action until the intake runs or a typed "
+            f"limitation is accepted. Pass `{CODE_SOURCE_CLEARED}` to retract a declaration: "
+            "an omitted flag keeps whatever the round already declared."
         ),
     )
     parser.add_argument(
@@ -242,6 +260,27 @@ def ensure_private_trace_target(root: Path, target: Path) -> None:
         raise RuntimeError(f"Refusing to write review-run trace to a non-ignored path: {rel_repo(root, target)}")
 
 
+def resolve_declared_code_source(requested: str | None, round_dir: Path, *, github_requested: bool) -> str | None:
+    """Resolve the code source for this run from the flag, the request and the trace.
+
+    An explicit flag always wins, including `auto`, which is how a declaration is retracted:
+    without a retraction an accidental declaration would block the round's wave and both
+    closeouts with no way out but hand-editing the trace. `--github-url` already asserts the
+    same fact and already schedules the intake, so it implies the declaration rather than
+    leaving two unconnected operator surfaces for one thing. Otherwise a rerun without the
+    flag keeps what the round already declared.
+    """
+
+    if requested == CODE_SOURCE_CLEARED:
+        return None
+    if requested is not None:
+        return requested
+    declared = declared_code_source_from_trace(round_dir)
+    if declared is not None:
+        return declared
+    return "github" if github_requested else None
+
+
 def write_trace(
     *,
     root: Path,
@@ -252,6 +291,7 @@ def write_trace(
     generated_at: str,
     events: list[ReviewRunTraceEvent],
     review_phase: str | None = None,
+    code_source: str | None = None,
 ) -> Path:
     target = round_dir / REVIEW_RUN_TRACE_REL
     ensure_private_trace_target(root, target)
@@ -262,6 +302,7 @@ def write_trace(
         generated_at=generated_at,
         events=tuple(events),
         review_phase=review_phase,
+        code_source=code_source,
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -508,9 +549,12 @@ def run_round_start(argv: list[str]) -> int:
     # A rerun without the flag must not erase an earlier declaration: `write_trace` rebuilds
     # the trace from scratch, and the recovery commands this repo prints omit the flag.
     review_phase = args.review_phase or declared_review_phase_from_trace(round_dir)
+    code_source = resolve_declared_code_source(args.code_source, round_dir, github_requested=bool(args.github_url))
     invocation = f"review-round-start --profile {args.profile} {args.case_id} {round_id}"
     if review_phase is not None:
         invocation += f" --review-phase {review_phase}"
+    if code_source is not None:
+        invocation += f" --code-source {code_source}"
     if args.dry_run:
         invocation += " --dry-run"
     events: list[ReviewRunTraceEvent] = [
@@ -547,6 +591,7 @@ def run_round_start(argv: list[str]) -> int:
             generated_at=generated_at,
             events=events,
             review_phase=review_phase,
+            code_source=code_source,
         )
         for blocker in plan.blockers:
             print(f"BLOCKER: {blocker.code}: {blocker.message}", file=sys.stderr)
@@ -562,6 +607,7 @@ def run_round_start(argv: list[str]) -> int:
             generated_at=generated_at,
             events=events,
             review_phase=review_phase,
+            code_source=code_source,
         )
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -589,6 +635,7 @@ def run_round_start(argv: list[str]) -> int:
                 generated_at=generated_at,
                 events=events,
                 review_phase=review_phase,
+                code_source=code_source,
             )
             print(f"SKIP {action.action_id}: dry run")
             continue
@@ -611,6 +658,7 @@ def run_round_start(argv: list[str]) -> int:
                 generated_at=generated_at,
                 events=events,
                 review_phase=review_phase,
+                code_source=code_source,
             )
 
         try:
@@ -646,6 +694,7 @@ def run_round_start(argv: list[str]) -> int:
             generated_at=generated_at,
             events=events,
             review_phase=review_phase,
+            code_source=code_source,
         )
         print(f"{executed.status.upper()} {action.action_id}")
         if executed.status == "failed":

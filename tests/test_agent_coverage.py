@@ -14,6 +14,28 @@ from thesis_review_workflow.theses_similarity import (
 )
 
 
+def write_prepared_code_workspace(round_dir: Path) -> None:
+    """Write what a real prepare-code-workspace run leaves behind.
+
+    The report alone is written by a run that prepared nothing, so it is not evidence of
+    code on its own; the manifest's recorded sources are what materiality and the
+    code-bearing contract read.
+    """
+
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (workspace / ".prepare-code-workspace-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "prepare-code-workspace-manifest-v1",
+                "sources": {"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -252,8 +274,7 @@ def test_agent_coverage_uses_supporting_quantitative_claims_artifact(tmp_path: P
 
 def test_agent_coverage_rejects_omen_unavailable_as_code_quality_role_block(tmp_path: Path) -> None:
     round_dir = make_final_round(tmp_path)
-    (round_dir / "work" / "code").mkdir(parents=True, exist_ok=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared submitted code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
     coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
     assert coverage is not None
@@ -276,8 +297,7 @@ def test_agent_coverage_rejects_omen_unavailable_as_code_quality_role_block(tmp_
 
 def test_agent_coverage_requires_explicit_omen_tool_for_optional_tool_block(tmp_path: Path) -> None:
     round_dir = make_final_round(tmp_path)
-    (round_dir / "work" / "code").mkdir(parents=True, exist_ok=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared submitted code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
     coverage = agent_coverage.build_coverage("case-a", "round-a", round_dir, manifest)
     assert coverage is not None

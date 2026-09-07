@@ -133,3 +133,10 @@
    - A scripted edit that resolved a section boundary against the first textual match duplicated an entire plan body, and `tests/test_plan_contract.py` still passed: the required headings were all present, so the second copy read as valid.
    - Assert each required top-level heading appears exactly once, and that no slice heading repeats, so the next scripted edit cannot leave two authoritative copies of one charter.
    - Keep it deterministic and structural; this is heading arithmetic, not prose analysis.
+- [ ] Stop `prepare-code-workspace --refresh` from silently deleting an imported GitHub checkout.
+   - `--refresh` replaces the whole `work/code` workspace, and `import-github-code` checks repositories out into that same directory without a prepare manifest, so a refresh run removes a checkout it never prepared and leaves the round with no code evidence.
+   - Either skip workspace roots that no prepare manifest claims, or refuse the refresh with a message naming the checkout, rather than reporting success after removing evidence.
+- [ ] Repair the stale expectation in `scripts/smoke-bootstrap-case`.
+   - Its opponent scenario asserts the readiness output contains the literal `$ scripts/check-round-ready`, but `bootstrap-case` prints the logical workflow command name without the `$ scripts/` prefix, so the smoke has been failing since the command-surface change; verified failing at the commit that introduced the supervision season readiness plan, so it predates that work.
+   - The same run also reports FAIL lines for `supervisor-deadline` on an opponent case that deliberately passes `--work-type unknown`; decide whether the opponent path should skip the supervisor deadline gate in `case-doctor` output rather than reporting a failure the workflow does not require.
+   - A smoke that has been red for a while hides regressions in exactly the surface it covers, so repair it before relying on it as a gate.

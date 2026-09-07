@@ -27,7 +27,12 @@ from thesis_review_workflow.commands import (
     run_step,
 )
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
+from thesis_review_workflow.review_materiality import (
+    DECLARABLE_CODE_SOURCES,
+    DECLARABLE_PHASES,
+    declared_code_source_from_trace,
+    declared_review_phase_from_trace,
+)
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
@@ -133,12 +138,15 @@ def review_round_start_command(
     case_id: str,
     round_id: str,
     review_phase: str | None = None,
+    code_source: str | None = None,
 ) -> list[str]:
     command = ["scripts/review-round-start", "--profile", profile_id]
+    # Rerunning without a flag would erase that declaration, so the recovery command this
+    # closeout prints must carry every declaration the round already made.
     if review_phase is not None:
-        # Rerunning without the flag would erase the declaration, so the recovery command
-        # this closeout prints must carry it.
         command.extend(["--review-phase", review_phase])
+    if code_source is not None:
+        command.extend(["--code-source", code_source])
     command.extend([case_id, round_id])
     return command
 
@@ -361,7 +369,11 @@ def profile_transition_step(round_dir: Path, *, case_id: str, round_id: str, pro
                 errors.append(f"{rel_path} records {field}={loaded.get(field)!r}, expected {expected!r}")
     if errors:
         start_command = review_round_start_command(
-            profile_id, case_id, round_id, declared_review_phase_from_trace(round_dir)
+            profile_id,
+            case_id,
+            round_id,
+            declared_review_phase_from_trace(round_dir),
+            declared_code_source_from_trace(round_dir),
         )
         prepare_command = prepare_review_round_command(profile_id, case_id, round_id)
         recovery = [
@@ -725,6 +737,9 @@ def append_closeout_trace(
         rebuilt_phase = loaded.get("review_phase") if isinstance(loaded, dict) else None
         if isinstance(rebuilt_phase, str) and rebuilt_phase in DECLARABLE_PHASES:
             payload["review_phase"] = rebuilt_phase
+        rebuilt_source = loaded.get("code_source") if isinstance(loaded, dict) else None
+        if isinstance(rebuilt_source, str) and rebuilt_source in DECLARABLE_CODE_SOURCES:
+            payload["code_source"] = rebuilt_source
     errors = validate_review_run_trace_payload(payload)
     if errors:
         raise ValueError("; ".join(errors))

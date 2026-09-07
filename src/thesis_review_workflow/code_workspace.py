@@ -486,6 +486,46 @@ def manifest_sources(manifest: dict[str, object]) -> dict[str, dict[str, object]
     return sources  # type: ignore[return-value]
 
 
+def workspace_holds_any_file(workspace: Path) -> bool:
+    """Whether the workspace holds any file besides its own prepare manifest.
+
+    Deliberately language-blind. A suffix allowlist here would answer "is there code" with
+    "is there code in a language this repository has heard of", and `CODE_SUFFIX_LANGUAGES`
+    omits hardware description, Dart, web and shell sources among others - a thesis in any
+    of them would lose both mandatory code reviews with no limitation recorded. A run that
+    prepared nothing leaves `work/code` holding exactly the manifest, so ignoring that one
+    name separates the empty-preparation case from every real one without guessing.
+    """
+
+    if not workspace.is_dir():
+        return False
+    for dirpath, dirnames, filenames in os.walk(workspace):
+        dirnames[:] = [name for name in dirnames if name not in SAFE_SKIP_DIRS]
+        if any(name != WORKSPACE_MANIFEST_NAME for name in filenames):
+            return True
+    return False
+
+
+def code_workspace_holds_code(round_dir: Path) -> bool:
+    """Whether this round's code workspace actually holds inspectable code.
+
+    `prepare_workspace` writes its manifest and its report unconditionally, so a run that
+    prepared nothing still creates two of the three marker paths materiality tests by
+    existence. Existence alone therefore cannot distinguish real code evidence from an
+    empty run on a round whose code has not been fetched yet, which is the shape of an
+    early round whose only code is a live repository.
+
+    Two things count as real: a manifest that records a prepared source, and any file under
+    `work/code` other than that manifest. The second matters because `import-github-code`
+    checks a repository out there without writing the prepare manifest at all.
+    """
+
+    workspace = round_dir / "work" / "code"
+    if manifest_sources(load_workspace_manifest(workspace)):
+        return True
+    return workspace_holds_any_file(workspace)
+
+
 def workspace_source_fingerprint_records(round_dir: Path) -> list[dict[str, str]]:
     """Expose prepare-code-workspace fingerprints without rereading raw inputs."""
 
@@ -1023,6 +1063,19 @@ def main(argv: list[str]) -> int:
     print(f"Serena roots: {SERENA_ROOTS_REL.as_posix()}")
     if not roots:
         print("No likely code roots found; inspect inputs manually before code review.")
+    if not prepared and not code_workspace_holds_code(round_dir):
+        # An empty preparation used to end here with no next step, which is exactly the state
+        # of an early round whose code has not been fetched yet. The declared code source is
+        # deliberately not read here: this module owns the workspace, and the trace readers
+        # live in `review_materiality`, which already depends on this module. `case-doctor`
+        # is the surface that reports the declaration.
+        print(
+            "Nothing was prepared and work/code holds no code. If this round's code lives in "
+            f"a repository rather than a submitted archive, run `import-github-code "
+            f"{args.case_id} {round_id} ...` and declare it with "
+            "`review-round-start --code-source github` so the intake becomes a recorded next "
+            "action."
+        )
     return 0
 
 

@@ -14,6 +14,28 @@ from thesis_review_workflow.theses_checker_summary import THESES_CHECKER_SUMMARY
 from thesis_review_workflow.theses_similarity import THESES_SIMILARITY_REPORT_REL, THESES_SIMILARITY_REVIEW_REL
 
 
+def write_prepared_code_workspace(round_dir: Path) -> None:
+    """Write what a real prepare-code-workspace run leaves behind.
+
+    The report alone is written by a run that prepared nothing, so it is not evidence of
+    code on its own; the manifest's recorded sources are what materiality and the
+    code-bearing contract read.
+    """
+
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (workspace / ".prepare-code-workspace-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "prepare-code-workspace-manifest-v1",
+                "sources": {"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def write_assignment_coverage(round_dir: Path, *, valid: bool = True) -> None:
     path = round_dir / "work" / "assignment_coverage_agent.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -344,7 +366,7 @@ def test_generate_packets_emits_code_and_structured_optional_packets_only_when_t
     round_dir = repo_root / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "notes").mkdir(parents=True)
     (round_dir / "work").mkdir(parents=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "figure_media").mkdir(parents=True)
     (round_dir.parents[1] / "case.md").write_text("Reviewer profile: default\n", encoding="utf-8")
     (round_dir / "work" / "figure_media" / "visual_inventory.jsonl").write_text("{}\n", encoding="utf-8")

@@ -13,6 +13,7 @@ from thesis_review_workflow.code_quality_omen import CODE_QUALITY_OMEN_REL, load
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import artifact_role_for_role_plan_role
 from thesis_review_workflow.review_materiality import (
+    DECLARABLE_CODE_SOURCES,
     DECLARABLE_PHASES,
     profile_index_rel,
     role_file_for_profile,
@@ -264,6 +265,7 @@ def build_review_run_trace_payload(
     generated_at: str,
     events: tuple[ReviewRunTraceEvent, ...],
     review_phase: str | None = None,
+    code_source: str | None = None,
 ) -> dict[str, Any]:
     profile = get_workflow_review_profile(profile_id)
     payload: dict[str, Any] = {
@@ -283,6 +285,10 @@ def build_review_run_trace_payload(
     # so a round that never declared one keeps its existing trace shape.
     if review_phase is not None:
         payload["review_phase"] = review_phase
+    # The declared code source is a round-level fact like the phase, but it is not scoped to
+    # one materiality profile: an opponent round can equally carry a GitHub-only submission.
+    if code_source is not None:
+        payload["code_source"] = code_source
     errors = validate_review_run_trace_payload(payload)
     if errors:
         raise ValueError("; ".join(errors))
@@ -1449,6 +1455,8 @@ def validate_review_run_trace_payload(payload: dict[str, Any]) -> list[str]:
         errors.append(f"trace_path must be {REVIEW_RUN_TRACE_REL}")
     if "review_phase" in payload and payload.get("review_phase") not in DECLARABLE_PHASES:
         errors.append(f"review_phase must be one of {sorted(DECLARABLE_PHASES)} when present")
+    if "code_source" in payload and payload.get("code_source") not in DECLARABLE_CODE_SOURCES:
+        errors.append(f"code_source must be one of {sorted(DECLARABLE_CODE_SOURCES)} when present")
     profile_id = payload.get("profile_id")
     if isinstance(profile_id, str) and profile_id.strip():
         try:

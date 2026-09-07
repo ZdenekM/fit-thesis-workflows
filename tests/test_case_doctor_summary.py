@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from thesis_review_workflow.case_doctor_summary import (
     matching_extract,
     output_expectations,
 )
+from thesis_review_workflow.cli import case_doctor
+from thesis_review_workflow.supervisor_reading_pass import SUPERVISOR_READING_PASS_REL
 
 
 @dataclass(frozen=True)
@@ -191,3 +194,66 @@ def test_gate_severity_and_output_compaction() -> None:
     assert gate_failure_severity(supervisor_gate, set(), feedback_draft_present=False) == "WARNING"
     assert gate_failure_severity(supervisor_gate, set(), feedback_draft_present=True) == "ERROR"
     assert gate_failure_severity(supervisor_gate, {"feedback_student.md"}, feedback_draft_present=False) == "ERROR"
+
+
+def test_reading_pass_lines_report_absence_as_valid(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    issues: list[Issue] = []
+
+    lines = case_doctor.reading_pass_lines(round_dir, issues)
+
+    assert any("absent, which is valid" in line for line in lines)
+    assert issues == []
+
+
+def test_reading_pass_lines_warn_on_a_present_but_unusable_pass(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "notes").mkdir(parents=True)
+    (round_dir / SUPERVISOR_READING_PASS_REL).write_text("# Reading Pass\n", encoding="utf-8")
+    issues: list[Issue] = []
+
+    lines = case_doctor.reading_pass_lines(round_dir, issues)
+
+    assert any("present" in line for line in lines)
+    assert [issue.severity for issue in issues] == ["WARNING"]
+
+
+def make_declared_round(tmp_path: Path, *, code_source: str | None) -> Path:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    payload: dict[str, object] = {"schema_version": "review-run-trace-v1"}
+    if code_source is not None:
+        payload["code_source"] = code_source
+    (round_dir / "work" / "review_run_trace.json").write_text(json.dumps(payload), encoding="utf-8")
+    return round_dir
+
+
+def test_case_doctor_reports_an_undeclared_code_source(tmp_path: Path) -> None:
+    round_dir = make_declared_round(tmp_path, code_source=None)
+
+    lines = case_doctor.declared_code_source_lines(round_dir)
+
+    assert lines == ["- Declared code source: (none declared)"]
+
+
+def test_case_doctor_flags_a_declaration_until_the_intake_artifact_exists(tmp_path: Path) -> None:
+    """Keyed on the artifact that clears the next action, not on the intake directory.
+
+    import-github-code creates work/github-intake long before outputs/github_code_intake.md,
+    so keying on the directory went quiet while the round was still blocked.
+    """
+    round_dir = make_declared_round(tmp_path, code_source="github")
+    (round_dir / "work" / "github-intake").mkdir()
+
+    flagged = case_doctor.declared_code_source_lines(round_dir)
+
+    assert any("Declared code source: github" in line for line in flagged)
+    assert any("unresolved" in line for line in flagged)
+
+    (round_dir / "outputs").mkdir()
+    (round_dir / "outputs" / "github_code_intake.md").write_text("# intake\n", encoding="utf-8")
+
+    resolved = case_doctor.declared_code_source_lines(round_dir)
+
+    assert not any("unresolved" in line for line in resolved)

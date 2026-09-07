@@ -7,6 +7,7 @@ from pathlib import Path
 
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
 from thesis_review_workflow.cli import prepare_review_round, review_round_closeout, review_round_start
+from thesis_review_workflow.code_workspace import code_workspace_holds_code
 from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_materiality import declared_review_phase_from_trace
 from thesis_review_workflow.review_pipeline_orchestration import (
@@ -39,6 +40,29 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REPORT_REL,
     THESES_SIMILARITY_SILENT_USED_FINDINGS,
 )
+
+
+def write_prepared_code_workspace(round_dir: Path) -> None:
+    """Write what a real prepare-code-workspace run leaves behind.
+
+    The report alone is written by a run that prepared nothing, so it is not evidence of
+    code on its own; the manifest's recorded sources are what materiality and the
+    code-bearing contract read.
+    """
+
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True, exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    (workspace / ".prepare-code-workspace-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "prepare-code-workspace-manifest-v1",
+                "sources": {"inputs/src.zip": {"target": "work/code/src", "fingerprint": "a"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -343,7 +367,7 @@ def test_code_bearing_contract_stays_satisfied_in_a_declared_early_round(tmp_pat
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work").mkdir(parents=True)
     (round_dir / "outputs").mkdir()
-    (round_dir / "work" / "code_workspace.md").write_text("# code\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "review_run_trace.json").write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
     decisions, errors, phase = review_materiality.build_materiality_decisions(
         round_dir,
@@ -715,7 +739,7 @@ def test_review_role_plan_projects_packet_activation_and_code_contract(tmp_path:
     (round_dir / "work").mkdir(parents=True)
     (round_dir / "inputs").mkdir()
     (round_dir / "outputs").mkdir()
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
 
     payload = build_review_role_plan_payload(
         case_id="case-a",
@@ -1445,7 +1469,7 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
     (round_dir / "work" / "reuse").mkdir(parents=True)
     (round_dir / "work").mkdir(exist_ok=True)
     (round_dir / "work" / "review_materiality" / "supervisor_feedback").mkdir(parents=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "agent_coverage.json").write_text(
         json.dumps(
             {
@@ -1609,7 +1633,7 @@ def test_review_role_plan_crosswalks_reuse_states(tmp_path: Path) -> None:
 def test_review_role_plan_does_not_skip_from_reuse_index_without_agent_coverage(tmp_path: Path) -> None:
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work" / "reuse").mkdir(parents=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "reuse" / "reuse_index.json").write_text(
         json.dumps(
             {
@@ -1660,7 +1684,7 @@ def test_review_role_plan_does_not_skip_from_reuse_index_without_agent_coverage(
 def test_review_role_plan_does_not_treat_omen_unavailable_as_code_quality_role_block(tmp_path: Path) -> None:
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work").mkdir(parents=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "agent_coverage.json").write_text(
         json.dumps(
             {
@@ -1707,7 +1731,7 @@ def test_review_role_plan_does_not_treat_omen_unavailable_as_code_quality_role_b
 def test_review_role_plan_requires_explicit_omen_tool_for_optional_tool_block(tmp_path: Path) -> None:
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     (round_dir / "work").mkdir(parents=True)
-    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+    write_prepared_code_workspace(round_dir)
     (round_dir / "work" / "agent_coverage.json").write_text(
         json.dumps(
             {
@@ -1858,6 +1882,8 @@ def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypat
                 "assignment=First line\\nSecond line",
                 "--review-phase",
                 "early",
+                "--code-source",
+                "github",
                 "--dry-run",
                 "--generated-at",
                 "2026-05-15T12:00:00Z",
@@ -1870,7 +1896,9 @@ def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypat
         assert trace["schema_version"] == REVIEW_RUN_TRACE_SCHEMA
         assert trace["profile_id"] == "supervisor_feedback"
         assert trace["review_phase"] == "early"
+        assert trace["code_source"] == "github"
         assert any("--review-phase early" in event["command"] for event in trace["events"])
+        assert any("--code-source github" in event["command"] for event in trace["events"])
         assert trace["generated_at"] == "2026-05-15T12:00:00Z"
         assert any(event["phase"] == "extraction" and event["status"] == "skipped" for event in trace["events"])
         assert any(event["phase"] == "role_plan" and event["status"] == "planned" for event in trace["events"])
@@ -1894,6 +1922,7 @@ def test_review_round_start_cli_dry_run_writes_trace_without_role_plan(monkeypat
         assert rerun == 0
         reread = json.loads((round_dir / REVIEW_RUN_TRACE_REL).read_text(encoding="utf-8"))
         assert reread["review_phase"] == "early", "a rerun without the flag must not erase the declaration"
+        assert reread["code_source"] == "github", "a rerun without the flag must not erase the declaration"
 
         rejected = review_round_start.run_round_start(
             [
@@ -1978,3 +2007,141 @@ def test_review_round_start_metadata_file_reads_caller_path(tmp_path: Path) -> N
     fields = review_round_start.metadata_fields([], [f"assignment={metadata_path}"])
 
     assert fields == {"assignment": "Line one\nLine two\n"}
+
+
+def test_trace_payload_carries_the_declared_code_source() -> None:
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T00:00:00Z",
+        events=(),
+        code_source="github",
+    )
+
+    assert payload["code_source"] == "github"
+    assert validate_review_run_trace_payload(payload) == []
+
+
+def test_trace_payload_omits_code_source_when_none_was_declared() -> None:
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T00:00:00Z",
+        events=(),
+    )
+
+    assert "code_source" not in payload
+
+
+def test_trace_payload_rejects_an_unknown_code_source() -> None:
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T00:00:00Z",
+        events=(),
+    )
+    for value in ("gitlab", "archive", "auto", ""):
+        payload["code_source"] = value
+        assert validate_review_run_trace_payload(payload) == [
+            "code_source must be one of ['github'] when present"
+        ], value
+
+
+def test_a_declared_code_source_is_accepted_for_every_profile() -> None:
+    """Unlike the review phase, a GitHub-only submission is not specific to one profile."""
+    for profile_id in ("supervisor_feedback", "opponent_review", "supervisor_report"):
+        payload = build_review_run_trace_payload(
+            case_id="case-a",
+            round_id="round-a",
+            profile_id=profile_id,
+            generated_at="2026-09-07T00:00:00Z",
+            events=(),
+            code_source="github",
+        )
+        assert payload["code_source"] == "github", profile_id
+
+
+def test_an_empty_code_workspace_preparation_leaves_the_code_bearing_contract_unblocked(tmp_path: Path) -> None:
+    """The markers a zero-source preparation writes must not summon the contract it gates."""
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    workspace = round_dir / "work" / "code"
+    workspace.mkdir(parents=True)
+    # Deliberately the shape a zero-source run leaves: both markers, no recorded source.
+    (workspace / ".prepare-code-workspace-manifest.json").write_text(
+        json.dumps({"schema": "prepare-code-workspace-manifest-v1", "sources": {}}), encoding="utf-8"
+    )
+    (round_dir / "work" / "code_workspace.md").write_text("Prepared code root.\n", encoding="utf-8")
+
+    assert not code_workspace_holds_code(round_dir)
+
+    (workspace / "project").mkdir()
+    (workspace / "project" / "main.py").write_text("x = 1\n", encoding="utf-8")
+
+    assert code_workspace_holds_code(round_dir)
+
+
+def test_a_declaration_can_be_retracted_and_a_github_url_implies_it(tmp_path: Path) -> None:
+    """Retraction is a behavior: without it a slip blocks the wave and both closeouts."""
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    trace = round_dir / "work" / "review_run_trace.json"
+    trace.write_text(json.dumps({"code_source": "github"}), encoding="utf-8")
+
+    assert review_round_start.resolve_declared_code_source(None, round_dir, github_requested=False) == "github"
+    assert review_round_start.resolve_declared_code_source("auto", round_dir, github_requested=False) is None
+    assert review_round_start.resolve_declared_code_source("auto", round_dir, github_requested=True) is None
+
+    empty = tmp_path / "cases" / "case-b" / "rounds" / "round-a"
+    (empty / "work").mkdir(parents=True)
+    assert review_round_start.resolve_declared_code_source(None, empty, github_requested=True) == "github"
+    assert review_round_start.resolve_declared_code_source(None, empty, github_requested=False) is None
+
+
+def test_prepare_review_round_declares_and_retracts_without_rebuilding_the_trace(tmp_path: Path) -> None:
+    """Rerunning review-round-start would rebuild the trace and lose a bundle round's materials."""
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    trace = round_dir / "work" / "review_run_trace.json"
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T00:00:00Z",
+        events=(),
+        review_phase="early",
+    )
+    trace.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert (
+        prepare_review_round.update_declared_code_source(round_dir, "github", profile_id="supervisor_feedback")
+        == "github"
+    )
+    updated = json.loads(trace.read_text(encoding="utf-8"))
+    assert updated["code_source"] == "github"
+    assert updated["review_phase"] == "early", "the untouched declaration must survive"
+
+    assert prepare_review_round.update_declared_code_source(round_dir, "auto", profile_id="supervisor_feedback") is None
+    assert "code_source" not in json.loads(trace.read_text(encoding="utf-8"))
+
+
+def test_prepare_review_round_refuses_a_declaration_for_another_profile(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    payload = build_review_run_trace_payload(
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        generated_at="2026-09-07T00:00:00Z",
+        events=(),
+    )
+    (round_dir / "work" / "review_run_trace.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        prepare_review_round.update_declared_code_source(round_dir, "github", profile_id="opponent_review")
+    except ValueError as exc:
+        assert "belongs to profile" in str(exc)
+    else:  # pragma: no cover - the guard must fire
+        raise AssertionError("a trace from another profile must be refused")

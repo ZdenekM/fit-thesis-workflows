@@ -632,3 +632,56 @@ def test_commands_terminate_process_tree_reaps_windows_after_taskkill(monkeypatc
         ("taskkill", ["taskkill", "/PID", "12345", "/T", "/F"]),
         ("wait", 0.1),
     ]
+
+
+def test_closeout_trace_rebuild_preserves_both_declarations(tmp_path: Path) -> None:
+    """A schema mismatch rebuilds the trace; a rebuild that drops a declaration erases it."""
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    trace_path = round_dir / "work" / "review_run_trace.json"
+    trace_path.write_text(
+        json.dumps({"schema_version": "review-run-trace-v0", "review_phase": "early", "code_source": "github"}),
+        encoding="utf-8",
+    )
+
+    review_round_closeout.append_closeout_trace(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        profile_id="supervisor_feedback",
+        status="passed",
+        command="review-round-closeout --profile supervisor_feedback case-a round-a",
+    )
+
+    rebuilt = json.loads(trace_path.read_text(encoding="utf-8"))
+    assert rebuilt["review_phase"] == "early"
+    assert rebuilt["code_source"] == "github"
+
+
+def test_closeout_recovery_command_carries_every_declaration() -> None:
+    command = review_round_closeout.review_round_start_command(
+        "supervisor_feedback",
+        "case-a",
+        "round-a",
+        "early",
+        "github",
+    )
+
+    assert command == [
+        "scripts/review-round-start",
+        "--profile",
+        "supervisor_feedback",
+        "--review-phase",
+        "early",
+        "--code-source",
+        "github",
+        "case-a",
+        "round-a",
+    ]
+
+
+def test_closeout_recovery_command_omits_undeclared_values() -> None:
+    command = review_round_closeout.review_round_start_command("opponent_review", "case-a", "round-a")
+
+    assert "--review-phase" not in command
+    assert "--code-source" not in command

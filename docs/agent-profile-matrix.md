@@ -68,6 +68,15 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 synthesis artifact. That is advisory detection only — no producer role, packet or
 next action consumes it — so a round that skips the revision diff is not blocked.
 
+`thesis-github-code-intake` has a second trigger that is the opposite: besides structured
+GitHub evidence, `review_materiality.py` marks `github_intake` material with scope
+`declared_github_code_source` and the synthetic ref `code-source:github` when the operator
+declared the round's code source and no evidence exists yet. Unlike `revision_diff` this one
+blocks — it produces a `required` next action, so the wave gate and supervisor-report
+closeout hold until `outputs/github_code_intake.md` exists or a typed limitation scoped to
+`github_intake` is accepted. It is the only materiality trigger that comes from a
+declaration rather than from an artifact.
+
 ## Routing Decisions
 
 - Packet-scoped text/assignment and evidence-calibration findings are
