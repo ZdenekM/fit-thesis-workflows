@@ -348,6 +348,10 @@ State what matches, what is unclear, where the text may promise more than code/R
 ## Checklist for the Current Phase
 ```
 
+## Priority And Wording Rules
+
+These apply in every phase.
+
 Priority:
 
 - `P0`: muze ohrozit splneni zadani, obhajitelnost, technickou pravdivost nebo dalsi postup.
@@ -359,6 +363,58 @@ Keep the feedback concrete, kind, and usable. Include a human-readable review da
 Avoid internal workflow identifiers in student-facing prose. Do not include case IDs, exact round IDs, workspace paths, or artifact filenames unless the student needs them to act. Prefer human wording such as "minulá kontrola" or "aktuální verze"; keep exact round IDs in operator artifacts such as `outputs/revision_diff.md`.
 
 Keep `Rozsah kontroly` / `Review Scope` student-relevant. Mention what kinds of materials and important limitations affect the feedback, but omit internal mechanics such as source-zip diffing, local build policy, extraction tooling, or operator artifact names unless the student must act on them.
+
+## Early-Phase Output Shape
+
+When the round declares `review_phase: early` in `work/review_run_trace.json`, write
+the reduced shape instead of the full one. The shape follows the declared phase, never
+the agent's impression of the draft: if the operator declared `early`, an early-shape
+artifact is what the round owes, and `scripts/check-feedback-language` enforces exactly
+this subset.
+
+Required sections, Czech names first:
+
+- `# Zpětná vazba k aktuální verzi práce` / `# Feedback on the Current Thesis Version`
+- `## Krátké celkové shrnutí` / `## Brief Overall Summary`
+- `## Rozsah kontroly` / `## Review Scope`
+- `## Odhad fáze práce a doporučené zaměření` / `## Estimated Work Phase and Recommended Focus`
+- `## Nejvyšší priority pro aktuální iteraci` / `## Highest Priorities for This Iteration`
+- `## Doporučený plán dalších úprav` / `## Recommended Next Revision Plan`
+
+Omit the remaining sections outright rather than filling them with a placeholder. A
+chapter skeleton cannot honestly carry an assignment-fulfilment verdict, a text-code
+alignment section, or a formal-presentation pass, and a section whose only content is
+"not applicable yet" costs the student attention and teaches them the artifact is
+ceremonial. Add a section back only when the round genuinely has something to say in
+it, and then say it.
+
+Two exceptions keep the iteration rules intact. In an early second or later round,
+write `## Co se od minulé verze posunulo` / `## Progress Since Previous Feedback` and
+`## Co z minulé zpětné vazby zůstává` / `## Remaining Items From Previous Feedback`
+whenever a previous round exists: an early round still compares against its
+predecessor and still must not repeat feedback the student already addressed.
+
+Cap the priority list at five items, and at most two `P0`. An early draft with a
+twelve-item action list gets read as a verdict rather than as direction. Prefer the
+smallest set that changes what the student does next week.
+
+Do not reintroduce a deferred role's findings as a feedback item. In the early phase
+`review_materiality.py` defers typography, literature and figure/media review, so
+their findings are out of scope for this artifact even if an earlier round's evidence
+is still lying in the workspace. Code consistency and code quality are not deferred and
+stay in scope when code evidence exists. State the deferral in the review-scope section,
+which the early shape keeps and which `scripts/check-feedback-output` already requires to
+carry limitations — it is the only home the early shape leaves for it.
+
+`early` corresponds to the `velmi rana kostra` and `prvni pracovni verze` phases in
+`## Phase Calibration`; `rozpracovana verze` maps to `non_final`, and `predfinalni verze`
+and `finalni kontrola` to `final`. The declared `review_phase` decides the shape; the
+prose phase decides focus and tone within it.
+
+`scripts/check-feedback-output` enforces the required sections and the five-item, two-`P0`
+cap in the early phase. It cannot tell a substantive section from one filled with "not
+applicable yet", so omitting a section rather than writing a placeholder stays a rule the
+feedback reviewer checks, not the checker.
 
 ## Final Self-Check
 

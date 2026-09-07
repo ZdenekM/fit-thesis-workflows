@@ -49,17 +49,24 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 17. If typography/formal review was used or the round is near-final/final, verify that findings are language-calibrated by thesis language, not feedback language, and that student-facing prose summarizes repeated patterns and repair workflow instead of listing every occurrence.
 18. If Theses.cz similarity-report wording is present, verify that it is backed by `outputs/theses_similarity_review.md`, that clean/no-concern or resolved reports remain silent, and that raw report URLs, hashes, source internals, and local paths are absent from student prose. Reject plagiarism/authorship wording unless a reviewed unresolved concern supports that narrow statement.
 19. Keep at most 8 priority rows, ideally 3-6.
-20. Preserve concrete positives and a motivating but direct tone.
-21. Make the final checklist specific to this thesis and phase, not generic.
+20. When the shape carries that section, preserve concrete positives and a motivating but direct tone.
+21. When the shape carries a checklist section, make it specific to this thesis and phase, not generic.
 22. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
 23. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.
 24. Remove non-actionable internal workflow mechanics from the review-scope section, such as source-zip diffing, local build policy, extraction tooling, PDF tooling details, download/cache paths, or operator artifact names.
 25. Verify body text language manually, then run `scripts/check-feedback-language <case-id> [round-id]` after writing the final output; if it fails, repair the heading structure before finishing.
 26. Run `scripts/check-feedback-output <case-id> [round-id]` after writing the final output; if it fails, repair the final feedback before finishing. Read warnings, but they are non-blocking.
 27. After writing `outputs/feedback_student.md`, write or update `work/reviews/supervisor_feedback_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record this independent review pass in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. The reviewed hash must match the final `outputs/feedback_student.md`; each `covered_by_synthesis` evidence artifact needs a compact `used_findings` summary for the findings actually used in the final feedback. If a post-review operator correction changes the output, do not adjust hashes by hand: write `work/review_deltas/*.json` with `scripts/record-review-delta` and follow its reopen or typed-exception next action before closeout.
-28. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
-29. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
-30. For code-backed theses, check whether implementation-readability and test-layering feedback is phase-calibrated: high-level explanation, diagrams, and unit-vs-integration testing distinctions should improve opponent readability and technical truth without overwhelming P0 blockers in a final sprint.
+28. If the round declares `review_phase: early` in `work/review_run_trace.json`, check the
+    output against the early shape rather than the full one: the six required sections are
+    present, the omitted sections are absent rather than filled with placeholders, the two
+    iteration sections appear when a previous round exists, the priority list is at most five
+    items with at most two `P0`, and no finding from a role the early phase defers
+    (typography, literature, figure/media) appears as a feedback item. Code-consistency and
+    code-quality findings are in scope in every phase when code evidence exists.
+29. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
+30. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
+31. For code-backed theses, check whether implementation-readability and test-layering feedback is phase-calibrated: high-level explanation, diagrams, and unit-vs-integration testing distinctions should improve opponent readability and technical truth without overwhelming P0 blockers in a final sprint.
 
 ## Free-Text Boundary
 
@@ -106,7 +113,7 @@ high-reasoning semantic pass.
 
 Write the final sendable Markdown to `outputs/feedback_student.md`. Do not write a separate audit unless the user asks for one.
 
-The final document must retain the language-specific supervisor-feedback structure from `thesis-supervisor-feedback`.
+The final document must retain the language-specific supervisor-feedback structure from `thesis-supervisor-feedback`. When the round declares `review_phase: early` in `work/review_run_trace.json`, the required structure is the reduced subset in that skill's `## Early-Phase Output Shape`, not the full set below: the sections it omits must stay omitted rather than be restored here, and `scripts/check-feedback-language` enforces exactly that subset.
 
 For `cs`, the document starts with:
 

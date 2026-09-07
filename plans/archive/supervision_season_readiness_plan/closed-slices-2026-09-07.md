@@ -107,3 +107,71 @@ Append-only. Each entry is the charter as it stood when the slice closed.
   - `scripts/check-private`
   - `python3 tests/test_plan_contract.py`
 
+### Slice 4 - Early-phase feedback shape
+
+- Status: done
+- Proposed commit message: `Give early-phase student feedback its own shape and heading contract`
+- Why: `## Audit Base` measured the same 12-section shape in every round of every
+  iterated case, first round and final alike, with only length moving from 17 KB
+  to 9.5 KB. A student with a chapter skeleton receives the artifact designed for
+  a submission check. The shape is not only convention: `check_feedback_language`
+  holds fixed `CS_REQUIRED_HEADINGS` and `EN_REQUIRED_HEADINGS` lists and requires
+  every heading, and `check_feedback_output` invokes it, so a skill instruction to
+  omit a section would produce feedback that fails its own gate.
+- Expected paths: `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
+  `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`,
+  `src/thesis_review_workflow/cli/check_feedback_language.py`,
+  `src/thesis_review_workflow/cli/check_feedback_output.py`,
+  `src/thesis_review_workflow/cli/init_review_manifest.py`,
+  `scripts/smoke-feedback-output`,
+  `tests/test_feedback_shape.py` (new: the two feedback checkers have no pytest
+  coverage today, only `scripts/smoke-feedback-language` and
+  `scripts/smoke-feedback-output`), `docs/operator-reference.md`
+- Tasks:
+  - Make the heading contract phase-aware: an early-phase required-heading set
+    that is a subset of the existing one, selected from the declared
+    `review_phase` in `work/review_run_trace.json`, with the existing set as the
+    default when no phase is declared. Language selection and the diacritics rule
+    stay exactly as they are; only the section requirement moves.
+  - Add an early-phase output shape to the feedback skill beside the existing one:
+    which sections are written, which are omitted outright rather than filled with
+    a placeholder, and a priority cap so an early round cannot ship a full
+    late-phase action list.
+  - State in the skill that the shape follows the declared phase rather than the
+    agent's impression of the draft, and that a role Slice 3 defers must not
+    reappear as a feedback item.
+  - Keep the iteration rules intact: an early second round still compares against
+    the previous round and still must not repeat addressed feedback.
+  - In the reviewer skill, add the check that the shape matches the declared phase
+    and that no deferred role's findings leaked into the feedback.
+  - Enforce the priority cap in `check_feedback_output.py::check_priority_table`
+    rather than leaving it to the skill: the labels are already parsed there, so
+    five rows and two `P0` is three lines of deterministic code.
+  - Guard `check_checklist` on the phase. The early shape omits the checklist
+    section, and that checker runs in both wave gates, the closeout gates and the
+    manifest-completeness check, so without the guard declaring the phase makes a
+    round fail gates an undeclared round passes.
+  - Add `work/review_run_trace.json` to the manifest dependency hashes for both
+    feedback checks, since the declared phase now decides their verdict.
+  - Tests: an early-shape file passes with a declared early phase and fails
+    without one and under a later declared phase; a late-shape file still passes
+    in every phase; an early file missing a required early heading fails; the
+    diacritics and cross-language rules behave identically in both phases; the
+    early caps fire at six rows and three `P0`; a late round keeps the wider
+    allowance; and `required_headings` rejects an unsupported language. Add the
+    same early cases to `scripts/smoke-feedback-output`, which had no phase
+    coverage and is why the checklist gap was missed once.
+  - Note the two shapes in `docs/operator-reference.md`.
+- Out of scope: any change to the late-phase heading set or shape;
+  `outputs/feedback_student.md` as a path; the feedback-language selection
+  contract; and the operator reading-pass intake, which is Slice 5.
+- Verification:
+  - `pants test tests/test_feedback_shape.py tests/test_review_manifest_helpers.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
+  - `scripts/smoke-feedback-output`
+  - `scripts/smoke-review-wave`
+  - `scripts/smoke-review-round-closeout`
+  - `scripts/smoke-feedback-language`
+  - `scripts/check-scripts`
+  - `python3 tests/test_plan_contract.py`
+

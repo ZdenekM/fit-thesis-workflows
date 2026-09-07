@@ -12,6 +12,7 @@ from typing import TypedDict
 from thesis_review_workflow.commands import repo_command_environment, resolve_repo_command
 from thesis_review_workflow.markdown_utils import is_delimiter_row, section_body, split_table_row
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_materiality import declared_review_phase_from_trace
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -344,7 +345,14 @@ def is_concrete_anchor(value: str) -> bool:
     return any(anchor in lowered for anchor in CONCRETE_ANCHORS)
 
 
-def check_priority_table(lines: list[str], lang: str, errors: list[str], warnings: list[str]) -> None:
+def check_priority_table(
+    lines: list[str],
+    lang: str,
+    errors: list[str],
+    warnings: list[str],
+    *,
+    review_phase: str | None = None,
+) -> None:
     heading = LANGUAGE[lang]["priority_heading"]
     body = section_body(lines, heading)
     if body is None:
@@ -413,6 +421,15 @@ def check_priority_table(lines: list[str], lang: str, errors: list[str], warning
         return
 
     priority_count = len(priorities)
+    if review_phase == "early":
+        # An early draft with a late-phase action list reads as a verdict rather than as
+        # direction. The cap is enforced here because the labels are already parsed.
+        if priority_count > 5:
+            errors.append(f"too many priority rows for the early phase: {priority_count}; maximum is 5")
+        p0_count = sum(1 for priority, _ in priorities if priority == "P0")
+        if p0_count > 2:
+            errors.append(f"too many P0 rows for the early phase: {p0_count}; maximum is 2")
+        return
     if priority_count > 8:
         errors.append(f"too many priority rows: {priority_count}; maximum is 8")
     elif priority_count < 3 or priority_count > 6:
@@ -568,8 +585,12 @@ def main(argv: list[str]) -> int:
     lines = text.splitlines()
     find_review_date(text, lang, errors)
     check_scope(lines, lang, errors)
-    check_priority_table(lines, lang, errors, warnings)
-    check_checklist(lines, lang, errors, warnings)
+    review_phase = declared_review_phase_from_trace(round_dir)
+    check_priority_table(lines, lang, errors, warnings, review_phase=review_phase)
+    # The early shape omits the checklist section on purpose; requiring it here would make a
+    # declared early round fail a gate an undeclared one passes.
+    if review_phase != "early":
+        check_checklist(lines, lang, errors, warnings)
     check_internal_leaks(text, case_id, round_id, errors, warnings)
     check_placeholders(text, errors, warnings)
     if lang == "cs":

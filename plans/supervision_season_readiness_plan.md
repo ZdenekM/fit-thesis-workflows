@@ -292,53 +292,19 @@ narrow re-check, and the Slice 2 implementation review.
 
 ### Slice 4 - Early-phase feedback shape
 
-- Status: planned
-- Proposed commit message: `Give early-phase student feedback its own shape and heading contract`
-- Why: `## Audit Base` measured the same 12-section shape in every round of every
-  iterated case, first round and final alike, with only length moving from 17 KB
-  to 9.5 KB. A student with a chapter skeleton receives the artifact designed for
-  a submission check. The shape is not only convention: `check_feedback_language`
-  holds fixed `CS_REQUIRED_HEADINGS` and `EN_REQUIRED_HEADINGS` lists and requires
-  every heading, and `check_feedback_output` invokes it, so a skill instruction to
-  omit a section would produce feedback that fails its own gate.
-- Expected paths: `.agents/skills/thesis-supervisor-feedback/SKILL.md`,
-  `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`,
-  `src/thesis_review_workflow/cli/check_feedback_language.py`,
-  `src/thesis_review_workflow/cli/check_feedback_output.py`,
-  `tests/test_feedback_shape.py` (new: the two feedback checkers have no pytest
-  coverage today, only `scripts/smoke-feedback-language` and
-  `scripts/smoke-feedback-output`), `docs/operator-reference.md`
-- Tasks:
-  - Make the heading contract phase-aware: an early-phase required-heading set
-    that is a subset of the existing one, selected from the declared
-    `review_phase` in `work/review_run_trace.json`, with the existing set as the
-    default when no phase is declared. Language selection and the diacritics rule
-    stay exactly as they are; only the section requirement moves.
-  - Add an early-phase output shape to the feedback skill beside the existing one:
-    which sections are written, which are omitted outright rather than filled with
-    a placeholder, and a priority cap so an early round cannot ship a full
-    late-phase action list.
-  - State in the skill that the shape follows the declared phase rather than the
-    agent's impression of the draft, and that a role Slice 3 defers must not
-    reappear as a feedback item.
-  - Keep the iteration rules intact: an early second round still compares against
-    the previous round and still must not repeat addressed feedback.
-  - In the reviewer skill, add the check that the shape matches the declared phase
-    and that no deferred role's findings leaked into the feedback.
-  - Tests: an early-shape Czech feedback file passes with a declared early phase
-    and fails without one; a late-shape file still passes as today; an early file
-    missing a heading the early set requires fails; and the diacritics and
-    language checks behave identically in both phases.
-  - Note the two shapes in `docs/operator-reference.md`.
-- Out of scope: any change to the late-phase heading set or shape;
-  `outputs/feedback_student.md` as a path; the feedback-language selection
-  contract; and the operator reading-pass intake, which is Slice 5.
-- Verification:
-  - `pants test tests/test_feedback_shape.py`
-  - `scripts/smoke-feedback-output`
-  - `scripts/smoke-feedback-language`
-  - `scripts/check-scripts`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Give early-phase student feedback its own shape and heading contract`.
+
+A declared early phase now selects a six-section required-heading subset in
+`check-feedback-language`, skips the checklist requirement and caps priorities at
+five rows and two `P0` in `check-feedback-output`, and both skills carry the
+reduced shape with the omission rule marked reviewer-enforced. The two feedback
+checkers gained their first pytest coverage and the output smoke gained
+early-phase cases. Full charter in
+`plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: the `## Decision Log` entry of 2026-09-07 on the same lesson one gate
+further down.
 
 ### Slice 5 - Operator reading-pass intake
 
@@ -525,6 +491,27 @@ funnel; the cross-provider round was spent on the plan. Verdict `changes_require
 
 Decision: all seven fixed in this batch and the chain ends here. Why: five were
 one-line contract fixes and two were test gaps; none changed the slice's shape.
+
+### 2026-09-07 - Slice 4: the same lesson, one gate further down
+
+Trigger: the implementation review found the Slice 3 defect shape again — a phase
+honoured by the heading checker and rejected by `check-feedback-output`, which
+runs in both wave gates, both closeout gates and the manifest check.
+
+- `check_checklist` demanded its section unconditionally, so this slice's shape
+  would have failed every gate below it. The charter listed that file and the
+  first implementation did not touch it.
+- The priority cap turned out code-enforceable: the labels are already parsed.
+- The reviewer skill mandated the twelve-section structure in `## Output` while
+  its new step narrowed it, and two numbered steps required omitted sections.
+- Inserting the new skill section above the shared `Priority:` rules had scoped
+  them to the early phase; they now have their own heading.
+
+Decision: every gate reading the artifact's shape reads the declared phase from
+the same owner, and the smoke gained the phase coverage whose absence hid the
+gap. Why: a third instance of one defect shape is a signal about the sweep.
+Residual risk: omitting a section rather than filling it stays reviewer-enforced;
+no checker can tell a thin section from an honest one.
 
 ### 2026-09-07 - Slice 3: the declared phase needed one owner, not one consumer
 

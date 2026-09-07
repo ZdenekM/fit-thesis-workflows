@@ -428,5 +428,62 @@ make_case "$case_id" "Student feedback language: cs"
 write_ascii_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 expect_failure_matching "ASCII Czech headings fail through language checker" "language/heading check failed|Missing expected heading" "$repo_root/scripts/check-feedback-output" "$case_id"
 
+# A declared early phase changes the required shape: fewer sections, a tighter priority cap.
+# Without an end-to-end case here, the first attempt at that shape passed the language check
+# and failed this one.
+declare_early_phase() {
+  local case_id="$1" round_id="${2:-round-a}"
+  mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
+  printf '{"review_phase": "early"}\n' \
+    > "$repo_root/cases/$case_id/rounds/$round_id/work/review_run_trace.json"
+}
+
+write_early_cs_feedback() {
+  local target="$1"
+  mkdir -p "$(dirname "$target")"
+  cat > "$target" <<'EARLY'
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 2026-09-07
+
+## Krátké celkové shrnutí
+
+Kostra práce stojí a repozitář se rozjel; teď je nejdůležitější dotáhnout strukturu kapitol.
+
+## Rozsah kontroly
+
+Prošel jsem osnovu textu a stav repozitáře. Typografii, literaturu a obrázky jsem v této fázi
+odložil, takže jejich stav zatím není ověřen a chybí i běh kódu; omezení uvádím záměrně.
+
+## Odhad fáze práce a doporučené zaměření
+
+Práce je v rané fázi, takže se soustředíme na směr a strukturu, ne na formu.
+
+## Nejvyšší priority pro aktuální iteraci
+
+| Priorita | Oblast | Proč teď | Co udělat | Kde se to projevuje |
+|---|---|---|---|---|
+| P0 | Struktura | Ovlivní všechny další kapitoly | Rozepsat osnovu kapitol tři a čtyři na odstavce | Osnova práce, kapitoly 3-4 |
+| P1 | Repozitář | Bez běhu se nedá nic ověřit | Doplnit README s postupem spuštění a závislostmi | Repozitář, README.md |
+
+## Doporučený plán dalších úprav
+
+Do příští konzultace dotáhnout osnovu a README; pak se pustíme do návrhové kapitoly.
+EARLY
+}
+
+case_id="${case_prefix}_early_shape"
+make_case "$case_id" "Student feedback language: cs"
+write_early_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+expect_failure "early shape without a declared phase fails" "$repo_root/scripts/check-feedback-output" "$case_id"
+declare_early_phase "$case_id"
+expect_success "early shape with a declared early phase passes" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_late_shape_early_phase"
+make_case "$case_id" "Student feedback language: cs"
+write_valid_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+declare_early_phase "$case_id"
+expect_success "late shape still passes in a declared early phase" "$repo_root/scripts/check-feedback-output" "$case_id"
+
 rm -f /tmp/check-feedback-output.out /tmp/check-feedback-output.err
 echo "Feedback output smoke passed"

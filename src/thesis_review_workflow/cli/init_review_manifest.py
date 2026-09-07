@@ -150,6 +150,10 @@ def helper_dependency_hashes(round_dir: Path, check_name: str) -> dict[str, str]
         )
     if base_check_name in {"check-feedback-language", "check-feedback-output"}:
         paths.append(("round:notes/assignment.md", round_dir / "notes" / "assignment.md"))
+        # Both checks now read the declared review phase, so a trace edit that drops the
+        # declaration must show up as a stale dependency rather than leaving a recorded pass
+        # that would no longer reproduce.
+        paths.append(("round:work/review_run_trace.json", round_dir / "work" / "review_run_trace.json"))
     if base_check_name == "check-supervisor-report":
         paths.append(
             ("round:work/supervisor_report_confirmation.json", round_dir / "work/supervisor_report_confirmation.json")

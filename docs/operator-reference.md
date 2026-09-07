@@ -206,13 +206,24 @@ kostra je:
    Fáze se nikdy neodvozuje z obsahu roundu: bez deklarace platí `non_final` a
    opakované spuštění bez příznaku deklaraci nesmaže. V `early` fázi se odkládá
    typografie, literatura a figure/media review, i když jejich evidence existuje;
-   odklad ustoupí explicitnímu `--request-role` a artefaktu, který už v roundu je.
+   odklad ustoupí artefaktu, který už v roundu je, a přímému
+   `check-review-materiality --request-role <role>`; ten příznak ale nemá
+   `review-round-start` ani `prepare-review-round`, takže platí jen pro to jedno
+   spuštění a další refresh ho přepíše.
    Obě code role se neodkládají nikdy, protože je vyžaduje code-bearing kontrakt.
    Když některý starší round v case nese hotovou syntézu, materiality navíc označí
    `revision_diff` — je to jen upozornění, žádná brána, a řazení roundů je
    lexikální, takže case s netimestampovanými id se může řadit jinak než
    chronologicky. Příznak platí jen pro `supervisor_feedback`; oponentní a reportové
-   profily jsou vždy finální a příznak odmítnou. Closeout gate běží na `final`.
+   profily jsou vždy finální a příznak odmítnou. U `supervisor_feedback` respektuje
+   deklarovanou fázi i closeout; ostatní profily tam běží na `final`.
+
+   Deklarovaná `early` fáze mění i tvar studentské zpětné vazby: místo dvanácti
+   sekcí se píše šest a ostatní se vynechají, ne vyplní prázdnou větou; iterační
+   sekce se vracejí, jakmile existuje předchozí round. `check-feedback-language`
+   vynucuje tu podmnožinu sekcí a `check-feedback-output` k tomu strop pěti priorit
+   a nejvýš dvou P0. Bez deklarace fáze zůstává povinný plný tvar. Že se sekce
+   vynechá místo vyplnění prázdnou větou, kontroluje review role, ne checker.
 2. `prepare-review-round --profile <workflow-profile> <case-id> [round-id]`
    připraví role packets a `work/review_role_plan.json`. Pro round, jehož trace
    je starší než pole `review_phase`, lze fázi předat přes `--phase`.

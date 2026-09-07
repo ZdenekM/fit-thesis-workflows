@@ -8,6 +8,7 @@ import sys
 from thesis_review_workflow.cases import MissingCurrentRound, repo_root, resolve_round
 from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.paths import is_safe_round_relative_path
+from thesis_review_workflow.review_materiality import declared_review_phase_from_trace
 
 CS_REQUIRED_HEADINGS = [
     "# Zpětná vazba k aktuální verzi práce",
@@ -54,6 +55,37 @@ EN_REQUIRED_HEADINGS = [
     "## Recommended Next Revision Plan",
     "## Checklist for the Current Phase",
 ]
+
+
+# Headings an early-phase round must still carry. The rest of the shape is optional there:
+# a chapter skeleton cannot honestly fill a text-code alignment or an assignment-fulfilment
+# section, and filling them with placeholders is what the early shape exists to avoid.
+# The set is a strict subset, so the late shape always satisfies the early requirement too.
+CS_EARLY_REQUIRED_HEADINGS = [
+    "# Zpětná vazba k aktuální verzi práce",
+    "## Krátké celkové shrnutí",
+    "## Rozsah kontroly",
+    "## Odhad fáze práce a doporučené zaměření",
+    "## Nejvyšší priority pro aktuální iteraci",
+    "## Doporučený plán dalších úprav",
+]
+EN_EARLY_REQUIRED_HEADINGS = [
+    "# Feedback on the Current Thesis Version",
+    "## Brief Overall Summary",
+    "## Review Scope",
+    "## Estimated Work Phase and Recommended Focus",
+    "## Highest Priorities for This Iteration",
+    "## Recommended Next Revision Plan",
+]
+
+
+def required_headings(language: str, review_phase: str | None) -> list[str]:
+    """Required headings for a language, narrowed when the operator declared the early phase."""
+    if language not in {"cs", "en"}:
+        raise ValueError(f"unsupported feedback language: {language}")
+    if review_phase == "early":
+        return CS_EARLY_REQUIRED_HEADINGS if language == "cs" else EN_EARLY_REQUIRED_HEADINGS
+    return CS_REQUIRED_HEADINGS if language == "cs" else EN_REQUIRED_HEADINGS
 
 
 def usage() -> str:
@@ -150,13 +182,15 @@ def main(argv: list[str]) -> int:
         return 1
 
     existing = set(feedback.read_text(encoding="utf-8").splitlines())
+    review_phase = declared_review_phase_from_trace(round_dir)
+    required = required_headings(language, review_phase)
     errors: list[str] = []
     if language == "cs":
-        report_missing("Missing Czech headings with diacritics:", CS_REQUIRED_HEADINGS, existing, errors)
+        report_missing("Missing Czech headings with diacritics:", required, existing, errors)
         report_present("Found ASCII-only Czech headings:", CS_ASCII_REJECT_HEADINGS, existing, errors)
         report_present("Found English headings in Czech feedback:", EN_REQUIRED_HEADINGS, existing, errors)
     else:
-        report_missing("Missing English headings:", EN_REQUIRED_HEADINGS, existing, errors)
+        report_missing("Missing English headings:", required, existing, errors)
         report_present(
             "Found Czech headings in English feedback:",
             [*CS_REQUIRED_HEADINGS, *CS_ASCII_REJECT_HEADINGS],
@@ -166,7 +200,8 @@ def main(argv: list[str]) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print(f"Feedback language check passed: {language}")
+    phase_note = f", phase {review_phase}" if review_phase else ""
+    print(f"Feedback language check passed: {language}{phase_note}")
     return 0
 
 
