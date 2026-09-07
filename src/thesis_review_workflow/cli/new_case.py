@@ -9,12 +9,13 @@ from pathlib import Path
 
 from thesis_review_workflow.cases import repo_root
 from thesis_review_workflow.commands import run_step
+from thesis_review_workflow.round_scaffolding import round_kinds
 from thesis_review_workflow.ids import validate_id
 
 
 def usage() -> str:
     return (
-        "Usage: scripts/new-case CASE_ID [WORK_TYPE] [ROUND_LABEL]\n\n"
+        "Usage: scripts/new-case [--kind KIND] CASE_ID [WORK_TYPE] [ROUND_LABEL]\n\n"
         "Creates a local gitignored thesis case under cases/ and starts its first round.\n\n"
         "Examples:\n"
         "  scripts/new-case novak-bp-2026 BP first-review\n"
@@ -36,6 +37,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("case_id")
     parser.add_argument("work_type", nargs="?", default="unknown")
     parser.add_argument("round_label", nargs="?", default="round-01")
+    parser.add_argument(
+        "--kind",
+        choices=round_kinds(),
+        default=None,
+        help="round kind for the initial round, forwarded to import-round; see its help.",
+    )
     return parser
 
 
@@ -65,7 +72,11 @@ def main(argv: list[str]) -> int:
         replace_field(case_dir / "case.md", "Case ID", args.case_id)
         replace_field(case_dir / "case.md", "Work type", args.work_type)
         replace_field(case_dir / "case.md", "Deadline mode", "standard")
-        step = run_step(root, "initial round", ["scripts/import-round", args.case_id, args.round_label])
+        import_command = ["scripts/import-round"]
+        if args.kind is not None:
+            import_command.extend(["--kind", args.kind])
+        import_command.extend([args.case_id, args.round_label])
+        step = run_step(root, "initial round", import_command)
         if not step.ok:
             if step.output:
                 print(step.output, file=sys.stderr)

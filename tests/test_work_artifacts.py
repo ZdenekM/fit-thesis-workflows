@@ -3,6 +3,7 @@ from pathlib import Path
 
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.evidence_capsules import EVIDENCE_CAPSULE_SCHEMA, EVIDENCE_CAPSULES_REL
+from thesis_review_workflow.input_provenance import INPUT_PROVENANCE_REL, INPUT_PROVENANCE_SCHEMA
 from thesis_review_workflow.report_calibration import REPORT_CALIBRATION_BASIS_REL
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
@@ -674,3 +675,39 @@ def test_validate_supporting_work_artifacts_rejects_unsafe_path_before_hashing(t
     )
 
     assert errors == ["supporting_work_artifacts item 1: path must be relative inside the round"]
+
+
+def test_input_provenance_is_validated_not_merely_registered(tmp_path: Path) -> None:
+    """A registered schema buys the envelope; a fabricated hash needs the record validator."""
+    round_dir = tmp_path / "round-a"
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir / "inputs" / "thesis.pdf").write_bytes(b"%PDF-1.4\n")
+    payload = {
+        "schema_version": INPUT_PROVENANCE_SCHEMA,
+        "case_id": "case-a",
+        "round_id": "round-a",
+        "generated_at": "2026-09-07T00:00:00Z",
+        "inputs": [
+            {
+                "role": "thesis_pdf",
+                "original_name": "Thesis (1).pdf",
+                "stored_ref": "inputs/thesis.pdf",
+                "sha256": sha256_file(round_dir / "inputs" / "thesis.pdf"),
+                "size_bytes": 9,
+                "deduplicated": False,
+            }
+        ],
+    }
+    write_json(round_dir / INPUT_PROVENANCE_REL, payload)
+
+    records = collect_supporting_work_artifacts(round_dir)
+    by_path = {record["path"]: record for record in records}
+    assert by_path[INPUT_PROVENANCE_REL]["schema_version"] == INPUT_PROVENANCE_SCHEMA
+    assert validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a") == []
+
+    payload["inputs"][0]["sha256"] = "0" * 64
+    write_json(round_dir / INPUT_PROVENANCE_REL, payload)
+    records = collect_supporting_work_artifacts(round_dir)
+    errors = validate_supporting_work_artifacts(records, round_dir, case_id="case-a", round_id="round-a")
+
+    assert any("sha256 does not match" in error for error in errors)

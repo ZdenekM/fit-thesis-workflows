@@ -174,6 +174,12 @@ The launchers:
 - default `PEX_ROOT` to `.pants.d/pex_root` inside the repository;
 - require Python 3.12, with `WORKFLOW_TOOLS_PYTHON` as an explicit override.
 
+`import-round` and `new-case` take `--kind`, and `bootstrap-case` takes
+`--round-kind`, which decide the notes templates a round is scaffolded with. On
+`import-round` do not place `--kind` between input paths: the trailing inputs are a
+variadic positional, so an option in the middle of them is rejected. Before or
+after the whole list both work.
+
 `check-supervisor-reading-pass <case-id> [round-id]` is the newest operator tool
 and follows the same contract: a wrapper, a CLI module, a
 `WORKFLOW_COMMAND_MODULES` entry, a packaged `pex_binary` and generated

@@ -1,23 +1,7 @@
 # Supervision Season Readiness Plan
 
-Status: in_progress
+Status: done
 Created: 2026-09-07
-
-## Start Here
-
-State: Slices 1 to 4 are done. The season gate is unblocked, an
-operator-declared review phase travels from `review-round-start` into
-materiality, coverage, closeout and both feedback checkers, the early phase
-defers three late-phase roles and detects a predecessor round, early student
-feedback has its own six-section shape, and the operator reading pass has one
-template and one validated round path, and a declared GitHub code source makes
-the intake a required next action. Only Slice 7 remains.
-
-Next action: review the Slice 7 charter, then implement it. It is the last
-slice; the final audit section is owed on closure.
-
-Do not read: the retrospective's per-case detail or the review transcripts.
-Their conclusions are in `## Audit Base` and `## Decision Log`.
 
 ## Goal
 
@@ -347,119 +331,21 @@ question having three answers.
 
 ### Slice 7 - Round scaffolding and input ergonomics
 
-- Status: charter
-- Proposed commit message: `Scaffold rounds by kind and normalize imported inputs`
-- Why: `## Audit Base` measured 13 rounds carrying a byte-identical unfilled
-  `notes/supervisor-intake.md` - eight of the ten opponent rounds plus every
-  final supervisor-report round, which has its own operator input file - and two
-  rounds storing the same similarity report twice under two names, extracting
-  both copies, plus filenames with download suffixes and one broken-encoding
-  name. `cli/import_round.py` copies five templates unconditionally and stores
-  every input under its original basename, so a round cannot tell the operator
-  which notes are for it and cannot tell two copies of one file apart. The kind
-  is not even missing information: `cli/bootstrap_case.py` already takes a
-  `supervisor`/`opponent` mode and then loses it.
-- Expected paths: `src/thesis_review_workflow/round_scaffolding.py`,
-  `src/thesis_review_workflow/input_provenance.py`,
-  `src/thesis_review_workflow/cli/import_round.py`,
-  `src/thesis_review_workflow/cli/new_case.py`,
-  `src/thesis_review_workflow/cli/bootstrap_case.py`,
-  `src/thesis_review_workflow/work_artifacts.py`,
-  `src/thesis_review_workflow/cli/case_doctor.py`,
-  `tests/test_round_scaffolding.py`, `tests/test_input_provenance.py`,
-  `scripts/smoke-bootstrap-case`, `docs/operator-reference.md`,
-  `docs/workflow-command-surface.md`
-- Tasks:
-  - Own the round kind once and reuse the ids that already exist: the five
-    `profile_id` values in `review_profiles.py`. A round kind is not a new
-    vocabulary, and inventing one would give the repo two names for one thing.
-  - Map each kind to its templates in one table: every kind gets
-    `round-notes.md` and `assignment.md`; `supervisor_feedback` adds
-    `supervisor-intake.md`; `supervisor_report` adds
-    `supervisor-report-intake.md`, copied to its consumed name
-    `notes/supervisor-report-operator-input.md`; `opponent_materials` and
-    `opponent_review` add `opponent-intake.md`; `opponent_report_review` adds
-    both the opponent intake and `opponent-report-review-intake.md`.
-  - Thread the kind through the whole creation path, not just one entrypoint.
-    `bootstrap-case` reaches `import-round` two different ways: directly for an
-    existing case, and through `new-case` for a new one, where
-    `new_case.main` calls `import-round` with no kind at all. Both need it, or a
-    first round silently keeps the full template set.
-  - Make the kind reach intake population and readiness selection too, or the
-    report kind breaks outright: `bootstrap_case.fill_intake` selects
-    `notes/supervisor-intake.md` from `args.mode`, and `replace_field` reads the
-    file unconditionally, so scaffolding that omits the intake makes a
-    `supervisor_report` bootstrap raise and roll back. The readiness command is
-    chosen from the same mode and must follow the kind.
-  - Keep `--kind` optional and default to the current full set, but print which
-    kind would have been used and what it would have skipped. A required flag
-    would break every operator habit at once; an optional one with a visible
-    default lets the kind spread by use.
-  - Add the guard that stops the regression this slice fixes: one test asserts
-    every `templates/*.md` file is either mapped to at least one kind or listed in
-    an explicit on-demand set. `supervisor-reading-pass-intake.md` belongs in the
-    on-demand set - a reading pass is optional per round, unlike a report intake,
-    which a report round needs.
-  - Own filename normalization once and specify it fully, because the failure
-    mode is a name Windows cannot store or a name that silently loses text:
-    strict percent-decoding that leaves an invalid escape literal rather than
-    replacing it, NFC normalization applied after decoding, a trailing ` (n)`
-    download suffix dropped, characters unsafe on Windows replaced, whitespace
-    and repeated separators collapsed, the suffix lowercased, reserved device
-    basenames such as `CON` and `NUL` prefixed, trailing dots and spaces
-    stripped, and a final basename that can never be empty, `.` or `..`. Keep
-    the stem recognizable; this is tidying, not slugging to a hash.
-  - Deduplicate physical storage while keeping every logical input. Hash each
-    file input and store identical content once, but retain one record per
-    declared occurrence with its role, original name and stored ref. Roles are
-    load-bearing: `bootstrap_case.build_copy_plan` assigns `thesis_pdf`,
-    `assignment_pdf`, `source_archive`, `code` and more, and the assignment
-    metadata it writes filters by role, so the same PDF supplied as both thesis
-    and assignment must keep both occurrences. Define the conflicting-suffix case
-    explicitly: extraction filters on the stored suffix, so identical bytes
-    stored first without `.pdf` must not leave the PDF occurrence unextractable.
-  - Route bootstrap's own copying through the same owner. `bootstrap-case` does
-    not pass inputs to `import-round` at all; it builds `build_copy_plan` and
-    copies and extracts inputs itself, so normalizing only `import_round` would
-    leave the main operator entrypoint unnormalized, undeduplicated and absent
-    from provenance. Generate its assignment and notes references from the final
-    stored refs rather than from the requested basenames.
-  - Record provenance in `work/input_provenance.json`, and validate it rather
-    than merely registering it. Registering a schema in
-    `work_artifacts.KNOWN_JSON_ARTIFACT_SCHEMAS` buys only the envelope check -
-    schema version, case and round identity, and `generated_at`, which the
-    envelope must therefore carry. Add a record validator wired into the
-    work-artifact dispatch that rejects a missing stored file, a hash or size
-    that does not match it, and a ref that escapes the round.
-  - Keep the existing same-destination rejection in both entrypoints, applied to
-    normalized names and casefolded, since two different originals can now
-    normalize to one name. Content-identical inputs are resolved by dedup first.
-  - PDF extraction needs changing, contrary to the obvious assumption:
-    `import_round.main` builds both `inputs/<source.name>` and
-    `extracted/<source.stem>.txt` from the ORIGINAL path, so normalizing the
-    stored name without touching this extracts to a name that no longer matches
-    its PDF. Derive both from the stored file and assert the pairing.
-  - `case-doctor` reports the stored-versus-original names and the aliases, so an
-    operator who cannot find a file by its download name can see where it went.
-  - Docs: `docs/operator-reference.md` documents the kinds, what each scaffolds
-    and that a reading pass stays on demand; `docs/workflow-command-surface.md`
-    keeps its contract accurate for the changed commands.
-- Out of scope: renaming or deduplicating inputs in rounds that already exist,
-  which is a migration and belongs with
-  `plans/case_format_migration_contract_plan.md`; re-extracting text for
-  already-imported inputs; the case layout contract; tree hashing for directory
-  inputs, which keep `copytree` under a normalized name; and any change to what a
-  template says.
-- Verification:
-  - `pants test tests/test_round_scaffolding.py tests/test_input_provenance.py`
-  - `pants test tests/test_work_artifacts.py tests/test_case_doctor_summary.py`
-  - `pants test tests/test_check_scripts_contracts.py tests/test_workflow_python_contracts.py`
-  - `pants lint src/thesis_review_workflow/ tests/`
-  - `scripts/smoke-bootstrap-case`
-  - `scripts/smoke-case-doctor`
-  - `scripts/check-scripts`
-  - `scripts/check-private`
-  - `python3 tests/test_plan_contract.py`
+Charter form: compacted
+
+Landed: see the commit titled `Scaffold rounds by kind and normalize imported inputs`.
+
+A round is scaffolded from its kind, which is the workflow profile id it already
+had, and the kind also selects the intake bootstrap fills and the readiness gate
+it runs. `import-round`, `new-case` and `bootstrap-case` all thread it, and a
+contract test keeps every tracked template either mapped to a kind or explicitly
+on demand. Input storage is normalized and content-deduplicated in one owner both
+import entrypoints use, every declared occurrence keeps its role, and
+`work/input_provenance.json` records where each original went, validated against
+disk. Full charter in
+`plans/archive/supervision_season_readiness_plan/closed-slices-2026-09-07.md`.
+Decisions: the `## Decision Log` entry of 2026-09-07 on the guard that was
+replaced by a flag nobody set.
 
 ## Progress
 
@@ -787,8 +673,61 @@ Decision: all six accepted, four widening the build. Why: the charter had one
 entrypoint in mind and the repository has two - the same defect shape as the
 earlier slices, caught before implementation this time.
 
+### 2026-09-07 - Slice 7: a guard replaced by a flag nobody set
+
+Trigger: the implementation review, twelve findings; the P1 was mine.
+
+- P1: the slice removed `import-round`'s Windows case-clash refusal and replaced it
+  with a policy flag no production caller passed, while the module docstring and a
+  test both claimed the guard survived. The test drove the library, not the
+  entrypoint. Two inputs differing only in case would overwrite each other.
+- P2s reproduced: a later occurrence of a claimed destination was copied and
+  extracted twice, the measured defect itself; NFC composition can expand a name
+  past the filesystem limit, so normalization could create the unstorable name it
+  prevents; a directory input was renamed with no record; `--kind` was invisible
+  because `usage()` intercepts `-h`; dedup dropped a filename `check-round-ready`
+  resolves by name; and a deduplicated archive made the source report contradict
+  itself.
+- Not reproduced: that `pants lint` fails. It is green; the reviewer ran isort with
+  different settings than Pants applies.
+
+Decision: eleven fixed, one rejected with evidence. Why: a test that exercises the
+owner instead of the caller can certify a guarantee that no longer exists.
+
 ## Final Audit
 
-Not reached. On closure this section records: the commands run per slice, the
-first early-phase round that exercised Slices 2-4 end to end, whatever residual
-items were copied into `TODO.md`, and the archive decision.
+All seven slices are done and the plan is closed.
+
+Per slice, the commands run: every slice ran its own verification block, and
+Slices 5 to 7 additionally ran the whole `pants test tests::` sweep, the affected
+`scripts/smoke-*` set, `scripts/check-scripts`, `scripts/check-private`,
+`git diff --check` and `python3 tests/test_plan_contract.py`. `pants run :omen`
+reported grade A with 0 critical issues at Slices 2, 5, 6 and 7.
+
+Review coverage: eleven adjudicated rounds. Charters were reviewed before
+implementation by a cross-provider plan critic, implementations by an independent
+read-only reviewer. Every round found something reproducible, and three rounds
+found a defect in the text answering the previous round.
+
+The recurring lesson, in three forms: a declared value needs one owner and every
+consumer must read it there (Slices 3, 4, 6); a consumer list is only as good as
+the test that enumerates it (Slice 5, nine consumers where the charter named
+five); and a test that drives the owner instead of the caller can certify a
+guarantee that no longer exists (Slice 7).
+
+No early-phase round has run yet, so Slices 2 to 4 remain unexercised against a
+real thesis. That first round is the next place these gates can fail, and it is
+deliberately not something this plan could verify.
+
+Residual items copied to `TODO.md`: make an unclosed review round visibly
+unclosed; give the supervisor report the internal-leak check the opponent report
+has; make the plan contract reject a duplicated section sequence; stop
+`prepare-code-workspace --refresh` deleting an imported GitHub checkout; and
+decide whether `case-doctor` should report a supervisor-deadline failure on an
+opponent round. Two operator questions from the Slice 1 calibration review are
+still open and recorded there.
+
+Archive decision: archived on closure, per `plans/README.md`. The untested
+early-phase path is recorded above as a residual risk rather than as a reason to
+hold a finished plan open, and its closed-slice charters are already in
+`plans/archive/supervision_season_readiness_plan/`.

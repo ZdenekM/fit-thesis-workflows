@@ -10,7 +10,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from thesis_review_workflow.code_workspace import (
     CaseInsensitivePathRegistry,
@@ -22,6 +22,18 @@ from thesis_review_workflow.code_workspace import (
     safe_name,
 )
 from thesis_review_workflow.commands import command_display, repo_command_environment, resolve_repo_command
+from thesis_review_workflow.input_provenance import (
+    InputRequest,
+    normalize_input_name,
+    plan_input_storage,
+    write_input_provenance,
+)
+from thesis_review_workflow.round_scaffolding import (
+    BOOTSTRAP_MODE_KINDS,
+    intake_basename_for_kind,
+    readiness_command_for_kind,
+    round_kinds,
+)
 
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -275,17 +287,56 @@ def build_copy_plan(args: argparse.Namespace) -> list[CopySpec]:
 
 
 def copy_specs(root: Path, round_dir: Path, specs: list[CopySpec]) -> list[CopiedInput]:
+    """Copy declared inputs through the shared normalization and dedup owner.
+
+    Bootstrap never hands its inputs to `import-round`, so without this it would keep its own
+    unnormalized, undeduplicated copy path while `import-round` had the shared one - the
+    operator entrypoint would be the one that missed the fix. Storage is deduplicated but
+    every declared occurrence survives, because the roles here are load-bearing: the
+    assignment metadata this command writes filters by role.
+    """
+
+    file_specs = [spec for spec in specs if spec.source.is_file()]
+    other_specs = [spec for spec in specs if not spec.source.is_file()]
+    try:
+        plan = plan_input_storage(
+            [
+                InputRequest(
+                    role=spec.role,
+                    source=spec.source,
+                    dest_dir_rel=PurePosixPath(spec.dest_rel.parent.as_posix()),
+                )
+                for spec in file_specs
+            ]
+        )
+    except ValueError as exc:
+        die(str(exc))
+
     copied: list[CopiedInput] = []
-    for spec in specs:
-        destination = round_dir / spec.dest_rel
+    for source, destination_rel in plan.copies:
+        destination = round_dir / destination_rel
+        check_ignored(root, destination)
+        if destination.exists():
+            die(f"Destination already exists: {destination.relative_to(root).as_posix()}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    for record in plan.records:
+        copied.append(
+            CopiedInput(
+                role=record.role,
+                path=round_dir / record.stored_rel,
+                rel_round=record.stored_rel,
+            )
+        )
+
+    for spec in other_specs:
+        destination = round_dir / spec.dest_rel.parent / normalize_input_name(spec.dest_rel.name)
         check_ignored(root, destination)
         if destination.exists():
             die(f"Destination already exists: {destination.relative_to(root).as_posix()}")
         destination.parent.mkdir(parents=True, exist_ok=True)
         if spec.source.is_dir():
             shutil.copytree(spec.source, destination, symlinks=True)
-        elif spec.source.is_file():
-            shutil.copy2(spec.source, destination)
         else:
             die(f"Unsupported input path type: {spec.source}")
         copied.append(
@@ -295,12 +346,38 @@ def copy_specs(root: Path, round_dir: Path, specs: list[CopySpec]) -> list[Copie
                 rel_round=destination.relative_to(round_dir).as_posix(),
             )
         )
+    write_input_provenance(
+        round_dir,
+        case_id=round_dir.parents[1].name,
+        round_id=round_dir.name,
+        records=plan.records,
+    )
     return copied
+
+
+def first_occurrences(copied: list[CopiedInput], role: str | None = None) -> list[CopiedInput]:
+    """One entry per stored file, keeping request order.
+
+    Two declared occurrences can now resolve to one stored file, so anything that acts on a
+    file - extraction, workspace preparation - must not act on it twice and must not report
+    the same path as both prepared and skipped.
+    """
+
+    seen: set[str] = set()
+    result: list[CopiedInput] = []
+    for item in copied:
+        if role is not None and item.role != role:
+            continue
+        if item.rel_round in seen:
+            continue
+        seen.add(item.rel_round)
+        result.append(item)
+    return result
 
 
 def extract_pdfs(root: Path, round_dir: Path, copied: list[CopiedInput]) -> list[PdfExtract]:
     extracts: list[PdfExtract] = []
-    for item in copied:
+    for item in first_occurrences(copied):
         if not item.path.is_file() or item.path.suffix.lower() != ".pdf":
             continue
         pdf_rel_path = Path(item.rel_round)
@@ -326,7 +403,9 @@ def extract_pdfs(root: Path, round_dir: Path, copied: list[CopiedInput]) -> list
 
 
 def prepare_source_workspace(round_dir: Path, copied: list[CopiedInput]) -> tuple[list[PreparedSource], list[str]]:
-    sources = [item for item in copied if item.role == "source_archive"]
+    # One entry per stored file: two declared archives with identical content resolve to one
+    # stored path, and preparing it twice reported the same path as both prepared and skipped.
+    sources = first_occurrences(copied, "source_archive")
     if not sources:
         return [], []
 
@@ -584,9 +663,23 @@ def fill_round_notes(
     append_section(notes, "Bootstrap Import Summary", summary)
 
 
+def round_kind(args: argparse.Namespace) -> str:
+    return args.round_kind or BOOTSTRAP_MODE_KINDS[args.mode]
+
+
 def fill_intake(round_dir: Path, copied: list[CopiedInput], args: argparse.Namespace) -> None:
-    if args.mode == "supervisor":
-        intake = round_dir / "notes" / "supervisor-intake.md"
+    kind = round_kind(args)
+    intake_basename = intake_basename_for_kind(kind)
+    # `replace_field` reads the file unconditionally, so a kind whose scaffolding omits its
+    # intake must not be handed a path that does not exist.
+    if intake_basename is None or not (round_dir / "notes" / intake_basename).is_file():
+        return
+    if kind == "supervisor_report":
+        # The report operator input has its own label set and bootstrap carries no arguments
+        # for it, so the file is scaffolded and left for the operator rather than half-filled.
+        return
+    intake = round_dir / "notes" / intake_basename
+    if kind == "supervisor_feedback":
         replace_line_prefix(intake, "Typ prace:", args.work_type)
         replace_line_prefix(
             intake,
@@ -611,7 +704,6 @@ def fill_intake(round_dir: Path, copied: list[CopiedInput], args: argparse.Names
             ", ".join([*args.github_url, *args.pr_url, args.student_login or ""]),
         )
     else:
-        intake = round_dir / "notes" / "opponent-intake.md"
         replace_line_prefix(intake, "Typ prace:", args.work_type)
         replace_line_prefix(
             intake,
@@ -649,12 +741,18 @@ def create_or_import_round(root: Path, args: argparse.Namespace) -> tuple[Path, 
         case_md = case_dir / "case.md"
         if case_md.is_file():
             previous_case_md = case_md.read_text(encoding="utf-8")
-        run_command(root, ["scripts/import-round", args.case_id, args.round_label], check=True)
+        run_command(
+            root,
+            ["scripts/import-round", "--kind", round_kind(args), args.case_id, args.round_label],
+            check=True,
+        )
     else:
         run_command(
             root,
             [
                 "scripts/new-case",
+                "--kind",
+                round_kind(args),
                 args.case_id,
                 args.work_type or "unknown",
                 args.round_label,
@@ -692,6 +790,16 @@ def build_parser() -> argparse.ArgumentParser:
         description="Create or extend a private thesis case round, import artifacts, and run readiness diagnostics.",
     )
     parser.add_argument("mode", choices=["supervisor", "opponent"])
+    parser.add_argument(
+        "--round-kind",
+        choices=round_kinds(),
+        default=None,
+        help=(
+            "round kind for scaffolding, intake population and the readiness gate. Defaults "
+            "to the kind implied by MODE: supervisor_feedback or opponent_materials. Set it "
+            "for a report or report-review round, whose operator input files differ."
+        ),
+    )
     parser.add_argument("case_id")
     parser.add_argument("round_label")
     parser.add_argument("--work-type", help="BP, DP, or unknown")
@@ -764,7 +872,7 @@ def main(argv: list[str]) -> int:
         code_result = run_command(root, ["scripts/prepare-code-workspace", args.case_id, round_id], check=False)
 
     readiness_cmd = [
-        "scripts/check-supervisor-ready" if args.mode == "supervisor" else "scripts/check-round-ready",
+        readiness_command_for_kind(round_kind(args)),
         args.case_id,
         round_id,
     ]

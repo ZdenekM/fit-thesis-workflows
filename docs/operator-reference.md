@@ -253,6 +253,41 @@ ho hashuje, je potřeba po editaci spustit `refresh-round-hashes <case-id>
 ani jeho formulace se do studentského výstupu nekopírují -
 `check-feedback-output` interní odkaz odmítne.
 
+## Druh Roundu A Import Vstupů
+
+Round se scaffolduje podle druhu, ne do zásoby. Druh je stejné id jako workflow
+profil: `supervisor_feedback`, `supervisor_report`, `opponent_review`,
+`opponent_materials`, `opponent_report_review`. `import-round --kind <druh>`
+(přepínač nepatří mezi cesty ke vstupům, protože ty jsou variadický pozicionál;
+před nimi i za nimi funguje) nakopíruje jen ty notes šablony, které druh
+používá: každý dostane `round-notes.md` a
+`assignment.md`, feedback navíc `supervisor-intake.md`, posudek vedoucího
+`supervisor-report-operator-input.md`, oponentské druhy `opponent-intake.md` a
+report-review k tomu `opponent-report-review-intake.md`. Bez `--kind` round
+dostane to, co dostávaly rounds dřív, a příkaz vypíše, co by deklarovaný druh
+vynechal.
+
+`bootstrap-case` druh odvodí z módu (`supervisor` -> `supervisor_feedback`,
+`opponent` -> `opponent_materials`) a `--round-kind` ho přepíše; podle druhu se
+pak volí i vyplňovaná intake a readiness brána. Čtenářský průchod vedoucího
+zůstává na vyžádání, protože je nepovinný - na rozdíl od operátorského vstupu k
+posudku, který posudkový round potřebuje.
+
+Vstupy se při importu normalizují a deduplikují. Uložené jméno je
+deterministické a uložitelné na Windows: percent-escape se dekóduje striktně
+(nerozluštitelný escape zůstane doslovně, aby se text neztratil), NFC se
+aplikuje po dekódování, `(1)` z opakovaného downloadu zmizí, nebezpečné znaky se
+nahradí, vyhrazená jména jako `CON` dostanou příponu a koncové tečky se
+odstraní. Stejný obsah se ukládá jednou, ale **každý deklarovaný vstup zůstává
+zaznamenaný včetně své role** - stejné PDF jako práce i jako zadání jsou dva
+vstupy, ne jeden.
+
+`work/input_provenance.json` říká, kam který originál šel: role, původní jméno,
+uložená cesta, sha256, velikost a příznak deduplikace. Adresářové vstupy se do
+záznamu dostanou taky, ale bez hashe - hashování stromů do tohoto slice nepatří. Záznam se validuje proti
+disku, takže vymyšlený hash, chybějící soubor nebo cesta mimo round selžou.
+`case-doctor` to vypisuje v sekci Input Provenance.
+
 ## Round Lifecycle
 
 Normální agentní workflow nejde přímo od readiness checku k syntéze. Sdílená

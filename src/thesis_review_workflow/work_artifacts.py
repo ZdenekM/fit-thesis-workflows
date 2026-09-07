@@ -32,6 +32,11 @@ from thesis_review_workflow.external_opponent_feedback import (
     SUPERVISOR_LEARNING_CANDIDATES_SCHEMA,
     validate_external_opponent_feedback_payload,
 )
+from thesis_review_workflow.input_provenance import (
+    INPUT_PROVENANCE_REL,
+    INPUT_PROVENANCE_SCHEMA,
+    validate_input_provenance_payload,
+)
 from thesis_review_workflow.literature_source_acquisition import (
     SOURCE_ACQUISITION_REL,
     SOURCE_ACQUISITION_SCHEMA,
@@ -108,6 +113,7 @@ KNOWN_JSON_ARTIFACT_SCHEMAS: dict[str, set[str]] = {
     "work/supervisor_report_confirmation.json": {"supervisor-report-confirmation-v1"},
     "work/current_evidence_snapshot.json": {"current-evidence-snapshot-v1"},
     "work/code_reproducibility.json": {"code-reproducibility-v1"},
+    INPUT_PROVENANCE_REL: {INPUT_PROVENANCE_SCHEMA},
     CODE_QUALITY_OMEN_REL: {CODE_QUALITY_OMEN_SCHEMA},
     SOURCE_ACQUISITION_REL: {SOURCE_ACQUISITION_SCHEMA},
     "work/github-intake/snapshot-manifest.json": {"github-snapshot-manifest-v1"},
@@ -206,6 +212,7 @@ EXPLICIT_WORK_ARTIFACTS = (
     SUBMISSION_BUNDLE_MATERIALIZATION_REL,
     SUBMISSION_BUNDLE_EXPANSION_REL,
     "work/figure_media/visual_inventory.jsonl",
+    INPUT_PROVENANCE_REL,
     "work/assignment_coverage_agent.json",
     "work/evidence_requirements.json",
     "work/quantitative_claims.json",
@@ -523,6 +530,10 @@ def validate_json_work_artifact(
     for field, expected_type in JSON_ARTIFACT_REQUIRED_FIELDS.get(rel_path, {}).items():
         if not isinstance(loaded.get(field), expected_type):
             errors.append(f"{rel_path}: {field} must be {_type_label(expected_type)}")
+    if rel_path == INPUT_PROVENANCE_REL:
+        # A registered schema buys only the envelope, so a record with plausible fields but a
+        # fabricated hash, a missing file or a ref escaping the round would otherwise pass.
+        errors.extend(validate_input_provenance_payload(loaded, round_dir=round_dir))
     if rel_path in STRUCTURED_EVIDENCE_SCHEMAS:
         errors.extend(
             validate_structured_evidence_payload(

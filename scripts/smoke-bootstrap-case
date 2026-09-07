@@ -125,15 +125,16 @@ PY
 
 make_text_zip() {
   local target="$1"
-  python3 - "$target" <<'PY'
+  local body="${2:-Synthetic thesis source.}"
+  python3 - "$target" "$body" <<'ZIPBODY'
 from pathlib import Path
 import sys
 import zipfile
 
 target = Path(sys.argv[1])
 with zipfile.ZipFile(target, "w") as archive:
-    archive.writestr("latex/thesis.tex", "Synthetic thesis source.\n")
-PY
+    archive.writestr("latex/thesis.tex", sys.argv[2] + "\n")
+ZIPBODY
 }
 
 make_pdf "$tmp_dir/thesis.pdf" "Synthetic thesis text"
@@ -191,8 +192,10 @@ expect_file_contains "$round_dir/notes/previous-feedback-index.md" "Imported His
 expect_file_contains "$round_dir/notes/round-notes.md" "Bootstrap Import Summary"
 expect_file_contains "$round_dir/notes/supervisor-intake.md" "Imported Operator Notes"
 
-make_text_zip "$tmp_dir/Code.zip"
-make_text_zip "$tmp_dir/code.zip"
+# Distinct content on purpose: the scenario is two archives whose names differ only in
+# case, not two copies of one archive, which import-time deduplication collapses.
+make_text_zip "$tmp_dir/Code.zip" "Synthetic thesis source, upper."
+make_text_zip "$tmp_dir/code.zip" "Synthetic thesis source, lower."
 case_id="${case_prefix}_source_target_collision"
 created_cases+=("$case_id")
 expect_success \
@@ -243,7 +246,8 @@ expect_success \
   --private-assignment-notes "None" \
   --topic "Synthetic opponent topic"
 expect_output 'Readiness check: PASS'
-expect_output '$ scripts/check-round-ready'
+# bootstrap prints the logical workflow command name, not the POSIX wrapper path.
+expect_output '$ check-round-ready'
 round_id="$(<"$repo_root/cases/$case_id/current-round.txt")"
 round_dir="$repo_root/cases/$case_id/rounds/$round_id"
 expect_file_contains "$round_dir/notes/opponent-intake.md" "Synthetic opponent topic"

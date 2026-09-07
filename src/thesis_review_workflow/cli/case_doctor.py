@@ -53,6 +53,10 @@ from thesis_review_workflow.paths import rel_repo, rel_round
 from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
 from thesis_review_workflow.review_materiality import declared_code_source_from_trace
 from thesis_review_workflow.submission_bundle import submission_bundle_visibility_lines
+from thesis_review_workflow.input_provenance import (
+    INPUT_PROVENANCE_REL,
+    validate_input_provenance_payload,
+)
 from thesis_review_workflow.supervisor_reading_pass import (
     SUPERVISOR_READING_PASS_REL,
     SUPERVISOR_READING_PASS_TEMPLATE,
@@ -370,6 +374,43 @@ def collect_feedback_rounds(case_dir: Path, current_round_id: str) -> tuple[list
             else:
                 other.append(feedback)
     return previous, other
+
+
+def input_provenance_lines(round_dir: Path, issues: list[Issue]) -> list[str]:
+    """Where each declared input went, so a download name can still be found."""
+
+    path = round_dir / INPUT_PROVENANCE_REL
+    if not path.is_file():
+        inputs = round_dir / "inputs"
+        imported = inputs.is_dir() and any(inputs.iterdir())
+        if not imported:
+            return [f"- {INPUT_PROVENANCE_REL}: absent, and this round imported no inputs"]
+        return [f"- {INPUT_PROVENANCE_REL}: absent; these inputs predate provenance recording"]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        add_issue(issues, "WARNING", f"Could not read {INPUT_PROVENANCE_REL}: {exc}")
+        return [f"- {INPUT_PROVENANCE_REL}: unreadable"]
+    errors = validate_input_provenance_payload(payload, round_dir=round_dir)
+    records = payload.get("inputs") if isinstance(payload, dict) else None
+    lines: list[str] = []
+    for record in records if isinstance(records, list) else []:
+        if not isinstance(record, dict):
+            continue
+        original = str(record.get("original_name", "?"))
+        stored = str(record.get("stored_ref", "?"))
+        role = str(record.get("role", "input"))
+        note = " (deduplicated)" if record.get("deduplicated") else ""
+        renamed = "" if original == Path(stored).name else f" <- {original}"
+        lines.append(f"- {role}: {stored}{renamed}{note}")
+    if not lines:
+        lines.append(f"- {INPUT_PROVENANCE_REL}: no input records")
+    if errors:
+        add_issue(issues, "WARNING", f"{INPUT_PROVENANCE_REL} does not match the stored inputs.")
+        lines.extend(f"- Error: {error}" for error in errors[:5])
+        if len(errors) > 5:
+            lines.append(f"- ... {len(errors) - 5} more provenance errors")
+    return lines
 
 
 def declared_code_source_lines(round_dir: Path) -> list[str]:
@@ -748,6 +789,8 @@ def main(argv: list[str]) -> int:
     output_section("Inputs And Extracts", input_lines + pdf_lines)
 
     output_section("Operator Reading Pass", reading_pass_lines(round_dir, issues))
+
+    output_section("Input Provenance", input_provenance_lines(round_dir, issues))
 
     archive_lines: list[str] = []
     for info in archives:

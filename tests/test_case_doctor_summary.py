@@ -257,3 +257,79 @@ def test_case_doctor_flags_a_declaration_until_the_intake_artifact_exists(tmp_pa
     resolved = case_doctor.declared_code_source_lines(round_dir)
 
     assert not any("unresolved" in line for line in resolved)
+
+
+def test_input_provenance_lines_report_where_each_input_went(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir / "work").mkdir()
+    (round_dir / "inputs" / "Thesis.pdf").write_bytes(b"%PDF-1.4\n")
+    (round_dir / "work" / "input_provenance.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "input-provenance-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-09-07T00:00:00Z",
+                "inputs": [
+                    {
+                        "role": "thesis_pdf",
+                        "original_name": "Thesis (1).pdf",
+                        "stored_ref": "inputs/Thesis.pdf",
+                        "sha256": "e5c62df5dab5c87b6a015ef3d43597074d1eec433b15f51aec63b8582d0e4ab4",
+                        "size_bytes": 9,
+                        "deduplicated": False,
+                    },
+                    {
+                        "role": "assignment_pdf",
+                        "original_name": "zadani.pdf",
+                        "stored_ref": "inputs/Thesis.pdf",
+                        "sha256": "e5c62df5dab5c87b6a015ef3d43597074d1eec433b15f51aec63b8582d0e4ab4",
+                        "size_bytes": 9,
+                        "deduplicated": True,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    issues: list[Issue] = []
+
+    lines = case_doctor.input_provenance_lines(round_dir, issues)
+
+    assert any("Thesis (1).pdf" in line for line in lines)
+    assert any("deduplicated" in line for line in lines)
+    assert issues == []
+
+
+def test_input_provenance_lines_warn_when_the_record_does_not_match(tmp_path: Path) -> None:
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "inputs").mkdir(parents=True)
+    (round_dir / "work").mkdir()
+    (round_dir / "work" / "input_provenance.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "input-provenance-v1",
+                "case_id": "case-a",
+                "round_id": "round-a",
+                "generated_at": "2026-09-07T00:00:00Z",
+                "inputs": [
+                    {
+                        "role": "thesis_pdf",
+                        "original_name": "thesis.pdf",
+                        "stored_ref": "inputs/absent.pdf",
+                        "sha256": "0" * 64,
+                        "size_bytes": 1,
+                        "deduplicated": False,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    issues: list[Issue] = []
+
+    lines = case_doctor.input_provenance_lines(round_dir, issues)
+
+    assert [issue.severity for issue in issues] == ["WARNING"]
+    assert any("does not exist" in line for line in lines)
