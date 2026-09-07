@@ -7,7 +7,7 @@ Created: 2026-09-07
 
 State: Slices 1 and 2 are done. The season gate is unblocked, an
 operator-declared review phase travels end to end, and supervisor-report
-calibration exists at version 1, reviewed with notes. Slices 3-7 are stubs.
+calibration exists at version 5, reviewed with notes. Slices 3-7 are stubs.
 
 Next action: write the Slice 3 charter (early-phase role set, plus revision diff
 for rounds with a predecessor) and review it before implementing.
@@ -279,11 +279,13 @@ verification block ran green, including `pants run :omen` (grade A, 0 critical).
 Three review rounds are adjudicated in `## Decision Log`: the plan-critic round,
 its narrow re-check, and the implementation review.
 
-Slice 1 is done. The calibration profile is version 1, `reviewed_with_notes`,
-and gated to BP reports in the A and B bands; the private profile layer carries
-only a pointer to it, because the corpus cannot yet separate house style from
-one-off instruction. Four operator questions are recorded in the review. Slices
-3-7 remain stubs; Slice 3 needs a full charter and a charter review before
+Slice 1 is done. The calibration profile is version 5, `reviewed_with_notes`,
+gated to BP reports in the A and B bands, and backed by a deterministic
+correction ledger rather than hand-counted prose. Its calibration content is
+seven correction patterns, seven of eight carrying a counter-attestation. The
+private profile layer carries only a pointer. All four operator questions are
+answered; two skill questions the reviewer raised are recorded for the operator.
+Slices 3-7 remain stubs; Slice 3 needs a full charter and a charter review before
 implementation.
 
 ## Decision Log
@@ -416,6 +418,27 @@ funnel; the cross-provider round was spent on the plan. Verdict `changes_require
 
 Decision: all seven fixed in this batch and the chain ends here. Why: five were
 one-line contract fixes and two were test gaps; none changed the slice's shape.
+
+### 2026-09-07 - Slice 1 closeout: five review rounds and one instrument
+
+Trigger: the profile reached version 5 through five review rounds and two roles.
+
+- Rounds 1-3, one role: a fabricated ceiling quotation, ten attestation defects in
+  the fix, then a measurement comparing drafts carrying a template header against
+  finals; prose deltas are -2, 0, -3, -67, -5. The operator then chose a short true
+  profile, so version 3 dropped the descriptive inventory as calibration.
+- Rounds 4-5, a fresh role: two confirmed corrections were missing while the
+  profile claimed none touched grading, post-review edits were undercounted, and
+  no counter-attestation search had run. Seven of eight patterns have one.
+- The third measurement correction triggered the instrument rule:
+  `work/supervisor_report_correction_ledger.json` now computes what the profile
+  counted by hand.
+
+Decision: version 5 is `reviewed_with_notes` with its own repairs unreviewed, and
+the chain closed under the stopping rule, not by convergence. Why: every round
+found a defect in the text answering the previous one, so the next place to catch
+errors is real use. Residual risk: the calibration content rests on two confirmed
+cases, because four of five finals are this workflow's own approved output.
 
 ### 2026-09-07 - Slice 1 calibration run: what the corpus could and could not support
 

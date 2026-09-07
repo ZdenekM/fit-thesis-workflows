@@ -179,6 +179,42 @@ Cover these sections:
   reopen profile review, while style/preference deltas need a current approval
   or typed exception.
 
+## Below The Passing Band And Contested Fulfilment
+
+The reserve register that fits a good thesis with reserves misdescribes a weak
+one. These rules are derived from the FIT IS field structure and from what a
+grade has to survive before a committee, not from an attested corpus of weak
+reports, so treat them as the required shape rather than as observed style, and
+record the first real case as calibration evidence.
+
+- Separate assignment fulfilment from quality. They are distinct IS judgements:
+  a fulfilled assignment can still be a weak thesis, and an unfulfilled
+  assignment can contain good parts. Do not let one verdict carry the other.
+- When fulfilment is contested, map the contested assignment points explicitly:
+  which point, and on what evidence it is unmet. A non-fulfilment claim without
+  that mapping is not defensible.
+- State non-fulfilment plainly when that is the supervisor's judgement. Softening
+  it into a reserve makes the grade unreadable and is unfair to the committee and
+  to the student.
+- Stop calling defects `rezervy` once they define the grade rather than qualify
+  it. Below the passing band the word understates and leaves the grade
+  unjustified.
+- Invert the justification axis. Above the middle band the report argues why not
+  higher; at and below the middle band it argues why this still passes, and at a
+  failing grade why it does not. Lead with what is missing, then with what
+  nevertheless holds.
+- Do not carry a length budget calibrated on strong reports downward. A weak-case
+  report is normally longer, because it has to carry the per-point mapping and the
+  floor argument.
+- Record what supervision was offered when engagement is part of the judgement:
+  consultations available, feedback given, revisions requested. Not to shift
+  responsibility, but because the committee will ask.
+- These rules do not relax anything above: no cause or motive is attributed for a
+  process problem, bounded evidence stays limited-verification wording rather
+  than a non-functionality claim, praise stays specific, and the official/private
+  split holds. At a low grade the private comment normally carries more, not less,
+  because the student needs to know what to do at the defense.
+
 ## Style
 
 Use the effective reviewer profile's `Supervisor Report Style` section when it

@@ -23,6 +23,20 @@
    - Add write-mode `scripts/migrate-case` and bulk `scripts/migrate-cases` only after the dry-run contract is reviewed against real operator needs.
    - Include `--backup`, `--case`, `--all`, and `--from/--to` style controls with explicit idempotence tests.
    - Preserve private inputs by default, avoid rewriting large binary/source artifacts unless explicitly required, and write an operator log under the ignored case workspace.
+- [ ] Give the supervisor report the internal-leak check the opponent report already has.
+   - `check_opponent_report.py` carries `INTERNAL_PATTERNS` for its clean export; the supervisor
+     report path has no equivalent, so nothing checks official IS prose for internal leakage.
+   - Measured trigger: in one confirmed report the drafting path had written its own sentence
+     `Body zůstávají návrhem pro potvrzení vedoucím před přepisem do IS.` into the grading rationale,
+     and the human supervisor deleted it. The skill already forbids review state in official prose;
+     no checker enforced it.
+   - The opponent patterns would not have caught this one either: they cover paths, hashes, artifact
+     filenames and English workflow vocabulary, not a Czech process sentence our own templates emit.
+   - Keep it a bounded structural check over known internal markers our templates produce, not a
+     semantic reading of free text: fixed marker phrases, paths, hashes and artifact filenames only.
+     Route anything requiring interpretation to the review role instead.
+   - Cover both the drafted and the reviewed report artifact, and add a focused test plus a fixture
+     line that would have failed before the fix.
 - [ ] Make an unclosed review round visibly unclosed.
    - Measured on the completed season: three of five final supervisor-report rounds carry no
      `work/supervisor_report_confirmation.json`, so `supervisor-report-closeout` and its
