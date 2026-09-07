@@ -63,6 +63,11 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 | `historical-opponent-calibration` | `deferred` | none | generator | not-spawned | none in this profile registry | private calibration workflow; no durable spawned role yet | `scripts/check-opponent-calibration-profile` when the workflow is run |
 | `historical-supervisor-report-calibration` | `deferred` | none | generator | not-spawned | none in this profile registry | private calibration workflow; no durable spawned role yet | `scripts/check-supervisor-report-calibration-profile` when the workflow is run |
 
+`thesis-revision-diff` is also a materiality role: `review_materiality.py` marks
+`revision_diff` material when an earlier round in the case carries the workflow's own
+synthesis artifact. That is advisory detection only — no producer role, packet or
+next action consumes it — so a round that skips the revision diff is not blocked.
+
 ## Routing Decisions
 
 - Packet-scoped text/assignment and evidence-calibration findings are

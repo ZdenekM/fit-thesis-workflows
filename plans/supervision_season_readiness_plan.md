@@ -212,7 +212,7 @@ narrow re-check, and the Slice 2 implementation review.
 
 ### Slice 3 - Early-phase role deferral and revision-diff detection
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Defer late-phase roles in the early phase and detect a predecessor round`
 - Why: Slice 2 made `early` declarable and carried it end to end, but it changes
   nothing — a test asserts its decision set equals `non_final`. An early round
@@ -222,9 +222,15 @@ narrow re-check, and the Slice 2 implementation review.
   predecessor, with nothing in the pipeline noticing the predecessor at all.
 - Expected paths: `src/thesis_review_workflow/review_materiality.py`,
   `src/thesis_review_workflow/cases.py`,
+  `src/thesis_review_workflow/agent_coverage.py`,
+  `src/thesis_review_workflow/review_pipeline_orchestration.py`,
   `src/thesis_review_workflow/cli/update_round_reuse_index.py`,
+  `src/thesis_review_workflow/cli/review_round_closeout.py`,
+  `src/thesis_review_workflow/cli/prepare_review_round.py`,
+  `src/thesis_review_workflow/cli/review_round_start.py`,
   `tests/test_review_materiality.py`, `tests/test_review_pipeline_orchestration.py`,
-  `docs/agent-profile-matrix.md`, `docs/operator-reference.md`
+  `tests/test_agent_coverage.py`, `docs/agent-profile-matrix.md`,
+  `docs/operator-reference.md`
 - Tasks:
   - Defer only `typography_formal`, `literature_citation` and `figure_media` in
     the early phase. `code_consistency` is NOT deferred: `review_profiles.py`
@@ -273,10 +279,13 @@ narrow re-check, and the Slice 2 implementation review.
   a producer role, packet or next action for `revision_diff`; and any change to
   how `final` behaves.
 - Verification:
-  - `pants test tests/test_review_materiality.py`
-  - `pants test tests/test_review_pipeline_orchestration.py`
-  - `pants test tests/test_round_reuse_index.py`
+  - `pants test tests/test_review_materiality.py tests/test_agent_coverage.py`
+  - `pants test tests/test_review_pipeline_orchestration.py tests/test_review_round_closeout.py`
+  - `pants test tests/test_round_reuse_index.py tests/test_agent_profile_contracts.py`
+  - `pants lint src/thesis_review_workflow/ tests/`
   - `scripts/smoke-prepare-review-round`
+  - `scripts/smoke-agent-coverage`
+  - `scripts/smoke-review-round-closeout`
   - `scripts/smoke-round-reuse-index`
   - `scripts/check-scripts`
   - `python3 tests/test_plan_contract.py`
@@ -516,6 +525,27 @@ funnel; the cross-provider round was spent on the plan. Verdict `changes_require
 
 Decision: all seven fixed in this batch and the chain ends here. Why: five were
 one-line contract fixes and two were test gaps; none changed the slice's shape.
+
+### 2026-09-07 - Slice 3: the declared phase needed one owner, not one consumer
+
+Trigger: two review rounds found the same defect shape — a phase honoured in one
+place and ignored in the next.
+
+- Charter round: `code_consistency` cannot be deferred, since the code-bearing
+  contract blocks without it; `impact_for` raises `KeyError` for an unmapped role;
+  predecessor detection reuses `previous_round_ids` rather than assuming timestamps.
+- Implementation review: the deferral stopped at packet preparation.
+  `agent_coverage.py::inferred_role_specs` still demanded the deferred outputs and
+  closeout reran materiality at `final`, so declaring `early` made a round fail its
+  own closeout.
+- A test caught a third: the existing-output exemption keyed off decision scope,
+  which `merge_material` overwrites.
+
+Decision: `declared_review_phase_from_trace` moved into `review_materiality.py`
+and every consumer reads it there. Why: a phase honoured by one consumer is worse
+than none, because it makes a round fail a gate it used to pass. Residual risk: the
+deferral binds only `figure_media` today, since typography is final-only and
+literature needs an existing output, which is exempt.
 
 ### 2026-09-07 - Slice 1 closeout: five review rounds and one instrument
 

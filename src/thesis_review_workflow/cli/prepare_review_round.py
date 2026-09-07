@@ -18,12 +18,11 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import run_step
 from thesis_review_workflow.paths import rel_repo
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_RUN_TRACE_REL,
     build_review_role_plan_payload,
-    declared_review_phase_from_trace,
     packet_contract_for_profile,
     reject_out_of_scope_review_phase,
 )

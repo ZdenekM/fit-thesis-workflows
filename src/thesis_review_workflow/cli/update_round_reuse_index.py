@@ -11,7 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow.agent_coverage import COVERAGE_REL
-from thesis_review_workflow.cases import MissingCurrentRound, case_dir, read_current_round, repo_root, resolve_round
+from thesis_review_workflow.cases import (
+    MissingCurrentRound,
+    case_dir,
+    previous_round_ids,
+    read_current_round,
+    repo_root,
+    resolve_round,
+)
 from thesis_review_workflow.code_workspace import workspace_source_fingerprints
 from thesis_review_workflow.ids import validate_id
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo
@@ -388,16 +395,6 @@ def dedupe_sources(sources: list[SourceFingerprint]) -> list[SourceFingerprint]:
         if existing is None or (not existing.comparable and source.comparable):
             by_key[source.key] = source
     return [by_key[key] for key in sorted(by_key, key=lambda item: (item[1].value, item[0]))]
-
-
-def previous_round_ids(case_dir_path: Path, current_round_id: str) -> list[str]:
-    rounds_dir = case_dir_path / "rounds"
-    if not rounds_dir.is_dir():
-        return []
-    names = sorted(path.name for path in rounds_dir.iterdir() if path.is_dir() and not path.name.startswith("."))
-    if current_round_id in names:
-        return list(reversed(names[: names.index(current_round_id)]))
-    return list(reversed([name for name in names if name != current_round_id]))
 
 
 def load_review_manifest(round_dir: Path) -> dict[str, Any]:

@@ -24,7 +24,7 @@ from thesis_review_workflow.cli.context import (
 )
 from thesis_review_workflow.commands import Step, run_step
 from thesis_review_workflow.paths import is_safe_round_relative_path, rel_repo, resolve_caller_path
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_REL,
     ReviewRunTraceEvent,
@@ -32,7 +32,6 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     RoundStartAction,
     TracePhase,
     build_review_run_trace_payload,
-    declared_review_phase_from_trace,
     plan_review_round_start,
     reject_out_of_scope_review_phase,
 )

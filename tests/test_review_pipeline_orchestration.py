@@ -8,6 +8,7 @@ from pathlib import Path
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
 from thesis_review_workflow.cli import prepare_review_round, review_round_closeout, review_round_start
 from thesis_review_workflow.commands import Step
+from thesis_review_workflow.review_materiality import declared_review_phase_from_trace
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
     REVIEW_ROLE_PLAN_SCHEMA,
@@ -22,8 +23,8 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     build_review_role_plan_payload,
     build_review_run_trace_payload,
     closeout_wave_for_profile,
+    code_bearing_contract,
     coverage_role_for_packet_role,
-    declared_review_phase_from_trace,
     normalize_metadata_fields,
     plan_review_round_start,
     trace_profile_summary,
@@ -331,6 +332,45 @@ def _trace_event() -> ReviewRunTraceEvent:
         command="review-round-start --profile supervisor_feedback case-a round-a",
         output_refs=("work/review_run_trace.json",),
     )
+
+
+def test_code_bearing_contract_stays_satisfied_in_a_declared_early_round(tmp_path: Path) -> None:
+    """The charter's load-bearing promise: deferral must never reach a code role.
+
+    `code_bearing_contract` reads the materiality projection, so a deferred code role would
+    flip it to `blocked` and stop an early round from closing.
+    """
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    (round_dir / "work").mkdir(parents=True)
+    (round_dir / "outputs").mkdir()
+    (round_dir / "work" / "code_workspace.md").write_text("# code\n", encoding="utf-8")
+    (round_dir / "work" / "review_run_trace.json").write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
+    decisions, errors, phase = review_materiality.build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+    )
+    assert errors == []
+    assert phase == "early"
+    review_materiality.write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-09-07T12:00:00Z",
+    )
+
+    profile = review_profiles.get_workflow_review_profile("supervisor_feedback")
+    role_records = [{"role": role, "state": "required_fresh"} for role in profile.code_bearing_roles]
+    contract = code_bearing_contract(profile, round_dir, role_records)
+
+    assert contract["code_evidence_present"] is True
+    assert contract["required_roles"] == list(profile.code_bearing_roles)
+    assert contract["status"] == "satisfied"
 
 
 def test_trace_payload_carries_the_declared_review_phase() -> None:

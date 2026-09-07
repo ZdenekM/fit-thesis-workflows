@@ -297,6 +297,39 @@ def test_agent_coverage_requires_explicit_omen_tool_for_optional_tool_block(tmp_
     assert all("Omen is optional advisory evidence" not in error for error in errors)
 
 
+def test_declared_early_phase_drops_the_deferred_role_specs(tmp_path: Path) -> None:
+    """A declared early round must not be required to produce what materiality deferred.
+
+    Without this, declaring the phase makes a round that would have closed fail
+    `check-agent-coverage`: materiality plans no figure/media role while coverage still
+    demands its output.
+    """
+    round_dir = make_final_round(tmp_path)
+    media = round_dir / "work" / "figure_media"
+    media.mkdir(parents=True)
+    (media / "figure-01.png").write_bytes(b"\x89PNG synthetic")
+    manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
+
+    assert "figure_media" in agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    trace = round_dir / "work" / "review_run_trace.json"
+    trace.write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
+
+    assert "figure_media" not in agent_coverage.inferred_role_specs(round_dir, manifest)
+
+
+def test_declared_early_phase_still_requires_a_literature_review_that_already_exists(tmp_path: Path) -> None:
+    round_dir = make_final_round(tmp_path)
+    (round_dir / "outputs" / "literature_citation_review.md").write_text("# lit\n", encoding="utf-8")
+    (round_dir / "work").mkdir(exist_ok=True)
+    (round_dir / "work" / "review_run_trace.json").write_text(json.dumps({"review_phase": "early"}), encoding="utf-8")
+    manifest = {"inputs": [], "supporting_work_artifacts": [], "artifacts": [reviewed_feedback_artifact(round_dir)]}
+
+    specs = agent_coverage.inferred_role_specs(round_dir, manifest)
+
+    assert "literature_citation" in specs
+
+
 def test_agent_coverage_requires_theses_similarity_review_for_final_outputs(tmp_path: Path) -> None:
     round_dir = make_final_round(tmp_path)
     theses_review = round_dir / THESES_SIMILARITY_REVIEW_REL

@@ -256,26 +256,6 @@ def reject_out_of_scope_review_phase(profile_id: str, review_phase: str | None, 
     )
 
 
-def declared_review_phase_from_trace(round_dir: Path) -> str | None:
-    """Read the operator-declared review phase from a round's run trace.
-
-    Returns None when no phase was declared, when the trace is absent, or when it is
-    unreadable: an undeclared phase is the documented default, not an error. `auto` is
-    not declarable, so a trace carrying it is treated as undeclared.
-    """
-    path = round_dir / REVIEW_RUN_TRACE_REL
-    if not path.is_file():
-        return None
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(loaded, dict):
-        return None
-    phase = loaded.get("review_phase")
-    return phase if isinstance(phase, str) and phase in DECLARABLE_PHASES else None
-
-
 def build_review_run_trace_payload(
     *,
     case_id: str,

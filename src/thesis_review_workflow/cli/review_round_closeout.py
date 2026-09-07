@@ -27,7 +27,7 @@ from thesis_review_workflow.commands import (
     run_step,
 )
 from thesis_review_workflow.review_delta import review_delta_closeout_errors
-from thesis_review_workflow.review_materiality import DECLARABLE_PHASES
+from thesis_review_workflow.review_materiality import DECLARABLE_PHASES, declared_review_phase_from_trace
 from thesis_review_workflow.review_packets import COMMON_BRIEFING_REL, sha256_file, write_common_briefing
 from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_ROLE_PLAN_REL,
@@ -35,7 +35,6 @@ from thesis_review_workflow.review_pipeline_orchestration import (
     REVIEW_RUN_TRACE_SCHEMA,
     ReviewRunTraceEvent,
     closeout_wave_for_profile,
-    declared_review_phase_from_trace,
     load_review_role_plan,
     validate_review_role_plan_payload,
     validate_review_run_trace_payload,
@@ -495,6 +494,12 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
     ):
         return steps
     if profile.effective_materiality_profile:
+        # A declared early phase survives closeout for supervisor feedback: rerunning with
+        # `final` would re-materialise the roles the round deliberately deferred and leave the
+        # persisted record contradicting the run trace. Every other profile stays final.
+        closeout_phase = "final"
+        if profile.effective_materiality_profile == "supervisor_feedback":
+            closeout_phase = declared_review_phase_from_trace(round_dir) or "final"
         if not append_step(
             run_gate(
                 f"Final materiality profile: {profile.effective_materiality_profile}",
@@ -503,7 +508,7 @@ def generic_closeout_steps(root: Path, *, case_id: str, round_id: str, profile_i
                     "--workflow",
                     profile.effective_materiality_profile,
                     "--phase",
-                    "final",
+                    closeout_phase,
                     case_id,
                     round_id,
                 ],

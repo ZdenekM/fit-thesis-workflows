@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from thesis_review_workflow.cases import previous_round_ids
 from thesis_review_workflow.paths import is_safe_round_relative_path
 from thesis_review_workflow.reuse import CoverageSatisfiedBy, coverage_satisfies_without_fresh_review
 from thesis_review_workflow.structured_evidence import (
@@ -53,7 +54,17 @@ MATERIALITY_ROLES = (
     "github_intake",
     "quantitative_claims",
     "theses_similarity",
+    "revision_diff",
 )
+# Roles the early phase defers even when their evidence exists. `code_consistency` is
+# absent on purpose: every profile carries it in `code_bearing_roles`, and
+# `review_pipeline_orchestration.code_bearing_contract` blocks a code-bearing round
+# without it.
+EARLY_DEFERRED_ROLES = ("typography_formal", "literature_citation", "figure_media")
+# The deferral yields to an explicit operator request, and to an artifact the round
+# already carries, so synthesis never loses sight of an existing review output.
+EARLY_DEFERRED_SCOPE = "deferred_early_phase"
+REVIEW_RUN_TRACE_REL = "work/review_run_trace.json"
 PACKET_ROLE_FILES = {
     "figure_media": Path("work/review_materiality/supervisor_feedback/figure_media.json"),
     "typography_formal": Path("work/review_materiality/supervisor_feedback/typography_formal.json"),
@@ -143,6 +154,7 @@ MATERIALITY_ROLE_ARTIFACTS = {
     "github_intake": "outputs/github_code_intake.md",
     "quantitative_claims": QUANTITATIVE_CLAIMS_REL.as_posix(),
     "theses_similarity": THESES_SIMILARITY_REVIEW_REL,
+    "revision_diff": "outputs/revision_diff.md",
 }
 SYNTHESIS_ARTIFACT_BY_WORKFLOW = {
     "supervisor_feedback": "outputs/feedback_student.md",
@@ -152,7 +164,7 @@ SYNTHESIS_ARTIFACT_BY_WORKFLOW = {
 REVIEWED_MANIFEST_STATUSES = {"reviewed", "reviewed_with_notes"}
 SILENT_THESES_SIMILARITY_SYNTHESIS_WORKFLOWS = {"supervisor_report", "opponent_review"}
 
-ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:")
+ALLOWED_SYNTHETIC_REFS = ("operator-request:", "workflow-profile:", "phase:", "previous-round:")
 SUPPORT_REFRESH_REFS = {COMMON_BRIEFING_REL, CURRENT_EVIDENCE_SNAPSHOT_REL}
 
 
@@ -347,6 +359,45 @@ def infer_phase(round_dir: Path, workflow_profile: str, requested_phase: str) ->
     return "non_final"
 
 
+def declared_review_phase_from_trace(round_dir: Path) -> str | None:
+    """Read the operator-declared review phase from a round's run trace.
+
+    Returns None when no phase was declared, when the trace is absent, or when it is
+    unreadable: an undeclared phase is the documented default, not an error. `auto` is
+    not declarable, so a trace carrying it is treated as undeclared.
+    """
+    path = round_dir / REVIEW_RUN_TRACE_REL
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    phase = loaded.get("review_phase")
+    return phase if isinstance(phase, str) and phase in DECLARABLE_PHASES else None
+
+
+def predecessor_synthesis_refs(round_dir: Path, workflow_profile: str, round_id: str) -> list[str]:
+    """Round-relative refs to earlier rounds that carry this workflow's synthesis artifact.
+
+    Ordering comes from `cases.previous_round_ids`, which is lexical over non-hidden round
+    directories; a case whose round ids are not timestamp-prefixed may order differently
+    from its real chronology. This is a structural check over paths and never reads a
+    round's contents.
+    """
+    synthesis = SYNTHESIS_ARTIFACT_BY_WORKFLOW.get(workflow_profile)
+    if synthesis is None:
+        return []
+    case_dir = round_dir.parent.parent
+    refs = []
+    for earlier in previous_round_ids(case_dir, round_id):
+        if (case_dir / "rounds" / earlier / synthesis).is_file():
+            refs.append(f"previous-round:{earlier}/{synthesis}")
+    return refs
+
+
 def impact_for(workflow_profile: str, role: str) -> str:
     if workflow_profile == "opponent_review":
         impacts = {
@@ -368,6 +419,9 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "code_quality": (
                 "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
             ),
+            "revision_diff": (
+                "opponent report context: round-over-round changes when more than one revision is available"
+            ),
         }
     elif workflow_profile == "supervisor_report":
         impacts = {
@@ -383,6 +437,9 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "code_quality": (
                 "mandatory code-bearing review: architecture, maintainability, runtime, and developer evidence"
             ),
+            "revision_diff": (
+                "supervisor report context: what changed since the last round and which reservations survived"
+            ),
         }
     else:
         impacts = {
@@ -394,6 +451,7 @@ def impact_for(workflow_profile: str, role: str) -> str:
             "theses_similarity": "student-action priority: investigate unresolved similarity-report matches",
             "code_consistency": "mandatory code-bearing review: unsupported implementation and reproducibility claims",
             "code_quality": "mandatory code-bearing review: implementation design, tests, and developer evidence",
+            "revision_diff": ("student-action priority: separate what the revision addressed from what still stands"),
         }
     return impacts[role]
 
@@ -418,14 +476,23 @@ def material_decision(
     )
 
 
-def not_material_decision(workflow_profile: str, role: str, *, reason: str) -> MaterialityDecision:
+def not_material_decision(
+    workflow_profile: str,
+    role: str,
+    *,
+    reason: str,
+    scope: str = "not_triggered",
+    source_refs: tuple[str, ...] = (),
+    limitations: tuple[str, ...] = (),
+) -> MaterialityDecision:
     return MaterialityDecision(
         role=role,
         recommendation="not_material",
-        scope="not_triggered",
+        scope=scope,
         impact=impact_for(workflow_profile, role),
         reason=reason,
-        source_refs=(),
+        source_refs=source_refs,
+        limitations=limitations,
     )
 
 
@@ -631,6 +698,41 @@ def build_materiality_decisions(
             reason="structured quantitative/evaluation evidence is present",
             source_refs=quantitative_refs,
         )
+
+    predecessor_refs = predecessor_synthesis_refs(round_dir, workflow_profile, round_id)
+    if predecessor_refs:
+        merge_material(
+            decisions,
+            workflow_profile,
+            "revision_diff",
+            scope="predecessor_round_present",
+            reason="an earlier round in this case carries this workflow's synthesis artifact",
+            source_refs=predecessor_refs,
+        )
+
+    # Supervisor feedback only. In the opponent profile the same two roles are IS items made
+    # material by the profile itself, not by evidence, and deferring them would drop packet
+    # inputs a final gate still demands.
+    if resolved_phase == "early" and workflow_profile == "supervisor_feedback":
+        for role in EARLY_DEFERRED_ROLES:
+            decision = decisions.get(role)
+            if decision is None or not decision.material:
+                continue
+            if role in requested_roles:
+                continue
+            # Checked structurally rather than by decision scope: `merge_material` keeps the
+            # first trigger's scope when it merges, so an existing output can hide behind an
+            # earlier evidence trigger.
+            if (round_dir / MATERIALITY_ROLE_ARTIFACTS[role]).is_file():
+                continue
+            decisions[role] = not_material_decision(
+                workflow_profile,
+                role,
+                reason=f"deferred in the operator-declared early phase: {decision.reason}",
+                scope=EARLY_DEFERRED_SCOPE,
+                source_refs=decision.source_refs,
+                limitations=decision.limitations,
+            )
 
     ordered = [decisions[role] for role in MATERIALITY_ROLES]
     return ordered, errors, resolved_phase

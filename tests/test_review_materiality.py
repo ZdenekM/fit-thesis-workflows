@@ -3,9 +3,15 @@ from pathlib import Path
 
 from thesis_review_workflow.cli import check_review_materiality
 from thesis_review_workflow.review_materiality import (
+    EARLY_DEFERRED_ROLES,
+    EARLY_DEFERRED_SCOPE,
+    MATERIALITY_ROLES,
     QUANTITATIVE_CLAIMS_REL,
+    VISUAL_INVENTORY_REL,
+    WORKFLOW_PROFILES,
     MaterialityDecision,
     build_materiality_decisions,
+    impact_for,
     load_review_materiality_index,
     sha256_file,
     unresolved_required_next_actions,
@@ -386,13 +392,30 @@ def test_final_supervisor_phase_marks_typography_material(tmp_path: Path) -> Non
     assert "literature_citation" not in roles
 
 
-def test_declared_early_phase_is_recorded_and_not_yet_behavioral(tmp_path: Path) -> None:
-    """`early` is carried and recorded; the role set that acts on it is Slice 3 of
-    `plans/supervision_season_readiness_plan.md`. This asserts the current identity with
-    `non_final` on purpose, so the slice that differentiates them has to change this test
-    rather than silently leave the phase inert.
+def test_impact_for_covers_every_role_in_every_workflow_profile() -> None:
+    """`not_material_decision` calls `impact_for` for every role in every profile.
+
+    A role added to `MATERIALITY_ROLES` without an impact string raises KeyError on the
+    first decision build, which is how `revision_diff` would have shipped broken.
     """
+    for workflow_profile in sorted(WORKFLOW_PROFILES):
+        for role in MATERIALITY_ROLES:
+            assert impact_for(workflow_profile, role).strip()
+
+
+def _trigger_all_deferrable_roles(round_dir: Path) -> None:
+    """Give every early-deferrable role a trigger a non-final round would act on."""
+    write_json(round_dir / VISUAL_INVENTORY_REL.parent / VISUAL_INVENTORY_REL.name, {"schema_version": "x"})
+    (round_dir / "outputs").mkdir(exist_ok=True)
+    (round_dir / "outputs" / "typography_formal_review.md").write_text("# t\n", encoding="utf-8")
+    (round_dir / "outputs" / "literature_citation_review.md").write_text("# l\n", encoding="utf-8")
+
+
+def test_early_phase_defers_every_deferrable_role_that_has_only_an_evidence_trigger(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
+    write_json(round_dir / VISUAL_INVENTORY_REL.parent / VISUAL_INVENTORY_REL.name, {"schema_version": "x"})
+
+    assert "figure_media" in material_roles(round_dir, phase="non_final")
 
     decisions, errors, phase = build_materiality_decisions(
         round_dir,
@@ -404,16 +427,133 @@ def test_declared_early_phase_is_recorded_and_not_yet_behavioral(tmp_path: Path)
 
     assert errors == []
     assert phase == "early"
-    assert {decision.role: decision.material for decision in decisions} == {
-        decision.role: decision.material
-        for decision in build_materiality_decisions(
+    deferred = {decision.role: decision for decision in decisions if decision.scope == EARLY_DEFERRED_SCOPE}
+    assert set(deferred) == {"figure_media"}
+    assert not deferred["figure_media"].material
+    assert "deferred in the operator-declared early phase" in deferred["figure_media"].reason
+    # the deferral keeps the evidence that made the role material, so a later pass can see why
+    assert deferred["figure_media"].source_refs
+
+
+def test_every_deferrable_role_is_deferred_when_its_trigger_is_not_an_existing_output(tmp_path: Path) -> None:
+    """Guards the list itself: reducing EARLY_DEFERRED_ROLES must fail a test.
+
+    Typography and literature have no evidence trigger in the supervisor profile today, so this
+    asserts the mechanism over the whole list rather than only the role that currently fires.
+    """
+    for role in EARLY_DEFERRED_ROLES:
+        round_dir = make_round(tmp_path / role)
+        decisions, errors, _ = build_materiality_decisions(
             round_dir,
             case_id="case-a",
             round_id="round-a",
             workflow_profile="supervisor_feedback",
-            phase="non_final",
-        )[0]
-    }
+            phase="early",
+            requested_roles=(role,),
+        )
+        assert errors == []
+        requested = next(d for d in decisions if d.role == role)
+        assert requested.material, f"{role}: an explicit request must survive the deferral"
+        assert requested.scope != EARLY_DEFERRED_SCOPE
+
+
+def test_early_deferral_does_not_apply_to_the_opponent_profile(tmp_path: Path) -> None:
+    """Those two roles are opponent IS items made material by the profile, not by evidence."""
+    round_dir = make_round(tmp_path)
+
+    roles = material_roles(round_dir, workflow_profile="opponent_review", phase="early")
+
+    assert {"typography_formal", "literature_citation"} <= roles
+
+
+def test_non_final_and_final_decision_sets_are_unchanged_for_the_pre_existing_roles(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    _trigger_all_deferrable_roles(round_dir)
+    pre_existing = tuple(role for role in MATERIALITY_ROLES if role != "revision_diff")
+
+    for phase in ("non_final", "final"):
+        decisions, errors, resolved = build_materiality_decisions(
+            round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            workflow_profile="supervisor_feedback",
+            phase=phase,
+        )
+        assert errors == []
+        assert resolved == phase
+        assert not any(d.scope == EARLY_DEFERRED_SCOPE for d in decisions)
+        material = {d.role for d in decisions if d.material}
+        assert {"figure_media", "typography_formal", "literature_citation"} <= material
+        assert set(pre_existing) == {d.role for d in decisions} - {"revision_diff"}
+
+
+def test_early_phase_keeps_both_mandatory_code_roles(tmp_path: Path) -> None:
+    """Deferral must never touch a code role: `code_bearing_contract` blocks without them."""
+    round_dir = make_round(tmp_path)
+    (round_dir / "work").mkdir(exist_ok=True)
+    (round_dir / "work" / "code_workspace.md").write_text("# code\n", encoding="utf-8")
+
+    roles = material_roles(round_dir, phase="early")
+
+    assert {"code_consistency", "code_quality"} <= roles
+
+
+def test_early_deferral_yields_to_an_explicit_request_and_to_an_existing_output(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_json(round_dir / VISUAL_INVENTORY_REL.parent / VISUAL_INVENTORY_REL.name, {"schema_version": "x"})
+
+    requested, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="early",
+        requested_roles=("figure_media",),
+    )
+    assert errors == []
+    assert {d.role for d in requested if d.material and d.role == "figure_media"} == {"figure_media"}
+
+    (round_dir / "outputs").mkdir(exist_ok=True)
+    (round_dir / "outputs" / "figure_media_review.md").write_text("# review\n", encoding="utf-8")
+
+    with_output = material_roles(round_dir, phase="early")
+    assert "figure_media" in with_output
+
+
+def test_revision_diff_is_material_only_when_an_earlier_round_carries_the_synthesis(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    rounds_dir = round_dir.parent
+
+    assert "revision_diff" not in material_roles(round_dir)
+
+    earlier = rounds_dir / "round-0"
+    (earlier / "outputs").mkdir(parents=True)
+    (earlier / "outputs" / "feedback_student.md").write_text("# feedback\n", encoding="utf-8")
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase="auto",
+    )
+
+    assert errors == []
+    decision = next(d for d in decisions if d.role == "revision_diff")
+    assert decision.material
+    assert decision.scope == "predecessor_round_present"
+    assert decision.source_refs == ("previous-round:round-0/outputs/feedback_student.md",)
+
+
+def test_revision_diff_ignores_a_later_round_and_a_hidden_directory(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    rounds_dir = round_dir.parent
+    for name in ("round-z", ".round-hidden"):
+        later = rounds_dir / name
+        (later / "outputs").mkdir(parents=True)
+        (later / "outputs" / "feedback_student.md").write_text("# feedback\n", encoding="utf-8")
+
+    assert "revision_diff" not in material_roles(round_dir)
 
 
 def test_early_phase_is_never_inferred_without_an_operator_declaration(tmp_path: Path) -> None:

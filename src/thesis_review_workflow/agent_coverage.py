@@ -33,6 +33,7 @@ from thesis_review_workflow.reuse import (
     coverage_satisfies_without_fresh_review,
     source_classes_for_role,
 )
+from thesis_review_workflow.review_materiality import EARLY_DEFERRED_ROLES, declared_review_phase_from_trace
 from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_ASSESSMENT_REL,
     THESES_SIMILARITY_REVIEW_REL,
@@ -461,7 +462,12 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             final_paths,
         )
 
-    if final_paths and media_evidence_present(round_dir):
+    # The operator-declared early phase defers the same roles materiality defers. Without this
+    # the two disagree and a declared early round cannot close: materiality plans no role while
+    # coverage still requires its output.
+    deferred = set(EARLY_DEFERRED_ROLES) if declared_review_phase_from_trace(round_dir) == "early" else set()
+
+    if final_paths and media_evidence_present(round_dir) and "figure_media" not in deferred:
         specs["figure_media"] = RoleSpec(
             "figure_media",
             "visual, media, slide, or notebook evidence is available for a final/synthesis artifact",
@@ -470,8 +476,10 @@ def inferred_role_specs(round_dir: Path, manifest: dict[str, Any]) -> dict[str, 
             final_paths,
         )
 
-    if final_paths and (
-        "outputs/literature_citation_review.md" in paths or literature_trigger_present(round_dir, manifest)
+    if (
+        final_paths
+        and ("outputs/literature_citation_review.md" in paths or literature_trigger_present(round_dir, manifest))
+        and ("literature_citation" not in deferred or "outputs/literature_citation_review.md" in paths)
     ):
         specs["literature_citation"] = RoleSpec(
             "literature_citation",

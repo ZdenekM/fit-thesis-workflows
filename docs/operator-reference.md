@@ -203,10 +203,15 @@ kostra je:
    `work/review_run_trace.json`. U zpětné vazby vedoucího deklarujte fázi práce
    přes `--review-phase early|non_final|final`; uloží se do trace jako
    `review_phase` a `prepare-review-round` ji předá materiality refreshi.
-   Vlastní role sadu pro `early` zavede až navazující slice, takže dnes se
-   `early` chová jako `non_final`. Fáze se nikdy neodvozuje z obsahu roundu:
-   bez deklarace platí `non_final` a opakované spuštění bez příznaku deklaraci
-   nesmaže. Příznak platí jen pro `supervisor_feedback`; oponentní a reportové
+   Fáze se nikdy neodvozuje z obsahu roundu: bez deklarace platí `non_final` a
+   opakované spuštění bez příznaku deklaraci nesmaže. V `early` fázi se odkládá
+   typografie, literatura a figure/media review, i když jejich evidence existuje;
+   odklad ustoupí explicitnímu `--request-role` a artefaktu, který už v roundu je.
+   Obě code role se neodkládají nikdy, protože je vyžaduje code-bearing kontrakt.
+   Když některý starší round v case nese hotovou syntézu, materiality navíc označí
+   `revision_diff` — je to jen upozornění, žádná brána, a řazení roundů je
+   lexikální, takže case s netimestampovanými id se může řadit jinak než
+   chronologicky. Příznak platí jen pro `supervisor_feedback`; oponentní a reportové
    profily jsou vždy finální a příznak odmítnou. Closeout gate běží na `final`.
 2. `prepare-review-round --profile <workflow-profile> <case-id> [round-id]`
    připraví role packets a `work/review_role_plan.json`. Pro round, jehož trace
