@@ -199,11 +199,8 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
   `.agents/skills/thesis-assignment-review/SKILL.md`,
   `src/thesis_review_workflow/agent_profiles.py`,
   `docs/agent-profile-matrix.md`, `.codex/config.toml`,
-  `.codex/agents/thesis-assignment-reviewer.toml`,
-  `.agents/roles/thesis-assignment-reviewer.md`,
-  `.claude/agents/thesis-assignment-reviewer.md`,
-  `.claude/hooks/reviewer_write_policy.json`, `AGENTS.md`, `README.md`,
-  `tests/test_agent_profile_contracts.py`
+  `.codex/agents/thesis-assignment-reviewer.toml`, `AGENTS.md`, `README.md`,
+  `tests/test_agent_profile_contracts.py`, `TODO.md`
 - Tasks:
   - `.agents/skills/thesis-assignment-authoring/SKILL.md`: the parent-owned
     authoring workflow — intake first, then one assignment per variant, then
@@ -220,35 +217,51 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
   - Two routes in `thesis_review_workflow.agent_profiles::AGENT_PROFILE_ROUTES`:
     the authoring skill as `parent-owned` / `parent-orchestration`, the review
     skill as `profile` / `final-reviewer` with
-    `profile_id="thesis_assignment_reviewer"` and providers `codex` and
-    `claude`. The authoring route names the reviewer as its
-    `independent_review_profile`.
+    `profile_id="thesis_assignment_reviewer"`, CODEX-ONLY providers. The
+    authoring route names the reviewer as its `independent_review_profile`.
+    Codex-only because the Claude write guard confines a reviewer to
+    `cases/<id>/rounds/<round>/` and fails closed without both scope variables,
+    which no round-less topic case can satisfy; the parity work and its
+    prerequisite go to `TODO.md` per the decision below.
   - Owned outputs and writes for these two routes are CASE-relative, not
     round-relative: a topic-proposal case has no rounds. Confirm no consumer
     resolves this route's paths against a round — `agent_coverage` infers its
     specs from round artifacts and must keep the exact set
     `tests/test_agent_profile_contracts.py` already pins — and state the
-    convention in `docs/agent-profile-matrix.md`.
+    convention in `docs/agent-profile-matrix.md`. The one consumer that cannot
+    honour it is the Claude write guard, which is why the route is codex-only.
   - Discharge the rest of the registry surface the reviewer obliges. Do not
     enumerate it from reading: `pants test tests/test_agent_profile_contracts.py`
-    is the authority, and it already binds the Codex config entry, the agent
-    TOML, the byte-equal `.agents/roles/` fragment, the `.claude/agents/`
-    adapter and its write-policy entry as one mutually consistent set.
+    is the authority. For a codex-only route that is the Codex config entry and
+    its agent TOML; the same test's bidirectional guard requires that the role
+    get NO `.agents/roles/` fragment, `.claude/agents/` adapter, or write-policy
+    entry until it advertises the claude provider.
   - The approval record binds a whole variant bundle — that variant's
     assignment, its brief projection, and the intake they derive from, each by
     path and hash — because the `## Acceptance Contract` gates the bundle, not
-    a file. Slice 2 defines the record's shape and the reviewer writes it;
-    validating it is `scripts/check-assignment-bundle` in Slice 4.
+    a file. Follow the existing shape: the record is in the reviewer route's
+    `owned_outputs` beside the artifact it approves, as every route matched by
+    `thesis_review_workflow.review_profiles::workflow_review_profiles` already
+    is, and the Codex reviewer writes it. When the Claude route lands it is
+    excluded from `claude_writes` and the parent persists it, the
+    parent-mediated protocol `agent_profiles::AgentProfileRoute` documents.
+    Validating the record is `scripts/check-assignment-bundle` in Slice 4.
   - Add the two skill-routing lines to `AGENTS.md` `## Skill Routing` and the
     operator entry text to `README.md`, then close that class mechanically: a
     test asserting every registry skill id appears in `AGENTS.md`. Why a test:
     the routing list is prose that nothing currently binds to the registry, and
     `## Scope` had these two edits owned by no slice until now.
+  - One `TODO.md` entry for Claude parity of `thesis_assignment_reviewer`,
+    naming its prerequisite: case-scoped support in
+    `.claude/hooks/pre_tool_use_write_guard.py::owned_write` with allow/deny
+    tests that keep cross-case denial and tracked-path denial intact.
 - Out of scope: the structural checker and any CLI, the `check_private` names,
   bundle validation, promotion, `case_doctor`. No entry in
   `thesis_review_workflow.artifact_registry::OUTPUT_ARTIFACTS`, which is the
   registry of ROUND outputs. No second semantic role, and no change to any
-  existing route.
+  existing route. No change to `.claude/hooks/pre_tool_use_write_guard.py`:
+  widening a privacy instrument is its own reviewed change, not a task inside a
+  slice about skills.
 - Verification:
   ```bash
   pants test tests::
@@ -582,6 +595,27 @@ chain at one round plus one re-check, as the (a)/(b) content of the batch owed.
 
 Residual risk: Omen returned zero files on every path attempt in both rounds, so
 `pants run :omen` is the only static signal over the one touched module.
+
+### 2026-09-08 - The assignment reviewer ships codex-only
+
+Trigger: the Slice 2 charter review found the Claude write guard unable to
+permit the advertised route, and the approval record assigned to the wrong
+party under Claude — two accepted findings, so the three direction answers.
+
+- (i) The gated action needs an independent reviewer distinct from the author
+  and a bundle-binding approval record. It does not need that reviewer to be a
+  Claude subagent; `docs/agent-workflow.md` already makes Codex the independent
+  reviewer of the developer track.
+- (ii) Deleting the requirement is cheaper: dropping `claude` from this route
+  removes the write-guard change, the adapter, the fragment and the policy entry
+  from this plan, and the bidirectional guard in
+  `tests/test_agent_profile_contracts.py` keeps that consistent by itself.
+- (iii) Cheapest new information: implement the codex-only reviewer, the first
+  role in this tree to write outside a round at all.
+
+Decision: Slice 2 ships codex-only; Claude parity and its write-guard
+prerequisite go to `TODO.md`. The approval record follows the existing
+`review_profiles` shape instead of a new one.
 
 ## Final Audit
 
