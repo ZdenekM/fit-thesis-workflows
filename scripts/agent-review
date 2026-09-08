@@ -121,8 +121,25 @@ PROMPT
 result_file="$(mktemp "${TMPDIR:-/tmp}/agent-review.XXXXXX")"
 trap 'rm -f "$result_file"' EXIT
 
+# serena is one bridge per repo, so it cannot live in the global Codex config.
+# Layer this repo's port from `$CODEX_HOME/<repo-dir-name>.config.toml` when that
+# file exists; the tracked script therefore names no port and no machine path.
+# Without it the reviewer simply has no serena, which is what silently degraded
+# four reviews to "read-only, could not verify" before this existed.
+codex_home="${CODEX_HOME:-$HOME/.codex}"
+codex_profile="$(basename "$repo_root")"
+profile_args=""
+if [ -f "$codex_home/$codex_profile.config.toml" ]; then
+  profile_args="$codex_profile"
+else
+  echo "agent-review: no $codex_home/$codex_profile.config.toml; the reviewer will run without serena." >&2
+fi
+
 set -- codex exec --ephemeral --sandbox read-only --skip-git-repo-check \
   -C "$repo_root" -c 'approval_policy="never"' -o "$result_file"
+if [ -n "$profile_args" ]; then
+  set -- "$@" --profile "$profile_args"
+fi
 if [ -n "$model" ]; then
   set -- "$@" -m "$model"
 fi
