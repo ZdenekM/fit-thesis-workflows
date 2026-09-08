@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+topic_id="__promotion_smoke_topic_$$"
+target_id="__promotion_smoke_target_$$"
+round_id="r1"
+topic_dir="$repo_root/cases/$topic_id"
+target_dir="$repo_root/cases/$target_id"
+out_file="/tmp/assignment-promotion-smoke.$$.out"
+err_file="/tmp/assignment-promotion-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$topic_dir" "$target_dir"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq -e "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+PYTHONPATH="$repo_root/src" python3 - "$repo_root" "$topic_id" "$target_id" "$round_id" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(sys.argv[1]) / "tests"))
+from test_assignment_draft import BRIEF_SOURCE, INTAKE, assignment, projection  # noqa: E402
+
+from thesis_review_workflow.assignment_bundle import approval_rel, build_bundle_approval_payload  # noqa: E402
+
+root, topic_id, target_id, round_id = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+topic = root / "cases" / topic_id
+(topic / "notes").mkdir(parents=True)
+(topic / "outputs").mkdir()
+(topic / "work" / "reviews").mkdir(parents=True)
+(topic / "case.md").write_text(
+    "Case ID: smoke\nCase kind: topic-proposal\nStudent feedback language: en\n", encoding="utf-8"
+)
+(topic / "notes/topic_intake.md").write_text(INTAKE, encoding="utf-8")
+(topic / "notes/student_brief.md").write_text(BRIEF_SOURCE, encoding="utf-8")
+for variant in ("bp", "dp"):
+    (topic / f"outputs/assignment_formal_{variant}.md").write_text(assignment(variant=variant), encoding="utf-8")
+    (topic / f"outputs/student_brief_{variant}.md").write_text(projection(variant), encoding="utf-8")
+record = build_bundle_approval_payload(
+    topic,
+    case_id=topic_id,
+    variant="bp",
+    author_agent="authoring-parent",
+    reviewer_agent="thesis-assignment-reviewer",
+    reviewer_role="thesis-assignment-review",
+    verdict="approved",
+    blocking_findings_count=0,
+    checks_observed=["scripts/check-assignment-draft"],
+    limitations=[],
+    timestamp="2026-09-08T10:00:00Z",
+)
+(topic / approval_rel("bp")).write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+target = root / "cases" / target_id
+(target / "rounds" / round_id / "notes").mkdir(parents=True)
+(target / "case.md").write_text(
+    "Case ID: smoke\nCase kind: thesis-review\nWork type: BP\nStudent feedback language: cs\n", encoding="utf-8"
+)
+(target / "current-round.txt").write_text(round_id + "\n", encoding="utf-8")
+PY
+
+expect_success "case-doctor reports a topic case" "$repo_root/scripts/case-doctor" "$topic_id"
+expect_output "Case kind: topic-proposal"
+expect_output "Thesis readiness, deadline and feedback gates do not apply"
+
+expect_failure "promotion without the issuance assertion is refused" \
+  "$repo_root/scripts/promote-assignment" "$topic_id" "bp" "$target_id"
+expect_output "explicit issuance assertion"
+
+expect_failure "an unapproved variant is refused" \
+  "$repo_root/scripts/promote-assignment" "$topic_id" "dp" "$target_id" --issued
+expect_output "not approved and current"
+
+expect_success "an approved and issued variant promotes" \
+  "$repo_root/scripts/promote-assignment" "$topic_id" "bp" "$target_id" --issued --issued-note "2026-09-01"
+expect_output "Promoted"
+
+grep -Fq "Assignment source: topic=$topic_id variant=bp" "$target_dir/rounds/$round_id/notes/assignment.md"
+test -f "$target_dir/rounds/$round_id/work/assignment_source/${topic_id}__bp__approval.json"
+
+expect_failure "an existing assignment is not overwritten" \
+  "$repo_root/scripts/promote-assignment" "$topic_id" "bp" "$target_id" --issued
+expect_output "--replace"
+
+expect_success "--replace overwrites deliberately" \
+  "$repo_root/scripts/promote-assignment" "$topic_id" "bp" "$target_id" --issued --replace
+
+echo "Assignment promotion smoke checks passed"

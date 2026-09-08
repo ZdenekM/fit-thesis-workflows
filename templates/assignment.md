@@ -2,6 +2,14 @@
 
 This file is required before generating supervisor feedback or opponent materials.
 
+Assignment source:
+Assignment source record:
+Assignment issued:
+
+Those three lines are written by `scripts/promote-assignment` when the
+assignment came from a topic case; see `docs/assignment-authoring.md`. Leave
+them empty for a case whose assignment was authored elsewhere.
+
 ## Formal Assignment Artifacts
 
 - TODO: add `inputs/<formal-assignment.pdf>` or state that the official assignment is pasted below.

@@ -47,7 +47,9 @@ from thesis_review_workflow.cases import read_current_round, repo_root
 from thesis_review_workflow.commands import command_display, repo_command_environment, resolve_repo_command
 from thesis_review_workflow.ids import is_valid_id
 from thesis_review_workflow.ids import validate_id as validate_id_core
-from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.assignment_bundle import approval_rel
+from thesis_review_workflow.assignment_draft import declared_variants
+from thesis_review_workflow.metadata import case_kind, read_fields
 from thesis_review_workflow.operation_log import operation_log_summary_lines
 from thesis_review_workflow.paths import rel_repo, rel_round
 from thesis_review_workflow.pdf_extracts import expected_pdf_extract_path
@@ -534,6 +536,45 @@ def agent_coverage_summary(round_dir: Path, issues: list[Issue]) -> list[str]:
     )
 
 
+def report_topic_case(root: Path, case_dir: Path, case_id: str) -> int:
+    """Authoring diagnostics for a round-less topic case.
+
+    Runs the two authoring checks and no thesis gate. Read-only, like the rest
+    of case-doctor: it reports state and replaces no workflow gate.
+    """
+
+    intake = case_dir / "notes" / "topic_intake.md"
+    print(f"Case Doctor: cases/{case_id}")
+    print("Case kind: topic-proposal")
+    print(f"Topic intake: {'present' if intake.is_file() else '(missing)'}")
+
+    variants = declared_variants(intake.read_text(encoding="utf-8")) if intake.is_file() else []
+    print(f"Variants: {', '.join(variants) if variants else '(none declared)'}")
+
+    for variant in variants:
+        for label, artifact in (
+            ("assignment", case_dir / f"outputs/assignment_formal_{variant}.md"),
+            ("brief", case_dir / f"outputs/student_brief_{variant}.md"),
+            ("approval", case_dir / approval_rel(variant)),
+        ):
+            print(f"- {variant} {label}: {'present' if artifact.is_file() else '(missing)'}")
+
+    gates = [
+        run_gate(root, "assignment draft", ["scripts/check-assignment-draft", case_id]),
+    ]
+    for variant in variants:
+        gates.append(
+            run_gate(root, f"assignment bundle {variant}", ["scripts/check-assignment-bundle", case_id, variant])
+        )
+    print("")
+    print("Checks:")
+    for gate in gates:
+        print(f"- {gate.name}: {'ok' if gate.ok else 'FAILED'}")
+    print("")
+    print("Thesis readiness, deadline and feedback gates do not apply to a topic case.")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="scripts/case-doctor",
@@ -561,6 +602,12 @@ def main(argv: list[str]) -> int:
         print(f"Case Doctor: cases/{args.case_id}")
         print(f"ERROR: Missing case metadata: cases/{args.case_id}/case.md")
         return 1
+
+    # Branch BEFORE the round resolution below, which exits 1 on a missing
+    # current-round.txt: a `topic-proposal` case has no rounds at all, and every
+    # thesis gate under it would be answering a question with no subject.
+    if case_kind(read_fields(case_md)) == "topic-proposal":
+        return report_topic_case(root, case_dir, args.case_id)
 
     current_round_raw = read_current_round(case_dir)
     current_round: str | None = None

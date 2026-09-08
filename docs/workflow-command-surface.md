@@ -25,7 +25,9 @@ run repeatedly while working on a case. Each tool must have:
 `check-assignment-draft` and `check-assignment-bundle` follow the same
 operator-tool contract. They are the only workflow commands that run against a
 case with no rounds, because a `Case kind: topic-proposal` case has none; they
-take a case id and a variant rather than a round id.
+take a case id and a variant rather than a round id. `promote-assignment`
+spans both shapes: a round-less topic case as its source and a thesis-review
+round as its target, so it takes an optional target round id.
 
 Supervisor-report commands follow the same operator-tool contract. In
 particular, `check-supervisor-report-ready`, `prepare-supervisor-report-packets`,

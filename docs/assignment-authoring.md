@@ -269,6 +269,52 @@ traceability, not authentication. And `checks_observed`, `limitations` and
 establish nothing about whether a semantic review happened. That is why the
 operator reading stays part of the gate.
 
+## Promotion Into A Thesis Case
+
+`scripts/promote-assignment <topic-case-id> <variant> <target-case-id>
+[round-id]` writes the approved variant into the target round's
+`notes/assignment.md`, the artifact every other workflow measures the thesis
+against. It refuses on four independent grounds, and passing three is not
+enough:
+
+- **Approval.** `scripts/check-assignment-bundle` must pass for that variant.
+- **Issuance.** `--issued` is required, and it asserts something the approval
+  does NOT: that this variant is the student's effective assignment and its
+  brief was supplied. An approval says a variant may be published. Promoting on
+  approval alone would have every later round grade the student against
+  requirements they never received, and no readiness check can see the
+  difference, because `check_round_ready` reads section content.
+- **Target fitness.** The target must be a `thesis-review` case with a real
+  round and a `Work type` matching the variant. `unknown` is refused too:
+  promotion is the moment the work type is knowable.
+- **Containment.** The resolved case must sit under the resolved `cases/` root.
+  `.gitignore` protects the lexical path, so a `cases/<id>` linked to somewhere
+  else would carry private content out of the protected tree while every other
+  check passed.
+
+`--replace` lifts exactly one refusal — an existing `notes/assignment.md`, which
+a case may already have been reviewed against — and no other.
+
+The generated file records `Assignment source:` with the topic, the variant and
+the approval record's sha256, plus `Assignment source record:` naming the copy
+of that record retained in the target round. The copy matters because there is
+one approval path per variant: a later re-approval overwrites the record the
+hash refers to, and a hash with nothing behind it is an identity, not an
+archive. The promotion is also appended to the target round's operation log; the
+topic case has no round and therefore no log of its own.
+
+The brief projection becomes `## Private Assignment Notes For Student`, which is
+what that section already means. Its headings are demoted on the way in:
+`check_round_ready` ends a section at the next H2, and the projection carries
+one, so a verbatim copy would cut the section in half.
+
+## Case Doctor On A Topic Case
+
+`scripts/case-doctor <topic-case-id>` reports the intake, the variants and each
+variant's draft and bundle status, and runs no thesis gate. It branches before
+the round resolution that otherwise fails immediately on a case with no
+`current-round.txt`. It replaces no gate; it is a read-only snapshot.
+
 ## What This Workflow Does Not Decide
 
 - It does not score topic quality, novelty, or difficulty. No deterministic

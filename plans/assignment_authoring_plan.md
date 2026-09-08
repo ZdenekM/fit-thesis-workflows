@@ -5,17 +5,19 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 to 4b are done and green. Everything the acceptance contract's
-executable half needs exists: templates, contract, style layers, both skills,
-the reviewer route, both checkers and the bundle approval. No promotion, and
-nothing has authored a real topic through the tracked workflow yet.
+State: Slices 0 to 5 are done and green. The whole tracked workflow exists:
+templates, contract, style layers, both skills, the reviewer route, both
+checkers, the bundle approval, promotion and the case-doctor branch. Nothing has
+authored a real topic through it yet, which is Slice 6.
 
-Open question: the Slice 3 and 4a re-checks each found a defect in their round's
-own fixes, and the 4b re-check returned `needs_human` on a Serena outage. Ask
-the operator whether a third round is wanted on any of them.
+Open question: several re-checks found a defect in their own round's fixes, and
+two returned `needs_human` on Serena outages in the reviewer sandbox. Ask the
+operator whether a third round is wanted on any slice.
 
-Next action: review the Slice 5 charter — `scripts/promote-assignment` and the
-`case_doctor` branch — then implement it.
+Next action: compact the closed Slice 5 charter, then write the full Slice 6
+charter — one real topic end to end, the `## Acceptance Contract` and the
+`## Final Audit` — and review it. Slice 6 needs operator decisions: which
+topic, and whether anything is published.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -245,7 +247,7 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
 
 ### Slice 5 - Promotion and case-doctor branch
 
-- Status: planned
+- Status: in_progress
 - Proposed commit message: `Promote an approved assignment variant into a thesis case`
 - Why: an approved bundle is still stranded in its topic case. Promotion is
   what makes the assignment the artifact every other workflow measures against,
@@ -258,6 +260,7 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
   `src/thesis_review_workflow/cli/BUILD`,
   `src/thesis_review_workflow/commands.py`,
   `scripts/promote-assignment`, `scripts/smoke-assignment-promotion`,
+  `scripts/smoke-assignment-draft`, `scripts/smoke-assignment-bundle`,
   `scripts/BUILD`, `docs/assignment-authoring.md`,
   `docs/workflow-command-surface.md`, `templates/assignment.md`,
   `tests/test_assignment_promotion.py`, `tests/test_case_doctor_summary.py`
@@ -288,8 +291,13 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
     refused too, because promotion is the moment the work type is knowable.
   - Anchor containment to the private root, not just to the case. Require the
     RESOLVED target case directory to sit beneath the resolved `cases/` root,
-    require that root to sit inside the repository, and then confine every
-    write beneath the case. Anchoring to the case alone is not enough: a
+    require that root to BE `<repo>/cases` rather than merely resolve somewhere
+    inside the repository — a `cases/` linked to `docs/` satisfies the weaker
+    reading while `.gitignore` covers none of it — and then confine every write
+    beneath the case. Resolve each destination with `strict=False` whether or
+    not it exists, since a dangling symlink reports neither, and include the
+    operation log among the destinations: it carries the case id, the actor and
+    the issuance note. Anchoring to the case alone is not enough: a
     `cases/<id>` that links to `docs/<id>` carries valid metadata and a real
     round, so every other check passes while assignment text, the retained
     approval record and the log land somewhere `.gitignore` does not cover.
@@ -330,14 +338,20 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
     per-variant draft and bundle status, and runs neither round, supervisor,
     deadline nor feedback-language gates, none of which have a subject here.
   - Full operator-tool surface and a smoke script. `pants test tests::` is the
-    authority on completeness.
+    authority on completeness. While writing it: the smoke helpers' bare
+    `grep -Fq "$needle"` reads a needle starting with a dash as an option, so
+    the three assignment smokes pass `-e`.
   - Tests: promotion of an approved variant writes every section, the source
     line and the retained record; the semestral requirement survives; the
     generated file still satisfies `check_round_ready`'s section reading, with
     the brief's own headings inside the private-notes section rather than
     ending it; an unapproved or stale bundle is refused; a missing issuance
     assertion is refused; a `dp` bundle into a BP case is refused, and so is an
-    `unknown` work type; a write escaping the target case is refused; an
+    `unknown` work type, both with and without `--replace` and with the DP
+    bundle actually approved so the test reaches the check it names; a write
+    escaping the target case is refused, including through a dangling
+    destination link, a redirected operation log, and a redirected `cases/`
+    root, in each case before anything is written; an
     existing target file is refused without `--replace` and replaced with it,
     while `--replace` alone lifts no other refusal; a case directory that is a
     link out of `cases/` is refused, with and without `--replace`; the

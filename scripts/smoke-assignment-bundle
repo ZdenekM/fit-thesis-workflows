@@ -36,7 +36,7 @@ expect_failure() {
 
 expect_output() {
   local needle="$1"
-  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+  if ! grep -Fq -e "$needle" "$out_file" "$err_file"; then
     echo "Expected output to contain: $needle" >&2
     cat "$out_file" >&2
     cat "$err_file" >&2

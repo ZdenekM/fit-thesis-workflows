@@ -333,3 +333,25 @@ def test_input_provenance_lines_warn_when_the_record_does_not_match(tmp_path: Pa
 
     assert [issue.severity for issue in issues] == ["WARNING"]
     assert any("does not exist" in line for line in lines)
+
+
+def test_a_topic_case_reports_authoring_state_without_a_round(tmp_path, monkeypatch, capsys) -> None:
+    """`case_doctor` exits 1 on a missing current-round.txt, so the branch must precede it."""
+
+    from thesis_review_workflow.cli import case_doctor
+
+    case_dir = tmp_path / "cases" / "topic"
+    (case_dir / "notes").mkdir(parents=True)
+    (case_dir / "case.md").write_text("Case ID: t\nCase kind: topic-proposal\n", encoding="utf-8")
+    (case_dir / "notes/topic_intake.md").write_text("Variants: bp / dp\n", encoding="utf-8")
+    monkeypatch.setattr(case_doctor, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(case_doctor, "run_gate", lambda root, name, args, timeout=45: case_doctor.GateResult(
+        name, " ".join(args), 0, ""
+    ))
+
+    assert case_doctor.main(["case-doctor", "topic"]) == 0
+    out = capsys.readouterr().out
+    assert "Case kind: topic-proposal" in out
+    assert "Variants: bp, dp" in out
+    assert "do not apply to a topic case" in out
+    assert "round readiness" not in out
