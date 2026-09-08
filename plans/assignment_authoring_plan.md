@@ -14,9 +14,8 @@ Open question: the Slice 3 and 4a re-checks each found a defect in their round's
 own fixes, and the 4b re-check returned `needs_human` on a Serena outage. Ask
 the operator whether a third round is wanted on any of them.
 
-Next action: compact the closed Slice 4b charter, then write the full Slice 5
-charter — `scripts/promote-assignment` and the `case_doctor` branch — and
-review it before implementing.
+Next action: review the Slice 5 charter — `scripts/promote-assignment` and the
+`case_doctor` branch — then implement it.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -235,112 +234,88 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
 
 ### Slice 4b - Bundle approval and sendability
 
-- Status: done
-- Proposed commit message: `Add the assignment bundle approval and its check`
-- Why: the `## Acceptance Contract` gates publishing a variant to FIT IS and
-  sending its brief on one command that does not exist. Everything before this
-  slice checks artifacts; nothing yet records that a human-or-agent other than
-  the author read the bundle and that it has not changed since.
-- Expected paths: `src/thesis_review_workflow/assignment_bundle.py`,
-  `src/thesis_review_workflow/cli/check_assignment_bundle.py`,
+Charter form: compacted
+Landed: 6cc1a4d
+Delivered `assignment-bundle-approval-v1` in
+`thesis_review_workflow.assignment_bundle`, `scripts/check-assignment-bundle`
+with its operator-tool surface and smoke, the record's field list in the
+reviewer skill and Codex adapter, and 44 tests including builder/reader parity.
+Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
+Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structural now`.
+
+### Slice 5 - Promotion and case-doctor branch
+
+- Status: planned
+- Proposed commit message: `Promote an approved assignment variant into a thesis case`
+- Why: an approved bundle is still stranded in its topic case. Promotion is
+  what makes the assignment the artifact every other workflow measures against,
+  and until it exists the year-later question "what was this thesis assigned to
+  do" has no traceable answer. `case_doctor` is in the same slice because a
+  topic case currently fails it before it prints anything.
+- Expected paths: `src/thesis_review_workflow/assignment_promotion.py`,
+  `src/thesis_review_workflow/cli/promote_assignment.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
   `src/thesis_review_workflow/cli/BUILD`,
   `src/thesis_review_workflow/commands.py`,
-  `scripts/check-assignment-bundle`, `scripts/smoke-assignment-bundle`,
-  `scripts/BUILD`, `src/thesis_review_workflow/agent_profiles.py`,
-  `.agents/skills/thesis-assignment-review/SKILL.md`,
-  `.codex/agents/thesis-assignment-reviewer.toml`,
-  `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
-  `docs/workflow-command-surface.md`,
-  `.agents/skills/thesis-assignment-authoring/SKILL.md`,
-  `tests/test_assignment_bundle.py`
+  `scripts/promote-assignment`, `scripts/smoke-assignment-promotion`,
+  `scripts/BUILD`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`, `templates/assignment.md`,
+  `tests/test_assignment_promotion.py`, `tests/test_case_doctor_summary.py`
 - Tasks:
-  - Define `assignment-bundle-approval-v1` in
-    `src/thesis_review_workflow/assignment_bundle.py`: `schema_version`,
-    `case_id`, `variant`, one `{path, sha256}` entry for each of the four
-    bundle files, `author_agent`, `reviewer_agent`, `reviewer_role`, `verdict`,
-    `blocking_findings_count`, `checks_observed`, `limitations`, `timestamp`.
-    Mirror `review_approvals`' field names where they mean the same thing, and
-    reuse `review_approvals::sha256_file` rather than hashing again.
-  - Two acceptance predicates, enforced when the record is BUILT and again when
-    it is READ: the verdict is in `review_approvals::APPROVED_VERDICTS`, and
-    `blocking_findings_count` is integer zero. Mirroring field names inherits
-    no behaviour, and a record is a file anyone can write by hand: a
-    `verdict: pass` carrying one blocking finding would otherwise publish. A
-    failed review stays findings, never an approval record.
-  - Independence is judged HERE by `author_agent != reviewer_agent` on the
-    record itself. `review_approvals::reviewer_matches_generator` judges it
-    against `work/review_manifest.json`, which a topic case does not have, so
-    the record is self-attesting about its author. That is weaker; say so in
-    `docs/assignment-authoring.md` rather than implying manifest-grade
-    provenance.
-  - `scripts/check-assignment-bundle <case-id> <variant>`: refuse unless
-    `thesis_review_workflow.cli.check_assignment_draft::check_case` passes for
-    that variant, because an approval over a structurally broken bundle would
-    be worse than no approval; then require the record, validate its shape, and
-    recompute every hash against the file on disk.
-  - A hash mismatch is the mechanism behind "material edits after review reopen
-    draft state": it fails and names the file that moved.
-  - `checks_observed`, `limitations` and `timestamp` are audit metadata. They
-    are recorded and shape-checked ON READ — a malformed record must not pass a
-    publication gate merely because the broken fields are not themselves
-    evidence — and they establish nothing about whether a semantic review
-    happened; the `## Acceptance Contract`'s operator reading stays necessary
-    and the doc must not imply otherwise.
-  - Reject a duplicate `files` entry rather than letting the last one win, and
-    require a real integer zero for `blocking_findings_count` in the builder as
-    well as the reader: `False` and `0.0` both equal zero and neither is a
-    count. Both were live acceptances the first review reproduced.
-  - Make builder/reader parity structural: the builder validates its own output
-    with the reader before returning, and a parametrized test asserts that every
-    input the builder refuses is also refused when written by hand. Two lists of
-    rules kept in step by hand had already drifted once — the builder accepted
-    audit-field shapes the reader rejects.
-  - Have the authoring parent write the author's session identity into
-    `work/reviews/assignment_review_<variant>.md` when it hands the bundle over.
-    That is traceability, not authentication, and it costs one line; the
-    round-scoped `scripts/record-workflow-operation` is not an alternative here,
-    since it requires a round.
-  - Teach the reviewer role the record it writes: the exact fields in
-    `.agents/skills/thesis-assignment-review/SKILL.md` and its Codex adapter,
-    replacing the prose description Slice 2 wrote before the schema existed.
-    Add the command to both routes' `required_validators` and to the two
-    `docs/agent-profile-matrix.md` rows.
-  - Full operator-tool surface and a smoke script, as Slice 3 delivered for the
-    draft checker. `pants test tests::` is the authority on completeness.
-  - `tests/test_assignment_bundle.py` over synthetic topic cases: a clean
-    approved bundle passes; a missing record fails; a same-agent author and
-    reviewer fails; each of the four hashes fails when its file changes; a
-    structurally failing bundle fails even with a valid record. Two of the
-    cases are HAND-WRITTEN records that the builder would have refused: a
-    non-pass verdict, and `verdict: pass` with a nonzero
-    `blocking_findings_count`. A test that only exercises the builder proves
-    nothing about the checker.
-- Out of scope: promotion and `case_doctor`, which are Slice 5. No round
-  machinery: no `work/review_manifest.json`, no wave gate, no closeout, no
-  entry in `thesis_review_workflow.artifact_registry::OUTPUT_ARTIFACTS`. No
-  change to `review_approvals` itself.
+  - `scripts/promote-assignment <topic-case-id> <variant> <target-case-id>
+    [round-id]`. The target is a `thesis-review` case and its
+    `notes/assignment.md` is ROUND-relative, so promotion resolves the target
+    round the way every other round command does; the topic side stays
+    round-less.
+  - Refuse unless `check_assignment_bundle::check_bundle` passes for that
+    variant. Promoting an unapproved or stale bundle is the one irreversible
+    thing this command can do wrong, because downstream workflows then measure
+    a thesis against text nobody approved.
+  - Refuse to overwrite an existing `notes/assignment.md` unless `--replace` is
+    given, and say which file is in the way. A silent overwrite would destroy
+    the assignment a case was already reviewed against.
+  - Fill `templates/assignment.md`'s sections from the bundle: the variant's
+    assignment points and literature into
+    `## Formal Assignment Text Or Summary`, and the variant's brief projection
+    into `## Private Assignment Notes For Student`, which is what that section
+    already means — the non-public notes the student was given.
+  - Add `Assignment source:` to `templates/assignment.md` and to the generated
+    file, naming topic case id, variant, and the approval record's own sha256.
+    Hash the RECORD, not the four files: the record already binds them, and one
+    hash that resolves to one approval is the traceable answer.
+  - Append an operation-log entry to the TARGET round with
+    `thesis_review_workflow.operation_log::append_operation`. The topic case has
+    no round and so no log; say that in the doc rather than inventing one.
+  - `case_doctor`: branch on `thesis_review_workflow.metadata::case_kind`
+    BEFORE the round resolution that currently exits 1 on a missing
+    `current-round.txt`. A `topic-proposal` case reports its intake, variants,
+    per-variant draft and bundle status, and runs neither round, supervisor,
+    deadline nor feedback-language gates, none of which have a subject here.
+  - Full operator-tool surface and a smoke script. `pants test tests::` is the
+    authority on completeness.
+  - Tests: promotion of an approved variant writes every section and the source
+    line; an unapproved variant is refused; a stale bundle is refused through
+    the bundle check; an existing target file is refused without `--replace`
+    and replaced with it; the operation-log entry lands in the target round;
+    `case_doctor` on a topic case prints authoring state and exits without
+    running a thesis gate; `case_doctor` on a thesis-review case is unchanged.
+- Out of scope: the real-topic run and `## Final Audit`, which are Slice 6. No
+  bulk migration of existing cases, no change to any existing readiness gate,
+  and no second layout beside `cases/`.
 - Verification:
   ```bash
   pants test tests::
-  scripts/smoke-assignment-bundle
+  scripts/smoke-assignment-promotion
+  scripts/smoke-case-doctor
   python3 tests/test_plan_contract.py
   scripts/check-private
   scripts/check-scripts
   git diff --check
   ```
-  Scoped Omen over the two new modules during implementation, `pants run :omen`
-  at the end; record the result or a concrete blocker in `## Progress`.
-
-### Slice 5 - Promotion and case-doctor branch
-
-Charter form: stub
-
-Objective: `scripts/promote-assignment <topic-case-id> <variant>
-<target-case-id>` writing `notes/assignment.md`, `Assignment source:` with
-topic, variant and hash, and an operation-log entry; plus a `Case kind` branch
-in `case_doctor` so a topic case reports authoring diagnostics.
-
-Boundary: no bulk migration, and no existing readiness gate is modified.
+  Scoped Omen over the new modules and `case_doctor.py` during implementation,
+  `pants run :omen` at the end; record the result or a concrete blocker in
+  `## Progress`. `case_doctor.py` is already a High hotspot, so a change there
+  is worth the scoped look.
 
 ### Slice 6 - Real-topic run and closeout
 

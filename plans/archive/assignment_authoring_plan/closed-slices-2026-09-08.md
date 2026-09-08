@@ -393,3 +393,101 @@ Append-only. Charters moved verbatim here when their slice was marked
   scripts/check-scripts
   git diff --check
   ```
+
+### Slice 4b - Bundle approval and sendability
+
+- Status: done
+- Proposed commit message: `Add the assignment bundle approval and its check`
+- Why: the `## Acceptance Contract` gates publishing a variant to FIT IS and
+  sending its brief on one command that does not exist. Everything before this
+  slice checks artifacts; nothing yet records that a human-or-agent other than
+  the author read the bundle and that it has not changed since.
+- Expected paths: `src/thesis_review_workflow/assignment_bundle.py`,
+  `src/thesis_review_workflow/cli/check_assignment_bundle.py`,
+  `src/thesis_review_workflow/cli/BUILD`,
+  `src/thesis_review_workflow/commands.py`,
+  `scripts/check-assignment-bundle`, `scripts/smoke-assignment-bundle`,
+  `scripts/BUILD`, `src/thesis_review_workflow/agent_profiles.py`,
+  `.agents/skills/thesis-assignment-review/SKILL.md`,
+  `.codex/agents/thesis-assignment-reviewer.toml`,
+  `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`,
+  `.agents/skills/thesis-assignment-authoring/SKILL.md`,
+  `tests/test_assignment_bundle.py`
+- Tasks:
+  - Define `assignment-bundle-approval-v1` in
+    `src/thesis_review_workflow/assignment_bundle.py`: `schema_version`,
+    `case_id`, `variant`, one `{path, sha256}` entry for each of the four
+    bundle files, `author_agent`, `reviewer_agent`, `reviewer_role`, `verdict`,
+    `blocking_findings_count`, `checks_observed`, `limitations`, `timestamp`.
+    Mirror `review_approvals`' field names where they mean the same thing, and
+    reuse `review_approvals::sha256_file` rather than hashing again.
+  - Two acceptance predicates, enforced when the record is BUILT and again when
+    it is READ: the verdict is in `review_approvals::APPROVED_VERDICTS`, and
+    `blocking_findings_count` is integer zero. Mirroring field names inherits
+    no behaviour, and a record is a file anyone can write by hand: a
+    `verdict: pass` carrying one blocking finding would otherwise publish. A
+    failed review stays findings, never an approval record.
+  - Independence is judged HERE by `author_agent != reviewer_agent` on the
+    record itself. `review_approvals::reviewer_matches_generator` judges it
+    against `work/review_manifest.json`, which a topic case does not have, so
+    the record is self-attesting about its author. That is weaker; say so in
+    `docs/assignment-authoring.md` rather than implying manifest-grade
+    provenance.
+  - `scripts/check-assignment-bundle <case-id> <variant>`: refuse unless
+    `thesis_review_workflow.cli.check_assignment_draft::check_case` passes for
+    that variant, because an approval over a structurally broken bundle would
+    be worse than no approval; then require the record, validate its shape, and
+    recompute every hash against the file on disk.
+  - A hash mismatch is the mechanism behind "material edits after review reopen
+    draft state": it fails and names the file that moved.
+  - `checks_observed`, `limitations` and `timestamp` are audit metadata. They
+    are recorded and shape-checked ON READ — a malformed record must not pass a
+    publication gate merely because the broken fields are not themselves
+    evidence — and they establish nothing about whether a semantic review
+    happened; the `## Acceptance Contract`'s operator reading stays necessary
+    and the doc must not imply otherwise.
+  - Reject a duplicate `files` entry rather than letting the last one win, and
+    require a real integer zero for `blocking_findings_count` in the builder as
+    well as the reader: `False` and `0.0` both equal zero and neither is a
+    count. Both were live acceptances the first review reproduced.
+  - Make builder/reader parity structural: the builder validates its own output
+    with the reader before returning, and a parametrized test asserts that every
+    input the builder refuses is also refused when written by hand. Two lists of
+    rules kept in step by hand had already drifted once — the builder accepted
+    audit-field shapes the reader rejects.
+  - Have the authoring parent write the author's session identity into
+    `work/reviews/assignment_review_<variant>.md` when it hands the bundle over.
+    That is traceability, not authentication, and it costs one line; the
+    round-scoped `scripts/record-workflow-operation` is not an alternative here,
+    since it requires a round.
+  - Teach the reviewer role the record it writes: the exact fields in
+    `.agents/skills/thesis-assignment-review/SKILL.md` and its Codex adapter,
+    replacing the prose description Slice 2 wrote before the schema existed.
+    Add the command to both routes' `required_validators` and to the two
+    `docs/agent-profile-matrix.md` rows.
+  - Full operator-tool surface and a smoke script, as Slice 3 delivered for the
+    draft checker. `pants test tests::` is the authority on completeness.
+  - `tests/test_assignment_bundle.py` over synthetic topic cases: a clean
+    approved bundle passes; a missing record fails; a same-agent author and
+    reviewer fails; each of the four hashes fails when its file changes; a
+    structurally failing bundle fails even with a valid record. Two of the
+    cases are HAND-WRITTEN records that the builder would have refused: a
+    non-pass verdict, and `verdict: pass` with a nonzero
+    `blocking_findings_count`. A test that only exercises the builder proves
+    nothing about the checker.
+- Out of scope: promotion and `case_doctor`, which are Slice 5. No round
+  machinery: no `work/review_manifest.json`, no wave gate, no closeout, no
+  entry in `thesis_review_workflow.artifact_registry::OUTPUT_ARTIFACTS`. No
+  change to `review_approvals` itself.
+- Verification:
+  ```bash
+  pants test tests::
+  scripts/smoke-assignment-bundle
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```
+  Scoped Omen over the two new modules during implementation, `pants run :omen`
+  at the end; record the result or a concrete blocker in `## Progress`.
