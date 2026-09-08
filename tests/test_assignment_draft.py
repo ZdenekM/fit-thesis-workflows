@@ -66,6 +66,8 @@ Contribution framing: prototype plus comparison.
 
 def assignment(*, variant: str = "bp", literature: str = "- Example, A. Provenance. Journal, 2026.") -> str:
     title = RENDERINGS["cs"].titles[variant]
+    # `Specializace:` is the diplomová práce field, so a dp fixture must carry it.
+    specialization = "Specializace:\n" if variant == "dp" else ""
     return f"""# Formal Assignment
 
 Topic id: t
@@ -83,7 +85,7 @@ Rendering: cs
 Ústav: UPGM
 Student:
 Program:
-Název: Téma
+{specialization}Název: Téma
 Kategorie: Softwarové inženýrství
 Akademický rok: 2026/27
 
@@ -361,6 +363,18 @@ def test_a_bachelor_variant_may_omit_the_specialization_field(topic_case: Path) 
 
     assert "Specializace:" not in assignment()
     assert check(topic_case, "bp") == []
+
+
+def test_a_master_variant_without_the_specialization_field_fails(topic_case: Path) -> None:
+    """The real dp bundle shipped without it and passed: optional for BOTH was the defect."""
+
+    assert "Specializace:" in assignment(variant="dp")
+    (topic_case / "outputs/assignment_formal_dp.md").write_text(
+        assignment(variant="dp").replace("Specializace:\n", ""), encoding="utf-8"
+    )
+    findings = check(topic_case, "dp")
+    assert any("`Specializace:` is missing" in finding for finding in findings), findings
+    assert any("diplomová práce" in finding for finding in findings)
 
 
 def test_point_count_is_never_read_as_work_type_or_scope_evidence(topic_case: Path) -> None:

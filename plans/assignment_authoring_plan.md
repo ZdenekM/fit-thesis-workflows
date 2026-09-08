@@ -367,6 +367,30 @@ Slice 5 landed `scripts/promote-assignment` with its four independent refusals,
 the retained approval record and the `case_doctor` topic branch, at 23 promotion
 tests. Slice 5b made the reviewer Claude-capable by giving the write guard an
 explicit per-role scope, at 26 guard tests.
+
+Slice 6 first pass: a real topic was re-laid into the tracked shape and both
+variants were reviewed by the Claude reviewer subagent. Both came back
+`changes required` with five blocking findings each, none of them a workflow
+defect except one, and the run is now waiting on operator decisions. What it
+established, case-neutrally:
+
+- The deterministic checker and the semantic reviewer split the work as
+  designed: the checker caught only unresolved values, and every substantive
+  finding needed judgment the checker must not attempt.
+- One CHECKER defect, fixed in-slice: the school form carries `Specializace:`
+  for a diplomová práce, and the checker had it optional for BOTH renderings, so
+  a real DP shipped without it and passed. Now required on a `dp` variant, with
+  the test that would have caught it.
+- The provenance rule earned itself on live material: the hand-written source
+  cited one work two different ways between the intake and the assignment.
+- The three-way criterion split earned itself too, and only the REVIEWER could
+  see it: two criteria the intake had classified as assignment points reached no
+  point of either variant, surviving as brief milestones.
+- The reviewer's write path was NOT exercised. `CLAUDE_REVIEW_CASE` is unset and
+  a Claude Code parent cannot export it into its own hook environment mid-session,
+  which `docs/agent-workflow.md` already lists as pending whole-pipeline
+  validation. The guard failed closed, correctly; the reviewers returned their
+  artifacts as text and the parent persisted them.
 Each slice took one review round plus its narrow re-check; on Slices 3 and 4a
 the re-check found a defect in the round's own fixes and both chains stopped by
 rule, and the 4b re-check returned `needs_human` on a Serena outage in its own

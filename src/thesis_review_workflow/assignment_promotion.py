@@ -20,15 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from thesis_review_workflow.assignment_bundle import approval_rel
-from thesis_review_workflow.assignment_draft import RENDERINGS, read_text
+from thesis_review_workflow.assignment_draft import RENDERINGS, WORK_TYPE_BY_VARIANT, read_text
 from thesis_review_workflow.markdown_utils import section_body, section_text
 from thesis_review_workflow.metadata import case_kind, read_fields
 
 ASSIGNMENT_REL = Path("notes/assignment.md")
 RETAINED_APPROVAL_DIR = Path("work/assignment_source")
-
-WORK_TYPE_BY_VARIANT = {"bp": "BP", "dp": "DP"}
-"""Which `Work type` a variant may be promoted into. `unknown` is never one of them."""
 
 HEADING_RE = re.compile(r"^(#{1,6})(\s+)")
 

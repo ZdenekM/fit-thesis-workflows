@@ -40,6 +40,9 @@ NUMBERED_POINT_RE = re.compile(r"^\s*\d+\.\s+\S")
 # A variant is a path segment of `outputs/assignment_formal_<variant>.md`, so it is
 # constrained here rather than trusted from the intake.
 VARIANT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+WORK_TYPE_BY_VARIANT = {"bp": "BP", "dp": "DP"}
+"""Which FIT work type a variant is. Also what `assignment_promotion` matches a target against."""
 BULLET_RE = re.compile(r"^\s*-\s+(\S.*)$")
 
 
@@ -52,6 +55,7 @@ class Rendering:
     titles: dict[str, str]
     metadata: tuple[str, ...]
     optional_metadata: frozenset[str]
+    masters_only_metadata: frozenset[str]
     points_label: str
     literature_label: str
     semestral_label: str
@@ -64,8 +68,9 @@ RENDERINGS: dict[str, Rendering] = {
         heading="## Czech Rendering",
         titles={"bp": "Zadání bakalářské práce", "dp": "Zadání diplomové práce"},
         metadata=("Ústav:", "Student:", "Program:", "Specializace:", "Název:", "Kategorie:", "Akademický rok:"),
-        # `Specializace:` appears in a diplomová práce only.
+        # `Specializace:` appears in a diplomová práce only: optional on a BP, REQUIRED on a DP.
         optional_metadata=frozenset({"Specializace:"}),
+        masters_only_metadata=frozenset({"Specializace:"}),
         points_label="Zadání:",
         literature_label="Literatura:",
         semestral_label="Při obhajobě semestrální části projektu je požadováno:",
@@ -77,6 +82,7 @@ RENDERINGS: dict[str, Rendering] = {
         titles={"bp": "Bachelor's Thesis Assignment", "dp": "Master's Thesis Assignment"},
         metadata=("Institut:", "Student:", "Programme:", "Specialization:", "Title:", "Category:", "Academic year:"),
         optional_metadata=frozenset({"Specialization:"}),
+        masters_only_metadata=frozenset({"Specialization:"}),
         points_label="Assignment:",
         literature_label="Literature:",
         semestral_label="Requirements for the semestral defence:",
@@ -335,9 +341,14 @@ def assignment_findings(assignment: str, variant: str, artifacts: list[CitableAr
 
     expected = form_labels(rendering)
     found = _ordered_labels_present(block, expected)
+    # `Specializace:` is optional on a BP and required on a DP, because the school form carries it
+    # for a diplomová práce only. Treating it as optional for BOTH let a real DP ship without it.
+    masters = WORK_TYPE_BY_VARIANT.get(variant) == "DP"
     for label in expected:
-        if label not in rendering.optional_metadata and label not in found:
-            findings.append(f"form label `{label}` is missing")
+        optional = label in rendering.optional_metadata and not (masters and label in rendering.masters_only_metadata)
+        if not optional and label not in found:
+            suffix = " — the school form carries it for a diplomová práce" if label in rendering.masters_only_metadata else ""
+            findings.append(f"form label `{label}` is missing{suffix}")
     in_form_order = [label for label in expected if label in found]
     if found != in_form_order:
         findings.append("form labels are not in the FIT IS field order")
