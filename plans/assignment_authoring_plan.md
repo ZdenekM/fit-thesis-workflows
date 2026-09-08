@@ -1,6 +1,6 @@
 # Assignment Authoring Plan
 
-Status: planned
+Status: in_progress
 Created: 2026-09-03
 
 ## Start Here
