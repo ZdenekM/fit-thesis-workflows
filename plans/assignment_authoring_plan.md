@@ -13,9 +13,9 @@ through the tracked workflow yet.
 Open question: the Slice 3 re-check found two defects in the review's own fixes,
 so the chain stopped by rule. Ask the operator whether a third round is wanted.
 
-Next action: compact the closed Slice 3 charter, then write the full Slice 4
-charter — brief language binding and `scripts/check-assignment-bundle` — and
-review it before implementing.
+Next action: review the Slice 4a charter — the brief's Czech and English
+heading renderings and the two language rules reused from
+`scripts/check-feedback-language` — then implement it.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -151,10 +151,11 @@ Publishing an assignment variant to FIT IS and sending its brief to a student
 are both outward-facing and binding, and either can happen first. Before
 EITHER, for the variant in question:
 
-- `scripts/check-assignment-bundle <case-id> <variant> [round-id]`, delivered
-  by Slice 4, passes: it validates every file and hash in that variant's
-  bundle, and that its approval record names a reviewer distinct from the
-  author;
+- `scripts/check-assignment-bundle <case-id> <variant>`, delivered by Slice 4b,
+  passes: it validates every file and hash in that variant's bundle, and that
+  its approval record names a reviewer distinct from the author. No round id:
+  a `topic-proposal` case has no rounds, which the architecture settled after
+  this criterion was written;
 - an explicit operator reading over the retained `notes/topic_intake.md`, the
   selected `outputs/assignment_formal_<variant>.md`, and its matching brief:
   feasible for the stated work type, every named resource dependency actually
@@ -209,96 +210,57 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
 
 ### Slice 3 - Structural checker and command surface
 
-- Status: in_progress
-- Proposed commit message: `Add the assignment draft checker and its command surface`
-- Why: Slices 1 and 2 produced a contract and two roles that read it, and
-  nothing deterministic yet. Every property that can be decided without
-  judgment must be decided here, so the reviewer role spends its round on
-  assessability and wording rather than on counting fields.
-- Expected paths: `src/thesis_review_workflow/assignment_draft.py`,
+Charter form: compacted
+Landed: 7d14074
+Delivered `thesis_review_workflow.assignment_draft` and
+`scripts/check-assignment-draft` with the full operator-tool surface and smoke,
+provenance-based literature checking against the intake, the canonical brief
+projection shape, variant-token validation, the six new `check_private` names,
+`required_validators` on both routes, and 29 checker tests.
+Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
+Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule`.
+
+### Slice 4a - Brief language binding
+
+- Status: planned
+- Proposed commit message: `Bind the student brief to the case feedback language`
+- Why: a brief is the only student-facing artifact this workflow produces, and
+  `AGENTS.md` requires student-facing text to follow `Student feedback language`
+  from `case.md` rather than the thesis language. Slice 1 shipped the brief
+  template with English headings only, so today a Czech case has no shape to
+  write against.
+- Expected paths: `templates/student-brief.md`,
+  `src/thesis_review_workflow/assignment_draft.py`,
   `src/thesis_review_workflow/cli/check_assignment_draft.py`,
-  `src/thesis_review_workflow/cli/check_private.py`,
-  `src/thesis_review_workflow/cli/BUILD`,
-  `src/thesis_review_workflow/commands.py`, `scripts/check-assignment-draft`,
-  `scripts/smoke-assignment-draft`, `scripts/BUILD`,
-  `src/thesis_review_workflow/agent_profiles.py`,
-  `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
-  `docs/workflow-command-surface.md`, `templates/topic-intake.md`,
-  `tests/test_assignment_draft.py`, `tests/test_check_private.py`,
-  `tests/test_assignment_authoring.py`
+  `docs/assignment-authoring.md`, `scripts/smoke-assignment-draft`,
+  `tests/test_assignment_draft.py`, `tests/test_assignment_authoring.py`
 - Tasks:
-  - `scripts/check-assignment-draft <case-id> [variant]`: refuse to run unless
-    `thesis_review_workflow.metadata::case_kind` reads `topic-proposal`, then
-    check one variant, or every variant the intake lists when none is named.
-  - Per variant, decide only what is decidable without judgment: the declared
-    rendering's field labels present and in the template's order, exactly one
-    rendering used, the semestral-requirement field non-empty, at least one
-    numbered assignment point, and no unresolved value anywhere in the bundle
-    via `thesis_review_workflow.metadata::unresolved_values`.
-  - Literature is checked STRUCTURALLY, never lexically. `AGENTS.md` forbids a
-    free-text heuristic as a gate, and the corpus placeholders are ordinary
-    Czech sentences, so "looks like a placeholder" cannot be the rule. The rule
-    is provenance: every literature bullet in an assignment must equal an entry
-    the intake's `## Citable Artifacts` authored, and every such entry must
-    carry a non-empty identifier that is not an unresolved value. At least one
-    such entry must exist per assignment — checking the provenance of every
-    bullet says nothing when there are none, and an empty or supplement-only
-    literature block is a deterministic failure of the layer-2 base, not a
-    reviewer judgment. A supplement line is admissible only through an explicit
-    intake field, not by matching its wording; add that field to
-    `templates/topic-intake.md` if the shape needs it, and say so in
-    `docs/assignment-authoring.md`. It did: the intake gains a
-    `Supplement line:` field.
-  - Cross-variant: shared material — every intake-sourced literature entry
-    above all — must be byte-identical in every variant that uses it. The
-    corpus pair that motivated this cited one shared paper two different ways.
-    No separate check implements it: exact provenance against the intake
-    already forces identical citation wherever an entry is used, and requiring
-    identical MEMBERSHIP instead rejects a DP that legitimately cites one more
-    work. The first review round proved that with a case.
-  - Brief projections: `outputs/student_brief_<variant>.md` must carry the
-    `## Shared Brief` body of `notes/student_brief.md` and its own variant's
-    delta, both verbatim and nothing else. This needs a canonical projection
-    shape, which Slice 1 never fixed: a title line, the shared body, then
-    `## Variant Delta - <variant>` and that delta. Without it the check can
-    only be a substring test, which the first review showed is unsound in both
-    directions — one delta may legitimately contain another as a prefix, and an
-    appended obligation goes unnoticed.
-  - Validate the variant token before it becomes a filename segment, and match
-    any safe suffix in `check_private` rather than `[a-z0-9]+`, which the first
-    review showed lets `assignment_formal_dp-research.md` escape.
-  - Add the generated names to `check_private`: the topic intake, the brief
-    source, the per-variant assignment and brief, the reviewer's findings
-    artifact, and its approval record, which today's
-    `work/reviews/[^/]+_review\.json` pattern does not match. Extend
-    `tests/test_check_private.py` with each new name.
-  - Deliver the whole operator-tool surface `docs/workflow-command-surface.md`
-    requires. Do not enumerate it here from reading: `pants test tests::` is
-    the authority, and
-    `test_workflow_command_modules_have_sources_runtime_deps_and_wrappers`
-    together with `test_workflow_tool_pex_targets_match_command_module_map`
-    fails until every piece exists. Windows needs no hand-written launcher; the
-    packaging entrypoint generates `.cmd` and `.ps1`.
-  - Name the new command in both routes' `required_validators` and update the
-    two `docs/agent-profile-matrix.md` rows that currently read `none yet`.
-  - Keep the FIT IS label sets in ONE place,
-    `thesis_review_workflow.assignment_draft::RENDERINGS`, and have
-    `tests/test_assignment_authoring.py` derive its expected template order from
-    it. Slice 1's test carried its own copy, which would drift against the
-    checker's.
-  - `tests/test_assignment_draft.py` over synthetic topic cases in `tmp_path`:
-    a clean bundle passes; each rule fails on exactly its own defect; empty
-    literature and supplement-only literature each fail; a `thesis-review` case
-    is refused; point count is never read as evidence of work type or scope; a
-    variant that legitimately differs is not reported as drift.
-- Out of scope: anything requiring judgment — assessability, whether an open
-  point states a criterion, tone, topic quality. Structural provenance is not
-  source verification: the checker proves a bullet came from the intake, never
-  that the identifier resolves to a real work, and must not report otherwise. Approval records and hashes,
-  the brief language binding and `scripts/check-assignment-bundle`, which are
-  Slice 4. Promotion and `case_doctor`, which are Slice 5. No personal-layer
-  profile preference becomes a gate, and no new gate is added to any existing
-  thesis workflow.
+  - Give `templates/student-brief.md` a Czech and an English heading rendering,
+    the shape `templates/assignment-formal.md` already uses, and say which one
+    a case gets: the value of `Student feedback language` in `case.md`, never
+    the thesis language and never the assignment's `Rendering:`.
+  - Keep both heading sets in ONE place beside `RENDERINGS`, and have the
+    template test derive from it, the arrangement Slice 3 adopted after the
+    template and the checker each carried their own copy.
+  - Extend `scripts/check-assignment-draft` with exactly the two rules
+    `scripts/check-feedback-language` already applies, reused rather than
+    reopened: the artifact carries the required headings of the case's declared
+    language, and a `cs` artifact carries none of the ASCII-folded spellings of
+    those headings. Apply them to `notes/student_brief.md` and to every
+    projection.
+  - The canonical projection shape becomes language-dependent in its headings
+    and only there; the whole-document comparison Slice 3 delivered stays
+    exactly as it is.
+  - `docs/assignment-authoring.md` states the language rule and its source
+    field, next to the projection shape it already documents.
+  - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails;
+    an ASCII-folded Czech heading fails; an unsupported `Student feedback
+    language` value is refused rather than defaulted; a missing field defaults
+    to `cs` as `templates/case-notes.md` says.
+- Out of scope: the approval record, hashes, author/reviewer distinctness and
+  `scripts/check-assignment-bundle`, all of which are Slice 4b. No new command,
+  no change to `scripts/check-feedback-language` or to the feedback heading
+  sets it owns.
 - Verification:
   ```bash
   pants test tests::
@@ -308,20 +270,19 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
   scripts/check-scripts
   git diff --check
   ```
-  Scoped Omen over the two new Python modules during implementation, `pants run
-  :omen` at the end; record the observed result or a concrete blocker in
-  `## Progress`.
 
-### Slice 4 - Brief language and bundle sendability
+### Slice 4b - Bundle approval and sendability
 
 Charter form: stub
 
-Objective: bind each brief to `Student feedback language` on the same terms as
-`scripts/check-feedback-language`, and deliver
-`scripts/check-assignment-bundle` as the `## Acceptance Contract` names it,
-validating one variant bundle, its hashes, and author/reviewer distinctness.
+Objective: `scripts/check-assignment-bundle <case-id> <variant>` as the
+`## Acceptance Contract` names it — every file of that variant's bundle bound
+by path and hash in an approval record, and an author distinct from the
+reviewer. Reuse `review_approvals::sha256_file` and its field vocabulary.
 
-Boundary: reuses the existing language semantics rather than reopening them.
+Boundary: not the `review-approval-v1` schema itself, which binds one reviewed
+artifact inside a round and consults `work/review_manifest.json`; a topic case
+has neither. State that in the charter, do not silently diverge.
 
 ### Slice 5 - Promotion and case-doctor branch
 
@@ -664,6 +625,27 @@ Decision: fixed in the batch, one narrow re-check, which passed. Why it matters
 beyond the fix: the second defect was invisible precisely because the Slice 1
 mechanisms worked, so mechanical equality is not evidence that the content the
 split protects survived.
+
+### 2026-09-08 - Slice 4 splits, and the contract drops its round id
+
+Trigger: writing the Slice 4 charter against the code showed two independent
+commit-sized halves and one criterion whose premise had moved.
+
+- Split: 4a binds the brief to `Student feedback language`, which needs a Czech
+  heading rendering the template never had; 4b delivers the approval record and
+  `scripts/check-assignment-bundle`. Each reviews on its own.
+- The `## Acceptance Contract` named `check-assignment-bundle <case-id>
+  <variant> [round-id]`, written before the round-less topic case was decided.
+  Re-derived rather than patched, per `plans/README.md`: the round id is gone.
+  This SHRINKS the criterion, which needs no operator approval.
+- 4b will not reuse `review_approvals::REVIEW_APPROVAL_SCHEMA`: that schema
+  binds ONE reviewed artifact inside a round and validates against
+  `work/review_manifest.json`, while a bundle is four artifacts in a case with
+  no round and no manifest. It reuses the hashing helper and the field
+  vocabulary only.
+
+Decision: charter 4a in full, 4b as a stub. Why: the last three slices each
+found defects a smaller object would have surfaced sooner.
 
 ## Final Audit
 

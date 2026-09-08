@@ -217,3 +217,108 @@ Append-only. Charters moved verbatim here when their slice was marked
   Scoped Omen over `src/thesis_review_workflow/agent_profiles.py` during
   implementation, `pants run :omen` at the end; record the observed result or a
   concrete blocker in `## Progress`.
+
+### Slice 3 - Structural checker and command surface
+
+- Status: in_progress
+- Proposed commit message: `Add the assignment draft checker and its command surface`
+- Why: Slices 1 and 2 produced a contract and two roles that read it, and
+  nothing deterministic yet. Every property that can be decided without
+  judgment must be decided here, so the reviewer role spends its round on
+  assessability and wording rather than on counting fields.
+- Expected paths: `src/thesis_review_workflow/assignment_draft.py`,
+  `src/thesis_review_workflow/cli/check_assignment_draft.py`,
+  `src/thesis_review_workflow/cli/check_private.py`,
+  `src/thesis_review_workflow/cli/BUILD`,
+  `src/thesis_review_workflow/commands.py`, `scripts/check-assignment-draft`,
+  `scripts/smoke-assignment-draft`, `scripts/BUILD`,
+  `src/thesis_review_workflow/agent_profiles.py`,
+  `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`, `templates/topic-intake.md`,
+  `tests/test_assignment_draft.py`, `tests/test_check_private.py`,
+  `tests/test_assignment_authoring.py`
+- Tasks:
+  - `scripts/check-assignment-draft <case-id> [variant]`: refuse to run unless
+    `thesis_review_workflow.metadata::case_kind` reads `topic-proposal`, then
+    check one variant, or every variant the intake lists when none is named.
+  - Per variant, decide only what is decidable without judgment: the declared
+    rendering's field labels present and in the template's order, exactly one
+    rendering used, the semestral-requirement field non-empty, at least one
+    numbered assignment point, and no unresolved value anywhere in the bundle
+    via `thesis_review_workflow.metadata::unresolved_values`.
+  - Literature is checked STRUCTURALLY, never lexically. `AGENTS.md` forbids a
+    free-text heuristic as a gate, and the corpus placeholders are ordinary
+    Czech sentences, so "looks like a placeholder" cannot be the rule. The rule
+    is provenance: every literature bullet in an assignment must equal an entry
+    the intake's `## Citable Artifacts` authored, and every such entry must
+    carry a non-empty identifier that is not an unresolved value. At least one
+    such entry must exist per assignment — checking the provenance of every
+    bullet says nothing when there are none, and an empty or supplement-only
+    literature block is a deterministic failure of the layer-2 base, not a
+    reviewer judgment. A supplement line is admissible only through an explicit
+    intake field, not by matching its wording; add that field to
+    `templates/topic-intake.md` if the shape needs it, and say so in
+    `docs/assignment-authoring.md`. It did: the intake gains a
+    `Supplement line:` field.
+  - Cross-variant: shared material — every intake-sourced literature entry
+    above all — must be byte-identical in every variant that uses it. The
+    corpus pair that motivated this cited one shared paper two different ways.
+    No separate check implements it: exact provenance against the intake
+    already forces identical citation wherever an entry is used, and requiring
+    identical MEMBERSHIP instead rejects a DP that legitimately cites one more
+    work. The first review round proved that with a case.
+  - Brief projections: `outputs/student_brief_<variant>.md` must carry the
+    `## Shared Brief` body of `notes/student_brief.md` and its own variant's
+    delta, both verbatim and nothing else. This needs a canonical projection
+    shape, which Slice 1 never fixed: a title line, the shared body, then
+    `## Variant Delta - <variant>` and that delta. Without it the check can
+    only be a substring test, which the first review showed is unsound in both
+    directions — one delta may legitimately contain another as a prefix, and an
+    appended obligation goes unnoticed.
+  - Validate the variant token before it becomes a filename segment, and match
+    any safe suffix in `check_private` rather than `[a-z0-9]+`, which the first
+    review showed lets `assignment_formal_dp-research.md` escape.
+  - Add the generated names to `check_private`: the topic intake, the brief
+    source, the per-variant assignment and brief, the reviewer's findings
+    artifact, and its approval record, which today's
+    `work/reviews/[^/]+_review\.json` pattern does not match. Extend
+    `tests/test_check_private.py` with each new name.
+  - Deliver the whole operator-tool surface `docs/workflow-command-surface.md`
+    requires. Do not enumerate it here from reading: `pants test tests::` is
+    the authority, and
+    `test_workflow_command_modules_have_sources_runtime_deps_and_wrappers`
+    together with `test_workflow_tool_pex_targets_match_command_module_map`
+    fails until every piece exists. Windows needs no hand-written launcher; the
+    packaging entrypoint generates `.cmd` and `.ps1`.
+  - Name the new command in both routes' `required_validators` and update the
+    two `docs/agent-profile-matrix.md` rows that currently read `none yet`.
+  - Keep the FIT IS label sets in ONE place,
+    `thesis_review_workflow.assignment_draft::RENDERINGS`, and have
+    `tests/test_assignment_authoring.py` derive its expected template order from
+    it. Slice 1's test carried its own copy, which would drift against the
+    checker's.
+  - `tests/test_assignment_draft.py` over synthetic topic cases in `tmp_path`:
+    a clean bundle passes; each rule fails on exactly its own defect; empty
+    literature and supplement-only literature each fail; a `thesis-review` case
+    is refused; point count is never read as evidence of work type or scope; a
+    variant that legitimately differs is not reported as drift.
+- Out of scope: anything requiring judgment — assessability, whether an open
+  point states a criterion, tone, topic quality. Structural provenance is not
+  source verification: the checker proves a bullet came from the intake, never
+  that the identifier resolves to a real work, and must not report otherwise. Approval records and hashes,
+  the brief language binding and `scripts/check-assignment-bundle`, which are
+  Slice 4. Promotion and `case_doctor`, which are Slice 5. No personal-layer
+  profile preference becomes a gate, and no new gate is added to any existing
+  thesis workflow.
+- Verification:
+  ```bash
+  pants test tests::
+  scripts/smoke-assignment-draft
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```
+  Scoped Omen over the two new Python modules during implementation, `pants run
+  :omen` at the end; record the observed result or a concrete blocker in
+  `## Progress`.
