@@ -316,6 +316,33 @@ def _check_decision_log_entries_fit_the_cap(plan: Plan) -> None:
         )
 
 
+def _check_compacted_records_point_at_entries_that_exist(plan: Plan) -> None:
+    """A compacted charter's `Decisions:` pointers must resolve.
+
+    Adopted 2026-09-08 after a scripted plan edit aborted on one assertion while
+    its `&&` chain still committed: the plan stayed VALID but stale, and a
+    compacted record pointed at a Decision Log entry that was never written. A
+    dangling pointer is the one symptom of that failure a machine can see.
+    """
+
+    path, lines = plan
+    dl_start, dl_end = _section_range(lines, "## Decision Log")
+    titles = {line[len("### ") :].strip() for line in lines[dl_start:dl_end] if line.startswith("### ")}
+    for index, line in enumerate(lines):
+        if not line.startswith("Decisions:") and not line.startswith("- Decisions:"):
+            continue
+        block = line
+        for follow in lines[index + 1 :]:
+            if not follow.strip() or follow.startswith(("#", "-", "Charter form:", "Landed:", "Full charter:")):
+                break
+            block += " " + follow.strip()
+        for referenced in re.findall(r"`([^`]+)`", block):
+            assert referenced in titles, (
+                f"{path.name} line {index + 1}: `Decisions:` points at `{referenced}`, which is not a "
+                "`## Decision Log` entry title — the entry was never written, or its title changed"
+            )
+
+
 def _check_line_anchors_do_not_grow_outside_the_decision_log(plan: Plan) -> None:
     """Living text cites `path::symbol` or test names; line anchors drift and belong in dated records."""
     path, lines = plan
@@ -362,6 +389,10 @@ def test_decision_log_entries_fit_the_cap() -> None:
     _for_each_plan(_check_decision_log_entries_fit_the_cap)
 
 
+def test_compacted_records_point_at_entries_that_exist() -> None:
+    _for_each_plan(_check_compacted_records_point_at_entries_that_exist)
+
+
 def test_line_anchors_do_not_grow_outside_the_decision_log() -> None:
     _for_each_plan(_check_line_anchors_do_not_grow_outside_the_decision_log)
 
@@ -378,6 +409,7 @@ def main() -> int:
         _check_start_here_is_present_while_in_progress,
         _check_slice_charters_use_a_recognized_form,
         _check_decision_log_entries_fit_the_cap,
+        _check_compacted_records_point_at_entries_that_exist,
         _check_line_anchors_do_not_grow_outside_the_decision_log,
         _check_plans_stay_within_their_size_budget,
     )

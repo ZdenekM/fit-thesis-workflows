@@ -141,6 +141,11 @@ Further rules:
   `Charter form: compacted`, a `Landed:` line with the commits, a one-line
   summary of what landed, and pointers to its `## Decision Log` entries. Keep the
   heading so existing references still resolve.
+- **A compacted record's `Decisions:` pointers must resolve.** The gate checks
+  it. Why: a scripted plan edit aborted partway while the command chain behind
+  it still committed, leaving the plan VALID but stale, with a compacted record
+  naming a Decision Log entry that was never written. A dangling pointer is the
+  one symptom of that failure a machine can see.
 - **Decision Log relocation.** Entries that cover neither the current nor the
   immediately preceding slice may move verbatim to
   `plans/archive/<plan_stem>/decision-log-<range>.md`, each leaving a one-line
