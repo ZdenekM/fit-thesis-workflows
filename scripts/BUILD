@@ -7,6 +7,7 @@ shell_sources(
         "case-doctor",
         "check-agent-coverage",
         "check-assignment-coverage",
+        "check-assignment-bundle",
         "check-assignment-draft",
         "check-code-consistency",
         "check-code-quality-review",
@@ -156,6 +157,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:case_doctor",
     "src/thesis_review_workflow/cli:check_agent_coverage",
     "src/thesis_review_workflow/cli:check_assignment_coverage",
+    "src/thesis_review_workflow/cli:check_assignment_bundle",
     "src/thesis_review_workflow/cli:check_assignment_draft",
     "src/thesis_review_workflow/cli:check_code_consistency",
     "src/thesis_review_workflow/cli:check_code_quality_review",
@@ -274,6 +276,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-assignment-coverage",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_assignment_bundle_tool",
+    entry_point="thesis_review_workflow.cli.check_assignment_bundle:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-assignment-bundle",
     tags=["workflow-tool"],
 )
 

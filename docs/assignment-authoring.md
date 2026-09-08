@@ -241,6 +241,34 @@ point states a criterion the choice can be judged against, tone, topic quality,
 and anything derived from point count. Those belong to
 `.agents/skills/thesis-assignment-review/SKILL.md`.
 
+## The Bundle Approval
+
+`scripts/check-assignment-bundle <case-id> <variant>` is the gate before
+publishing a variant to FIT IS or sending its brief. It refuses to look at an
+approval until `scripts/check-assignment-draft` passes — an approval over a
+structurally broken bundle reads as reviewed, which is worse than none — and
+then validates `work/reviews/assignment_approval_<variant>.json` as
+`assignment-bundle-approval-v1`. The reviewer's findings live beside it in
+`work/reviews/assignment_review_<variant>.md`. The record requires:
+
+- every one of the four bundle files bound by path and content hash, and no
+  file outside the bundle;
+- an approved verdict with `blocking_findings_count` zero, checked when the
+  record is read and not only when it is built, because a record is a file
+  anyone can write;
+- `author_agent` different from `reviewer_agent`.
+
+A hash mismatch is how "material edits after review reopen draft state" is
+enforced: change any bound file and the check names it.
+
+Two limits, stated rather than implied. Independence here rests on the record's
+own `author_agent`: unlike a review round, a topic case has no
+`work/review_manifest.json` recording who generated what, so the field is
+traceability, not authentication. And `checks_observed`, `limitations` and
+`timestamp` are audit metadata — they record what a reviewer said it did and
+establish nothing about whether a semantic review happened. That is why the
+operator reading stays part of the gate.
+
 ## What This Workflow Does Not Decide
 
 - It does not score topic quality, novelty, or difficulty. No deterministic

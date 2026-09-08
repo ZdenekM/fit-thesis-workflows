@@ -404,7 +404,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
             "outputs/student_brief_*.md",
         ),
         independent_review_profile="thesis_assignment_reviewer",
-        required_validators=("scripts/check-assignment-draft",),
+        required_validators=("scripts/check-assignment-draft", "scripts/check-assignment-bundle"),
         rationale=(
             "The main agent owns the operator dialogue that produces the intake; a separate profile "
             "owns the independent review the acceptance of a variant bundle requires."
@@ -427,7 +427,7 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
             "work/reviews/assignment_review_*.md",
             "work/reviews/assignment_approval_*.json",
         ),
-        required_validators=("scripts/check-assignment-draft",),
+        required_validators=("scripts/check-assignment-draft", "scripts/check-assignment-bundle"),
         rationale=(
             "One role holds a variant's assignment and its brief together, because the brief "
             "restates the point count and semestral obligation and would stale silently."

@@ -70,8 +70,13 @@ reviewable bundle.
    changes with it.
 6. **Delegate the review.** Hand each variant's bundle to
    `.agents/skills/thesis-assignment-review/SKILL.md`, which must be a
-   different agent than the one that authored it. Apply its findings, then
-   request approval again: material edits after an approval reopen draft state.
+   different agent than the one that authored it. Name your own agent identity
+   in the handover and have the reviewer record it in
+   `work/reviews/assignment_review_<variant>.md`: the approval is self-attesting
+   about its author, so that line is the only trace of who wrote the bundle.
+   Apply its findings, then request approval again — material edits after an
+   approval reopen draft state, and
+   `scripts/check-assignment-bundle` enforces that through the recorded hashes.
 
 ## Style Layers
 

@@ -20,6 +20,7 @@ WORKFLOW_COMMAND_MODULES = {
     "case-doctor": "thesis_review_workflow.cli.case_doctor",
     "check-agent-coverage": "thesis_review_workflow.cli.check_agent_coverage",
     "check-assignment-coverage": "thesis_review_workflow.cli.check_assignment_coverage",
+    "check-assignment-bundle": "thesis_review_workflow.cli.check_assignment_bundle",
     "check-assignment-draft": "thesis_review_workflow.cli.check_assignment_draft",
     "check-code-consistency": "thesis_review_workflow.cli.check_code_consistency",
     "check-code-quality-review": "thesis_review_workflow.cli.check_code_quality_review",

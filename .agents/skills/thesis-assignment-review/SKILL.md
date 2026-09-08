@@ -109,15 +109,36 @@ candidate texts for one IS entry. Report findings; the authoring parent applies
 them.
 
 The approval record binds the whole bundle, because the outward-facing action
-is publishing a bundle rather than a file: the case id, the variant, and each
-of `notes/topic_intake.md`, `notes/student_brief.md`,
-`outputs/assignment_formal_<variant>.md` and
-`outputs/student_brief_<variant>.md` by path and content hash, plus the author
-identity, the reviewer identity, and the verdict. A record whose author and
-reviewer are the same is not an independent review.
-`scripts/check-assignment-bundle` validates it once that command exists; until
-then the record is written but not machine-validated, and that limitation must
-be stated.
+is publishing a bundle rather than a file. Build it with
+`thesis_review_workflow.assignment_bundle::build_bundle_approval_payload`
+rather than by hand; it is `assignment-bundle-approval-v1` and carries:
+
+```text
+schema_version, case_id, variant
+files[]                    one {path, sha256} per bundle file, all four
+author_agent               who authored the bundle
+reviewer_agent             you; must differ from author_agent
+reviewer_role, human_reviewer
+verdict                    approved/pass only
+blocking_findings_count    0; a record with blockers is not an approval
+checks_observed, limitations, timestamp, notes
+```
+
+Records are pass-only. A review with blocking findings produces the findings
+artifact and NO approval; do not write a record with a negative verdict or a
+nonzero blocking count, and note that
+`scripts/check-assignment-bundle` rejects both on read regardless of how the
+record was produced.
+
+Independence is judged on this record: `author_agent` must differ from
+`reviewer_agent`. There is no round manifest behind a topic case, so the record
+is self-attesting about its author — traceability, not authentication. Take the
+author identity from the parent's handover as recorded in your findings
+artifact, and if it was not supplied, say so as a limitation instead of
+inventing one.
+
+`scripts/check-assignment-bundle <case-id> <variant>` validates the record, and
+refuses to consider it at all until `scripts/check-assignment-draft` passes.
 
 ## Stop Conditions
 

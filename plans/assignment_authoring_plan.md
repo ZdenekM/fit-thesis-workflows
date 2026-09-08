@@ -5,18 +5,18 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 to 4a are done and green. Templates, operator contract, style
-layers, both skills, the codex-only reviewer route, the structural checker and
-the brief language binding exist. No bundle approval, no promotion, and nothing
-has authored a real topic through the tracked workflow yet.
+State: Slices 0 to 4b are done and green. Everything the acceptance contract's
+executable half needs exists: templates, contract, style layers, both skills,
+the reviewer route, both checkers and the bundle approval. No promotion, and
+nothing has authored a real topic through the tracked workflow yet.
 
-Open question: the Slice 3 and Slice 4a re-checks each found a defect in their
-round's own fixes, so both chains stopped by rule. Ask the operator whether a
-third round is wanted on either.
+Open question: the Slice 3 and 4a re-checks each found a defect in their round's
+own fixes, and the 4b re-check returned `needs_human` on a Serena outage. Ask
+the operator whether a third round is wanted on any of them.
 
-Next action: review the Slice 4b charter — the
-`assignment-bundle-approval-v1` record and `scripts/check-assignment-bundle` —
-then implement it.
+Next action: compact the closed Slice 4b charter, then write the full Slice 5
+charter — `scripts/promote-assignment` and the `case_doctor` branch — and
+review it before implementing.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -235,7 +235,7 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
 
 ### Slice 4b - Bundle approval and sendability
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Add the assignment bundle approval and its check`
 - Why: the `## Acceptance Contract` gates publishing a variant to FIT IS and
   sending its brief on one command that does not exist. Everything before this
@@ -250,6 +250,8 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
   `.agents/skills/thesis-assignment-review/SKILL.md`,
   `.codex/agents/thesis-assignment-reviewer.toml`,
   `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`,
+  `.agents/skills/thesis-assignment-authoring/SKILL.md`,
   `tests/test_assignment_bundle.py`
 - Tasks:
   - Define `assignment-bundle-approval-v1` in
@@ -279,9 +281,20 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
   - A hash mismatch is the mechanism behind "material edits after review reopen
     draft state": it fails and names the file that moved.
   - `checks_observed`, `limitations` and `timestamp` are audit metadata. They
-    are recorded and shape-checked, and they establish nothing about whether a
-    semantic review happened; the `## Acceptance Contract`'s operator reading
-    stays necessary and the doc must not imply otherwise.
+    are recorded and shape-checked ON READ — a malformed record must not pass a
+    publication gate merely because the broken fields are not themselves
+    evidence — and they establish nothing about whether a semantic review
+    happened; the `## Acceptance Contract`'s operator reading stays necessary
+    and the doc must not imply otherwise.
+  - Reject a duplicate `files` entry rather than letting the last one win, and
+    require a real integer zero for `blocking_findings_count` in the builder as
+    well as the reader: `False` and `0.0` both equal zero and neither is a
+    count. Both were live acceptances the first review reproduced.
+  - Make builder/reader parity structural: the builder validates its own output
+    with the reader before returning, and a parametrized test asserts that every
+    input the builder refuses is also refused when written by hand. Two lists of
+    rules kept in step by hand had already drifted once — the builder accepted
+    audit-field shapes the reader rejects.
   - Have the authoring parent write the author's session identity into
     `work/reviews/assignment_review_<variant>.md` when it hands the bundle over.
     That is traceability, not authentication, and it costs one line; the
@@ -341,16 +354,19 @@ follow-up plan.
 
 ## Progress
 
-Slices 0 to 4a are done. Slice 1 landed the three templates, the
+Slices 0 to 4b are done. Slice 1 landed the three templates, the
 layer-2/layer-3 profile split, `docs/assignment-authoring.md`, `Case kind:` and
 the unresolved-value instrument. Slice 2 landed the two skills, the two registry
 routes, the Codex adapter, the matrix rows and routing text, and a test binding
 `AGENTS.md` routing to the registry. Slice 3 landed
 `scripts/check-assignment-draft` and its whole operator-tool surface, and Slice
-4a the brief's Czech and English heading contract, at 41 checker tests. Each
-slice took one review round plus its narrow re-check; on Slice 3 and Slice 4a
-the re-check found a defect in the round's own fixes, and both chains then
-stopped by rule.
+4a the brief's Czech and English heading contract, at 41 checker tests. Slice
+4b landed `assignment-bundle-approval-v1`, `scripts/check-assignment-bundle`
+and 44 bundle tests, discharging the `## Acceptance Contract`'s executable half.
+Each slice took one review round plus its narrow re-check; on Slices 3 and 4a
+the re-check found a defect in the round's own fixes and both chains stopped by
+rule, and the 4b re-check returned `needs_human` on a Serena outage in its own
+sandbox.
 
 Omen limitation, every slice so far: the MCP server returned zero files for
 every path attempted, file and directory alike, so `pants run :omen` is the only
@@ -725,6 +741,27 @@ student projection; the narrow re-check found a third in the fix.
 Decision: this chain also stops at one round plus one re-check. Why the shape
 recurred: an enumeration of forms is a contract stated in prose, and
 `plans/README.md` says the authority must be a mechanical check instead.
+
+### 2026-09-08 - Slice 4b: the reader is the gate, so parity is structural now
+
+Trigger: the slice review reproduced three live acceptances against the code,
+and the narrow re-check stopped on its own tooling rather than confirming
+builder/reader parity.
+
+- Audit metadata was shape-checked nowhere though the charter required it, so a
+  record missing `timestamp` published.
+- Duplicate `files` entries were last-wins, so a wrong hash followed by the
+  right one for the same path passed.
+- The builder took `False` and `0.0` as a zero blocking count, emitting records
+  its own reader rejected.
+
+Decision: parity stopped being two hand-kept lists. The builder validates its
+own output with the reader before returning, and a parametrized test asserts
+every builder-refused input is refused when hand-written. Why: the re-check
+could not verify parity by reading, and the property is cheap to assert.
+
+Residual risk: that re-check returned `needs_human`, so this batch had no second
+reader. Serena was reachable here and was used to read the builder.
 
 ## Final Audit
 

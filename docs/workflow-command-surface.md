@@ -22,10 +22,10 @@ run repeatedly while working on a case. Each tool must have:
   `dist/workflow-tools/bin/<tool>.ps1`;
 - focused pytest or smoke coverage for the command contract.
 
-`check-assignment-draft` follows the same operator-tool contract. It is the
-only workflow command that runs against a case with no rounds, because a
-`Case kind: topic-proposal` case has none; it takes a case id and an optional
-variant rather than a round id.
+`check-assignment-draft` and `check-assignment-bundle` follow the same
+operator-tool contract. They are the only workflow commands that run against a
+case with no rounds, because a `Case kind: topic-proposal` case has none; they
+take a case id and a variant rather than a round id.
 
 Supervisor-report commands follow the same operator-tool contract. In
 particular, `check-supervisor-report-ready`, `prepare-supervisor-report-packets`,

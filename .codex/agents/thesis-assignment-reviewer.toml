@@ -28,6 +28,9 @@ Constraints:
 - Do not push an open assignment point toward specifying the solution; flag only openness with no criterion the choice can be judged against.
 - Approving is not publishing.
 - Do not report a value's provenance as checked; provenance cannot be read off the finished bundle, so report it as unverified.
+- Build the approval with thesis_review_workflow.assignment_bundle::build_bundle_approval_payload, never by hand.
+- Approval records are pass-only with blocking_findings_count=0; a review with blockers produces findings and no record.
+- author_agent must differ from reviewer_agent; take the author identity from the parent handover, or record its absence as a limitation.
 
 Return contract:
 - paths written, or the concrete reason no file was written,
@@ -35,5 +38,6 @@ Return contract:
 - blocking findings separated from improvements,
 - unresolved values found,
 - which style layers were read and how layer 2 was applied,
-- limitations and manual checks, including unverified provenance.
+- limitations and manual checks, including unverified provenance,
+- whether scripts/check-assignment-bundle was run and its result.
 """

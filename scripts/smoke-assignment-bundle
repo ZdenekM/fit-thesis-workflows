@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__assignment_bundle_smoke_$$"
+case_dir="$repo_root/cases/$case_id"
+out_file="/tmp/assignment-bundle-smoke.$$.out"
+err_file="/tmp/assignment-bundle-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$case_dir/notes" "$case_dir/outputs" "$case_dir/work/reviews"
+
+cat >"$case_dir/case.md" <<'EOF'
+Case ID: smoke
+Case kind: topic-proposal
+Student feedback language: en
+Reviewer profile: default
+EOF
+
+cat >"$case_dir/notes/topic_intake.md" <<'EOF'
+# Topic Intake
+
+Topic id: smoke-topic
+Academic year: 2026/27
+Variants: bp
+
+## Citable Artifacts
+
+- Reference: Example, A. Structural Provenance. Journal, 2026.
+  Identifier: 10.0000/example
+  Kind: doi
+
+Supplement line:
+EOF
+
+cat >"$case_dir/notes/student_brief.md" <<'EOF'
+# Student Brief
+
+## Shared Brief
+
+### What The Work Builds On
+
+An existing platform.
+
+### Where To Start
+
+Start from the README.
+
+### Working Agreements
+
+Weekly handover.
+
+### How To Read The Assignment
+
+The domain choice is yours.
+
+### What Is Out Of Scope
+
+The mobile client.
+
+## Variant Delta
+
+### bp
+
+Contribution framing: one prototype.
+EOF
+
+cat >"$case_dir/outputs/student_brief_bp.md" <<'EOF'
+# Thesis Topic Brief - bp
+
+### What The Work Builds On
+
+An existing platform.
+
+### Where To Start
+
+Start from the README.
+
+### Working Agreements
+
+Weekly handover.
+
+### How To Read The Assignment
+
+The domain choice is yours.
+
+### What Is Out Of Scope
+
+The mobile client.
+
+## For This Variant - bp
+
+Contribution framing: one prototype.
+EOF
+
+cat >"$case_dir/outputs/assignment_formal_bp.md" <<'EOF'
+# Formal Assignment
+
+Topic id: smoke-topic
+Variant: bp
+Rendering: en
+
+## English Rendering
+
+### Header
+
+Bachelor's Thesis Assignment
+
+### Metadata
+
+Institut: Department of Computer Graphics and Multimedia (DCGM)
+Student:
+Programme:
+Title: Smoke Topic
+Category: Software engineering
+
+Academic year: 2026/27
+
+### Assignment Points
+
+Assignment:
+
+1. Review existing solutions.
+2. Create a short video presenting the result.
+
+### Literature
+
+Literature:
+
+- Example, A. Structural Provenance. Journal, 2026.
+
+### Semestral Defence Requirement
+
+Requirements for the semestral defence: Points 1 and 2.
+
+### Footer
+
+Supervisor: Test Tester
+Head of Department: Test Tester
+Beginning of work:
+Submission deadline:
+Approval date:
+EOF
+
+expect_failure "an unapproved bundle is refused" "$repo_root/scripts/check-assignment-bundle" "$case_id" "bp"
+expect_output "an independent reviewer must approve"
+
+build_record() {
+  PYTHONPATH="$repo_root/src" python3 - "$case_dir" "$case_id" "$1" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+from thesis_review_workflow.assignment_bundle import approval_rel, build_bundle_approval_payload
+
+case_dir, case_id, reviewer = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+record = build_bundle_approval_payload(
+    case_dir,
+    case_id=case_id,
+    variant="bp",
+    author_agent="authoring-parent",
+    reviewer_agent=reviewer,
+    reviewer_role="thesis-assignment-review",
+    verdict="approved",
+    blocking_findings_count=0,
+    checks_observed=["scripts/check-assignment-draft"],
+    limitations=[],
+    timestamp="2026-09-08T10:00:00Z",
+)
+(case_dir / approval_rel("bp")).write_text(json.dumps(record, indent=2), encoding="utf-8")
+PY
+}
+
+build_record "thesis-assignment-reviewer"
+expect_success "an approved bundle passes" "$repo_root/scripts/check-assignment-bundle" "$case_id" "bp"
+expect_output "Assignment bundle check passed"
+
+printf '\nAn edit after approval.\n' >>"$case_dir/outputs/student_brief_bp.md"
+expect_failure "an edit after approval reopens draft state" "$repo_root/scripts/check-assignment-bundle" "$case_id" "bp"
+
+echo "Assignment bundle smoke checks passed"
