@@ -491,3 +491,135 @@ Append-only. Charters moved verbatim here when their slice was marked
   ```
   Scoped Omen over the two new modules during implementation, `pants run :omen`
   at the end; record the result or a concrete blocker in `## Progress`.
+
+### Slice 5 - Promotion and case-doctor branch
+
+- Status: in_progress
+- Proposed commit message: `Promote an approved assignment variant into a thesis case`
+- Why: an approved bundle is still stranded in its topic case. Promotion is
+  what makes the assignment the artifact every other workflow measures against,
+  and until it exists the year-later question "what was this thesis assigned to
+  do" has no traceable answer. `case_doctor` is in the same slice because a
+  topic case currently fails it before it prints anything.
+- Expected paths: `src/thesis_review_workflow/assignment_promotion.py`,
+  `src/thesis_review_workflow/cli/promote_assignment.py`,
+  `src/thesis_review_workflow/cli/case_doctor.py`,
+  `src/thesis_review_workflow/cli/BUILD`,
+  `src/thesis_review_workflow/commands.py`,
+  `scripts/promote-assignment`, `scripts/smoke-assignment-promotion`,
+  `scripts/smoke-assignment-draft`, `scripts/smoke-assignment-bundle`,
+  `scripts/BUILD`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`, `templates/assignment.md`,
+  `tests/test_assignment_promotion.py`, `tests/test_case_doctor_summary.py`
+- Tasks:
+  - `scripts/promote-assignment <topic-case-id> <variant> <target-case-id>
+    [round-id]`. The target is a `thesis-review` case and its
+    `notes/assignment.md` is ROUND-relative, so promotion resolves the target
+    round the way every other round command does; the topic side stays
+    round-less.
+  - Refuse unless `check_assignment_bundle::check_bundle` passes for that
+    variant. Promoting an unapproved or stale bundle would make downstream
+    workflows measure a thesis against text nobody approved.
+  - Approval is NOT issuance, and promotion needs both. A bundle approval says
+    the variant may be published; it says nothing about whether this student
+    received this assignment. Promotion therefore requires an explicit operator
+    assertion — a required flag whose help states exactly what is being
+    asserted, that this variant is the target student's effective assignment
+    and its brief was supplied — recorded in the generated file and the
+    operation log. Without it, refuse. Why this is the P1 of the slice: a
+    proposal promoted before delivery makes every later round grade the student
+    against requirements they never received, and no readiness check can detect
+    it, because `check_round_ready` reads section content and cannot establish
+    issuance.
+  - Validate the TARGET before writing, not just the source: the case exists
+    and is `Case kind: thesis-review`, its round exists, and its `Work type`
+    matches the variant. A `dp` bundle promoted into a BP case passes every
+    other check here and yields the wrong assessment basis; `unknown` is
+    refused too, because promotion is the moment the work type is knowable.
+  - Anchor containment to the private root, not just to the case. Require the
+    RESOLVED target case directory to sit beneath the resolved `cases/` root,
+    require that root to BE `<repo>/cases` rather than merely resolve somewhere
+    inside the repository — a `cases/` linked to `docs/` satisfies the weaker
+    reading while `.gitignore` covers none of it — and then confine every write
+    beneath the case. Resolve each destination with `strict=False` whether or
+    not it exists, since a dangling symlink reports neither, and include the
+    operation log among the destinations: it carries the case id, the actor and
+    the issuance note. Anchoring to the case alone is not enough: a
+    `cases/<id>` that links to `docs/<id>` carries valid metadata and a real
+    round, so every other check passes while assignment text, the retained
+    approval record and the log land somewhere `.gitignore` does not cover.
+    `.gitignore` protects the lexical `cases/` path, and the round resolver
+    validates an identifier rather than a destination.
+  - Refuse to overwrite an existing `notes/assignment.md` unless `--replace` is
+    given, and say which file is in the way. A silent overwrite would destroy
+    the assignment a case was already reviewed against. `--replace` lifts THAT
+    refusal only: it does not weaken approval, issuance, target or containment.
+  - Define the WHOLE rendering mapping, because a partial one silently drops
+    formal obligations:
+    - `## Formal Assignment Artifacts`: a generated declaration naming the
+      topic case, the variant and the approval record, not a TODO left in place.
+    - `## Formal Assignment Text Or Summary`: the variant's points, its
+      literature AND its semestral-defence requirement, which is a distinct
+      formal field of `templates/assignment-formal.md` that the obvious mapping
+      loses.
+    - `## Private Assignment Notes For Student`: the brief projection, which is
+      what that section already means. Its headings must be DEMOTED below the
+      enclosing section: the projection carries an H2 delta heading, and
+      `check_round_ready` ends a section at the next H2, so a verbatim copy
+      would cut the section in half.
+    - `## Assignment Coverage Hints`: left for the operator, as today.
+  - Add `Assignment source:` to `templates/assignment.md` and to the generated
+    file, naming topic case id, variant, and the approval record's own sha256.
+    Hash the RECORD, not the four files: the record already binds them.
+  - A hash is an identity, not an archive. The approval path is one fixed name
+    per variant, so a later re-approval overwrites the record the hash refers
+    to and its file hashes and reviewer identity become unrecoverable. Copy the
+    approved record into the target round's ignored workspace and reference
+    that retained path beside the hash.
+  - Append an operation-log entry to the TARGET round with
+    `thesis_review_workflow.operation_log::append_operation`. The topic case has
+    no round and so no log; say that in the doc rather than inventing one.
+  - `case_doctor`: branch on `thesis_review_workflow.metadata::case_kind`
+    BEFORE the round resolution that currently exits 1 on a missing
+    `current-round.txt`. A `topic-proposal` case reports its intake, variants,
+    per-variant draft and bundle status, and runs neither round, supervisor,
+    deadline nor feedback-language gates, none of which have a subject here.
+  - Full operator-tool surface and a smoke script. `pants test tests::` is the
+    authority on completeness. While writing it: the smoke helpers' bare
+    `grep -Fq "$needle"` reads a needle starting with a dash as an option, so
+    the three assignment smokes pass `-e`.
+  - Tests: promotion of an approved variant writes every section, the source
+    line and the retained record; the semestral requirement survives; the
+    generated file still satisfies `check_round_ready`'s section reading, with
+    the brief's own headings inside the private-notes section rather than
+    ending it; an unapproved or stale bundle is refused; a missing issuance
+    assertion is refused; a `dp` bundle into a BP case is refused, and so is an
+    `unknown` work type, both with and without `--replace` and with the DP
+    bundle actually approved so the test reaches the check it names; a write
+    escaping the target case is refused, including through a dangling
+    destination link, a redirected operation log, and a redirected `cases/`
+    root, in each case before anything is written; an
+    existing target file is refused without `--replace` and replaced with it,
+    while `--replace` alone lifts no other refusal; a case directory that is a
+    link out of `cases/` is refused, with and without `--replace`; the
+    operation-log entry
+    lands in the target round; `case_doctor` on a topic case prints authoring
+    state and runs no thesis gate; `case_doctor` on a thesis-review case is
+    unchanged.
+- Out of scope: the real-topic run and `## Final Audit`, which are Slice 6. No
+  bulk migration of existing cases, no change to any existing readiness gate,
+  and no second layout beside `cases/`.
+- Verification:
+  ```bash
+  pants test tests::
+  scripts/smoke-assignment-promotion
+  scripts/smoke-case-doctor
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```
+  Scoped Omen over the new modules and `case_doctor.py` during implementation,
+  `pants run :omen` at the end; record the result or a concrete blocker in
+  `## Progress`. `case_doctor.py` is already a High hotspot, so a change there
+  is worth the scoped look.

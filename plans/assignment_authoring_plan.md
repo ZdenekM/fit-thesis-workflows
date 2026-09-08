@@ -14,10 +14,10 @@ Open question: several re-checks found a defect in their own round's fixes, and
 two returned `needs_human` on Serena outages in the reviewer sandbox. Ask the
 operator whether a third round is wanted on any slice.
 
-Next action: compact the closed Slice 5 charter, then write the full Slice 6
-charter — one real topic end to end, the `## Acceptance Contract` and the
-`## Final Audit` — and review it. Slice 6 needs operator decisions: which
-topic, and whether anything is published.
+Next action: Slice 6 is chartered and BLOCKED on the operator. It needs a real
+topic and its variants, explicit agent authorization for the reviewer role, and
+the operator's own reading for the `## Acceptance Contract`. Ask; do not pick a
+topic.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -247,149 +247,75 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
 
 ### Slice 5 - Promotion and case-doctor branch
 
-- Status: in_progress
-- Proposed commit message: `Promote an approved assignment variant into a thesis case`
-- Why: an approved bundle is still stranded in its topic case. Promotion is
-  what makes the assignment the artifact every other workflow measures against,
-  and until it exists the year-later question "what was this thesis assigned to
-  do" has no traceable answer. `case_doctor` is in the same slice because a
-  topic case currently fails it before it prints anything.
-- Expected paths: `src/thesis_review_workflow/assignment_promotion.py`,
-  `src/thesis_review_workflow/cli/promote_assignment.py`,
-  `src/thesis_review_workflow/cli/case_doctor.py`,
-  `src/thesis_review_workflow/cli/BUILD`,
-  `src/thesis_review_workflow/commands.py`,
-  `scripts/promote-assignment`, `scripts/smoke-assignment-promotion`,
-  `scripts/smoke-assignment-draft`, `scripts/smoke-assignment-bundle`,
-  `scripts/BUILD`, `docs/assignment-authoring.md`,
-  `docs/workflow-command-surface.md`, `templates/assignment.md`,
-  `tests/test_assignment_promotion.py`, `tests/test_case_doctor_summary.py`
+Charter form: compacted
+Landed: 2b2d0ad
+Delivered `scripts/promote-assignment` behind four independent refusals
+(approval, issuance, target fitness, containment), the retained approval record
+beside its hash, heading demotion so the brief cannot end its section, the
+`case_doctor` topic-proposal branch, and 23 promotion tests.
+Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
+Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`,
+`2026-09-08 - Slice 5: three privacy escapes and a test that proved nothing`.
+
+### Slice 6 - Real-topic run and closeout
+
+- Status: planned
+- Proposed commit message: `Close the assignment authoring plan after a real-topic run`
+- Why: five slices built a workflow that no real topic has been through. The
+  probe in Slice 0 was hand-authored and touched no tracked path, so nothing yet
+  shows the tracked templates, checkers and roles working together on real
+  material. Everything the plan claims is untested as a whole until this runs.
+- Expected paths: `plans/assignment_authoring_plan.md`, `TODO.md`, and whatever
+  the run itself proves defective. No new workflow surface is planned; a fix
+  the run forces is a fix, and anything larger becomes a TODO entry or a
+  follow-up plan rather than growing this slice.
 - Tasks:
-  - `scripts/promote-assignment <topic-case-id> <variant> <target-case-id>
-    [round-id]`. The target is a `thesis-review` case and its
-    `notes/assignment.md` is ROUND-relative, so promotion resolves the target
-    round the way every other round command does; the topic side stays
-    round-less.
-  - Refuse unless `check_assignment_bundle::check_bundle` passes for that
-    variant. Promoting an unapproved or stale bundle would make downstream
-    workflows measure a thesis against text nobody approved.
-  - Approval is NOT issuance, and promotion needs both. A bundle approval says
-    the variant may be published; it says nothing about whether this student
-    received this assignment. Promotion therefore requires an explicit operator
-    assertion — a required flag whose help states exactly what is being
-    asserted, that this variant is the target student's effective assignment
-    and its brief was supplied — recorded in the generated file and the
-    operation log. Without it, refuse. Why this is the P1 of the slice: a
-    proposal promoted before delivery makes every later round grade the student
-    against requirements they never received, and no readiness check can detect
-    it, because `check_round_ready` reads section content and cannot establish
-    issuance.
-  - Validate the TARGET before writing, not just the source: the case exists
-    and is `Case kind: thesis-review`, its round exists, and its `Work type`
-    matches the variant. A `dp` bundle promoted into a BP case passes every
-    other check here and yields the wrong assessment basis; `unknown` is
-    refused too, because promotion is the moment the work type is knowable.
-  - Anchor containment to the private root, not just to the case. Require the
-    RESOLVED target case directory to sit beneath the resolved `cases/` root,
-    require that root to BE `<repo>/cases` rather than merely resolve somewhere
-    inside the repository — a `cases/` linked to `docs/` satisfies the weaker
-    reading while `.gitignore` covers none of it — and then confine every write
-    beneath the case. Resolve each destination with `strict=False` whether or
-    not it exists, since a dangling symlink reports neither, and include the
-    operation log among the destinations: it carries the case id, the actor and
-    the issuance note. Anchoring to the case alone is not enough: a
-    `cases/<id>` that links to `docs/<id>` carries valid metadata and a real
-    round, so every other check passes while assignment text, the retained
-    approval record and the log land somewhere `.gitignore` does not cover.
-    `.gitignore` protects the lexical `cases/` path, and the round resolver
-    validates an identifier rather than a destination.
-  - Refuse to overwrite an existing `notes/assignment.md` unless `--replace` is
-    given, and say which file is in the way. A silent overwrite would destroy
-    the assignment a case was already reviewed against. `--replace` lifts THAT
-    refusal only: it does not weaken approval, issuance, target or containment.
-  - Define the WHOLE rendering mapping, because a partial one silently drops
-    formal obligations:
-    - `## Formal Assignment Artifacts`: a generated declaration naming the
-      topic case, the variant and the approval record, not a TODO left in place.
-    - `## Formal Assignment Text Or Summary`: the variant's points, its
-      literature AND its semestral-defence requirement, which is a distinct
-      formal field of `templates/assignment-formal.md` that the obvious mapping
-      loses.
-    - `## Private Assignment Notes For Student`: the brief projection, which is
-      what that section already means. Its headings must be DEMOTED below the
-      enclosing section: the projection carries an H2 delta heading, and
-      `check_round_ready` ends a section at the next H2, so a verbatim copy
-      would cut the section in half.
-    - `## Assignment Coverage Hints`: left for the operator, as today.
-  - Add `Assignment source:` to `templates/assignment.md` and to the generated
-    file, naming topic case id, variant, and the approval record's own sha256.
-    Hash the RECORD, not the four files: the record already binds them.
-  - A hash is an identity, not an archive. The approval path is one fixed name
-    per variant, so a later re-approval overwrites the record the hash refers
-    to and its file hashes and reviewer identity become unrecoverable. Copy the
-    approved record into the target round's ignored workspace and reference
-    that retained path beside the hash.
-  - Append an operation-log entry to the TARGET round with
-    `thesis_review_workflow.operation_log::append_operation`. The topic case has
-    no round and so no log; say that in the doc rather than inventing one.
-  - `case_doctor`: branch on `thesis_review_workflow.metadata::case_kind`
-    BEFORE the round resolution that currently exits 1 on a missing
-    `current-round.txt`. A `topic-proposal` case reports its intake, variants,
-    per-variant draft and bundle status, and runs neither round, supervisor,
-    deadline nor feedback-language gates, none of which have a subject here.
-  - Full operator-tool surface and a smoke script. `pants test tests::` is the
-    authority on completeness. While writing it: the smoke helpers' bare
-    `grep -Fq "$needle"` reads a needle starting with a dash as an option, so
-    the three assignment smokes pass `-e`.
-  - Tests: promotion of an approved variant writes every section, the source
-    line and the retained record; the semestral requirement survives; the
-    generated file still satisfies `check_round_ready`'s section reading, with
-    the brief's own headings inside the private-notes section rather than
-    ending it; an unapproved or stale bundle is refused; a missing issuance
-    assertion is refused; a `dp` bundle into a BP case is refused, and so is an
-    `unknown` work type, both with and without `--replace` and with the DP
-    bundle actually approved so the test reaches the check it names; a write
-    escaping the target case is refused, including through a dangling
-    destination link, a redirected operation log, and a redirected `cases/`
-    root, in each case before anything is written; an
-    existing target file is refused without `--replace` and replaced with it,
-    while `--replace` alone lifts no other refusal; a case directory that is a
-    link out of `cases/` is refused, with and without `--replace`; the
-    operation-log entry
-    lands in the target round; `case_doctor` on a topic case prints authoring
-    state and runs no thesis gate; `case_doctor` on a thesis-review case is
-    unchanged.
-- Out of scope: the real-topic run and `## Final Audit`, which are Slice 6. No
-  bulk migration of existing cases, no change to any existing readiness gate,
-  and no second layout beside `cases/`.
+  - Ask the operator for the topic and for the variants to author. This slice
+    cannot start without that, and the choice is not the agent's.
+  - Ask for explicit agent authorization before the reviewer role runs, as
+    `AGENTS.md` requires for any semantic review workflow.
+  - Author one real topic end to end IN THE TRACKED WORKFLOW: a
+    `Case kind: topic-proposal` case under ignored `cases/`, its intake, one
+    assignment and one brief projection per variant, using
+    `.agents/skills/thesis-assignment-authoring/SKILL.md` and the tracked
+    templates rather than hand-writing them.
+  - Run `scripts/check-assignment-draft` and fix what it finds. A finding that
+    is a defect in the CHECKER rather than in the topic is the most valuable
+    result this slice can produce; record which kind each one was.
+  - Have `thesis_assignment_reviewer` review each variant bundle and write its
+    findings and approval record. It must be a different agent than the author.
+  - Run `scripts/check-assignment-bundle` per variant.
+  - Discharge the `## Acceptance Contract` explicitly: name the command result
+    and record the operator's reading against the three criteria it states.
+    Publishing to FIT IS and sending a brief are the operator's actions, not
+    this slice's; the slice ends at "ready, and the operator decided".
+  - Promote only if the operator says the assignment was issued, and only into a
+    case they name. Promotion is not part of proving the workflow works.
+  - Record the `## Final Audit`: commands run, checks skipped and why, residual
+    risks, and the archive decision.
+  - Route what the run teaches: a repeatable rule into `AGENTS.md`,
+    `plans/README.md` or a skill; a mechanical trap into a test; anything left
+    over into `TODO.md`. Then move the plan to `plans/archive/`.
+- Out of scope: a second topic, bulk authoring, Claude parity for the reviewer
+  role, and any change to an existing thesis workflow. No private case content
+  in any tracked path, the plan and TODO included.
 - Verification:
   ```bash
   pants test tests::
-  scripts/smoke-assignment-promotion
-  scripts/smoke-case-doctor
+  scripts/check-assignment-draft <topic-case-id>
+  scripts/check-assignment-bundle <topic-case-id> <variant>
+  scripts/case-doctor <topic-case-id>
   python3 tests/test_plan_contract.py
   scripts/check-private
   scripts/check-scripts
   git diff --check
   ```
-  Scoped Omen over the new modules and `case_doctor.py` during implementation,
-  `pants run :omen` at the end; record the result or a concrete blocker in
-  `## Progress`. `case_doctor.py` is already a High hotspot, so a change there
-  is worth the scoped look.
-
-### Slice 6 - Real-topic run and closeout
-
-Charter form: stub
-
-Objective: publish one real topic through the finished workflow, discharge the
-`## Acceptance Contract`, record the `## Final Audit`.
-
-Boundary: no new workflow surface; residual findings become TODO entries or a
-follow-up plan.
+  The three case-scoped commands take the real case id the operator supplies;
+  their output is private and stays out of the plan.
 
 ## Progress
 
-Slices 0 to 4b are done. Slice 1 landed the three templates, the
+Slices 0 to 5 are done. Slice 1 landed the three templates, the
 layer-2/layer-3 profile split, `docs/assignment-authoring.md`, `Case kind:` and
 the unresolved-value instrument. Slice 2 landed the two skills, the two registry
 routes, the Codex adapter, the matrix rows and routing text, and a test binding
@@ -398,6 +324,9 @@ routes, the Codex adapter, the matrix rows and routing text, and a test binding
 4a the brief's Czech and English heading contract, at 41 checker tests. Slice
 4b landed `assignment-bundle-approval-v1`, `scripts/check-assignment-bundle`
 and 44 bundle tests, discharging the `## Acceptance Contract`'s executable half.
+Slice 5 landed `scripts/promote-assignment` with its four independent refusals,
+the retained approval record and the `case_doctor` topic branch, at 23 promotion
+tests.
 Each slice took one review round plus its narrow re-check; on Slices 3 and 4a
 the re-check found a defect in the round's own fixes and both chains stopped by
 rule, and the 4b re-check returned `needs_human` on a Serena outage in its own
@@ -818,6 +747,26 @@ narrow re-check found the containment anchor still one level too low.
 
 Decision: chain stops at one round plus one re-check; the fix is one tightening
 clause, not a third object. Residual risk: that clause is unreviewed.
+
+### 2026-09-08 - Slice 5: three privacy escapes and a test that proved nothing
+
+Trigger: the slice review found four defects in promotion, three of them ways
+to write private content outside `cases/` while every stated guard passed.
+
+- A dangling destination symlink: `exists()` is false, so the check resolved the
+  parent and the write followed the link.
+- The operation log was not a checked destination, so a redirected
+  `work/operation_log.jsonl` carried case id, actor and issuance note out.
+- A `cases/` linked to `docs/` passed a root check that asked only whether the
+  root resolved inside the repository.
+- The DP-into-BP test never reached the work-type check it named, because the
+  fixture approved only BP; it would have passed with that check deleted.
+
+Decision: containment is asserted over whole resolved paths now, and a
+parametrized test links each directory on every write path in turn. Why that
+shape: all three holes came from checking a path component rather than the
+destination. The chain stops here; the re-check confirmed the fixes and returned
+`needs_human` on its own Serena outage.
 
 ## Final Audit
 
