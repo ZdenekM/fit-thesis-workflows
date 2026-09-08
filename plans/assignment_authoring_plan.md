@@ -10,10 +10,9 @@ contract, style layers, both skills and the codex-only reviewer route exist. No
 checker, no command, no promotion, and nothing has authored a real topic through
 the tracked workflow yet.
 
-Next action: compact the closed Slice 2 charter into
-`plans/archive/assignment_authoring_plan/`, then write the full Slice 3 charter
-— `scripts/check-assignment-draft`, the `check_private` names, the full Windows
-command surface and its tests — and review it before implementing.
+Next action: review the Slice 3 charter — `scripts/check-assignment-draft` with
+structural rather than lexical literature checking, the `check_private` names,
+and the full operator-tool surface — then implement it.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -191,111 +190,100 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
 
 ### Slice 2 - Skills and the full role registry surface
 
-- Status: done
-- Proposed commit message: `Add the assignment authoring and review roles`
-- Why: Slice 1 left three templates and a contract that nothing executes. The
-  two skills are what an operator and an agent actually run, and the reviewer
-  is the independent role the `## Acceptance Contract` presupposes when it
-  requires an approval record naming someone other than the author.
-- Expected paths: `.agents/skills/thesis-assignment-authoring/SKILL.md`,
-  `.agents/skills/thesis-assignment-review/SKILL.md`,
+Charter form: compacted
+Landed: cebbc1f
+Delivered `.agents/skills/thesis-assignment-authoring/SKILL.md` and
+`.agents/skills/thesis-assignment-review/SKILL.md`, their two routes in
+`thesis_review_workflow.agent_profiles::AGENT_PROFILE_ROUTES` with case-relative
+owned outputs and a codex-only reviewer, the Codex config entry and adapter, two
+`docs/agent-profile-matrix.md` rows, the `AGENTS.md` and `README.md` routing
+text bound to the registry by
+`test_agents_md_skill_routing_lists_every_registry_skill`, and the Claude-parity
+`TODO.md` entry.
+Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
+Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
+`2026-09-08 - Slice 2 review: the reviewer named a standard it never loaded`.
+
+### Slice 3 - Structural checker and command surface
+
+- Status: planned
+- Proposed commit message: `Add the assignment draft checker and its command surface`
+- Why: Slices 1 and 2 produced a contract and two roles that read it, and
+  nothing deterministic yet. Every property that can be decided without
+  judgment must be decided here, so the reviewer role spends its round on
+  assessability and wording rather than on counting fields.
+- Expected paths: `src/thesis_review_workflow/assignment_draft.py`,
+  `src/thesis_review_workflow/cli/check_assignment_draft.py`,
+  `src/thesis_review_workflow/cli/check_private.py`,
+  `src/thesis_review_workflow/cli/BUILD`,
+  `src/thesis_review_workflow/commands.py`, `scripts/check-assignment-draft`,
+  `scripts/smoke-assignment-draft`, `scripts/BUILD`,
   `src/thesis_review_workflow/agent_profiles.py`,
-  `docs/agent-profile-matrix.md`, `.codex/config.toml`,
-  `.codex/agents/thesis-assignment-reviewer.toml`, `AGENTS.md`, `README.md`,
-  `BUILD`, `tests/test_agent_profile_contracts.py`, `TODO.md`
+  `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
+  `docs/workflow-command-surface.md`,
+  `tests/test_assignment_draft.py`, `tests/test_check_private.py`
 - Tasks:
-  - `.agents/skills/thesis-assignment-authoring/SKILL.md`: the parent-owned
-    authoring workflow — intake first, then one assignment per variant, then
-    the brief source and its per-variant projections, reading
-    `docs/assignment-authoring.md` as its contract. Parent-owned because the
-    parent already holds the operator dialogue that produces the intake.
-  - `.agents/skills/thesis-assignment-review/SKILL.md`: the spawnable reviewer.
-    ONE role holds a variant's assignment and its brief together, because the
-    brief restates the assignment's point count and semestral obligation and
-    only a reader of both can catch that coupling going stale. Its evidence
-    rules are the layer-2 base in `profiles/default.md`, assessability, the
-    open-solution-space boundary, byte-identical shared material across
-    variants, and unresolved values. The reviewer READS the style layers as
-    inputs and applies layer 2 item by item, because the first review found
-    check rules that named the base without loading it; and it checks the
-    intake's three-way criterion split reached the bundle, because byte-equal
-    projections and matching point counts both pass while a criterion is simply
-    dropped. Provenance of a value is reported as unverified, never as checked.
-  - Two routes in `thesis_review_workflow.agent_profiles::AGENT_PROFILE_ROUTES`:
-    the authoring skill as `parent-owned` / `parent-orchestration`, the review
-    skill as `profile` / `final-reviewer` with
-    `profile_id="thesis_assignment_reviewer"`, CODEX-ONLY providers. The
-    authoring route names the reviewer as its `independent_review_profile`.
-    Codex-only because the Claude write guard confines a reviewer to
-    `cases/<id>/rounds/<round>/` and fails closed without both scope variables,
-    which no round-less topic case can satisfy; the parity work and its
-    prerequisite go to `TODO.md` per the decision below.
-  - Owned outputs and writes for these two routes are CASE-relative, not
-    round-relative: a topic-proposal case has no rounds. Confirm no consumer
-    resolves this route's paths against a round — `agent_coverage` infers its
-    specs from round artifacts and must keep the exact set
-    `tests/test_agent_profile_contracts.py` already pins — and state the
-    convention in `docs/agent-profile-matrix.md`. The one consumer that cannot
-    honour it is the Claude write guard, which is why the route is codex-only.
-  - Discharge the rest of the registry surface the reviewer obliges. Do not
-    enumerate it from reading: `pants test tests/test_agent_profile_contracts.py`
-    is the authority. For a codex-only route that is the Codex config entry and
-    its agent TOML; the same test's bidirectional guard requires that the role
-    get NO `.agents/roles/` fragment, `.claude/agents/` adapter, or write-policy
-    entry until it advertises the claude provider.
-  - The approval record binds a whole variant bundle — that variant's
-    assignment, its brief projection, and the intake they derive from, each by
-    path and hash — because the `## Acceptance Contract` gates the bundle, not
-    a file. Follow the existing shape: the record is in the reviewer route's
-    `owned_outputs` beside the artifact it approves, as every route matched by
-    `thesis_review_workflow.review_profiles::workflow_review_profiles` already
-    is, and the Codex reviewer writes it. When the Claude route lands it is
-    excluded from `claude_writes` and the parent persists it, the
-    parent-mediated protocol `agent_profiles::AgentProfileRoute` documents.
-    Validating the record is `scripts/check-assignment-bundle` in Slice 4.
-  - Add the two skill-routing lines to `AGENTS.md` `## Skill Routing` and the
-    operator entry text to `README.md`, then close that class mechanically: a
-    test asserting every registry skill id appears in `AGENTS.md`. Why a test:
-    the routing list is prose that nothing currently binds to the registry, and
-    `## Scope` had these two edits owned by no slice until now.
-  - Expose `AGENTS.md` to the test sandbox through the existing root
-    `files(name="agent_profile_registry_metadata")` target, which the new
-    routing test needs.
-  - One `TODO.md` entry for Claude parity of `thesis_assignment_reviewer`,
-    naming its prerequisite: case-scoped support in
-    `.claude/hooks/pre_tool_use_write_guard.py::owned_write` with allow/deny
-    tests that keep cross-case denial and tracked-path denial intact.
-- Out of scope: the structural checker and any CLI, the `check_private` names,
-  bundle validation, promotion, `case_doctor`. No entry in
-  `thesis_review_workflow.artifact_registry::OUTPUT_ARTIFACTS`, which is the
-  registry of ROUND outputs. No second semantic role, and no change to any
-  existing route. No change to `.claude/hooks/pre_tool_use_write_guard.py`:
-  widening a privacy instrument is its own reviewed change, not a task inside a
-  slice about skills.
+  - `scripts/check-assignment-draft <case-id> [variant]`: refuse to run unless
+    `thesis_review_workflow.metadata::case_kind` reads `topic-proposal`, then
+    check one variant, or every variant the intake lists when none is named.
+  - Per variant, decide only what is decidable without judgment: the declared
+    rendering's field labels present and in the template's order, exactly one
+    rendering used, the semestral-requirement field non-empty, at least one
+    numbered assignment point, and no unresolved value anywhere in the bundle
+    via `thesis_review_workflow.metadata::unresolved_values`.
+  - Literature is checked STRUCTURALLY, never lexically. `AGENTS.md` forbids a
+    free-text heuristic as a gate, and the corpus placeholders are ordinary
+    Czech sentences, so "looks like a placeholder" cannot be the rule. The rule
+    is provenance: every literature bullet in an assignment must equal an entry
+    the intake's `## Citable Artifacts` authored, and every such entry must
+    carry a non-empty identifier that is not an unresolved value. A supplement
+    line is admissible only through an explicit intake field, not by matching
+    its wording; add that field to `templates/topic-intake.md` if the shape
+    needs it, and say so in `docs/assignment-authoring.md`.
+  - Cross-variant: shared material — every intake-sourced literature entry
+    above all — must be byte-identical in every variant that uses it. The
+    corpus pair that motivated this cited one shared paper two different ways.
+  - Brief projections: `outputs/student_brief_<variant>.md` must contain the
+    `## Shared Brief` body of `notes/student_brief.md` verbatim, and its own
+    variant's delta only. Exact comparison, so a drifted projection fails
+    rather than being judged.
+  - Add the generated names to `check_private`: the topic intake, the brief
+    source, the per-variant assignment and brief, the reviewer's findings
+    artifact, and its approval record, which today's
+    `work/reviews/[^/]+_review\.json` pattern does not match. Extend
+    `tests/test_check_private.py` with each new name.
+  - Deliver the whole operator-tool surface `docs/workflow-command-surface.md`
+    requires. Do not enumerate it here from reading: `pants test tests::` is
+    the authority, and
+    `test_workflow_command_modules_have_sources_runtime_deps_and_wrappers`
+    together with `test_workflow_tool_pex_targets_match_command_module_map`
+    fails until every piece exists. Windows needs no hand-written launcher; the
+    packaging entrypoint generates `.cmd` and `.ps1`.
+  - Name the new command in both routes' `required_validators` and update the
+    two `docs/agent-profile-matrix.md` rows that currently read `none yet`.
+  - `tests/test_assignment_draft.py` over synthetic topic cases in `tmp_path`:
+    a clean bundle passes; each rule fails on exactly its own defect; a
+    `thesis-review` case is refused; point count is never read as evidence of
+    work type or scope; a variant that legitimately differs is not reported as
+    drift.
+- Out of scope: anything requiring judgment — assessability, whether an open
+  point states a criterion, tone, topic quality. Approval records and hashes,
+  the brief language binding and `scripts/check-assignment-bundle`, which are
+  Slice 4. Promotion and `case_doctor`, which are Slice 5. No personal-layer
+  profile preference becomes a gate, and no new gate is added to any existing
+  thesis workflow.
 - Verification:
   ```bash
   pants test tests::
+  scripts/smoke-assignment-draft
   python3 tests/test_plan_contract.py
   scripts/check-private
   scripts/check-scripts
   git diff --check
   ```
-  Scoped Omen over `src/thesis_review_workflow/agent_profiles.py` during
-  implementation, `pants run :omen` at the end; record the observed result or a
-  concrete blocker in `## Progress`.
-
-### Slice 3 - Structural checker and command surface
-
-Charter form: stub
-
-Objective: `scripts/check-assignment-draft` over the calibrated field set,
-non-placeholder literature, the semester-requirement field, coverage hints, and
-byte-identical shared literature blocks across a topic's variants; plus the new
-generated names in `check_private`. Full Windows command surface and tests.
-
-Boundary: comparison is exact or structured, never fuzzy prose; point count
-never infers work type or scope adequacy; no personal-layer preference becomes
-a gate.
+  Scoped Omen over the two new Python modules during implementation, `pants run
+  :omen` at the end; record the observed result or a concrete blocker in
+  `## Progress`.
 
 ### Slice 4 - Brief language and bundle sendability
 
