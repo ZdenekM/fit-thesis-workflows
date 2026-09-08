@@ -13,9 +13,9 @@ authored a real topic through it yet, which is Slice 6.
 A cumulative Codex pass over Slices 1 to 5 has run and its two cross-slice
 findings are fixed, so the per-slice re-check gaps are closed.
 
-Next action: compact the closed Slice 5b charter, then run Slice 6 on
-`cases/topic-2026-extension-seam-domain` — the operator supplied that topic and
-authorized agents. Write Slice 6's full charter first and review it.
+Next action: run Slice 6. The operator has named the topic case in session and
+authorized agents; the case id is deliberately not written here, so ask for it
+if you do not have it.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -277,22 +277,30 @@ Decisions: `2026-09-08 - Claude parity comes back into the plan`,
   shows the tracked templates, checkers and roles working together on real
   material. Everything the plan claims is untested as a whole until this runs.
 - Expected paths: `plans/assignment_authoring_plan.md`, `TODO.md`, and whatever
-  the run itself proves defective. No new workflow surface is planned; a fix
-  the run forces is a fix, and anything larger becomes a TODO entry or a
-  follow-up plan rather than growing this slice.
+  the run proves defective within the boundary below.
+- Repair boundary: an in-slice fix repairs a DEMONSTRATED violation of a
+  contract this plan already named, with focused verification. Anything that
+  changes supported behaviour, a schema, a command surface or a workflow rule
+  is new scope and needs the operator's approval as its own slice or plan —
+  including any answer to the intake-language question that would add a
+  localization surface. Without that line "a fix the run forces" would justify
+  anything the run touched.
 - Tasks:
-  - Operator decisions, both supplied: the topic is
-    `cases/topic-2026-extension-seam-domain`, both `bp` and `dp`, and agent use
-    is authorized for the reviewer role.
-  - That case already holds the Slice 0 probe's material, and it does NOT match
-    the tracked shape: it sits in a round, its intake carries Czech headings of
-    its own invention, and its academic year is a marked assumption. Re-lay it
-    into the tracked shape rather than authoring new content — migrating real
-    material an operator actually wrote is a harder test than a fresh topic and
-    is the one this slice wants.
-  - Keep the probe round directory untouched as the before-state until the run
-    is finished, so a difference between hand-written and tracked output stays
-    visible.
+  - Operator decisions, both supplied in session: a topic case that already
+    holds the Slice 0 probe's material, both variants, and agent authorization
+    for the reviewer role. The case id and everything about its content stay
+    OUT of this plan, out of `TODO.md` and out of commit messages; a resuming
+    session that does not have the id asks the operator for it.
+  - Re-lay that material into the tracked shape rather than authoring new
+    content. Be precise about what that does and does not test: it exercises
+    migration and every downstream stage, and it does NOT exercise deriving an
+    intake from an unstructured idea, which is where the plan's goal starts.
+    Close that gap by walking the intake's open decisions and unresolved facts
+    with the operator through the authoring skill; if that does not happen, say
+    so in the closeout instead of claiming the whole workflow ran.
+  - Keep the probe's original directory untouched as the before-state until the
+    run is finished, so a difference between hand-written and tracked output
+    stays visible.
   - Use `.agents/skills/thesis-assignment-authoring/SKILL.md` and the tracked
     templates; do not hand-write an artifact the templates cover.
   - Run `scripts/check-assignment-draft` and fix what it finds. A finding that
@@ -305,21 +313,28 @@ Decisions: `2026-09-08 - Claude parity comes back into the plan`,
     and this session as parent writes the approval record after re-checking that
     basis. It must be a different agent than the author.
   - Run `scripts/check-assignment-bundle` per variant.
-  - Discharge the `## Acceptance Contract` explicitly: name the command result
-    and record the operator's reading against the three criteria it states.
-    Publishing to FIT IS and sending a brief are the operator's actions, not
+  - Discharge the `## Acceptance Contract` so it is auditable a year later, and
+    retain that record in the case's own ignored notes, never here. Per variant:
+    the date, the `scripts/check-assignment-bundle` result, the approval's
+    four-file hash basis so the reading is bound to the versions actually read,
+    the operator's explicit assessment of each of the three criteria, and the
+    resulting decision including deferral or rejection. "Passed; operator
+    agreed" is not a record: it does not say which versions were assessed.
+  - Publishing to FIT IS and sending a brief are the operator's actions, not
     this slice's; the slice ends at "ready, and the operator decided".
   - Promote only if the operator says the assignment was issued, and only into a
     case they name. Promotion is not part of proving the workflow works.
   - Record the `## Final Audit`: commands run, checks skipped and why, residual
     risks, and the archive decision.
-  - Route what the run teaches: a repeatable rule into `AGENTS.md`,
-    `plans/README.md` or a skill; a mechanical trap into a test; anything left
-    over into `TODO.md`. Then move the plan to `plans/archive/`.
+  - Route what the run teaches, as a PROPOSAL first: name the candidate rule,
+    its evidence and where it would live — `AGENTS.md`, `plans/README.md` or a
+    skill for a repeatable rule, a test for a mechanical trap, `TODO.md` for the
+    rest — and implement only what the operator approves, as `AGENTS.md`
+    requires. Then move the plan to `plans/archive/`.
   - One question the run should answer rather than assume: the tracked intake
-    template uses English headings while a Czech-speaking supervisor wrote the
-    real one in Czech. Decide from the run whether that is right, and record the
-    answer; do not quietly change the template mid-run.
+    template uses English headings while the real intake was written in Czech by
+    its Czech-speaking author. Record what the run shows and propose an answer;
+    changing the template is out of scope here under the repair boundary.
 - Out of scope: a second topic, bulk authoring, Claude parity for the reviewer
   role, and any change to an existing thesis workflow. No private case content
   in any tracked path, the plan and TODO included.
@@ -851,6 +866,27 @@ and outside this plan. The Slice 5b verification the reviewer could not perform
 is instead carried by `tests/test_write_guard.py`, which now covers the
 redirected root, the redirected case, the dangling link, and a round reviewer
 NOT widening when its round variable is unset.
+
+### 2026-09-08 - A real case id reached the tracked plan
+
+Trigger: the Slice 6 charter review found the charter naming the operator's
+actual topic case, with its layout and its unresolved academic year, in a
+tracked file — and the commit message repeating it.
+
+- `AGENTS.md` requires tracked plans to stay case-neutral and `plans/README.md`
+  puts case-specific execution notes under ignored `cases/`. Both were plain,
+  and the charter broke them anyway while its own `Out of scope` forbade it.
+- `scripts/check-private` did not catch it and cannot: it checks paths and
+  artifact names, not prose inside a file it is right to track.
+- Two unpushed commits and one commit message carry the id. The remote is a
+  GitHub repository, so it would have become public on the next push.
+
+Decision: the charter is case-neutral now, the id lives only in session and in
+the case's own ignored notes, and the sanitization requirement names commit
+messages and `TODO.md` explicitly. The history fix is the operator's call and is
+offered rather than taken, since rewriting even unpushed commits is theirs.
+
+Residual risk: no mechanical check protects plan PROSE from private content.
 
 ## Final Audit
 
