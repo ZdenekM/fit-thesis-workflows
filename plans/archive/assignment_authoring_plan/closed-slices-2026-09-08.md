@@ -322,3 +322,74 @@ Append-only. Charters moved verbatim here when their slice was marked
   Scoped Omen over the two new Python modules during implementation, `pants run
   :omen` at the end; record the observed result or a concrete blocker in
   `## Progress`.
+
+### Slice 4a - Brief language binding
+
+- Status: done
+- Proposed commit message: `Bind the student brief to the case feedback language`
+- Why: a brief is the only student-facing artifact this workflow produces, and
+  `AGENTS.md` requires student-facing text to follow `Student feedback language`
+  from `case.md` rather than the thesis language. Slice 1 shipped the brief
+  template with English headings only, so today a Czech case has no shape to
+  write against.
+- Expected paths: `templates/student-brief.md`,
+  `src/thesis_review_workflow/assignment_draft.py`,
+  `src/thesis_review_workflow/cli/check_assignment_draft.py`,
+  `docs/assignment-authoring.md`, `scripts/smoke-assignment-draft`,
+  `tests/test_assignment_draft.py`, `tests/test_assignment_authoring.py`
+- Tasks:
+  - Give `templates/student-brief.md` a Czech and an English heading rendering,
+    the shape `templates/assignment-formal.md` already uses, and say which one
+    a case gets: the value of `Student feedback language` in `case.md`, never
+    the thesis language and never the assignment's `Rendering:`.
+  - Keep both heading sets in ONE place beside `RENDERINGS`, and have the
+    template test derive from it, the arrangement Slice 3 adopted after the
+    template and the checker each carried their own copy. Derive the
+    ASCII-folded spellings too rather than listing them: a hand-written list
+    made `### Jak budeme spolupracovat`, which carries no diacritics, both
+    required and rejected. Match forbidden headings by BASE rather than by
+    enumerated form — two enumerating versions each left a suffix open.
+  - Extend `scripts/check-assignment-draft` with the THREE rules
+    `scripts/check-feedback-language` applies, not two: the required headings of
+    the case's declared language are present, a `cs` artifact carries none of
+    the ASCII-folded spellings, and NEITHER language's artifact carries the
+    other language's canonical headings. The third rule is the one that catches
+    a Czech brief with an English section copied verbatim into its projection,
+    which the first two and the whole-document comparison all pass. Reuse means
+    the checking primitives `check_feedback_language::report_missing` and
+    `::report_present`, never its feedback heading sets or its round-scoped CLI.
+  - The source and a projection have DIFFERENT required shapes and need
+    different heading sets from one brief-language mapping: the source carries
+    `## Shared Brief`, `## Variant Delta` and a `### <variant>` subsection per
+    variant, while a projection carries the variant-qualified title and
+    `## Variant Delta - <variant>` and none of those wrappers. One set applied
+    to both would reject a valid projection; their intersection would silently
+    weaken the source check.
+  - The canonical projection shape becomes language-dependent in its headings
+    and only there; the whole-document comparison Slice 3 delivered stays
+    exactly as it is. Name the language-bound wrappers so that none is spelled
+    like a neutral source wrapper: the first review found that the exemption
+    protecting `## Variant Delta` also let `# Student Brief` sit inside a Czech
+    shared body and reach every projection.
+  - `docs/assignment-authoring.md` states the language rule and its source
+    field, next to the projection shape it already documents.
+  - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails
+    and a Czech-headed one in an `en` case fails, both in source and in
+    projection; an ASCII-folded Czech heading fails; a valid projection is not
+    rejected by the source's own wrapper headings being absent from it; an
+    unsupported `Student feedback language` value is refused rather than
+    defaulted; a missing field defaults to `cs` as `templates/case-notes.md`
+    says.
+- Out of scope: the approval record, hashes, author/reviewer distinctness and
+  `scripts/check-assignment-bundle`, all of which are Slice 4b. No new command,
+  no change to `scripts/check-feedback-language` or to the feedback heading
+  sets it owns.
+- Verification:
+  ```bash
+  pants test tests::
+  scripts/smoke-assignment-draft
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```

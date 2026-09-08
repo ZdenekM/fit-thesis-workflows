@@ -5,17 +5,18 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 to 3 are done and green. Templates, operator contract, style
-layers, both skills, the codex-only reviewer route and the structural checker
-exist. No bundle validation, no promotion, and nothing has authored a real topic
-through the tracked workflow yet.
+State: Slices 0 to 4a are done and green. Templates, operator contract, style
+layers, both skills, the codex-only reviewer route, the structural checker and
+the brief language binding exist. No bundle approval, no promotion, and nothing
+has authored a real topic through the tracked workflow yet.
 
-Open question: the Slice 3 re-check found two defects in the review's own fixes,
-so the chain stopped by rule. Ask the operator whether a third round is wanted.
+Open question: the Slice 3 and Slice 4a re-checks each found a defect in their
+round's own fixes, so both chains stopped by rule. Ask the operator whether a
+third round is wanted on either.
 
-Next action: review the Slice 4a charter — the brief's Czech and English
-heading renderings and the two language rules reused from
-`scripts/check-feedback-language` — then implement it.
+Next action: compact the closed Slice 4a charter, then write the full Slice 4b
+charter — the bundle approval record and `scripts/check-assignment-bundle` —
+and review it before implementing.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -222,73 +223,15 @@ Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
 
 ### Slice 4a - Brief language binding
 
-- Status: in_progress
-- Proposed commit message: `Bind the student brief to the case feedback language`
-- Why: a brief is the only student-facing artifact this workflow produces, and
-  `AGENTS.md` requires student-facing text to follow `Student feedback language`
-  from `case.md` rather than the thesis language. Slice 1 shipped the brief
-  template with English headings only, so today a Czech case has no shape to
-  write against.
-- Expected paths: `templates/student-brief.md`,
-  `src/thesis_review_workflow/assignment_draft.py`,
-  `src/thesis_review_workflow/cli/check_assignment_draft.py`,
-  `docs/assignment-authoring.md`, `scripts/smoke-assignment-draft`,
-  `tests/test_assignment_draft.py`, `tests/test_assignment_authoring.py`
-- Tasks:
-  - Give `templates/student-brief.md` a Czech and an English heading rendering,
-    the shape `templates/assignment-formal.md` already uses, and say which one
-    a case gets: the value of `Student feedback language` in `case.md`, never
-    the thesis language and never the assignment's `Rendering:`.
-  - Keep both heading sets in ONE place beside `RENDERINGS`, and have the
-    template test derive from it, the arrangement Slice 3 adopted after the
-    template and the checker each carried their own copy. Derive the
-    ASCII-folded spellings too rather than listing them: a hand-written list
-    made `### Jak budeme spolupracovat`, which carries no diacritics, both
-    required and rejected.
-  - Extend `scripts/check-assignment-draft` with the THREE rules
-    `scripts/check-feedback-language` applies, not two: the required headings of
-    the case's declared language are present, a `cs` artifact carries none of
-    the ASCII-folded spellings, and NEITHER language's artifact carries the
-    other language's canonical headings. The third rule is the one that catches
-    a Czech brief with an English section copied verbatim into its projection,
-    which the first two and the whole-document comparison all pass. Reuse means
-    the checking primitives `check_feedback_language::report_missing` and
-    `::report_present`, never its feedback heading sets or its round-scoped CLI.
-  - The source and a projection have DIFFERENT required shapes and need
-    different heading sets from one brief-language mapping: the source carries
-    `## Shared Brief`, `## Variant Delta` and a `### <variant>` subsection per
-    variant, while a projection carries the variant-qualified title and
-    `## Variant Delta - <variant>` and none of those wrappers. One set applied
-    to both would reject a valid projection; their intersection would silently
-    weaken the source check.
-  - The canonical projection shape becomes language-dependent in its headings
-    and only there; the whole-document comparison Slice 3 delivered stays
-    exactly as it is. Name the language-bound wrappers so that none is spelled
-    like a neutral source wrapper: the first review found that the exemption
-    protecting `## Variant Delta` also let `# Student Brief` sit inside a Czech
-    shared body and reach every projection.
-  - `docs/assignment-authoring.md` states the language rule and its source
-    field, next to the projection shape it already documents.
-  - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails
-    and a Czech-headed one in an `en` case fails, both in source and in
-    projection; an ASCII-folded Czech heading fails; a valid projection is not
-    rejected by the source's own wrapper headings being absent from it; an
-    unsupported `Student feedback language` value is refused rather than
-    defaulted; a missing field defaults to `cs` as `templates/case-notes.md`
-    says.
-- Out of scope: the approval record, hashes, author/reviewer distinctness and
-  `scripts/check-assignment-bundle`, all of which are Slice 4b. No new command,
-  no change to `scripts/check-feedback-language` or to the feedback heading
-  sets it owns.
-- Verification:
-  ```bash
-  pants test tests::
-  scripts/smoke-assignment-draft
-  python3 tests/test_plan_contract.py
-  scripts/check-private
-  scripts/check-scripts
-  git diff --check
-  ```
+Charter form: compacted
+Landed: 5d8c610
+Gave the brief a Czech and an English heading contract selected by `Student
+feedback language`, applied the three rules `scripts/check-feedback-language`
+applies, renamed the English projection wrappers so no language heading is
+spelled like a neutral source wrapper, and matched forbidden headings by base
+rather than by enumerated form.
+Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
+Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
 
 ### Slice 4b - Bundle approval and sendability
 
@@ -326,16 +269,22 @@ follow-up plan.
 
 ## Progress
 
-Slices 0 to 2 are done. Slice 1 landed the three templates, the layer-2/layer-3
-profile split, `docs/assignment-authoring.md`, `Case kind:` and the
-unresolved-value instrument. Slice 2 landed the two skills, the two registry
+Slices 0 to 4a are done. Slice 1 landed the three templates, the
+layer-2/layer-3 profile split, `docs/assignment-authoring.md`, `Case kind:` and
+the unresolved-value instrument. Slice 2 landed the two skills, the two registry
 routes, the Codex adapter, the matrix rows and routing text, and a test binding
-`AGENTS.md` routing to the registry. Each slice took one review round plus its
-narrow re-check. Slice 3 is next and needs a full charter written and reviewed.
+`AGENTS.md` routing to the registry. Slice 3 landed
+`scripts/check-assignment-draft` and its whole operator-tool surface, and Slice
+4a the brief's Czech and English heading contract, at 41 checker tests. Each
+slice took one review round plus its narrow re-check; on Slice 3 and Slice 4a
+the re-check found a defect in the round's own fixes, and both chains then
+stopped by rule.
 
-Omen limitation, both slices: the MCP server returned zero files for every path
-attempted, file and directory alike, so `pants run :omen` is the only static
-signal used. Neither touched module appears in its hotspot or dead-code output.
+Omen limitation, every slice so far: the MCP server returned zero files for
+every path attempted, file and directory alike, so `pants run :omen` is the only
+static signal used. It now ranks `assignment_draft.py` a High hotspot, which is
+churn from a new file rather than a quality signal: average complexity 3 over
+one commit.
 
 ### Slice 0 probe findings
 
@@ -664,6 +613,46 @@ commit-sized halves and one criterion whose premise had moved.
 
 Decision: charter 4a in full, 4b as a stub. Why: the last three slices each
 found defects a smaller object would have surfaced sooner.
+
+### 2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
+
+Trigger: the slice review found five defects, all (a)/(b), all fixed; the narrow
+re-check then found two blocking defects IN THOSE FIXES — the literature scan
+still stopped at a nested heading and skipped inline label text, and the
+projection comparison still ignored the title line.
+
+- Both were fixed as SIMPLIFICATIONS, which is what the shrink rule asks for:
+  the literature check now consumes the whole `### Literature` section instead
+  of guessing where it ends, and the projection is compared WHOLE against one
+  constructed canonical document instead of part by part.
+- Deleted rather than fixed: the cross-variant equality check, subsumed by exact
+  provenance, which rejected a DP legitimately citing one more work.
+
+Decision: the chain STOPS here at one round plus one re-check. A third round on
+the same object needs the direction check plus explicit operator approval under
+`plans/README.md` `## Plan-Change Review`, and the operator has been asked.
+
+Residual risk: the two fixes are unreviewed text by that same rule.
+
+### 2026-09-08 - Slice 4a: enumerating heading forms failed twice
+
+Trigger: the slice review found two ways a wrong-language heading reached a
+student projection; the narrow re-check found a third in the fix.
+
+- The exemption that kept the neutral wrappers safe let `# Student Brief` sit
+  inside a Czech shared body. Fixed by removing the collision rather than the
+  symptom: the English wrappers became `# Thesis Topic Brief` and
+  `## For This Variant`, so no language heading is spelled like a wrapper. A
+  contract test now holds that invariant.
+- Enumerated exact forms left a suffix open twice — the variant-qualified ASCII
+  fold, then any other variant's qualified heading. Fixed by matching heading
+  BASES with a predicate, closing the class by construction, not by a list.
+- The hand-written ASCII-fold list made a diacritic-free Czech heading both
+  required and rejected; folds are derived now.
+
+Decision: this chain also stops at one round plus one re-check. Why the shape
+recurred: an enumeration of forms is a contract stated in prose, and
+`plans/README.md` says the authority must be a mechanical check instead.
 
 ## Final Audit
 
