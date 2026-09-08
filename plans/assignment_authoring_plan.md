@@ -5,14 +5,17 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 to 2 are done, reviewed and green. The templates, operator
-contract, style layers, both skills and the codex-only reviewer route exist. No
-checker, no command, no promotion, and nothing has authored a real topic through
-the tracked workflow yet.
+State: Slices 0 to 3 are done and green. Templates, operator contract, style
+layers, both skills, the codex-only reviewer route and the structural checker
+exist. No bundle validation, no promotion, and nothing has authored a real topic
+through the tracked workflow yet.
 
-Next action: review the Slice 3 charter — `scripts/check-assignment-draft` with
-structural rather than lexical literature checking, the `check_private` names,
-and the full operator-tool surface — then implement it.
+Open question: the Slice 3 re-check found two defects in the review's own fixes,
+so the chain stopped by rule. Ask the operator whether a third round is wanted.
+
+Next action: compact the closed Slice 3 charter, then write the full Slice 4
+charter — brief language binding and `scripts/check-assignment-bundle` — and
+review it before implementing.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -206,7 +209,7 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
 
 ### Slice 3 - Structural checker and command surface
 
-- Status: planned
+- Status: in_progress
 - Proposed commit message: `Add the assignment draft checker and its command surface`
 - Why: Slices 1 and 2 produced a contract and two roles that read it, and
   nothing deterministic yet. Every property that can be decided without
@@ -220,8 +223,9 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
   `scripts/smoke-assignment-draft`, `scripts/BUILD`,
   `src/thesis_review_workflow/agent_profiles.py`,
   `docs/agent-profile-matrix.md`, `docs/assignment-authoring.md`,
-  `docs/workflow-command-surface.md`,
-  `tests/test_assignment_draft.py`, `tests/test_check_private.py`
+  `docs/workflow-command-surface.md`, `templates/topic-intake.md`,
+  `tests/test_assignment_draft.py`, `tests/test_check_private.py`,
+  `tests/test_assignment_authoring.py`
 - Tasks:
   - `scripts/check-assignment-draft <case-id> [variant]`: refuse to run unless
     `thesis_review_workflow.metadata::case_kind` reads `topic-proposal`, then
@@ -243,14 +247,26 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
     reviewer judgment. A supplement line is admissible only through an explicit
     intake field, not by matching its wording; add that field to
     `templates/topic-intake.md` if the shape needs it, and say so in
-    `docs/assignment-authoring.md`.
+    `docs/assignment-authoring.md`. It did: the intake gains a
+    `Supplement line:` field.
   - Cross-variant: shared material — every intake-sourced literature entry
     above all — must be byte-identical in every variant that uses it. The
     corpus pair that motivated this cited one shared paper two different ways.
-  - Brief projections: `outputs/student_brief_<variant>.md` must contain the
-    `## Shared Brief` body of `notes/student_brief.md` verbatim, and its own
-    variant's delta only. Exact comparison, so a drifted projection fails
-    rather than being judged.
+    No separate check implements it: exact provenance against the intake
+    already forces identical citation wherever an entry is used, and requiring
+    identical MEMBERSHIP instead rejects a DP that legitimately cites one more
+    work. The first review round proved that with a case.
+  - Brief projections: `outputs/student_brief_<variant>.md` must carry the
+    `## Shared Brief` body of `notes/student_brief.md` and its own variant's
+    delta, both verbatim and nothing else. This needs a canonical projection
+    shape, which Slice 1 never fixed: a title line, the shared body, then
+    `## Variant Delta - <variant>` and that delta. Without it the check can
+    only be a substring test, which the first review showed is unsound in both
+    directions — one delta may legitimately contain another as a prefix, and an
+    appended obligation goes unnoticed.
+  - Validate the variant token before it becomes a filename segment, and match
+    any safe suffix in `check_private` rather than `[a-z0-9]+`, which the first
+    review showed lets `assignment_formal_dp-research.md` escape.
   - Add the generated names to `check_private`: the topic intake, the brief
     source, the per-variant assignment and brief, the reviewer's findings
     artifact, and its approval record, which today's
@@ -265,6 +281,11 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
     packaging entrypoint generates `.cmd` and `.ps1`.
   - Name the new command in both routes' `required_validators` and update the
     two `docs/agent-profile-matrix.md` rows that currently read `none yet`.
+  - Keep the FIT IS label sets in ONE place,
+    `thesis_review_workflow.assignment_draft::RENDERINGS`, and have
+    `tests/test_assignment_authoring.py` derive its expected template order from
+    it. Slice 1's test carried its own copy, which would drift against the
+    checker's.
   - `tests/test_assignment_draft.py` over synthetic topic cases in `tmp_path`:
     a clean bundle passes; each rule fails on exactly its own defect; empty
     literature and supplement-only literature each fail; a `thesis-review` case

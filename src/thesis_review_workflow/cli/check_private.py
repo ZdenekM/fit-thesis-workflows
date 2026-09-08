@@ -27,6 +27,8 @@ PRIVATE_MANIFEST_RE = re.compile(
     r"opponent_calibration_refresh_eligibility|reviewer_calibration_profile|reviewer_checklist)\.json$"
     r"|(^|/)work/theses_similarity/[^/]+\.json$"
     r"|(^|/)work/reviews/[^/]+_review\.json$"
+    # The assignment reviewer's bundle-binding approval is not named `_review.json`.
+    r"|(^|/)work/reviews/assignment_approval_[^/]+\.json$"
 )
 PRIVATE_CALIBRATION_TREE_RE = re.compile(r"(^|/)work/calibration/.*\.(json|jsonl|md)$")
 PRIVATE_EXTERNAL_OPPONENT_REPORT_RE = re.compile(r"(^|/)inputs/external_opponent_report/")
@@ -35,6 +37,9 @@ PRIVATE_MARKDOWN_RE = re.compile(
     r"submission_bundle_inventory|"
     r"code_consistency|code_quality_review|literature_citation_review|figure_media_review|"
     r"typography_formal_review|github_code_intake|pr_contribution_review|demo_artifacts_review|"
+    # A variant is any safe filename token, so these match any suffix rather than
+    # `[a-z0-9]+`, which would have let `assignment_formal_dp-research.md` escape.
+    r"topic_intake|student_brief(_[^/]+)?|assignment_formal_[^/]+|assignment_review_[^/]+|"
     r"reference_report_comparison|opponent_reading_packet|reviewer_calibration_profile|"
     r"supervisor_report_calibration_profile|profile_change_log|"
     r"reviewer_profile_change_log|profile_review|opponent-report-operator-feedback|"

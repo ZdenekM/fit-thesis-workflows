@@ -52,6 +52,12 @@ One block per variant offered. Everything here is variant-specific and must
 stay consistent with that variant's assignment: if a point is added to the
 assignment, this block changes with it.
 
+The projection `outputs/student_brief_<variant>.md` has a fixed shape so it can
+be compared exactly rather than guessed at: the title line
+`# Student Brief - <variant>`, the `## Shared Brief` body verbatim, then
+`## Variant Delta - <variant>` followed by that variant's delta body verbatim,
+and nothing else at all.
+
 ### bp
 
 Contribution framing:

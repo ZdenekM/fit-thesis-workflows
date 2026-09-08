@@ -26,3 +26,23 @@ def test_external_opponent_feedback_artifacts_are_private() -> None:
 def test_report_calibration_basis_is_private() -> None:
     assert is_sensitive_artifact("work/report_calibration_basis.json")
     assert is_sensitive_artifact("cases/case-a/rounds/round-a/work/report_calibration_basis.json")
+
+
+def test_assignment_authoring_artifacts_are_private() -> None:
+    assert PRIVATE_MARKDOWN_RE.search("notes/topic_intake.md")
+    assert PRIVATE_MARKDOWN_RE.search("notes/student_brief.md")
+    assert PRIVATE_MARKDOWN_RE.search("outputs/assignment_formal_bp.md")
+    assert PRIVATE_MARKDOWN_RE.search("outputs/assignment_formal_dp.md")
+    assert PRIVATE_MARKDOWN_RE.search("outputs/student_brief_bp.md")
+    assert PRIVATE_MARKDOWN_RE.search("work/reviews/assignment_review_bp.md")
+    # The bundle-binding approval is not named `_review.json`, so it needed its own pattern.
+    assert is_sensitive_artifact("work/reviews/assignment_approval_bp.json")
+
+
+def test_the_tracked_authoring_templates_are_not_mistaken_for_case_artifacts() -> None:
+    """Template basenames are hyphenated; generated case artifacts use underscores."""
+
+    assert not PRIVATE_MARKDOWN_RE.search("templates/topic-intake.md")
+    assert not PRIVATE_MARKDOWN_RE.search("templates/student-brief.md")
+    assert not PRIVATE_MARKDOWN_RE.search("templates/assignment-formal.md")
+    assert not PRIVATE_MARKDOWN_RE.search("docs/assignment-authoring.md")

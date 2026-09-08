@@ -8,6 +8,7 @@ only prove the fixture right.
 
 from pathlib import Path
 
+from thesis_review_workflow.assignment_draft import RENDERINGS, SUPPLEMENT_LABEL, form_labels
 from thesis_review_workflow.metadata import CASE_KINDS, DEFAULT_CASE_KIND, case_kind, unresolved_values
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +55,7 @@ def test_topic_intake_citable_artifacts_carry_an_identifier_slot() -> None:
     assert "Identifier:" in body
     assert "Kind: doi / arxiv / isbn / url" in body
     assert "unresolved marker in the `Identifier:` value" in flat(body)
+    assert SUPPLEMENT_LABEL in body, "the one admissible non-sourced literature line is declared, never matched"
 
 
 def test_topic_intake_separates_sibling_exclusion_from_dependency() -> None:
@@ -77,41 +79,9 @@ def test_topic_intake_splits_success_criteria_three_ways() -> None:
         assert heading in criteria, f"templates/topic-intake.md lost `{heading}`"
 
 
-CZECH_FIELD_ORDER = (
-    "Ústav:",
-    "Student:",
-    "Program:",
-    "Specializace:",
-    "Název:",
-    "Kategorie:",
-    "Akademický rok:",
-    "Zadání:",
-    "Literatura:",
-    "Při obhajobě semestrální části projektu je požadováno:",
-    "Vedoucí práce:",
-    "Vedoucí ústavu:",
-    "Datum zadání:",
-    "Termín pro odevzdání:",
-    "Datum schválení:",
-)
-
-ENGLISH_FIELD_ORDER = (
-    "Institut:",
-    "Student:",
-    "Programme:",
-    "Specialization:",
-    "Title:",
-    "Category:",
-    "Academic year:",
-    "Assignment:",
-    "Literature:",
-    "Requirements for the semestral defence:",
-    "Supervisor:",
-    "Head of Department:",
-    "Beginning of work:",
-    "Submission deadline:",
-    "Approval date:",
-)
+# From the checker's single source, so template and checker cannot drift.
+CZECH_FIELD_ORDER = form_labels(RENDERINGS["cs"])
+ENGLISH_FIELD_ORDER = form_labels(RENDERINGS["en"])
 
 
 def rendering_block(text: str, heading: str) -> str:
@@ -168,6 +138,7 @@ def test_student_brief_template_is_shared_plus_variant_delta() -> None:
     delta = text[delta_at:]
     assert "### bp" in delta and "### dp" in delta
     assert "### How To Read The Assignment" in text[shared_at:delta_at]
+    assert "## Variant Delta - <variant>" in text, "the projection shape must be fixed, not guessed"
 
 
 def test_the_brief_source_and_its_per_variant_projection_are_distinguished() -> None:

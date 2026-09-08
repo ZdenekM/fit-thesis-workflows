@@ -38,6 +38,12 @@ identifier must not be published.
   Kind: doi / arxiv / isbn / url
   Why it is relevant:
 
+Supplement line:
+
+The one literature line that is allowed not to come from an entry above, such
+as `Dále dle pokynů vedoucího.`. It is recognised because it is declared here,
+never because a checker matched its wording. Leave it empty when there is none.
+
 ## Success Criteria
 
 What would make the finished work good. Split each criterion by where it can

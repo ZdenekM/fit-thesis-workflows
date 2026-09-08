@@ -41,6 +41,25 @@ cases/<topic-case-id>/
   outputs/student_brief_<variant>.md       projection of notes/student_brief.md
 ```
 
+The projection has a fixed shape, so a checker can compare it exactly instead
+of inferring which text belongs to which variant:
+
+```text
+# Student Brief - <variant>
+
+<the ## Shared Brief body of notes/student_brief.md, verbatim>
+
+## Variant Delta - <variant>
+
+<that variant's ### <variant> delta body, verbatim>
+```
+
+Nothing else belongs in the file, the title line included: the checker compares
+the WHOLE projection against that document, because an obligation written into
+the title survived a comparison of the two bodies alone. One variant's delta may
+also legitimately contain another's as a prefix, so the boundaries are marked
+rather than guessed.
+
 Two of these are per-topic SOURCES and are never sent anywhere: the intake and
 the brief source. The outputs are per-variant. An assignment is authored
 directly as an output, one file per variant, because the whole document differs.
@@ -161,6 +180,39 @@ may not be sent.
 `templates/`. `TODO:` marks a slot the operator has still to fill in; only
 `UNRESOLVED:` records that a specific fact was looked for, not found, and must
 not be guessed.
+
+## What Is Checked Deterministically
+
+`scripts/check-assignment-draft <case-id> [variant]` decides everything about a
+bundle that needs no judgment, so a review round is not spent counting fields:
+the case kind, exactly one rendering block with its full FIT IS label sequence
+in order, a numbered point inside the points section, a filled
+semestral-requirement field, unresolved values, a usable variant identifier, and
+each brief projection matching the canonical shape above exactly.
+
+There is deliberately no separate cross-variant equality check. Every literature
+bullet must equal an intake entry exactly, so two variants citing one work
+necessarily cite it identically; requiring identical membership instead would
+reject a DP that legitimately cites one more work than its BP.
+
+Literature is checked by **provenance, not by wording**. Every literature
+bullet must equal an entry the intake's `## Citable Artifacts` authored, every
+such entry must carry an identifier that is not an unresolved value, and at
+least one must exist. The one line allowed not to come from an entry is the one
+declared in the intake's `Supplement line:` field — recognised because it was
+declared, never because a checker matched its text. This matters because the
+corpus placeholders (`Bude doplněno.`, `Dle doporučení vedoucího.`) are ordinary
+Czech sentences, and `AGENTS.md` forbids a free-text heuristic from becoming a
+gate.
+
+Structural provenance proves an entry came from the intake. It never proves the
+identifier resolves to a real work; that stays with the reviewer and the
+operator.
+
+What the checker deliberately does NOT decide: assessability, whether an open
+point states a criterion the choice can be judged against, tone, topic quality,
+and anything derived from point count. Those belong to
+`.agents/skills/thesis-assignment-review/SKILL.md`.
 
 ## What This Workflow Does Not Decide
 

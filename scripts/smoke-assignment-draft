@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+case_id="__assignment_draft_smoke_$$"
+case_dir="$repo_root/cases/$case_id"
+out_file="/tmp/assignment-draft-smoke.$$.out"
+err_file="/tmp/assignment-draft-smoke.$$.err"
+
+cleanup() {
+  rm -f "$out_file" "$err_file"
+  rm -rf "$case_dir"
+}
+trap cleanup EXIT
+
+expect_success() {
+  local name="$1"
+  shift
+  if ! "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected success but failed: $name" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+expect_failure() {
+  local name="$1"
+  shift
+  if "$@" >"$out_file" 2>"$err_file"; then
+    echo "Expected failure but passed: $name" >&2
+    cat "$out_file" >&2
+    exit 1
+  fi
+}
+
+expect_output() {
+  local needle="$1"
+  if ! grep -Fq "$needle" "$out_file" "$err_file"; then
+    echo "Expected output to contain: $needle" >&2
+    cat "$out_file" >&2
+    cat "$err_file" >&2
+    exit 1
+  fi
+}
+
+mkdir -p "$case_dir/notes" "$case_dir/outputs"
+
+cat >"$case_dir/case.md" <<'EOF'
+Case ID: smoke
+Case kind: thesis-review
+Reviewer profile: default
+EOF
+expect_failure "a thesis-review case is refused" "$repo_root/scripts/check-assignment-draft" "$case_id"
+expect_output "assignment authoring runs only in a \`topic-proposal\` case"
+
+cat >"$case_dir/case.md" <<'EOF'
+Case ID: smoke
+Case kind: topic-proposal
+Reviewer profile: default
+EOF
+expect_failure "a topic case without an intake is refused" "$repo_root/scripts/check-assignment-draft" "$case_id"
+expect_output "author the topic intake first"
+
+cat >"$case_dir/notes/topic_intake.md" <<'EOF'
+# Topic Intake
+
+Topic id: smoke-topic
+Academic year: 2026/27
+Variants: bp
+
+## Citable Artifacts
+
+- Reference: Example, A. Structural Provenance. Journal, 2026.
+  Identifier: 10.0000/example
+  Kind: doi
+
+Supplement line: Dále dle pokynů vedoucího.
+EOF
+
+cat >"$case_dir/notes/student_brief.md" <<'EOF'
+# Student Brief
+
+## Shared Brief
+
+### How To Read The Assignment
+
+Start from the platform README.
+
+## Variant Delta
+
+### bp
+
+Contribution framing: one prototype.
+EOF
+
+cat >"$case_dir/outputs/assignment_formal_bp.md" <<'EOF'
+# Formal Assignment
+
+Topic id: smoke-topic
+Variant: bp
+Rendering: cs
+
+## Czech Rendering
+
+### Header
+
+Zadání bakalářské práce
+
+### Metadata
+
+Ústav: Ústav počítačové grafiky a multimédií (UPGM)
+Student:
+Program:
+Název: Smoke téma
+Kategorie: Softwarové inženýrství
+Akademický rok: 2026/27
+
+### Assignment Points
+
+Zadání:
+
+1. Proveďte rešerši existujících řešení.
+2. Vytvořte video prezentující výsledky.
+
+### Literature
+
+Literatura:
+
+- Example, A. Structural Provenance. Journal, 2026.
+- Dále dle pokynů vedoucího.
+
+### Semestral Defence Requirement
+
+Při obhajobě semestrální části projektu je požadováno: Body 1 a 2.
+
+### Footer
+
+Vedoucí práce: Test Tester
+Vedoucí ústavu: Test Tester
+Datum zadání:
+Termín pro odevzdání:
+Datum schválení:
+EOF
+
+cat >"$case_dir/outputs/student_brief_bp.md" <<'EOF'
+# Student Brief - bp
+
+### How To Read The Assignment
+
+Start from the platform README.
+
+## Variant Delta - bp
+
+Contribution framing: one prototype.
+EOF
+
+expect_success "a complete bp bundle passes" "$repo_root/scripts/check-assignment-draft" "$case_id"
+expect_output "Assignment draft structural check passed"
+
+expect_success "naming the declared variant passes" "$repo_root/scripts/check-assignment-draft" "$case_id" "bp"
+
+expect_failure "an undeclared variant is refused" "$repo_root/scripts/check-assignment-draft" "$case_id" "dp"
+expect_output "is not declared in notes/topic_intake.md"
+
+python3 - "$case_dir/outputs/assignment_formal_bp.md" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+path.write_text(text.replace("- Example, A. Structural Provenance. Journal, 2026.\n", ""), encoding="utf-8")
+PY
+expect_failure "supplement-only literature fails" "$repo_root/scripts/check-assignment-draft" "$case_id"
+expect_output "no literature entry sourced from the intake"
+
+echo "Assignment draft smoke checks passed"
