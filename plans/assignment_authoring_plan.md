@@ -13,10 +13,10 @@ authored a real topic through it yet, which is Slice 6.
 A cumulative Codex pass over Slices 1 to 5 has run and its two cross-slice
 findings are fixed, so the per-slice re-check gaps are closed.
 
-Next action: Slice 6 is chartered and BLOCKED on the operator. It needs a real
-topic and its variants, explicit agent authorization for the reviewer role, and
-the operator's own reading for the `## Acceptance Contract`. Ask; do not pick a
-topic.
+Next action: review the Slice 5b charter — case-scoped writes in the Claude
+reviewer guard, then the adapter, fragment and policy entry — and implement it.
+Slice 6 then runs `cases/topic-2026-extension-seam-domain` end to end; the
+operator has supplied the topic and authorized agents.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -255,6 +255,72 @@ beside its hash, heading demotion so the brief cannot end its section, the
 Full charter: `plans/archive/assignment_authoring_plan/closed-slices-2026-09-08.md`.
 Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`,
 `2026-09-08 - Slice 5: three privacy escapes and a test that proved nothing`.
+
+### Slice 5b - Claude parity for the assignment reviewer
+
+- Status: planned
+- Proposed commit message: `Let a Claude subagent review an assignment bundle`
+- Why: the reviewer shipped codex-only because the write guard confines a
+  subagent to `cases/<id>/rounds/<round>/`, which a round-less topic case cannot
+  satisfy. That was scoped out on the reasoning that Codex supplies
+  independence — reasoning drawn from an operator who has both providers. Most
+  supervisors will have one, and for a Claude-only supervisor the workflow
+  currently offers NO independent assignment review, so the
+  `## Acceptance Contract`'s distinctness criterion is unsatisfiable for them.
+  That is a hole in the workflow, not a parity nicety.
+- Expected paths: `.claude/hooks/pre_tool_use_write_guard.py`,
+  `.claude/hooks/reviewer_write_policy.json`,
+  `src/thesis_review_workflow/agent_profiles.py`,
+  `.agents/roles/thesis-assignment-reviewer.md`,
+  `.claude/agents/thesis-assignment-reviewer.md`,
+  `.agents/skills/thesis-assignment-review/SKILL.md`,
+  `docs/agent-profile-matrix.md`, `docs/agent-workflow.md`, `TODO.md`,
+  `tests/test_write_guard.py`, `tests/test_agent_profile_contracts.py`
+- Tasks:
+  - Teach `pre_tool_use_write_guard.py::owned_write` a CASE-scoped shape beside
+    the round-scoped one, still requiring `CLAUDE_REVIEW_CASE`, still denying a
+    different case, still denying a tracked path, still failing closed.
+  - Carry the scope in the POLICY, not in the absence of an environment
+    variable. Inferring "case scope" from an unset `CLAUDE_REVIEW_ROUND` would
+    make a forgotten export silently widen every existing round reviewer to
+    case-level writes, which is the fail-open this guard exists to prevent. The
+    policy value becomes an object with an explicit scope and its writes, and
+    `test_reviewer_write_policy_matches_registry` follows the registry into the
+    new shape.
+  - Add `claude` to the `thesis_assignment_reviewer` route with
+    `claude_writes` covering the findings artifact only. The approval record
+    stays out, as `agent_profiles::AgentProfileRoute` documents for hash-bound
+    records: the parent persists it under the parent-mediated protocol.
+  - Say plainly what that costs, in the skill and in `docs/agent-workflow.md`:
+    under Codex the reviewer writes its own approval, under Claude the AUTHOR
+    writes a record attesting the reviewer's verdict. To keep that checkable,
+    require the Claude reviewer to state its verdict and blocking count in
+    `work/reviews/assignment_review_<variant>.md`, which it does write, so the
+    parent-written record has a reviewer-authored source to agree with.
+  - Deliver the surface `tests/test_agent_profile_contracts.py` already binds
+    for a claude-capable route. Do not enumerate it here: that test's
+    bidirectional guard is the authority and fails until registry, fragment,
+    adapter and policy are one consistent set.
+  - Remove the Claude-parity entry from `TODO.md` once it is no longer pending.
+  - Tests in `tests/test_write_guard.py`: a case-scoped role writes its owned
+    case path and is denied another case, a tracked path, a round path outside
+    its policy, and everything without `CLAUDE_REVIEW_CASE`; a round-scoped role
+    is unchanged and is NOT widened to case paths by a missing
+    `CLAUDE_REVIEW_ROUND`; an unknown role still fails closed.
+- Out of scope: the real-topic run, which is Slice 6. No change to any other
+  role's scope or writes, no new reviewer role, and no relaxation of the
+  guard's fail-closed behaviour. The parent-mediated approval protocol itself
+  is not redesigned here.
+- Verification:
+  ```bash
+  pants test tests::
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```
+  Scoped Omen over the guard during implementation and `pants run :omen` at the
+  end; record the result or a concrete blocker in `## Progress`.
 
 ### Slice 6 - Real-topic run and closeout
 
@@ -786,6 +852,25 @@ Decision: fixed in one batch with a regression each. Why the pass was worth it:
 both defects live BETWEEN slices, where each slice's own review had nothing to
 compare against, and one of them made an approved artifact and a promoted one
 disagree.
+
+### 2026-09-08 - Claude parity comes back into the plan
+
+Trigger: the operator observed that holding both providers is the exceptional
+case, and asked whether subagents could serve a Claude-only supervisor.
+
+- They can, through the same `.claude/agents/` reviewer subagent the five other
+  thesis roles use; the only blocker is that
+  `pre_tool_use_write_guard.py::owned_write` hardcodes a round-shaped path.
+- `2026-09-08 - The assignment reviewer ships codex-only` answered its direction
+  question from an operator holding both. For a Claude-only supervisor there is
+  no independent reviewer at all, so the `## Acceptance Contract` cannot be met.
+
+Decision: chartered as Slice 5b, before the real-topic run, rather than left in
+`TODO.md`, because this plan's own acceptance contract breaks without it.
+
+Residual risk: under the parent-mediated protocol the author writes the approval
+record attesting the reviewer's verdict, which is weaker than Codex, where the
+reviewer writes it.
 
 ## Final Audit
 
