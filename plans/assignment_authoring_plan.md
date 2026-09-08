@@ -279,7 +279,13 @@ Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`
 - Tasks:
   - Teach `pre_tool_use_write_guard.py::owned_write` a CASE-scoped shape beside
     the round-scoped one, still requiring `CLAUDE_REVIEW_CASE`, still denying a
-    different case, still denying a tracked path, still failing closed.
+    different case, still failing closed — and keeping the repository-root
+    anchor the round branch already has. "Deny tracked paths" is the wrong
+    guard: a `cases/topic` resolving to `docs/topic` lets the reviewer create a
+    NEW, untracked findings file in a trackable directory, which no
+    tracked-path check sees. Anchor as `assignment_promotion::private_root_errors`
+    does — the resolved private root must be `<repo>/cases`, the resolved case
+    beneath it — and resolve destinations that do not exist yet.
   - Carry the scope in the POLICY, not in the absence of an environment
     variable. Inferring "case scope" from an unset `CLAUDE_REVIEW_ROUND` would
     make a forgotten export silently widen every existing round reviewer to
@@ -293,10 +299,16 @@ Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`
     records: the parent persists it under the parent-mediated protocol.
   - Say plainly what that costs, in the skill and in `docs/agent-workflow.md`:
     under Codex the reviewer writes its own approval, under Claude the AUTHOR
-    writes a record attesting the reviewer's verdict. To keep that checkable,
-    require the Claude reviewer to state its verdict and blocking count in
-    `work/reviews/assignment_review_<variant>.md`, which it does write, so the
-    parent-written record has a reviewer-authored source to agree with.
+    writes a record attesting the reviewer's verdict.
+  - A verdict alone does not make the record checkable, because it does not say
+    WHAT was reviewed: the parent could edit the bundle after the review and
+    still build an approval reading pass/zero, binding files the reviewer never
+    saw. So freeze the four-file hash basis in the handoff, require the Claude
+    reviewer to record that basis beside its verdict and blocking count in
+    `work/reviews/assignment_review_<variant>.md`, and require the parent to
+    check the basis still matches before recording approval. This stays a
+    documented handoff contract; redesigning the approval infrastructure is not
+    in this slice, and the parent-trust limitation remains and is stated.
   - Deliver the surface `tests/test_agent_profile_contracts.py` already binds
     for a claude-capable route. Do not enumerate it here: that test's
     bidirectional guard is the authority and fails until registry, fragment,
@@ -306,7 +318,11 @@ Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`
     case path and is denied another case, a tracked path, a round path outside
     its policy, and everything without `CLAUDE_REVIEW_CASE`; a round-scoped role
     is unchanged and is NOT widened to case paths by a missing
-    `CLAUDE_REVIEW_ROUND`; an unknown role still fails closed.
+    `CLAUDE_REVIEW_ROUND`; an adapter-backed reviewer missing from the policy
+    still fails closed, while a non-reviewer subagent stays unconstrained, as
+    `test_non_reviewer_subagent_is_not_constrained` requires. Add the escapes
+    promotion already tests: a redirected `cases/` root, a redirected single
+    case, and a dangling destination link, each into an UNTRACKED destination.
 - Out of scope: the real-topic run, which is Slice 6. No change to any other
   role's scope or writes, no new reviewer role, and no relaxation of the
   guard's fail-closed behaviour. The parent-mediated approval protocol itself
