@@ -57,6 +57,10 @@ config_file = "agents/thesis-theses-similarity-reviewer.toml"
 description = "Reviews and finalizes student-facing supervisor feedback."
 config_file = "agents/thesis-supervisor-feedback-reviewer.toml"
 
+[agents.thesis_assignment_reviewer]
+description = "Reviews one authored assignment variant together with its student brief before publication."
+config_file = "agents/thesis-assignment-reviewer.toml"
+
 [agents.thesis_supervisor_report_reviewer]
 description = "Reviews formal supervisor-report drafts before confirmation and IS use."
 config_file = "agents/thesis-supervisor-report-reviewer.toml"

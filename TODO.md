@@ -100,6 +100,11 @@
 
 ## P2 - Later Automation
 
+- [ ] Give `thesis_assignment_reviewer` a Claude adapter once the reviewer write guard can scope to a case.
+   - Prerequisite: case-scoped support in `.claude/hooks/pre_tool_use_write_guard.py::owned_write`, which today requires `cases/<id>/rounds/<round>/` and fails closed without both scope variables, so a round-less `Case kind: topic-proposal` case can never satisfy it.
+   - Keep cross-case denial, tracked-path denial and fail-closed behavior intact, and add allow/deny tests for both the round and the case shape before flipping any route.
+   - Then add `claude` to the route's providers with its `.agents/roles/` fragment, `.claude/agents/` adapter and write-policy entry; the approval record stays out of `claude_writes` under the parent-mediated protocol.
+
 - [ ] Audit reviewer-profile and operator-calibration application contracts for the rest of the pipeline after opponent-report V1 lands.
    - Start with supervisor reports, then decide whether supervisor feedback, opponent materials, and final artifact review outputs need similar explicit applied-preference artifacts or only clearer packet/review instructions.
    - Do not assume `work/report_calibration_basis.json` should become a generic artifact automatically; compare workflow-specific traces, confirmation gates, review loops, and privacy boundaries first.

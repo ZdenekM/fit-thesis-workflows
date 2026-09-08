@@ -37,6 +37,14 @@ shorthand and logical workflow command names. On Windows, package the workflow
 tools first and use `dist\workflow-tools\bin\<tool>.cmd` or the matching
 PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 
+Path convention: every other row's owned outputs are ROUND-relative,
+resolved under `cases/<case-id>/rounds/<round-id>/`. The two assignment
+authoring rows are the exception and are CASE-relative, because a
+`Case kind: topic-proposal` case has no rounds at all. That is also why
+`thesis_assignment_reviewer` is codex-only: the Claude reviewer write guard in
+`.claude/hooks/pre_tool_use_write_guard.py` confines a subagent to one round and
+fails closed without both scope variables.
+
 ## Routing Matrix
 
 | Skill or source | Status | Codex agent role profile | Kind | Sandbox | Owned outputs / allowed writes | Review separation | Validators |
@@ -51,6 +59,8 @@ PowerShell launcher; do not run or click extensionless `scripts/<tool>` files.
 | `thesis-literature-citation-review` | `profile` | `thesis_literature_citation_reviewer` | evidence-producer | workspace-write | `work/literature/source_acquisition.json`, `outputs/literature_citation_review.md` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-literature-citation-review` |
 | `thesis-typography-formal-review` | `profile` | `thesis_typography_formal_reviewer` | evidence-producer | workspace-write | `outputs/typography_formal_review.md` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-typography-formal` |
 | `thesis-theses-similarity-review` | `profile` | `thesis_theses_similarity_reviewer` | evidence-producer | workspace-write | `work/theses_similarity/intake.json`, `work/theses_similarity/assessment.json`, `work/theses_similarity/review_draft.md`, `outputs/theses_similarity_review.md`; standalone approval records are written only after independent review | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for non-standalone internal use | `scripts/check-theses-similarity-report` |
+| `thesis-assignment-authoring` | `parent-owned` | none | parent-orchestration | parent-orchestration | case-relative: `notes/topic_intake.md`, `notes/student_brief.md`, `outputs/assignment_formal_*.md`, `outputs/student_brief_*.md` | independent review by `thesis_assignment_reviewer` | none yet; `scripts/check-assignment-draft` and `scripts/check-assignment-bundle` are not built |
+| `thesis-assignment-review` | `profile` | `thesis_assignment_reviewer` | final-reviewer | workspace-write | case-relative: `work/reviews/assignment_review_*.md`, `work/reviews/assignment_approval_*.json`; no revised assignment | must be different from the bundle author | none yet; `scripts/check-assignment-bundle` is not built |
 | `thesis-supervisor-feedback` | `parent-owned` | none | parent-orchestration | parent-orchestration | `work/feedback_student_draft.md` | sendable review by `thesis_supervisor_feedback_reviewer` | `scripts/check-review-wave --workflow supervisor_feedback --wave draft`, `scripts/check-feedback-output`, `scripts/check-feedback-language` |
 | `thesis-supervisor-feedback-review` | `profile` | `thesis_supervisor_feedback_reviewer` | final-reviewer | workspace-write | `outputs/feedback_student.md`, `work/reviews/supervisor_feedback_review.json` | must be different from the feedback generator | `scripts/check-feedback-output`, `scripts/check-feedback-language` |
 | `thesis-supervisor-report` | `parent-owned` | none | parent-orchestration | parent-orchestration | `work/supervisor_report_trace.json`, `work/vedouci_posudek_draft.md` | formal review by `thesis_supervisor_report_reviewer` | `scripts/check-supervisor-report-ready`, `scripts/check-review-wave --workflow supervisor_report --wave draft` |

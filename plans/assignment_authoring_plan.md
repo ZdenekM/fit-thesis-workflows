@@ -5,13 +5,15 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 and 1 are done, reviewed and green. The templates, the operator
-contract, the profile style layers, `Case kind:` and the unresolved-value
-instrument exist; no skill, role, checker, or command does.
+State: Slices 0 to 2 are done, reviewed and green. The templates, operator
+contract, style layers, both skills and the codex-only reviewer route exist. No
+checker, no command, no promotion, and nothing has authored a real topic through
+the tracked workflow yet.
 
-Next action: review the Slice 2 charter — two skill directories, two registry
-routes, the whole surface the spawnable reviewer obliges, and the case-relative
-path convention a round-less topic case forces — then implement it.
+Next action: compact the closed Slice 2 charter into
+`plans/archive/assignment_authoring_plan/`, then write the full Slice 3 charter
+— `scripts/check-assignment-draft`, the `check_private` names, the full Windows
+command surface and its tests — and review it before implementing.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -189,7 +191,7 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
 
 ### Slice 2 - Skills and the full role registry surface
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Add the assignment authoring and review roles`
 - Why: Slice 1 left three templates and a contract that nothing executes. The
   two skills are what an operator and an agent actually run, and the reviewer
@@ -200,7 +202,7 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
   `src/thesis_review_workflow/agent_profiles.py`,
   `docs/agent-profile-matrix.md`, `.codex/config.toml`,
   `.codex/agents/thesis-assignment-reviewer.toml`, `AGENTS.md`, `README.md`,
-  `tests/test_agent_profile_contracts.py`, `TODO.md`
+  `BUILD`, `tests/test_agent_profile_contracts.py`, `TODO.md`
 - Tasks:
   - `.agents/skills/thesis-assignment-authoring/SKILL.md`: the parent-owned
     authoring workflow — intake first, then one assignment per variant, then
@@ -213,7 +215,12 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
     only a reader of both can catch that coupling going stale. Its evidence
     rules are the layer-2 base in `profiles/default.md`, assessability, the
     open-solution-space boundary, byte-identical shared material across
-    variants, and unresolved values.
+    variants, and unresolved values. The reviewer READS the style layers as
+    inputs and applies layer 2 item by item, because the first review found
+    check rules that named the base without loading it; and it checks the
+    intake's three-way criterion split reached the bundle, because byte-equal
+    projections and matching point counts both pass while a criterion is simply
+    dropped. Provenance of a value is reported as unverified, never as checked.
   - Two routes in `thesis_review_workflow.agent_profiles::AGENT_PROFILE_ROUTES`:
     the authoring skill as `parent-owned` / `parent-orchestration`, the review
     skill as `profile` / `final-reviewer` with
@@ -251,6 +258,9 @@ Decisions: `2026-09-08 - Slice 1 charter review passes with no findings`,
     test asserting every registry skill id appears in `AGENTS.md`. Why a test:
     the routing list is prose that nothing currently binds to the registry, and
     `## Scope` had these two edits owned by no slice until now.
+  - Expose `AGENTS.md` to the test sandbox through the existing root
+    `files(name="agent_profile_registry_metadata")` target, which the new
+    routing test needs.
   - One `TODO.md` entry for Claude parity of `thesis_assignment_reviewer`,
     naming its prerequisite: case-scoped support in
     `.claude/hooks/pre_tool_use_write_guard.py::owned_write` with allow/deny
@@ -321,13 +331,16 @@ follow-up plan.
 
 ## Progress
 
-Slices 0 and 1 are done. Slice 1 landed the three templates, the layer-2/layer-3
-profile split, `docs/assignment-authoring.md`, `Case kind:`, the unresolved-value
-instrument, and 19 contract tests, after one slice-review round and its narrow
-re-check. Slice 2 is next and needs a full charter written and reviewed.
+Slices 0 to 2 are done. Slice 1 landed the three templates, the layer-2/layer-3
+profile split, `docs/assignment-authoring.md`, `Case kind:` and the
+unresolved-value instrument. Slice 2 landed the two skills, the two registry
+routes, the Codex adapter, the matrix rows and routing text, and a test binding
+`AGENTS.md` routing to the registry. Each slice took one review round plus its
+narrow re-check. Slice 3 is next and needs a full charter written and reviewed.
 
-The `AGENTS.md` skill-routing lines and the `README.md` operator entry text,
-unassigned in `## Scope`, are now Slice 2 tasks.
+Omen limitation, both slices: the MCP server returned zero files for every path
+attempted, file and directory alike, so `pants run :omen` is the only static
+signal used. Neither touched module appears in its hotspot or dead-code output.
 
 ### Slice 0 probe findings
 
@@ -616,6 +629,26 @@ party under Claude — two accepted findings, so the three direction answers.
 Decision: Slice 2 ships codex-only; Claude parity and its write-guard
 prerequisite go to `TODO.md`. The approval record follows the existing
 `review_profiles` shape instead of a new one.
+
+### 2026-09-08 - Slice 2 review: the reviewer named a standard it never loaded
+
+Trigger: the slice-review round on the staged Slice 2 implementation. Two
+findings, both class (a).
+
+- The reviewer skill listed the layer-2 base as its standard but did not read
+  `profiles/default.md`, while a check claimed to detect profile-sourced values.
+  Fixed: both style layers are required inputs with a stated missing-profile
+  fallback, layer 2 is applied item by item, and provenance is reported as
+  unverified rather than as a passed check.
+- Nothing checked that the intake's three-way criterion split reached the
+  bundle. A dropped `### Interpretation For The Student` criterion passed every
+  check, because projections stay byte-identical and point counts still match.
+  Fixed: an explicit walk of all three intake categories to their destinations.
+
+Decision: fixed in the batch, one narrow re-check, which passed. Why it matters
+beyond the fix: the second defect was invisible precisely because the Slice 1
+mechanisms worked, so mechanical equality is not evidence that the content the
+split protects survived.
 
 ## Final Audit
 

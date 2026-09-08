@@ -391,6 +391,47 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         ),
     ),
     _route(
+        role_source=".agents/skills/thesis-assignment-authoring/SKILL.md",
+        skill_id="thesis-assignment-authoring",
+        status="parent-owned",
+        role_kind="parent-orchestration",
+        sandbox_mode="parent-orchestration",
+        # CASE-relative, not round-relative: a `topic-proposal` case has no rounds.
+        owned_outputs=(
+            "notes/topic_intake.md",
+            "notes/student_brief.md",
+            "outputs/assignment_formal_*.md",
+            "outputs/student_brief_*.md",
+        ),
+        independent_review_profile="thesis_assignment_reviewer",
+        rationale=(
+            "The main agent owns the operator dialogue that produces the intake; a separate profile "
+            "owns the independent review the acceptance of a variant bundle requires."
+        ),
+    ),
+    _route(
+        role_source=".agents/skills/thesis-assignment-review/SKILL.md",
+        skill_id="thesis-assignment-review",
+        status="profile",
+        profile_id="thesis_assignment_reviewer",
+        # Codex-only: the Claude write guard confines a reviewer to
+        # `cases/<id>/rounds/<round>/` and fails closed without both scope variables, which a
+        # round-less topic case cannot satisfy. Claude parity is a TODO with that prerequisite.
+        providers=("codex",),
+        role_kind="final-reviewer",
+        sandbox_mode="workspace-write",
+        # CASE-relative. No revised assignment: a human transcribes the assignment into FIT IS,
+        # and a machine-revised copy would leave two candidate texts for one IS entry.
+        owned_outputs=(
+            "work/reviews/assignment_review_*.md",
+            "work/reviews/assignment_approval_*.json",
+        ),
+        rationale=(
+            "One role holds a variant's assignment and its brief together, because the brief "
+            "restates the point count and semestral obligation and would stale silently."
+        ),
+    ),
+    _route(
         role_source=".agents/skills/historical-opponent-calibration/SKILL.md",
         skill_id="historical-opponent-calibration",
         status="deferred",

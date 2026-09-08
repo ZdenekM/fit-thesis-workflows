@@ -33,6 +33,7 @@ files(
         ".claude/hooks/reviewer_write_policy.json",
         ".claude/settings.json",
         ".codex/hooks/session_start_context.py",
+        "AGENTS.md",
         "docs/agent-profile-matrix.md",
     ],
 )

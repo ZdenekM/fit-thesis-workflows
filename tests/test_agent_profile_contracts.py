@@ -359,3 +359,13 @@ def test_claude_writes_is_subset_of_allowed_writes() -> None:
             claude = set(agent_profiles.claude_writes_for_profile(route.profile_id))
             assert claude, f"{route.profile_id} claude write scope must be non-empty"
             assert claude <= set(route.allowed_writes), f"{route.profile_id} claude_writes exceeds allowed_writes"
+
+
+def test_agents_md_skill_routing_lists_every_registry_skill() -> None:
+    """`AGENTS.md` routing was prose nothing bound to the registry until a skill went missing from it."""
+
+    agents_md = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    routing = agents_md.split("## Skill Routing", 1)[1].split("\n## ", 1)[0]
+
+    for skill_id in sorted(agent_profiles.repo_local_skill_ids(REPO_ROOT)):
+        assert f".agents/skills/{skill_id}/SKILL.md" in routing, f"AGENTS.md `## Skill Routing` omits {skill_id}"

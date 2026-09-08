@@ -130,6 +130,19 @@ agenty. Nálezy promítni jen způsobem, který zachová vazbu na podklady a rev
 nebo mi vrať blokující připomínky, pokud by bylo potřeba návrh přepracovat ručně.
 ```
 
+### Zadání nového tématu
+
+```text
+Chci vypsat nové téma. Mám nápad, ne hotové zadání. Připrav se mnou podklad
+tématu a z něj zadání pro BP i DP variantu a k tomu úvodní brief pro studenta.
+Použij agenty; nezveřejňuj nic do IS, jen mi to připrav ke kontrole.
+```
+
+Toto je jediný workflow v repozitáři, který zadání vytváří; všechny ostatní
+proti existujícímu zadání práci měří. Běží ve vlastním case s
+`Case kind: topic-proposal`, bez studenta a bez termínů. Pravidla popisuje
+`docs/assignment-authoring.md`.
+
 ### Samostatná otázka nebo dílčí kontrola
 
 ```text
