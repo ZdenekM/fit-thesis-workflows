@@ -70,6 +70,9 @@ def main(argv: list[str]) -> int:
     try:
         shutil.copy2(root / "templates" / "case-notes.md", case_dir / "case.md")
         replace_field(case_dir / "case.md", "Case ID", args.case_id)
+        # Resolve the template's `thesis-review / topic-proposal` choice: left unresolved,
+        # `metadata::case_kind` reads it as an unknown value and promotion refuses the case.
+        replace_field(case_dir / "case.md", "Case kind", "thesis-review")
         replace_field(case_dir / "case.md", "Work type", args.work_type)
         replace_field(case_dir / "case.md", "Deadline mode", "standard")
         import_command = ["scripts/import-round"]

@@ -346,9 +346,16 @@ def assignment_findings(assignment: str, variant: str, artifacts: list[CitableAr
     if not any(NUMBERED_POINT_RE.match(line) for line in points_section):
         findings.append("no numbered assignment point under `### Assignment Points`")
 
-    semestral = _section_after_label(block, rendering.semestral_label)
+    # Read the SAME boundary `assignment_promotion::formal_text` reads. Searching the whole
+    # rendering let a semestral field sit under `### Footer`, validate, be approved, and then be
+    # dropped on promotion — the obligation surviving in the approved file and not in the thesis.
+    semestral_section = section_body(block, "### Semestral Defence Requirement", stop_pattern=r"^#{1,3}\s+") or []
+    semestral = _section_after_label(semestral_section, rendering.semestral_label)
     if not semestral:
-        findings.append(f"`{rendering.semestral_label}` is empty")
+        findings.append(
+            f"`{rendering.semestral_label}` is empty or sits outside `### Semestral Defence Requirement`, "
+            "where promotion reads it"
+        )
 
     findings.extend(_literature_findings(block, rendering, artifacts, supplement))
     return findings

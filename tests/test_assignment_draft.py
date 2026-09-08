@@ -561,3 +561,18 @@ def test_an_arbitrary_suffix_on_a_known_heading_base_is_caught(topic_case: Path)
         text.replace("Mobilní klient.", "Mobilní klient.\n\n## Specifika varianty - old"), encoding="utf-8"
     )
     assert any("wrong language or spelling" in finding for finding in check(topic_case, "bp"))
+
+
+def test_a_semestral_requirement_outside_its_section_fails(topic_case: Path) -> None:
+    """Validation and promotion must read the same boundary.
+
+    Searching the whole rendering let the field sit under `### Footer`, pass,
+    be approved, and then be dropped by promotion — leaving the obligation in
+    the approved assignment and out of the thesis case.
+    """
+
+    text = assignment()
+    moved = "Při obhajobě semestrální části projektu je požadováno: Bod 1."
+    text = text.replace(f"{moved}\n", "").replace("Vedoucí práce: T", f"{moved}\nVedoucí práce: T")
+    (topic_case / "outputs/assignment_formal_bp.md").write_text(text, encoding="utf-8")
+    assert any("outside `### Semestral Defence Requirement`" in finding for finding in check(topic_case, "bp"))

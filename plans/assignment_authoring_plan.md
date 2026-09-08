@@ -10,9 +10,8 @@ templates, contract, style layers, both skills, the reviewer route, both
 checkers, the bundle approval, promotion and the case-doctor branch. Nothing has
 authored a real topic through it yet, which is Slice 6.
 
-Open question: several re-checks found a defect in their own round's fixes, and
-two returned `needs_human` on Serena outages in the reviewer sandbox. Ask the
-operator whether a third round is wanted on any slice.
+A cumulative Codex pass over Slices 1 to 5 has run and its two cross-slice
+findings are fixed, so the per-slice re-check gaps are closed.
 
 Next action: Slice 6 is chartered and BLOCKED on the operator. It needs a real
 topic and its variants, explicit agent authorization for the reviewer role, and
@@ -767,6 +766,26 @@ parametrized test links each directory on every write path in turn. Why that
 shape: all three holes came from checking a path component rather than the
 destination. The chain stops here; the re-check confirmed the fixes and returned
 `needs_human` on its own Serena outage.
+
+### 2026-09-08 - Cumulative review: two cross-slice defects per-slice review could not see
+
+Trigger: the operator asked for one cumulative Codex pass over Slices 1 to 5,
+since several narrow re-checks had ended without reading the round's last fixes.
+
+- Validation and promotion read DIFFERENT boundaries for the semestral
+  requirement: `assignment_draft` searched the whole rendering,
+  `assignment_promotion::formal_text` only its section. A field under
+  `### Footer` validated, was approved and hash-bound, and was then dropped on
+  promotion — the obligation surviving in the approved file and not in the
+  thesis case. Both read the section now.
+- `scripts/new-case` copied `templates/case-notes.md` without resolving
+  `Case kind:`, so every normally created thesis case was an invalid promotion
+  target, and the promotion smoke hid it by hand-writing the metadata.
+
+Decision: fixed in one batch with a regression each. Why the pass was worth it:
+both defects live BETWEEN slices, where each slice's own review had nothing to
+compare against, and one of them made an approved artifact and a promoted one
+disagree.
 
 ## Final Audit
 

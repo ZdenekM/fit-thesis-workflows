@@ -507,6 +507,7 @@ def fill_case_metadata(
     created_case: bool,
 ) -> None:
     replace_field(case_md, "Case ID", args.case_id)
+    replace_field(case_md, "Case kind", "thesis-review")
     replace_field(case_md, "Work type", defaulted(args, "work_type", "unknown", created_case=created_case))
     replace_field(case_md, "Academic year", args.academic_year)
     replace_field(case_md, "Deadline mode", defaulted(args, "deadline_mode", "standard", created_case=created_case))

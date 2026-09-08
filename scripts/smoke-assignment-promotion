@@ -87,9 +87,17 @@ record = build_bundle_approval_payload(
 
 target = root / "cases" / target_id
 (target / "rounds" / round_id / "notes").mkdir(parents=True)
+# Build the target the way `scripts/new-case` does, from the tracked template, so this smoke
+# cannot hide an unresolved `Case kind` the way a hand-written case.md did.
+from thesis_review_workflow.cli.new_case import replace_field  # noqa: E402
+
 (target / "case.md").write_text(
-    "Case ID: smoke\nCase kind: thesis-review\nWork type: BP\nStudent feedback language: cs\n", encoding="utf-8"
+    (root / "templates" / "case-notes.md").read_text(encoding="utf-8"), encoding="utf-8"
 )
+replace_field(target / "case.md", "Case ID", target_id)
+replace_field(target / "case.md", "Case kind", "thesis-review")
+replace_field(target / "case.md", "Work type", "BP")
+replace_field(target / "case.md", "Student feedback language", "cs")
 (target / "current-round.txt").write_text(round_id + "\n", encoding="utf-8")
 PY
 

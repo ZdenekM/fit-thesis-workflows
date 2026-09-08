@@ -330,3 +330,29 @@ def test_no_directory_on_a_write_path_can_redirect_out_of_the_case(repo: Path, l
     findings = run(repo, topic, target)
     assert any("escapes the target case" in finding for finding in findings), findings
     assert not list(outside.rglob("*")), "promotion wrote through the redirected directory"
+
+
+def test_a_case_created_by_the_normal_command_is_a_valid_promotion_target(repo: Path, monkeypatch) -> None:
+    """The smoke fixture hand-wrote metadata and hid this: `new-case` left `Case kind` unresolved."""
+
+    from thesis_review_workflow.cli import new_case
+
+    template = Path("templates/case-notes.md").read_text(encoding="utf-8")
+    (repo / "templates").mkdir(exist_ok=True)
+    (repo / "templates" / "case-notes.md").write_text(template, encoding="utf-8")
+
+    case_dir = repo / "cases" / TARGET_ID
+    case_dir.mkdir(parents=True)
+    (case_dir / "case.md").write_text(template, encoding="utf-8")
+    new_case.replace_field(case_dir / "case.md", "Case ID", TARGET_ID)
+    new_case.replace_field(case_dir / "case.md", "Case kind", "thesis-review")
+    new_case.replace_field(case_dir / "case.md", "Work type", "BP")
+
+    from thesis_review_workflow.metadata import case_kind, read_fields
+
+    assert case_kind(read_fields(case_dir / "case.md")) == "thesis-review"
+
+    round_dir = case_dir / "rounds" / ROUND_ID
+    (round_dir / "notes").mkdir(parents=True)
+    topic = make_topic_case(repo)
+    assert run(repo, topic, PromotionTarget(case_dir, round_dir, ROUND_ID)) == []
