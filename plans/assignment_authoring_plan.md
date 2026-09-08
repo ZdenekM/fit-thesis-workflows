@@ -5,17 +5,19 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slice 0 is done — the hand probe ran on a real topic and its eight
-findings are in `## Progress`. Four of them change what Slices 1, 3 and 4 must
-build. No tracked template, profile section, or code exists yet.
+State: Slice 0 is done and its eight probe findings are in `## Progress`. The
+Slice 1 charter now folds them in and passed its pre-implementation plan-critic
+review with no findings. No tracked template, profile section, or code exists
+yet.
 
-Next action: write the full Slice 1 charter, folding in the four probe findings
-that change it — shared-plus-delta briefs, the citable-artifact intake slot, the
-three-way split of success criteria, and supervision conventions belonging to
-profile layer 3 — then review that charter before implementing it.
+Next action: implement Slice 1 exactly as its charter reads — the three
+templates, the `## Assignment Authoring Style` layer, `docs/assignment-authoring.md`,
+`Case kind:` with `thesis_review_workflow.metadata::CASE_KINDS`, and
+`tests/test_assignment_authoring.py` — then run its verification block.
 
-Do not read: the calibration corpus, the review transcripts, or the probe
-artifacts; their conclusions are in `## Progress` and `## Decision Log`.
+Do not read: the calibration corpus beyond the formal field set the charter
+names, the review transcripts, or the probe artifacts; their conclusions are in
+`## Progress` and `## Decision Log`.
 
 ## Goal
 
@@ -179,39 +181,82 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
 - Proposed commit message: `Add the assignment authoring contract and style layers`
 - Why: the three artifacts and the style layering are the reusable half, and
   every later slice reads them as its contract. Writing them after the probe
-  means they encode what worked rather than what was assumed.
+  means they encode the shape that survived one real topic rather than the
+  assumed one.
 - Expected paths: `docs/assignment-authoring.md`,
   `templates/topic-intake.md`, `templates/assignment-formal.md`,
   `templates/student-brief.md`, `templates/case-notes.md`,
   `templates/reviewer-profile.md`, `profiles/default.md`,
-  `profiles/README.md`, `tests/test_assignment_authoring.py`
+  `profiles/README.md`, `src/thesis_review_workflow/metadata.py`,
+  `tests/test_assignment_authoring.py`
 - Tasks:
-  - Write the three templates. Only the field set and its order, in both
-    language renderings, come from the corpus into
-    `templates/assignment-formal.md`.
+  - `templates/assignment-formal.md`: the FIT IS field set and its order, in
+    both language renderings. That field set is the only thing the corpus
+    puts into a tracked template.
+  - `templates/topic-intake.md`: the variant-independent material authored
+    once — motivation, literature, boundary, success-criteria rationale — plus
+    the variant list. Two slots the probe forced:
+    - a citable-artifact slot whose entries carry an identifier field (DOI,
+      arXiv id, ISBN, or URL). The probe could not supply a platform DOI, and
+      an agent must not invent an identifier, so an unresolved one is written
+      with the marker below and never guessed.
+    - an out-of-scope section that can name sibling offered topics. Mutual
+      exclusion between simultaneously offered topics is not
+      `Depends on topic:` and needs its own slot.
+  - `templates/student-brief.md`: a shared body plus a per-variant delta
+    section, the shape the assignment already uses for literature. In the
+    probe roughly 85% of two briefs for one topic was variant-independent, so
+    two whole briefs per topic would drift. Slice 1 delivers the template
+    shape only; language binding and bundle validation stay in Slice 4.
+  - One unresolved-metadata marker: a single literal token, used in all three
+    templates and documented in `docs/assignment-authoring.md` as a
+    publication blocker, so Slice 3 detects it by bounded structural parsing
+    rather than by reading prose. The probe left the academic year as a marked
+    assumption, which is exactly the case that must not reach FIT IS.
+  - `docs/assignment-authoring.md`: the operator contract — the intake, the
+    variant bundle, and `Depends on topic:` semantics — plus the three-way
+    split of success criteria. A criterion lands in an assignment point, in
+    the intake as rationale, or in the brief as interpretation; the brief is
+    therefore not derived from the assignment, it is where non-formalizable
+    criteria live. The probe's enumeration criterion — that a complete and
+    justified enumeration, not a zero count, is the success condition — fit
+    the intake and the brief and no assignment point.
   - Add the optional `## Assignment Authoring Style` section to
     `templates/reviewer-profile.md` and a generic instance to
     `profiles/default.md`, derived from the cross-supervisor evidence. A
-    property attested by one supervisor only is excluded. Absence of the
+    property attested by one supervisor only is excluded, and absence of the
     section means the generic base applies.
-  - Add the `profiles/README.md` line admitting generic assignment-authoring
-    preferences, and state there that factual field values are not profile
+  - The template names supervision conventions — reading order, milestone
+    spacing, responsiveness expectations, commit hygiene — as layer 3. They
+    must appear in neither `profiles/default.md` nor the intake: the probe
+    showed them to be supervisor properties, not topic properties.
+  - Layer 2 carries the open-solution-space criterion and its test, because it
+    is in direct tension with assessability: a point may leave the solution
+    open, and the reviewer must NOT push toward specifying it. What the
+    reviewer flags is openness without a criterion the choice can be judged
+    against. `Vyberte vhodnou metodu` alone is weak; the same point plus
+    stated selection criteria is assessable while staying open.
+  - `profiles/README.md`: the line admitting generic assignment-authoring
+    preferences, stating there that factual field values are not profile
     content.
-  - Layer 2 must carry the open-solution-space criterion and its test, because
-    it is in direct tension with assessability: a point may leave the solution
-    open, and the reviewer must NOT push toward specifying it. What the reviewer
-    flags is openness without a criterion the choice can be judged against.
-    `Vyberte vhodnou metodu` alone is weak; the same point plus stated selection
-    criteria is assessable while staying open.
-  - Add `Case kind:` to `templates/case-notes.md`, defaulting to
-    `thesis-review` when absent, and document the variant and `Depends on
-    topic:` semantics in `docs/assignment-authoring.md`.
-  - Deliver `tests/test_assignment_authoring.py` over synthetic fixtures:
-    required template headings, accepted `Case kind` values, and that the
-    default profile carries the new section. Why a test now: the previous
-    charter set could have closed on hygiene commands alone.
-- Out of scope: skills, roles, the structural checker, the brief language
-  contract, promotion. No real case content in any tracked path.
+  - `templates/case-notes.md`: `Case kind:` with `thesis-review` and
+    `topic-proposal`, defaulting to `thesis-review` when absent. The accepted
+    values live once in `thesis_review_workflow.metadata::CASE_KINDS` beside
+    a `thesis_review_workflow.metadata::case_kind` reader that applies the
+    default, so Slices 3 and 5 consume them instead of re-deriving the list.
+    No caller changes here.
+  - `tests/test_assignment_authoring.py` reads the tracked templates and
+    profile directly, as `tests/test_agent_profile_contracts.py` does: the
+    required headings of each new template, the intake's identifier and
+    sibling-topic slots, the brief's shared and delta sections, the marker
+    token in the templates being the one the doc declares, `CASE_KINDS` with
+    the `case_kind` default, and that `profiles/default.md` carries the new
+    section including the open-solution-space criterion. Why a test now: the
+    previous charter set could have closed on hygiene commands alone.
+- Out of scope: skills and roles, the structural checker, the `check_private`
+  names, the brief language contract, bundle sendability, promotion, and any
+  `case_doctor` or other reader change. No real case content, and no
+  supervisor-attributable style, in any tracked path.
 - Verification:
   ```bash
   pants test tests/test_assignment_authoring.py
@@ -220,6 +265,9 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
   scripts/check-scripts
   git diff --check
   ```
+  Scoped Omen MCP over `src/thesis_review_workflow/metadata.py` during
+  implementation, since that is the only Python this slice touches; record the
+  observed result or a concrete blocker in `## Progress`.
 
 ### Slice 2 - Skills and the full role registry surface
 
@@ -282,8 +330,8 @@ follow-up plan.
 ## Progress
 
 Slice 0 is done. Calibration, one plan-critic round plus its narrow re-check,
-and the hand probe are complete. Slice 1 is next and needs a full charter
-review before implementation.
+and the hand probe are complete. The Slice 1 charter is written and reviewed;
+implementation is next.
 
 ### Slice 0 probe findings
 
@@ -510,6 +558,26 @@ was previously buried behind the text it is most likely to invalidate.
 
 Residual risk: the probe produces no reusable artifact, so its value depends on
 `## Progress` recording what it refuted.
+
+### 2026-09-08 - Slice 1 charter review passes with no findings
+
+Trigger: `plans/README.md` `## Plan-Change Review` requires a materially
+rewritten slice charter to be reviewed before its implementation starts. The
+rewrite folded the Slice 0 probe findings into Slice 1.
+
+- `scripts/agent-review --profile plan-critic` over the uncommitted charter
+  diff returned no actionable findings; verdict pass.
+- It confirmed that six probe findings are built by Slice 1 and the remaining
+  two are confirmations needing no build, and that the deferrals to Slices 3-5
+  match the already adjudicated allocation.
+
+Decision: no fix batch, so no narrow re-check is owed and Slice 1
+implementation starts next. Why: the stopping rule owes a re-check only when a
+fix batch carries class (a)/(b) findings, and there is no fix batch.
+
+Residual risk: a clean charter review says the plan text is right, not that the
+corpus-derived field set and the layer-2/layer-3 split survive being written
+down. The slice's own test and review carry that.
 
 ## Final Audit
 
