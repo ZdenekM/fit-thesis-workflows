@@ -37,6 +37,17 @@ files(
     ],
 )
 
+files(
+    name="assignment_authoring_metadata",
+    # Listed one by one rather than globbed: `profiles/*.md` other than these two are ignored
+    # private profiles, and a glob would pull them into the test sandbox.
+    sources=[
+        "docs/assignment-authoring.md",
+        "profiles/README.md",
+        "profiles/default.md",
+    ],
+)
+
 pex_binary(
     name="vulture",
     description="Run a dev-only dead-code scan over workflow code.",

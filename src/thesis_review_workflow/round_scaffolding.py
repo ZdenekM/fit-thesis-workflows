@@ -51,6 +51,10 @@ ON_DEMAND_TEMPLATES = frozenset(
         # Copied into a case, not a round.
         "case-notes.md",
         "reviewer-profile.md",
+        # Assignment authoring: a topic-proposal case has no review rounds at all.
+        "topic-intake.md",
+        "assignment-formal.md",
+        "student-brief.md",
         # Created only when the operator actually has that input.
         "supervisor-reading-pass-intake.md",
         "opponent-report-quality-feedback-intake.md",

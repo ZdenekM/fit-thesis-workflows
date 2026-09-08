@@ -90,6 +90,60 @@ Avoid:
 - repeating that no publication or award is recorded when that is the ordinary
   state and has no bearing on the grade.
 
+## Assignment Authoring Style
+
+The generic base for authoring topic assignments and student briefs, layer 2 of
+`docs/assignment-authoring.md`. Every item here is attested across several
+supervisors at this faculty, not derived from one. A supervisor's own wording,
+literature-entry count, semester-requirement phrasing, preferred categories,
+BP/DP construction, and supervision conventions are layer 3 and belong in
+`profiles/local/<profile-id>.md`, never here.
+
+Institutional norm for an assignment:
+
+- Keep the FIT IS field set and its order from `templates/assignment-formal.md`
+  and use one language rendering per document.
+- Phrase every point in the imperative second-person plural.
+- Open with a survey or familiarization point.
+- Close with a presentation deliverable. The deliverable is the norm; its form
+  — video, short video, poster plus video, leaflet — is not.
+- Fill the semestral-defence requirement field, naming which points and which
+  partially.
+- Supply real literature entries with verifiable identifiers. A supplement line
+  such as `Dále dle pokynů vedoucího.` may follow real entries; a placeholder
+  or an empty literature block is not acceptable content.
+- Expect roughly five to seven points. The count does not distinguish BP from
+  DP and must never be read as evidence of scope adequacy; escalation to DP
+  happens inside the points.
+
+Open solution space:
+
+- A point may name the goal and leave the choice of method, algorithm, dataset,
+  or application domain to the student. This is the norm, not a defect, and a
+  reviewer must not push an open point toward specifying the solution: an
+  approved assignment is expensive to amend, and the student keeps room for own
+  initiative.
+- What a reviewer does flag is openness with no stated criterion the student's
+  choice can be judged against. `Vyberte vhodnou metodu` alone is weak; the
+  same point plus the criteria the choice will be judged by is assessable while
+  staying open.
+
+Assessability:
+
+- Every point should be one a supervisor or opponent could later evaluate
+  fulfillment against, because that is what `notes/assignment.md` is used for
+  in the rest of this workflow.
+- An activity stated without any success criterion is the recurring weakness in
+  the corpus and is worth flagging.
+
+Avoid:
+
+- inventing an identifier, a date, or an academic year that could not be
+  verified from a source; write the unresolved marker instead;
+- letting shared material drift between a topic's variants;
+- putting supervision conventions or personal phrasing into the topic intake,
+  where they would be reproduced for every supervisor using this repository.
+
 ## Opponent Priorities
 
 - Keep evidence labels explicit and conservative.

@@ -5,19 +5,18 @@ Created: 2026-09-03
 
 ## Start Here
 
-State: Slice 0 is done and its eight probe findings are in `## Progress`. The
-Slice 1 charter now folds them in and passed its pre-implementation plan-critic
-review with no findings. No tracked template, profile section, or code exists
-yet.
+State: Slices 0 and 1 are done, reviewed and green. The templates, the operator
+contract, the profile style layers, `Case kind:` and the unresolved-value
+instrument exist; no skill, role, checker, or command does.
 
-Next action: implement Slice 1 exactly as its charter reads — the three
-templates, the `## Assignment Authoring Style` layer, `docs/assignment-authoring.md`,
-`Case kind:` with `thesis_review_workflow.metadata::CASE_KINDS`, and
-`tests/test_assignment_authoring.py` — then run its verification block.
+Next action: compact the closed Slice 1 charter into
+`plans/archive/assignment_authoring_plan/`, then write the full Slice 2 charter
+— two skill directories plus the whole registry surface the spawnable reviewer
+obliges, and the `AGENTS.md` / `README.md` routing text `## Progress` records as
+unassigned — and review that charter before implementing it.
 
-Do not read: the calibration corpus beyond the formal field set the charter
-names, the review transcripts, or the probe artifacts; their conclusions are in
-`## Progress` and `## Decision Log`.
+Do not read: the calibration corpus, the review transcripts, or the probe
+artifacts; their conclusions are in `## Progress` and `## Decision Log`.
 
 ## Goal
 
@@ -177,7 +176,7 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
 
 ### Slice 1 - Operator contract, templates, and the profile layer
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Add the assignment authoring contract and style layers`
 - Why: the three artifacts and the style layering are the reusable half, and
   every later slice reads them as its contract. Writing them after the probe
@@ -188,11 +187,14 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
   `templates/student-brief.md`, `templates/case-notes.md`,
   `templates/reviewer-profile.md`, `profiles/default.md`,
   `profiles/README.md`, `src/thesis_review_workflow/metadata.py`,
+  `src/thesis_review_workflow/round_scaffolding.py`, `BUILD`, `tests/BUILD`,
   `tests/test_assignment_authoring.py`
 - Tasks:
-  - `templates/assignment-formal.md`: the FIT IS field set and its order, in
-    both language renderings. That field set is the only thing the corpus
-    puts into a tracked template.
+  - `templates/assignment-formal.md`: the FIT IS field set and its order as TWO
+    selectable rendering blocks, Czech and English, of which the author keeps
+    one. That field set is the only thing the corpus puts into a tracked
+    template. A single mixed block was the first review's finding: a filled
+    copy has to produce one rendering's exact labels, `Institut:` included.
   - `templates/topic-intake.md`: the variant-independent material authored
     once — motivation, literature, boundary, success-criteria rationale — plus
     the variant list. Two slots the probe forced:
@@ -206,13 +208,23 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
   - `templates/student-brief.md`: a shared body plus a per-variant delta
     section, the shape the assignment already uses for literature. In the
     probe roughly 85% of two briefs for one topic was variant-independent, so
-    two whole briefs per topic would drift. Slice 1 delivers the template
-    shape only; language binding and bundle validation stay in Slice 4.
-  - One unresolved-metadata marker: a single literal token, used in all three
-    templates and documented in `docs/assignment-authoring.md` as a
-    publication blocker, so Slice 3 detects it by bounded structural parsing
-    rather than by reading prose. The probe left the academic year as a marked
-    assumption, which is exactly the case that must not reach FIT IS.
+    two whole briefs per topic would drift. The template is the canonical
+    per-topic SOURCE at `notes/student_brief.md`, and
+    `outputs/student_brief_<variant>.md` is a projection of it — named as such
+    in both the template and the doc's layout, because the first review found
+    them describing two different shapes. Slice 1 delivers the shape only;
+    language binding, the projection command and bundle validation stay in
+    Slice 4.
+  - One unresolved-metadata marker: the literal token `UNRESOLVED:` in the
+    VALUE position, documented in `docs/assignment-authoring.md` as a
+    publication blocker with a worked resolved/unresolved example. The rule
+    ships as the instrument `thesis_review_workflow.metadata::UNRESOLVED_VALUE_RE`
+    behind `thesis_review_workflow.metadata::unresolved_values`, which Slice 3
+    consumes instead of re-deriving. Position, not mere presence, because the
+    first review found a token-anywhere reading blocking a bundle whose values
+    were all resolved: the templates explain the marker in their own prose. The
+    probe left the academic year as a marked assumption, which is exactly the
+    case that must not reach FIT IS.
   - `docs/assignment-authoring.md`: the operator contract — the intake, the
     variant bundle, and `Depends on topic:` semantics — plus the three-way
     split of success criteria. A criterion lands in an assignment point, in
@@ -245,6 +257,14 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
     a `thesis_review_workflow.metadata::case_kind` reader that applies the
     default, so Slices 3 and 5 consume them instead of re-deriving the list.
     No caller changes here.
+  - List the three new templates in
+    `thesis_review_workflow.round_scaffolding::ON_DEMAND_TEMPLATES`, because a
+    topic-proposal case has no review rounds and
+    `tests/test_round_scaffolding.py` requires every tracked template to be
+    mapped or explicitly on-demand. Expose `docs/assignment-authoring.md` and
+    the two tracked `profiles/*.md` to the test sandbox through a root
+    `files(name="assignment_authoring_metadata")` target listed file by file,
+    so no ignored private profile is globbed in.
   - `tests/test_assignment_authoring.py` reads the tracked templates and
     profile directly, as `tests/test_agent_profile_contracts.py` does: the
     required headings of each new template, the intake's identifier and
@@ -259,12 +279,14 @@ Decisions: `2026-09-03 - Slice 0 shrinks to the hand probe`,
   supervisor-attributable style, in any tracked path.
 - Verification:
   ```bash
-  pants test tests/test_assignment_authoring.py
+  pants test tests::
   python3 tests/test_plan_contract.py
   scripts/check-private
   scripts/check-scripts
   git diff --check
   ```
+  The sweep rather than the single target, because a new tracked template is
+  checked by `tests/test_round_scaffolding.py` as well.
   Scoped Omen MCP over `src/thesis_review_workflow/metadata.py` during
   implementation, since that is the only Python this slice touches; record the
   observed result or a concrete blocker in `## Progress`.
@@ -329,9 +351,14 @@ follow-up plan.
 
 ## Progress
 
-Slice 0 is done. Calibration, one plan-critic round plus its narrow re-check,
-and the hand probe are complete. The Slice 1 charter is written and reviewed;
-implementation is next.
+Slices 0 and 1 are done. Slice 1 landed the three templates, the layer-2/layer-3
+profile split, `docs/assignment-authoring.md`, `Case kind:`, the unresolved-value
+instrument, and 19 contract tests, after one slice-review round and its narrow
+re-check. Slice 2 is next and needs a full charter written and reviewed.
+
+Still unassigned to a slice, from `## Scope`: the `AGENTS.md` skill-routing
+lines and the `README.md` operator entry text. Both point at the skills Slice 2
+delivers, so they belong in the Slice 2 charter.
 
 ### Slice 0 probe findings
 
@@ -578,6 +605,27 @@ fix batch carries class (a)/(b) findings, and there is no fix batch.
 Residual risk: a clean charter review says the plan text is right, not that the
 corpus-derived field set and the layer-2/layer-3 split survive being written
 down. The slice's own test and review carry that.
+
+### 2026-09-08 - Slice 1 review: three findings, all fixed in one batch
+
+Trigger: the slice-review round on the staged Slice 1 implementation.
+
+- (b) `docs/assignment-authoring.md` and `templates/student-brief.md` described
+  two different brief shapes. Fixed: `notes/student_brief.md` is the canonical
+  per-topic source and `outputs/student_brief_<variant>.md` a projection of it.
+- (a) An `UNRESOLVED:`-anywhere reading would have blocked a bundle whose values
+  were all resolved, because the templates explain the marker. Fixed as an
+  instrument: `thesis_review_workflow.metadata::UNRESOLVED_VALUE_RE` matches the
+  value position only, and a test asserts no template trips its own marker.
+- (b) `templates/assignment-formal.md` carried one mixed metadata block reading
+  `Institute:`. Fixed: two selectable rendering blocks with `Institut:`
+  corrected, tested by ordered line-opening labels.
+
+Decision: one narrow re-check scoped to the fix batch; it passed, closing the
+chain at one round plus one re-check, as the (a)/(b) content of the batch owed.
+
+Residual risk: Omen returned zero files on every path attempt in both rounds, so
+`pants run :omen` is the only static signal over the one touched module.
 
 ## Final Audit
 

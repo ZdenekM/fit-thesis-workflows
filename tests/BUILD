@@ -5,6 +5,7 @@ python_tests(
         "//config:deadline_config",
         "//plans:plan_documents",
         "//:agent_profile_registry_metadata",
+        "//:assignment_authoring_metadata",
         "//:codex_agent_profile_metadata",
         "//scripts:workflow_contract_metadata",
         "//scripts:workflow_shell",

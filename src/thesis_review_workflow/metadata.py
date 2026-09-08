@@ -7,6 +7,27 @@ from dataclasses import dataclass
 from pathlib import Path
 
 FIELD_RE = re.compile(r"^\s*([^:\n]+):\s*(.*?)\s*$")
+
+DEFAULT_CASE_KIND = "thesis-review"
+"""Kind assumed for a `case.md` that predates the `Case kind:` field."""
+
+CASE_KINDS = (DEFAULT_CASE_KIND, "topic-proposal")
+"""Accepted `Case kind:` values, in `templates/case-notes.md` order.
+
+The single home for this list: assignment authoring, the structural checker and
+`case_doctor` all read it from here instead of re-deriving it. See
+`docs/assignment-authoring.md`.
+"""
+
+UNRESOLVED_VALUE_RE = re.compile(r"^\s*(?:-\s+)?(?:[^:`\n]{1,80}:\s*)?UNRESOLVED:\s*(.*)$")
+"""A factual value an agent could not verify and must not guess.
+
+The marker counts only in the VALUE position — after an optional bullet and an
+optional field label — so a template may explain the marker in its own prose
+without tripping the check that blocks publication. See
+`docs/assignment-authoring.md` `## Unresolved Values`.
+"""
+
 THESIS_LANGUAGE_LABELS = {
     "thesis language",
     "jazyk prace",
@@ -32,6 +53,33 @@ def read_fields(path: Path) -> dict[str, str]:
         if sep:
             fields[key.strip().lower()] = value.strip()
     return fields
+
+
+def case_kind(fields: dict[str, str]) -> str | None:
+    """Resolve `Case kind:` from `read_fields` output.
+
+    Returns the default for a missing or empty field, and `None` for a value
+    outside `CASE_KINDS` so the caller can report it rather than guess.
+    """
+
+    raw = fields.get("case kind", "").strip().lower()
+    if not raw:
+        return DEFAULT_CASE_KIND
+    return raw if raw in CASE_KINDS else None
+
+
+def unresolved_values(text: str) -> list[tuple[int, str]]:
+    """Line numbers and descriptions of every unresolved value in `text`.
+
+    Empty means nothing blocks publication on this ground.
+    """
+
+    found: list[tuple[int, str]] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        match = UNRESOLVED_VALUE_RE.match(line)
+        if match:
+            found.append((number, match.group(1).strip()))
+    return found
 
 
 def normalize_thesis_language(raw: str) -> str | None:

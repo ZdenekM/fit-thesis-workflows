@@ -2,7 +2,7 @@
 
 Reviewer profiles capture stable preferences for a supervisor or opponent:
 feedback style, typical priorities, strictness calibration, domain preferences,
-and topics that should not be reopened by default.
+assignment authoring style, and topics that should not be reopened by default.
 
 Profiles are a preference layer only. They cannot override repository hard
 rules such as privacy, evidence requirements, assignment/deadline gates,
@@ -40,6 +40,21 @@ factor, compact IS prose, and focused defense questions. Personal strictness,
 grade tendencies, recurring reviewer phrasings, or case-derived preferences
 belong in `profiles/local/*` or in ignored round calibration artifacts, not in
 `profiles/default.md`.
+
+## Assignment Authoring Boundary
+
+`profiles/default.md` may carry an `## Assignment Authoring Style` section with
+generic assignment-authoring preferences only: properties the cross-supervisor
+evidence attests as institutional norm. A property attested by a single
+supervisor is personal style and belongs in `profiles/local/<profile-id>.md`,
+together with literature-entry conventions, semester-requirement wording,
+BP/DP variant construction, preferred categories, point-phrasing habits, and
+the supervision conventions rendered into a student brief.
+
+Factual field values are not profile content. An institute name, a programme, a
+category, an academic year, a supervisor name, or a deadline is case data and
+belongs in the topic case, never in a profile. Absence of the section in a
+local profile means the generic base applies unchanged.
 
 ## Public And Private Profiles
 
