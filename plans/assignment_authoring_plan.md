@@ -259,8 +259,12 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
     `blocking_findings_count`, `checks_observed`, `limitations`, `timestamp`.
     Mirror `review_approvals`' field names where they mean the same thing, and
     reuse `review_approvals::sha256_file` rather than hashing again.
-  - Pass-only, as `review_approvals::APPROVED_VERDICTS` already is: a failed
-    review stays findings, never an approval record with a negative verdict.
+  - Two acceptance predicates, enforced when the record is BUILT and again when
+    it is READ: the verdict is in `review_approvals::APPROVED_VERDICTS`, and
+    `blocking_findings_count` is integer zero. Mirroring field names inherits
+    no behaviour, and a record is a file anyone can write by hand: a
+    `verdict: pass` carrying one blocking finding would otherwise publish. A
+    failed review stays findings, never an approval record.
   - Independence is judged HERE by `author_agent != reviewer_agent` on the
     record itself. `review_approvals::reviewer_matches_generator` judges it
     against `work/review_manifest.json`, which a topic case does not have, so
@@ -274,6 +278,15 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
     recompute every hash against the file on disk.
   - A hash mismatch is the mechanism behind "material edits after review reopen
     draft state": it fails and names the file that moved.
+  - `checks_observed`, `limitations` and `timestamp` are audit metadata. They
+    are recorded and shape-checked, and they establish nothing about whether a
+    semantic review happened; the `## Acceptance Contract`'s operator reading
+    stays necessary and the doc must not imply otherwise.
+  - Have the authoring parent write the author's session identity into
+    `work/reviews/assignment_review_<variant>.md` when it hands the bundle over.
+    That is traceability, not authentication, and it costs one line; the
+    round-scoped `scripts/record-workflow-operation` is not an alternative here,
+    since it requires a round.
   - Teach the reviewer role the record it writes: the exact fields in
     `.agents/skills/thesis-assignment-review/SKILL.md` and its Codex adapter,
     replacing the prose description Slice 2 wrote before the schema existed.
@@ -284,8 +297,11 @@ Decisions: `2026-09-08 - Slice 4a: enumerating heading forms failed twice`.
   - `tests/test_assignment_bundle.py` over synthetic topic cases: a clean
     approved bundle passes; a missing record fails; a same-agent author and
     reviewer fails; each of the four hashes fails when its file changes; a
-    non-pass verdict is rejected at build time; a structurally failing bundle
-    fails even with a valid record.
+    structurally failing bundle fails even with a valid record. Two of the
+    cases are HAND-WRITTEN records that the builder would have refused: a
+    non-pass verdict, and `verdict: pass` with a nonzero
+    `blocking_findings_count`. A test that only exercises the builder proves
+    nothing about the checker.
 - Out of scope: promotion and `case_doctor`, which are Slice 5. No round
   machinery: no `work/review_manifest.json`, no wave gate, no closeout, no
   entry in `thesis_review_workflow.artifact_registry::OUTPUT_ARTIFACTS`. No
