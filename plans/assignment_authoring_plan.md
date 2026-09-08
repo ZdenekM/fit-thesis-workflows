@@ -236,10 +236,14 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
     Czech sentences, so "looks like a placeholder" cannot be the rule. The rule
     is provenance: every literature bullet in an assignment must equal an entry
     the intake's `## Citable Artifacts` authored, and every such entry must
-    carry a non-empty identifier that is not an unresolved value. A supplement
-    line is admissible only through an explicit intake field, not by matching
-    its wording; add that field to `templates/topic-intake.md` if the shape
-    needs it, and say so in `docs/assignment-authoring.md`.
+    carry a non-empty identifier that is not an unresolved value. At least one
+    such entry must exist per assignment — checking the provenance of every
+    bullet says nothing when there are none, and an empty or supplement-only
+    literature block is a deterministic failure of the layer-2 base, not a
+    reviewer judgment. A supplement line is admissible only through an explicit
+    intake field, not by matching its wording; add that field to
+    `templates/topic-intake.md` if the shape needs it, and say so in
+    `docs/assignment-authoring.md`.
   - Cross-variant: shared material — every intake-sourced literature entry
     above all — must be byte-identical in every variant that uses it. The
     corpus pair that motivated this cited one shared paper two different ways.
@@ -262,12 +266,14 @@ Decisions: `2026-09-08 - The assignment reviewer ships codex-only`,
   - Name the new command in both routes' `required_validators` and update the
     two `docs/agent-profile-matrix.md` rows that currently read `none yet`.
   - `tests/test_assignment_draft.py` over synthetic topic cases in `tmp_path`:
-    a clean bundle passes; each rule fails on exactly its own defect; a
-    `thesis-review` case is refused; point count is never read as evidence of
-    work type or scope; a variant that legitimately differs is not reported as
-    drift.
+    a clean bundle passes; each rule fails on exactly its own defect; empty
+    literature and supplement-only literature each fail; a `thesis-review` case
+    is refused; point count is never read as evidence of work type or scope; a
+    variant that legitimately differs is not reported as drift.
 - Out of scope: anything requiring judgment — assessability, whether an open
-  point states a criterion, tone, topic quality. Approval records and hashes,
+  point states a criterion, tone, topic quality. Structural provenance is not
+  source verification: the checker proves a bullet came from the intake, never
+  that the identifier resolves to a real work, and must not report otherwise. Approval records and hashes,
   the brief language binding and `scripts/check-assignment-bundle`, which are
   Slice 4. Promotion and `case_doctor`, which are Slice 5. No personal-layer
   profile preference becomes a gate, and no new gate is added to any existing
