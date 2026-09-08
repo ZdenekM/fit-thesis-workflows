@@ -130,6 +130,14 @@ nonzero blocking count, and note that
 `scripts/check-assignment-bundle` rejects both on read regardless of how the
 record was produced.
 
+Under Claude you do NOT write the record: it is hash-bound, so the parent
+writes it under the parent-mediated protocol while you write only your findings.
+That makes your findings artifact the sole reviewer-authored evidence, so it
+must state your verdict, your blocking-findings count, and the four-file hash
+basis you were handed. Without the basis, a bundle edited after your review
+could still be recorded as approved against files you never read; the parent
+must re-check that basis before writing the record. Under Codex you write both.
+
 Independence is judged on this record: `author_agent` must differ from
 `reviewer_agent`. There is no round manifest behind a topic case, so the record
 is self-attesting about its author — traceability, not authentication. Take the

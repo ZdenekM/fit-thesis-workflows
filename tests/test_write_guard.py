@@ -10,6 +10,10 @@ GUARD = REPO_ROOT / ".claude" / "hooks" / "pre_tool_use_write_guard.py"
 CANARY = "thesis-code-quality-reviewer"
 OWNED = "cases/demo/rounds/r1/outputs/code_quality_review.md"
 
+# The first case-scoped role: a `Case kind: topic-proposal` case has no rounds.
+CASE_SCOPED = "thesis-assignment-reviewer"
+CASE_OWNED = "cases/demo/work/reviews/assignment_review_bp.md"
+
 
 def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None = None, scope: bool = True) -> bool:
     raw = payload if isinstance(payload, str) else json.dumps(payload)
@@ -33,8 +37,8 @@ def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None 
     return '"permissionDecision": "deny"' in result.stdout
 
 
-def _reviewer(tool: str, path: str | None = None) -> dict:
-    payload: dict = {"agent_type": CANARY, "agent_id": "abc", "tool_name": tool, "tool_input": {}}
+def _reviewer(tool: str, path: str | None = None, agent_type: str = CANARY) -> dict:
+    payload: dict = {"agent_type": agent_type, "agent_id": "abc", "tool_name": tool, "tool_input": {}}
     if path is not None:
         field = "notebook_path" if tool == "NotebookEdit" else "file_path"
         payload["tool_input"][field] = path
@@ -166,3 +170,110 @@ def test_missing_policy_fails_closed_for_reviewer_writes(tmp_path: Path) -> None
     assert _denies(
         _reviewer("Write", str(tmp_path / "cases/demo/rounds/r1/outputs/code_quality_review.md")), root=tmp_path
     )
+
+
+def _case_reviewer(path: str) -> dict:
+    return _reviewer("Write", path, agent_type=CASE_SCOPED)
+
+
+def test_a_case_scoped_reviewer_may_write_its_owned_case_path() -> None:
+    assert not _denies(_case_reviewer(_abs(CASE_OWNED)))
+
+
+def test_a_case_scoped_reviewer_is_confined_to_the_active_case() -> None:
+    assert _denies(_case_reviewer(_abs("cases/other/work/reviews/assignment_review_bp.md")))
+
+
+def test_a_case_scoped_reviewer_may_not_write_outside_its_policy() -> None:
+    assert _denies(_case_reviewer(_abs("cases/demo/work/reviews/assignment_approval_bp.json")))
+    assert _denies(_case_reviewer(_abs("cases/demo/outputs/assignment_formal_bp.md")))
+
+
+def test_a_case_scoped_reviewer_may_not_write_tracked_paths() -> None:
+    assert _denies(_case_reviewer(_abs("AGENTS.md")))
+    assert _denies(_case_reviewer(_abs("docs/assignment-authoring.md")))
+
+
+def test_a_case_scoped_reviewer_needs_no_round_but_still_needs_a_case() -> None:
+    assert not _denies(_case_reviewer(_abs(CASE_OWNED)), extra_env={"CLAUDE_REVIEW_ROUND": ""})
+    assert _denies(_case_reviewer(_abs(CASE_OWNED)), scope=False)
+
+
+def test_a_round_scoped_reviewer_is_not_widened_by_a_missing_round() -> None:
+    """Inferring case scope from an unset round variable would widen every round reviewer."""
+
+    assert _denies(_reviewer("Write", _abs("cases/demo/outputs/code_quality_review.md")))
+    assert _denies(
+        _reviewer("Write", _abs("cases/demo/outputs/code_quality_review.md")),
+        extra_env={"CLAUDE_REVIEW_ROUND": ""},
+    )
+    assert _denies(_reviewer("Write", _abs(OWNED)), extra_env={"CLAUDE_REVIEW_ROUND": ""})
+
+
+def test_a_case_scoped_reviewer_cannot_escape_through_a_redirected_root(tmp_path: Path) -> None:
+    """A reviewer creates NEW files, so a tracked-path check would never see this."""
+
+    root = tmp_path / "repo"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "hooks" / "reviewer_write_policy.json").write_text(
+        json.dumps({CASE_SCOPED: {"scope": "case", "writes": ["work/reviews/assignment_review_*.md"]}}),
+        encoding="utf-8",
+    )
+    (root / ".claude" / "agents").mkdir(parents=True)
+    (root / ".claude" / "agents" / f"{CASE_SCOPED}.md").write_text("adapter\n", encoding="utf-8")
+    outside = root / "docs" / "demo"
+    (outside / "work" / "reviews").mkdir(parents=True)
+    (root / "cases").symlink_to(root / "docs", target_is_directory=True)
+
+    target = root / "cases" / "demo" / "work" / "reviews" / "assignment_review_bp.md"
+    assert _denies(_case_reviewer(str(target)), root=root)
+
+
+def test_a_case_scoped_reviewer_cannot_escape_through_a_redirected_case(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "hooks" / "reviewer_write_policy.json").write_text(
+        json.dumps({CASE_SCOPED: {"scope": "case", "writes": ["work/reviews/assignment_review_*.md"]}}),
+        encoding="utf-8",
+    )
+    (root / ".claude" / "agents").mkdir(parents=True)
+    (root / ".claude" / "agents" / f"{CASE_SCOPED}.md").write_text("adapter\n", encoding="utf-8")
+    (root / "cases").mkdir()
+    outside = root / "docs" / "demo"
+    (outside / "work" / "reviews").mkdir(parents=True)
+    (root / "cases" / "demo").symlink_to(outside, target_is_directory=True)
+
+    target = root / "cases" / "demo" / "work" / "reviews" / "assignment_review_bp.md"
+    assert _denies(_case_reviewer(str(target)), root=root)
+
+
+def test_a_policy_entry_in_the_old_flat_shape_fails_closed(tmp_path: Path) -> None:
+    """The scope is required, so a pre-migration policy denies rather than defaulting."""
+
+    root = tmp_path / "repo"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "hooks" / "reviewer_write_policy.json").write_text(
+        json.dumps({CANARY: ["outputs/code_quality_review.md"]}), encoding="utf-8"
+    )
+    assert _denies(_reviewer("Write", str(root / OWNED)), root=root)
+
+
+def test_a_case_scoped_reviewer_cannot_escape_through_a_dangling_link(tmp_path: Path) -> None:
+    """A destination that does not exist yet still resolves through its link."""
+
+    root = tmp_path / "repo"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "hooks" / "reviewer_write_policy.json").write_text(
+        json.dumps({CASE_SCOPED: {"scope": "case", "writes": ["work/reviews/assignment_review_*.md"]}}),
+        encoding="utf-8",
+    )
+    (root / ".claude" / "agents").mkdir(parents=True)
+    (root / ".claude" / "agents" / f"{CASE_SCOPED}.md").write_text("adapter\n", encoding="utf-8")
+    reviews = root / "cases" / "demo" / "work" / "reviews"
+    reviews.mkdir(parents=True)
+    (root / "docs").mkdir()
+    target = reviews / "assignment_review_bp.md"
+    target.symlink_to(root / "docs" / "leak.md")
+
+    assert _denies(_case_reviewer(str(target)), root=root)
+    assert not (root / "docs" / "leak.md").exists()

@@ -343,7 +343,12 @@ def test_reviewer_write_policy_matches_registry() -> None:
 
     policy = json.loads((REPO_ROOT / ".claude/hooks/reviewer_write_policy.json").read_text(encoding="utf-8"))
     expected = {
-        route.profile_id.replace("_", "-"): list(agent_profiles.claude_writes_for_profile(route.profile_id))
+        route.profile_id.replace("_", "-"): {
+            # The scope is carried explicitly so the guard never infers it from a missing
+            # environment variable, which would widen every round reviewer at once.
+            "scope": agent_profiles.write_scope_for_profile(route.profile_id),
+            "writes": list(agent_profiles.claude_writes_for_profile(route.profile_id)),
+        }
         for route in agent_profiles.profile_routes()
         if route.profile_id and "claude" in route.providers
     }

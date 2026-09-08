@@ -13,10 +13,9 @@ authored a real topic through it yet, which is Slice 6.
 A cumulative Codex pass over Slices 1 to 5 has run and its two cross-slice
 findings are fixed, so the per-slice re-check gaps are closed.
 
-Next action: review the Slice 5b charter — case-scoped writes in the Claude
-reviewer guard, then the adapter, fragment and policy entry — and implement it.
-Slice 6 then runs `cases/topic-2026-extension-seam-domain` end to end; the
-operator has supplied the topic and authorized agents.
+Next action: compact the closed Slice 5b charter, then run Slice 6 on
+`cases/topic-2026-extension-seam-domain` — the operator supplied that topic and
+authorized agents. Write Slice 6's full charter first and review it.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -258,7 +257,7 @@ Decisions: `2026-09-08 - Approval is not issuance, and containment needs a root`
 
 ### Slice 5b - Claude parity for the assignment reviewer
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Let a Claude subagent review an assignment bundle`
 - Why: the reviewer shipped codex-only because the write guard confines a
   subagent to `cases/<id>/rounds/<round>/`, which a round-less topic case cannot
@@ -407,7 +406,8 @@ routes, the Codex adapter, the matrix rows and routing text, and a test binding
 and 44 bundle tests, discharging the `## Acceptance Contract`'s executable half.
 Slice 5 landed `scripts/promote-assignment` with its four independent refusals,
 the retained approval record and the `case_doctor` topic branch, at 23 promotion
-tests.
+tests. Slice 5b made the reviewer Claude-capable by giving the write guard an
+explicit per-role scope, at 26 guard tests.
 Each slice took one review round plus its narrow re-check; on Slices 3 and 4a
 the re-check found a defect in the round's own fixes and both chains stopped by
 rule, and the 4b re-check returned `needs_human` on a Serena outage in its own
@@ -887,6 +887,26 @@ Decision: chartered as Slice 5b, before the real-topic run, rather than left in
 Residual risk: under the parent-mediated protocol the author writes the approval
 record attesting the reviewer's verdict, which is weaker than Codex, where the
 reviewer writes it.
+
+### 2026-09-08 - The Codex reviewer cannot start Serena, four reviews running
+
+Trigger: the Slice 5b implementation review returned `needs_human`, the fourth
+this session to stop on Serena rather than finish its verification.
+
+- Cause is structural, not a transient outage: `~/.codex/config.toml` runs
+  Serena as a STDIO server via `uvx --from git+...`, which cannot start under
+  `codex exec --ephemeral --sandbox read-only`. The workstation already serves
+  Serena over HTTP bridges, and Serena works from this session throughout.
+- Effect: those reviews reported only what they could read, so their
+  verification step never ran. That is a silent downgrade — a `needs_human`
+  reads like caution rather than like a tool that was never available.
+
+Decision: recorded in `TODO.md` with the concrete config change; not fixed here,
+because `~/.codex/config.toml` is workstation configuration outside this repo
+and outside this plan. The Slice 5b verification the reviewer could not perform
+is instead carried by `tests/test_write_guard.py`, which now covers the
+redirected root, the redirected case, the dangling link, and a round reviewer
+NOT widening when its round variable is unset.
 
 ## Final Audit
 

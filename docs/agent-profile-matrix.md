@@ -41,9 +41,11 @@ Path convention: every other row's owned outputs are ROUND-relative,
 resolved under `cases/<case-id>/rounds/<round-id>/`. The two assignment
 authoring rows are the exception and are CASE-relative, because a
 `Case kind: topic-proposal` case has no rounds at all. That is also why
-`thesis_assignment_reviewer` is codex-only: the Claude reviewer write guard in
-`.claude/hooks/pre_tool_use_write_guard.py` confines a subagent to one round and
-fails closed without both scope variables.
+`thesis_assignment_reviewer` is the first CASE-scoped Claude role. The reviewer
+write guard in `.claude/hooks/pre_tool_use_write_guard.py` takes each role's
+scope from its policy entry rather than inferring it from an unset
+`CLAUDE_REVIEW_ROUND`, which would widen every round reviewer the first time a
+parent forgot to export it.
 
 ## Routing Matrix
 

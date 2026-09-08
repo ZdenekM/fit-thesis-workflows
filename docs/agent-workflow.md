@@ -161,6 +161,7 @@ role can run under Claude without granting the subagent shell/network/MCP:
 |---|---|---|
 | Supervisor feedback / report review, opponent report review | the reviewed `outputs/*.md` | the hash-bound approval record (`write-review-approval` → `work/reviews/*_review.json`) |
 | Evidence calibrator | the packet `evidence_calibration_findings.md` files | the approval sidecar `work/reviews/*_review.json` |
+| Assignment review | `work/reviews/assignment_review_<variant>.md` | the bundle approval `work/reviews/assignment_approval_<variant>.json` |
 
 Three roles stay **Codex-only** for now because their reviewer deliverable is
 entangled with structured/hashed artifacts a read-only-plus-output Claude
@@ -179,6 +180,24 @@ parent-mediated artifact (an import path or a `*_review.json` approval) is
 denied, because those paths are not in its `claude_writes` policy. The parent
 runs the corresponding helper itself; the approval still records the reviewer's
 identity, so generator/reviewer independence is unaffected.
+
+**Write scope.** Each role's policy entry carries its scope explicitly —
+`round` for a write under `cases/<id>/rounds/<round>/`, `case` for one under
+`cases/<id>/` — and the guard never infers it from an unset
+`CLAUDE_REVIEW_ROUND`, which would widen every round reviewer to case-level
+writes the first time a parent forgot to export the variable. Assignment review
+is the only case-scoped role, because a `Case kind: topic-proposal` case has no
+rounds at all.
+
+**What a parent-written record cannot attest.** For assignment review the
+asymmetry has a cost worth naming: under Codex the reviewer writes its own
+approval, under Claude the bundle's AUTHOR writes it. A verdict alone would then
+be unfalsifiable, because the author could edit the bundle after the review and
+still record pass. So the parent hands the reviewer a frozen four-file hash
+basis, the reviewer records that basis with its verdict and blocking count in
+its own findings artifact, and the parent re-checks the basis before writing the
+record. That is traceability against a reviewer-authored source, not
+authentication; the parent is still trusted.
 
 This is a documented parent-followed contract: orchestration still produces a
 provider-neutral role plan, and the parent performs the launches and the

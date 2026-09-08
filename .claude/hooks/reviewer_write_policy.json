@@ -1,44 +1,86 @@
 {
-  "thesis-code-consistency-reviewer": [
-    "outputs/code_consistency.md"
-  ],
-  "thesis-code-quality-reviewer": [
-    "outputs/code_quality_review.md"
-  ],
-  "thesis-evidence-calibrator": [
-    "work/supervisor_packets/evidence_calibration_findings.md",
-    "work/opponent_packets/evidence_calibration_findings.md"
-  ],
-  "thesis-figure-media-reviewer": [
-    "work/figure_media/visual_inventory.jsonl",
-    "outputs/figure_media_review.md"
-  ],
-  "thesis-opponent-report-reviewer": [
-    "outputs/feedback_k_posudku.md"
-  ],
-  "thesis-quantitative-claims-reviewer": [
-    "work/quantitative_claims.json"
-  ],
-  "thesis-revision-diff-reviewer": [
-    "outputs/revision_diff.md"
-  ],
-  "thesis-supervisor-feedback-reviewer": [
-    "outputs/feedback_student.md"
-  ],
-  "thesis-supervisor-report-reviewer": [
-    "outputs/vedouci_posudek_revidovany.md"
-  ],
-  "thesis-text-reviewer": [
-    "work/supervisor_packets/text_assignment_findings.md",
-    "work/opponent_packets/text_structure_assignment_findings.md"
-  ],
-  "thesis-theses-similarity-reviewer": [
-    "work/theses_similarity/intake.json",
-    "work/theses_similarity/assessment.json",
-    "work/theses_similarity/review_draft.md",
-    "outputs/theses_similarity_review.md"
-  ],
-  "thesis-typography-formal-reviewer": [
-    "outputs/typography_formal_review.md"
-  ]
+  "thesis-assignment-reviewer": {
+    "scope": "case",
+    "writes": [
+      "work/reviews/assignment_review_*.md"
+    ]
+  },
+  "thesis-code-consistency-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/code_consistency.md"
+    ]
+  },
+  "thesis-code-quality-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/code_quality_review.md"
+    ]
+  },
+  "thesis-evidence-calibrator": {
+    "scope": "round",
+    "writes": [
+      "work/supervisor_packets/evidence_calibration_findings.md",
+      "work/opponent_packets/evidence_calibration_findings.md"
+    ]
+  },
+  "thesis-figure-media-reviewer": {
+    "scope": "round",
+    "writes": [
+      "work/figure_media/visual_inventory.jsonl",
+      "outputs/figure_media_review.md"
+    ]
+  },
+  "thesis-opponent-report-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/feedback_k_posudku.md"
+    ]
+  },
+  "thesis-quantitative-claims-reviewer": {
+    "scope": "round",
+    "writes": [
+      "work/quantitative_claims.json"
+    ]
+  },
+  "thesis-revision-diff-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/revision_diff.md"
+    ]
+  },
+  "thesis-supervisor-feedback-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/feedback_student.md"
+    ]
+  },
+  "thesis-supervisor-report-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/vedouci_posudek_revidovany.md"
+    ]
+  },
+  "thesis-text-reviewer": {
+    "scope": "round",
+    "writes": [
+      "work/supervisor_packets/text_assignment_findings.md",
+      "work/opponent_packets/text_structure_assignment_findings.md"
+    ]
+  },
+  "thesis-theses-similarity-reviewer": {
+    "scope": "round",
+    "writes": [
+      "work/theses_similarity/intake.json",
+      "work/theses_similarity/assessment.json",
+      "work/theses_similarity/review_draft.md",
+      "outputs/theses_similarity_review.md"
+    ]
+  },
+  "thesis-typography-formal-reviewer": {
+    "scope": "round",
+    "writes": [
+      "outputs/typography_formal_review.md"
+    ]
+  }
 }

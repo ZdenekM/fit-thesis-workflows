@@ -100,10 +100,10 @@
 
 ## P2 - Later Automation
 
-- [ ] Give `thesis_assignment_reviewer` a Claude adapter once the reviewer write guard can scope to a case.
-   - Prerequisite: case-scoped support in `.claude/hooks/pre_tool_use_write_guard.py::owned_write`, which today requires `cases/<id>/rounds/<round>/` and fails closed without both scope variables, so a round-less `Case kind: topic-proposal` case can never satisfy it.
-   - Keep cross-case denial, tracked-path denial and fail-closed behavior intact, and add allow/deny tests for both the round and the case shape before flipping any route.
-   - Then add `claude` to the route's providers with its `.agents/roles/` fragment, `.claude/agents/` adapter and write-policy entry; the approval record stays out of `claude_writes` under the parent-mediated protocol.
+- [ ] Give the Codex reviewer a Serena it can actually start under `scripts/agent-review`.
+   - Four reviews in one session ended `needs_human` because Serena was unreachable in the reviewer sandbox, so the verification step never ran and the review reported only what it could read.
+   - Cause: `~/.codex/config.toml` configures Serena as a **stdio** server launched with `uvx --from git+...`, which cannot start under `codex exec --ephemeral --sandbox read-only`; the workstation already runs Serena as HTTP bridges on 127.0.0.1:8766-8770.
+   - Point the Codex entry at the repo's HTTP bridge instead of stdio, which also matches the workstation rule against per-client stdio Serena, then re-run one review to confirm the verification step completes.
 
 - [ ] Audit reviewer-profile and operator-calibration application contracts for the rest of the pipeline after opponent-report V1 lands.
    - Start with supervisor reports, then decide whether supervisor feedback, opponent materials, and final artifact review outputs need similar explicit applied-preference artifacts or only clearer packet/review instructions.

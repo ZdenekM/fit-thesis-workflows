@@ -29,6 +29,9 @@ RoleKind = Literal[
     "parent-orchestration",
 ]
 SandboxMode = Literal["read-only", "workspace-write", "parent-orchestration", "not-spawned"]
+# Where a role's owned paths are rooted. Round-relative is the norm; a
+# `Case kind: topic-proposal` case has no rounds, so its roles are case-relative.
+WriteScope = Literal["round", "case"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +51,7 @@ class AgentProfileRoute:
     # on the reviewer's behalf (parent-mediated protocol; see
     # docs/agent-workflow.md), so those parent-written artifacts are excluded.
     claude_writes: tuple[str, ...] | None = None
+    write_scope: WriteScope = "round"
     owned_outputs: tuple[str, ...] = ()
     allowed_writes: tuple[str, ...] = ()
     standalone_review_profile: str | None = None
@@ -67,6 +71,7 @@ def _route(
     profile_id: str | None = None,
     providers: tuple[str, ...] = ("codex",),
     claude_writes: tuple[str, ...] | None = None,
+    write_scope: WriteScope = "round",
     owned_outputs: tuple[str, ...] = (),
     allowed_writes: tuple[str, ...] | None = None,
     standalone_review_profile: str | None = None,
@@ -88,6 +93,7 @@ def _route(
         profile_id=profile_id,
         providers=normalized_providers,
         claude_writes=claude_writes,
+        write_scope=write_scope,
         owned_outputs=owned_outputs,
         allowed_writes=writes,
         standalone_review_profile=standalone_review_profile,
@@ -415,10 +421,12 @@ AGENT_PROFILE_ROUTES: tuple[AgentProfileRoute, ...] = (
         skill_id="thesis-assignment-review",
         status="profile",
         profile_id="thesis_assignment_reviewer",
-        # Codex-only: the Claude write guard confines a reviewer to
-        # `cases/<id>/rounds/<round>/` and fails closed without both scope variables, which a
-        # round-less topic case cannot satisfy. Claude parity is a TODO with that prerequisite.
-        providers=("codex",),
+        providers=("codex", "claude"),
+        # The approval record stays out: it is hash-bound, so the parent persists it under the
+        # parent-mediated protocol and the Claude reviewer writes only its own findings.
+        claude_writes=("work/reviews/assignment_review_*.md",),
+        # CASE-scoped, the first role that is: a `topic-proposal` case has no rounds.
+        write_scope="case",
         role_kind="final-reviewer",
         sandbox_mode="workspace-write",
         # CASE-relative. No revised assignment: a human transcribes the assignment into FIT IS,
@@ -475,8 +483,15 @@ def providers_for_profile(profile_id: str) -> tuple[str, ...]:
     return ()
 
 
+def write_scope_for_profile(profile_id: str) -> str:
+    for route in AGENT_PROFILE_ROUTES:
+        if route.profile_id == profile_id:
+            return route.write_scope
+    return "round"
+
+
 def claude_writes_for_profile(profile_id: str) -> tuple[str, ...]:
-    """Round-relative paths a Claude reviewer for this role may write.
+    """Paths a Claude reviewer for this role may write, relative to its write scope.
 
     Defaults to the role's full ``allowed_writes``; a role that opts into a
     narrower Claude scope (because the parent writes its import/acquisition/
