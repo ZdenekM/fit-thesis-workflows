@@ -623,3 +623,85 @@ Append-only. Charters moved verbatim here when their slice was marked
   `pants run :omen` at the end; record the result or a concrete blocker in
   `## Progress`. `case_doctor.py` is already a High hotspot, so a change there
   is worth the scoped look.
+
+### Slice 5b - Claude parity for the assignment reviewer
+
+- Status: done
+- Proposed commit message: `Let a Claude subagent review an assignment bundle`
+- Why: the reviewer shipped codex-only because the write guard confines a
+  subagent to `cases/<id>/rounds/<round>/`, which a round-less topic case cannot
+  satisfy. That was scoped out on the reasoning that Codex supplies
+  independence — reasoning drawn from an operator who has both providers. Most
+  supervisors will have one, and for a Claude-only supervisor the workflow
+  currently offers NO independent assignment review, so the
+  `## Acceptance Contract`'s distinctness criterion is unsatisfiable for them.
+  That is a hole in the workflow, not a parity nicety.
+- Expected paths: `.claude/hooks/pre_tool_use_write_guard.py`,
+  `.claude/hooks/reviewer_write_policy.json`,
+  `src/thesis_review_workflow/agent_profiles.py`,
+  `.agents/roles/thesis-assignment-reviewer.md`,
+  `.claude/agents/thesis-assignment-reviewer.md`,
+  `.agents/skills/thesis-assignment-review/SKILL.md`,
+  `docs/agent-profile-matrix.md`, `docs/agent-workflow.md`, `TODO.md`,
+  `tests/test_write_guard.py`, `tests/test_agent_profile_contracts.py`
+- Tasks:
+  - Teach `pre_tool_use_write_guard.py::owned_write` a CASE-scoped shape beside
+    the round-scoped one, still requiring `CLAUDE_REVIEW_CASE`, still denying a
+    different case, still failing closed — and keeping the repository-root
+    anchor the round branch already has. "Deny tracked paths" is the wrong
+    guard: a `cases/topic` resolving to `docs/topic` lets the reviewer create a
+    NEW, untracked findings file in a trackable directory, which no
+    tracked-path check sees. Anchor as `assignment_promotion::private_root_errors`
+    does — the resolved private root must be `<repo>/cases`, the resolved case
+    beneath it — and resolve destinations that do not exist yet.
+  - Carry the scope in the POLICY, not in the absence of an environment
+    variable. Inferring "case scope" from an unset `CLAUDE_REVIEW_ROUND` would
+    make a forgotten export silently widen every existing round reviewer to
+    case-level writes, which is the fail-open this guard exists to prevent. The
+    policy value becomes an object with an explicit scope and its writes, and
+    `test_reviewer_write_policy_matches_registry` follows the registry into the
+    new shape.
+  - Add `claude` to the `thesis_assignment_reviewer` route with
+    `claude_writes` covering the findings artifact only. The approval record
+    stays out, as `agent_profiles::AgentProfileRoute` documents for hash-bound
+    records: the parent persists it under the parent-mediated protocol.
+  - Say plainly what that costs, in the skill and in `docs/agent-workflow.md`:
+    under Codex the reviewer writes its own approval, under Claude the AUTHOR
+    writes a record attesting the reviewer's verdict.
+  - A verdict alone does not make the record checkable, because it does not say
+    WHAT was reviewed: the parent could edit the bundle after the review and
+    still build an approval reading pass/zero, binding files the reviewer never
+    saw. So freeze the four-file hash basis in the handoff, require the Claude
+    reviewer to record that basis beside its verdict and blocking count in
+    `work/reviews/assignment_review_<variant>.md`, and require the parent to
+    check the basis still matches before recording approval. This stays a
+    documented handoff contract; redesigning the approval infrastructure is not
+    in this slice, and the parent-trust limitation remains and is stated.
+  - Deliver the surface `tests/test_agent_profile_contracts.py` already binds
+    for a claude-capable route. Do not enumerate it here: that test's
+    bidirectional guard is the authority and fails until registry, fragment,
+    adapter and policy are one consistent set.
+  - Remove the Claude-parity entry from `TODO.md` once it is no longer pending.
+  - Tests in `tests/test_write_guard.py`: a case-scoped role writes its owned
+    case path and is denied another case, a tracked path, a round path outside
+    its policy, and everything without `CLAUDE_REVIEW_CASE`; a round-scoped role
+    is unchanged and is NOT widened to case paths by a missing
+    `CLAUDE_REVIEW_ROUND`; an adapter-backed reviewer missing from the policy
+    still fails closed, while a non-reviewer subagent stays unconstrained, as
+    `test_non_reviewer_subagent_is_not_constrained` requires. Add the escapes
+    promotion already tests: a redirected `cases/` root, a redirected single
+    case, and a dangling destination link, each into an UNTRACKED destination.
+- Out of scope: the real-topic run, which is Slice 6. No change to any other
+  role's scope or writes, no new reviewer role, and no relaxation of the
+  guard's fail-closed behaviour. The parent-mediated approval protocol itself
+  is not redesigned here.
+- Verification:
+  ```bash
+  pants test tests::
+  python3 tests/test_plan_contract.py
+  scripts/check-private
+  scripts/check-scripts
+  git diff --check
+  ```
+  Scoped Omen over the guard during implementation and `pants run :omen` at the
+  end; record the result or a concrete blocker in `## Progress`.
