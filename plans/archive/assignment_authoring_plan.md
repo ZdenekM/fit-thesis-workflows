@@ -1,21 +1,16 @@
 # Assignment Authoring Plan
 
-Status: in_progress
+Status: done
 Created: 2026-09-03
 
 ## Start Here
 
-State: Slices 0 to 5 are done and green. The whole tracked workflow exists:
-templates, contract, style layers, both skills, the reviewer route, both
-checkers, the bundle approval, promotion and the case-doctor branch. Nothing has
-authored a real topic through it yet, which is Slice 6.
+State: DONE. Every slice landed, the real-topic run is complete, and the
+`## Final Audit` is recorded.
 
-A cumulative Codex pass over Slices 1 to 5 has run and its two cross-slice
-findings are fixed, so the per-slice re-check gaps are closed.
-
-Next action: run Slice 6. The operator has named the topic case in session and
-authorized agents; the case id is deliberately not written here, so ask for it
-if you do not have it.
+Next action: none. The plan moves to `plans/archive/`. Open work lives in
+`TODO.md`; what the operator still owes before publishing any assignment is in
+that topic case's own ignored notes, not here.
 
 Do not read: the calibration corpus, the review transcripts, or the probe
 artifacts; their conclusions are in `## Progress` and `## Decision Log`.
@@ -270,7 +265,7 @@ Decisions: `2026-09-08 - Claude parity comes back into the plan`,
 
 ### Slice 6 - Real-topic run and closeout
 
-- Status: planned
+- Status: done
 - Proposed commit message: `Close the assignment authoring plan after a real-topic run`
 - Why: five slices built a workflow that no real topic has been through. The
   probe in Slice 0 was hand-authored and touched no tracked path, so nothing yet
@@ -914,4 +909,53 @@ Residual risk: no mechanical check protects plan PROSE from private content.
 
 ## Final Audit
 
-Not started.
+Closed 2026-09-08 after the real-topic run. The operator ended the run without
+publishing, on the grounds that it had served its purpose.
+
+**Commands run** at closeout, all green: `pants test tests::`,
+`python3 tests/test_plan_contract.py`, `scripts/check-private`,
+`scripts/check-scripts`, `git diff --check`, the four smoke scripts, and the
+case-scoped `check-assignment-draft`, `check-assignment-bundle` and `case-doctor`
+on the operator's topic case.
+
+**What the run established.** The deterministic checker and the semantic reviewer
+split the work as designed: across three review rounds on two variants, the
+checker reported only unresolved values and one field-level defect, and every
+substantive finding needed judgment the checker must not attempt. The provenance
+rule caught a real citation drift in hand-written material. The three-way
+criterion split caught two criteria that reached no assignment point — visible to
+the reviewer alone. The hash binding voided both approvals the moment the bundles
+were edited, twice, unprompted.
+
+**One workflow defect found and fixed in-slice**: the school form carries
+`Specializace:` for a diplomová práce, and the checker had it optional for both
+renderings, so a real DP shipped without it and passed. Now required on a `dp`
+variant, with the test that would have caught it. This was the result the charter
+predicted would be the most valuable, and it came from the reviewer, not the
+checker.
+
+**Checks not performed, and why.** The `## Acceptance Contract`'s second
+criterion — the operator reading — was NOT performed. It gates publication and
+sending, neither of which happened, so nothing is owed; the bundles are
+unpublished rather than accepted. The record, and everything that reading must
+still weigh, is in the case's own ignored notes. The Claude reviewer's WRITE path
+was not exercised either: a Claude Code parent cannot export `CLAUDE_REVIEW_CASE`
+into its own hook environment, so the guard failed closed and the reviewers
+returned their artifacts for the parent to persist. The role, its independence
+and its evidence rules were exercised; only the write was not.
+
+**Residual risks.** Two review improvements were left unapplied by operator
+decision, and one — a supervision note filed under an assessable-criterion
+heading — is a trap for a future re-render of that case. The superseded probe
+round tree is still in the case. Neither is a tracked-repo risk.
+
+**Lessons routed.** Five to `TODO.md`: per-round review artifacts, a home in the
+intake template for a recorded supervision consequence, the profile-selection
+ambiguity between `profiles/README.md` and the review skill, the now-disproved
+worked example in `docs/assignment-authoring.md`, and the live Claude write path.
+Two instruments landed during the plan rather than as notes: the dangling
+`Decisions:` pointer check in `tests/test_plan_contract.py`, and the
+`AGENTS.md`-routing test binding the skill list to the registry.
+
+**Archive decision.** Archive. The workflow is complete and exercised end to end;
+what remains is either the operator's to decide or a `TODO.md` item.

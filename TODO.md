@@ -100,6 +100,21 @@
 
 ## P2 - Later Automation
 
+- [ ] Give a review round its own artifact, instead of one fixed path per variant.
+   - `work/reviews/assignment_review_<variant>.md` is a single path, so a second review overwrites the first and the record of what was found and fixed is lost. The first real run needed three rounds and kept them only by hand-copying to `.round1.md` / `.round2.md`.
+   - Decide whether the skill should name a per-round path or an append-only artifact, then apply the same answer to the other review skills, which have the same shape.
+- [ ] Give `templates/topic-intake.md` a home for a recorded supervision consequence.
+   - A decision that deliberately moves an obligation out of the assignment fits none of the existing sections: `Rationale Only` is why the topic is worth doing, `Interpretation For The Student` goes to the brief, `Open Questions` is for unresolved items. Filed under `### Assessable As An Assignment Point` it is owed a point it must never receive, and a future re-render could pull the obligation back in.
+   - Two reviews of the first real topic asked for this independently.
+- [ ] Settle whether `profiles/local/default.md` applies automatically or only when `case.md` names it.
+   - `profiles/README.md` says local/default "refines the generic default profile for your local machine", which reads as an automatic overlay; `.agents/skills/thesis-assignment-review/SKILL.md` says layer 3 applies "when case.md selects one". A case saying `Reviewer profile: default` therefore has two readings, and a reviewer that picks the second reviews against layer 2 alone.
+   - Pick one and make both documents say it.
+- [ ] Re-derive the worked example in `docs/assignment-authoring.md` `## Where A Success Criterion Lands`.
+   - It uses the out-of-seam enumeration criterion as its example of one that "fit no assignment point's style at all". The first real run split that criterion cleanly: the obligation half became an assignment point and the "zero is not required" half stayed in the brief. The example is now weaker than the case it was drawn from.
+- [ ] Make the live Claude reviewer write path exercisable from a Claude Code parent.
+   - `docs/agent-workflow.md` lists live end-to-end Claude review as pending. The first real run showed the concrete obstacle: the guard needs `CLAUDE_REVIEW_CASE` exported at launch, and a Claude Code parent cannot export an environment variable into its own hook environment mid-session. The guard failed closed correctly and the reviewers returned their artifacts as text for the parent to persist, so the role works and only the write path is unexercised.
+   - Decide whether the parent-supplied scope should come from something a session can actually set, or whether persisting reviewer output through the parent is the intended shape for Claude.
+
 - [ ] Give the Codex reviewer a Serena it can actually start under `scripts/agent-review`.
    - Four reviews in one session ended `needs_human` because Serena was unreachable in the reviewer sandbox, so the verification step never ran and the review reported only what it could read.
    - Cause: `~/.codex/config.toml` configures Serena as a **stdio** server launched with `uvx --from git+...`, which cannot start under `codex exec --ephemeral --sandbox read-only`; the workstation already runs Serena as HTTP bridges on 127.0.0.1:8766-8770.
