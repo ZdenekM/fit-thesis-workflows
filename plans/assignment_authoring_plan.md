@@ -242,21 +242,34 @@ Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
   - Keep both heading sets in ONE place beside `RENDERINGS`, and have the
     template test derive from it, the arrangement Slice 3 adopted after the
     template and the checker each carried their own copy.
-  - Extend `scripts/check-assignment-draft` with exactly the two rules
-    `scripts/check-feedback-language` already applies, reused rather than
-    reopened: the artifact carries the required headings of the case's declared
-    language, and a `cs` artifact carries none of the ASCII-folded spellings of
-    those headings. Apply them to `notes/student_brief.md` and to every
-    projection.
+  - Extend `scripts/check-assignment-draft` with the THREE rules
+    `scripts/check-feedback-language` applies, not two: the required headings of
+    the case's declared language are present, a `cs` artifact carries none of
+    the ASCII-folded spellings, and NEITHER language's artifact carries the
+    other language's canonical headings. The third rule is the one that catches
+    a Czech brief with an English section copied verbatim into its projection,
+    which the first two and the whole-document comparison all pass. Reuse means
+    the checking primitives `check_feedback_language::report_missing` and
+    `::report_present`, never its feedback heading sets or its round-scoped CLI.
+  - The source and a projection have DIFFERENT required shapes and need
+    different heading sets from one brief-language mapping: the source carries
+    `## Shared Brief`, `## Variant Delta` and a `### <variant>` subsection per
+    variant, while a projection carries the variant-qualified title and
+    `## Variant Delta - <variant>` and none of those wrappers. One set applied
+    to both would reject a valid projection; their intersection would silently
+    weaken the source check.
   - The canonical projection shape becomes language-dependent in its headings
     and only there; the whole-document comparison Slice 3 delivered stays
     exactly as it is.
   - `docs/assignment-authoring.md` states the language rule and its source
     field, next to the projection shape it already documents.
-  - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails;
-    an ASCII-folded Czech heading fails; an unsupported `Student feedback
-    language` value is refused rather than defaulted; a missing field defaults
-    to `cs` as `templates/case-notes.md` says.
+  - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails
+    and a Czech-headed one in an `en` case fails, both in source and in
+    projection; an ASCII-folded Czech heading fails; a valid projection is not
+    rejected by the source's own wrapper headings being absent from it; an
+    unsupported `Student feedback language` value is refused rather than
+    defaulted; a missing field defaults to `cs` as `templates/case-notes.md`
+    says.
 - Out of scope: the approval record, hashes, author/reviewer distinctness and
   `scripts/check-assignment-bundle`, all of which are Slice 4b. No new command,
   no change to `scripts/check-feedback-language` or to the feedback heading
@@ -280,9 +293,9 @@ Objective: `scripts/check-assignment-bundle <case-id> <variant>` as the
 by path and hash in an approval record, and an author distinct from the
 reviewer. Reuse `review_approvals::sha256_file` and its field vocabulary.
 
-Boundary: not the `review-approval-v1` schema itself, which binds one reviewed
-artifact inside a round and consults `work/review_manifest.json`; a topic case
-has neither. State that in the charter, do not silently diverge.
+Boundary: not the `review-approval-v1` schema, whose payload fixes ONE
+`reviewed_artifact_path` plus one `review_basis_path` where a bundle has four.
+Manifest integration is a separate function and is not the reason.
 
 ### Slice 5 - Promotion and case-doctor branch
 
@@ -638,11 +651,10 @@ commit-sized halves and one criterion whose premise had moved.
   <variant> [round-id]`, written before the round-less topic case was decided.
   Re-derived rather than patched, per `plans/README.md`: the round id is gone.
   This SHRINKS the criterion, which needs no operator approval.
-- 4b will not reuse `review_approvals::REVIEW_APPROVAL_SCHEMA`: that schema
-  binds ONE reviewed artifact inside a round and validates against
-  `work/review_manifest.json`, while a bundle is four artifacts in a case with
-  no round and no manifest. It reuses the hashing helper and the field
-  vocabulary only.
+- 4b will not reuse `review_approvals::REVIEW_APPROVAL_SCHEMA`: its payload
+  fixes one `reviewed_artifact_path` and one `review_basis_path`, while a
+  bundle is four artifacts. Manifest validation is a separate function, so it
+  is not the reason; reuse is the hashing helper and the field vocabulary.
 
 Decision: charter 4a in full, 4b as a stub. Why: the last three slices each
 found defects a smaller object would have surfaced sooner.
