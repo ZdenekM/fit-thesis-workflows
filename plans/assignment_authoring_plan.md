@@ -268,21 +268,59 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
     round the way every other round command does; the topic side stays
     round-less.
   - Refuse unless `check_assignment_bundle::check_bundle` passes for that
-    variant. Promoting an unapproved or stale bundle is the one irreversible
-    thing this command can do wrong, because downstream workflows then measure
-    a thesis against text nobody approved.
+    variant. Promoting an unapproved or stale bundle would make downstream
+    workflows measure a thesis against text nobody approved.
+  - Approval is NOT issuance, and promotion needs both. A bundle approval says
+    the variant may be published; it says nothing about whether this student
+    received this assignment. Promotion therefore requires an explicit operator
+    assertion — a required flag whose help states exactly what is being
+    asserted, that this variant is the target student's effective assignment
+    and its brief was supplied — recorded in the generated file and the
+    operation log. Without it, refuse. Why this is the P1 of the slice: a
+    proposal promoted before delivery makes every later round grade the student
+    against requirements they never received, and no readiness check can detect
+    it, because `check_round_ready` reads section content and cannot establish
+    issuance.
+  - Validate the TARGET before writing, not just the source: the case exists
+    and is `Case kind: thesis-review`, its round exists, and its `Work type`
+    matches the variant. A `dp` bundle promoted into a BP case passes every
+    other check here and yields the wrong assessment basis; `unknown` is
+    refused too, because promotion is the moment the work type is knowable.
+  - Anchor containment to the private root, not just to the case. Require the
+    RESOLVED target case directory to sit beneath the resolved `cases/` root,
+    require that root to sit inside the repository, and then confine every
+    write beneath the case. Anchoring to the case alone is not enough: a
+    `cases/<id>` that links to `docs/<id>` carries valid metadata and a real
+    round, so every other check passes while assignment text, the retained
+    approval record and the log land somewhere `.gitignore` does not cover.
+    `.gitignore` protects the lexical `cases/` path, and the round resolver
+    validates an identifier rather than a destination.
   - Refuse to overwrite an existing `notes/assignment.md` unless `--replace` is
     given, and say which file is in the way. A silent overwrite would destroy
-    the assignment a case was already reviewed against.
-  - Fill `templates/assignment.md`'s sections from the bundle: the variant's
-    assignment points and literature into
-    `## Formal Assignment Text Or Summary`, and the variant's brief projection
-    into `## Private Assignment Notes For Student`, which is what that section
-    already means — the non-public notes the student was given.
+    the assignment a case was already reviewed against. `--replace` lifts THAT
+    refusal only: it does not weaken approval, issuance, target or containment.
+  - Define the WHOLE rendering mapping, because a partial one silently drops
+    formal obligations:
+    - `## Formal Assignment Artifacts`: a generated declaration naming the
+      topic case, the variant and the approval record, not a TODO left in place.
+    - `## Formal Assignment Text Or Summary`: the variant's points, its
+      literature AND its semestral-defence requirement, which is a distinct
+      formal field of `templates/assignment-formal.md` that the obvious mapping
+      loses.
+    - `## Private Assignment Notes For Student`: the brief projection, which is
+      what that section already means. Its headings must be DEMOTED below the
+      enclosing section: the projection carries an H2 delta heading, and
+      `check_round_ready` ends a section at the next H2, so a verbatim copy
+      would cut the section in half.
+    - `## Assignment Coverage Hints`: left for the operator, as today.
   - Add `Assignment source:` to `templates/assignment.md` and to the generated
     file, naming topic case id, variant, and the approval record's own sha256.
-    Hash the RECORD, not the four files: the record already binds them, and one
-    hash that resolves to one approval is the traceable answer.
+    Hash the RECORD, not the four files: the record already binds them.
+  - A hash is an identity, not an archive. The approval path is one fixed name
+    per variant, so a later re-approval overwrites the record the hash refers
+    to and its file hashes and reviewer identity become unrecoverable. Copy the
+    approved record into the target round's ignored workspace and reference
+    that retained path beside the hash.
   - Append an operation-log entry to the TARGET round with
     `thesis_review_workflow.operation_log::append_operation`. The topic case has
     no round and so no log; say that in the doc rather than inventing one.
@@ -293,12 +331,20 @@ Decisions: `2026-09-08 - Slice 4b: the reader is the gate, so parity is structur
     deadline nor feedback-language gates, none of which have a subject here.
   - Full operator-tool surface and a smoke script. `pants test tests::` is the
     authority on completeness.
-  - Tests: promotion of an approved variant writes every section and the source
-    line; an unapproved variant is refused; a stale bundle is refused through
-    the bundle check; an existing target file is refused without `--replace`
-    and replaced with it; the operation-log entry lands in the target round;
-    `case_doctor` on a topic case prints authoring state and exits without
-    running a thesis gate; `case_doctor` on a thesis-review case is unchanged.
+  - Tests: promotion of an approved variant writes every section, the source
+    line and the retained record; the semestral requirement survives; the
+    generated file still satisfies `check_round_ready`'s section reading, with
+    the brief's own headings inside the private-notes section rather than
+    ending it; an unapproved or stale bundle is refused; a missing issuance
+    assertion is refused; a `dp` bundle into a BP case is refused, and so is an
+    `unknown` work type; a write escaping the target case is refused; an
+    existing target file is refused without `--replace` and replaced with it,
+    while `--replace` alone lifts no other refusal; a case directory that is a
+    link out of `cases/` is refused, with and without `--replace`; the
+    operation-log entry
+    lands in the target round; `case_doctor` on a topic case prints authoring
+    state and runs no thesis gate; `case_doctor` on a thesis-review case is
+    unchanged.
 - Out of scope: the real-topic run and `## Final Audit`, which are Slice 6. No
   bulk migration of existing cases, no change to any existing readiness gate,
   and no second layout beside `cases/`.
@@ -737,6 +783,27 @@ could not verify parity by reading, and the property is cheap to assert.
 
 Residual risk: that re-check returned `needs_human`, so this batch had no second
 reader. Serena was reachable here and was used to read the builder.
+
+### 2026-09-08 - Approval is not issuance, and containment needs a root
+
+Trigger: the Slice 5 charter review returned four findings, two P1, and its
+narrow re-check found the containment anchor still one level too low.
+
+- Approval says a variant may be published, not that a student received it.
+  Promotion turned the first into assessment authority, and no readiness check
+  sees the difference. It now requires a recorded issuance assertion.
+- The target went unvalidated: a `dp` bundle into a BP case gives the wrong
+  assessment basis. The re-check then showed confining writes to the resolved
+  CASE is too low an anchor, since the case can resolve out of `cases/`.
+- The rendering mapping dropped the semestral requirement and would have cut
+  `## Private Assignment Notes For Student` in half, because the projection
+  carries an H2 and `check_round_ready` ends a section there.
+- A record hash is an identity, not an archive: one fixed approval path per
+  variant means a re-approval destroys what it refers to, so the record is
+  retained.
+
+Decision: chain stops at one round plus one re-check; the fix is one tightening
+clause, not a third object. Residual risk: that clause is unreviewed.
 
 ## Final Audit
 
