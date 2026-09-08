@@ -8,7 +8,13 @@ only prove the fixture right.
 
 from pathlib import Path
 
-from thesis_review_workflow.assignment_draft import RENDERINGS, SUPPLEMENT_LABEL, form_labels
+from thesis_review_workflow.assignment_draft import (
+    BRIEF_LANGUAGES,
+    RENDERINGS,
+    SUPPLEMENT_LABEL,
+    ascii_folded,
+    form_labels,
+)
 from thesis_review_workflow.metadata import CASE_KINDS, DEFAULT_CASE_KIND, case_kind, unresolved_values
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -131,14 +137,29 @@ def test_student_brief_template_is_shared_plus_variant_delta() -> None:
     """~85% of two briefs for one topic was variant-independent in the probe."""
 
     text = read(TEMPLATES / "student-brief.md")
-    shared_at = text.find("## Shared Brief")
-    delta_at = text.find("## Variant Delta")
+    # Locate the HEADINGS, not the backticked mentions of them in the surrounding prose.
+    shared_at = text.index("\n## Shared Brief\n")
+    delta_at = text.index("\n## Variant Delta\n")
     assert shared_at >= 0 and delta_at > shared_at
     assert "byte-identically" in flat(text[:shared_at])
     delta = text[delta_at:]
     assert "### bp" in delta and "### dp" in delta
     assert "### How To Read The Assignment" in text[shared_at:delta_at]
-    assert "## Variant Delta - <variant>" in text, "the projection shape must be fixed, not guessed"
+    for language in BRIEF_LANGUAGES.values():
+        for heading in language.content_headings:
+            assert heading in text, f"templates/student-brief.md omits the {language.key} heading `{heading}`"
+        # The projection shape must be fixed per language, not guessed.
+        assert f"{language.title} - <variant>" in text
+        assert f"{language.delta_heading} - <variant>" in text
+
+
+def test_no_brief_language_heading_is_spelled_like_a_neutral_source_wrapper() -> None:
+    """The wrappers are language-neutral, so a wrong-language heading can be forbidden anywhere."""
+
+    neutral = {"# Student Brief", "## Shared Brief", "## Variant Delta"}
+    for language in BRIEF_LANGUAGES.values():
+        owned = set(language.heading_bases()) | {ascii_folded(base) for base in language.heading_bases()}
+        assert not owned & neutral, f"{language.key} claims a neutral wrapper: {sorted(owned & neutral)}"
 
 
 def test_the_brief_source_and_its_per_variant_projection_are_distinguished() -> None:

@@ -45,14 +45,20 @@ The projection has a fixed shape, so a checker can compare it exactly instead
 of inferring which text belongs to which variant:
 
 ```text
-# Student Brief - <variant>
+<title> - <variant>
 
 <the ## Shared Brief body of notes/student_brief.md, verbatim>
 
-## Variant Delta - <variant>
+<delta heading> - <variant>
 
 <that variant's ### <variant> delta body, verbatim>
 ```
+
+Both wrappers are language-bound, because the student reads them: `cs` uses
+`# Úvodní podklad k tématu` and `## Specifika varianty`, `en` uses
+`# Thesis Topic Brief` and `## For This Variant`. Neither is spelled like a
+neutral source wrapper, so a wrong-language heading can be forbidden anywhere in
+the document rather than only at the positions a wrapper may occupy.
 
 Nothing else belongs in the file, the title line included: the checker compares
 the WHOLE projection against that document, because an obligation written into
@@ -103,6 +109,27 @@ Only the first layer is fixed.
 `profiles/README.md` `## Assignment Authoring Boundary` owns the rule for what
 may enter the tracked default. Factual field values are case data, never
 profile content.
+
+## Brief Language
+
+A brief is the only student-facing artifact this workflow produces, so it
+follows `Student feedback language` in `case.md` — never the thesis language,
+and never the assignment's `Rendering:`. The field defaults to `cs`, and an
+unsupported value is refused rather than defaulted.
+
+That field selects the brief's heading set, and
+`scripts/check-assignment-draft` applies the same three rules
+`scripts/check-feedback-language` applies to student feedback: the required
+headings of the declared language are present, no ASCII-folded spelling of a
+Czech heading appears, and no heading of the other language appears. The third
+rule is the one that catches a Czech brief carrying an English section copied
+verbatim into its projection — the other two, and the whole-document comparison
+above, all pass such a file.
+
+The source and a projection have different required sets on purpose. The
+source's `## Shared Brief`, `## Variant Delta` and `### <variant>` are neutral
+authoring structure the student never sees; a projection carries the
+language-bound title and delta heading instead.
 
 ## Where A Success Criterion Lands
 

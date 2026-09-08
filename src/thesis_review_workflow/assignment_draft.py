@@ -14,6 +14,7 @@ and drift apart. See `docs/assignment-authoring.md`.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,6 +83,117 @@ RENDERINGS: dict[str, Rendering] = {
         footer=("Supervisor:", "Head of Department:", "Beginning of work:", "Submission deadline:", "Approval date:"),
     ),
 }
+
+
+def ascii_folded(text: str) -> str:
+    """`text` with combining marks removed, so `Kde začít` folds to `Kde zacit`."""
+
+    return "".join(char for char in unicodedata.normalize("NFKD", text) if not unicodedata.combining(char))
+
+
+@dataclass(frozen=True)
+class BriefLanguage:
+    """Heading contract for one `Student feedback language`.
+
+    The source and a projection deliberately differ in shape — the source
+    carries the authoring wrappers, a projection carries a student-facing title
+    and one delta heading — so each gets its own required set. Fixed and
+    tracked rather than profile-configurable, the same arrangement
+    `check_feedback_language` uses for `outputs/feedback_student.md`.
+    """
+
+    key: str
+    content_headings: tuple[str, ...]
+    title: str
+    delta_heading: str
+
+    def heading_bases(self) -> tuple[str, ...]:
+        """Every heading this language owns, unqualified by any variant."""
+
+        return (*self.content_headings, self.title, self.delta_heading)
+
+    def source_headings(self) -> tuple[str, ...]:
+        return (SHARED_BRIEF_HEADING, *self.content_headings, VARIANT_DELTA_HEADING)
+
+    def projection_headings(self, variant: str) -> tuple[str, ...]:
+        return (f"{self.title} - {variant}", *self.content_headings, f"{self.delta_heading} - {variant}")
+
+
+BRIEF_LANGUAGES: dict[str, BriefLanguage] = {
+    "cs": BriefLanguage(
+        key="cs",
+        content_headings=(
+            "### Na čem práce staví",
+            "### Kde začít",
+            "### Jak budeme spolupracovat",
+            "### Jak číst zadání",
+            "### Co do práce nepatří",
+        ),
+        title="# Úvodní podklad k tématu",
+        delta_heading="## Specifika varianty",
+    ),
+    "en": BriefLanguage(
+        key="en",
+        content_headings=(
+            "### What The Work Builds On",
+            "### Where To Start",
+            "### Working Agreements",
+            "### How To Read The Assignment",
+            "### What Is Out Of Scope",
+        ),
+        # Deliberately unlike the neutral source wrappers `# Student Brief`,
+        # `## Shared Brief` and `## Variant Delta`, which belong to no language.
+        title="# Thesis Topic Brief",
+        delta_heading="## For This Variant",
+    ),
+}
+
+DEFAULT_BRIEF_LANGUAGE = "cs"
+"""`templates/case-notes.md` ships `Student feedback language: cs`."""
+
+
+def brief_language(fields: dict[str, str]) -> BriefLanguage | None:
+    """Resolve the brief language from case fields; None for an unsupported value."""
+
+    raw = fields.get("student feedback language", "").strip().lower()
+    if not raw:
+        return BRIEF_LANGUAGES[DEFAULT_BRIEF_LANGUAGE]
+    return BRIEF_LANGUAGES.get(raw)
+
+
+def forbidden_heading_bases() -> tuple[str, ...]:
+    """Every brief heading of every language, plus each ASCII-folded spelling."""
+
+    bases: set[str] = set()
+    for language in BRIEF_LANGUAGES.values():
+        bases.update(language.heading_bases())
+        bases.update(ascii_folded(base) for base in language.heading_bases())
+    return tuple(sorted(bases))
+
+
+def forbidden_headings_in(text: str, language: BriefLanguage, variant: str | None = None) -> list[str]:
+    """Heading lines that belong to the wrong language or the wrong spelling.
+
+    Matching is by BASE, so `# Uvodni podklad k tematu - dp` is caught while
+    checking `bp` and so is any other suffix. Two earlier versions enumerated
+    exact forms instead and each left a suffix that escaped; a base plus the
+    required set is the whole rule.
+
+    The neutral source wrappers `# Student Brief`, `## Shared Brief` and
+    `## Variant Delta` are spelled like no language's heading, deliberately, so
+    they need no exemption here.
+    """
+
+    required = set(language.source_headings() if variant is None else language.projection_headings(variant))
+    bases = forbidden_heading_bases()
+    offending: list[str] = []
+    for line in text.splitlines():
+        heading = line.strip()
+        if not heading.startswith("#") or heading in required:
+            continue
+        if any(heading == base or heading.startswith(f"{base} - ") for base in bases):
+            offending.append(heading)
+    return offending
 
 
 @dataclass(frozen=True)
@@ -338,24 +450,24 @@ def _resolved_identifier(identifier: str) -> bool:
     return bool(identifier.strip()) and not unresolved_values(f"Identifier: {identifier}")
 
 
-def projection_delta_heading(variant: str) -> str:
-    return f"## Variant Delta - {variant}"
+def projection_delta_heading(language: BriefLanguage, variant: str) -> str:
+    return f"{language.delta_heading} - {variant}"
 
 
-def canonical_projection(shared: str, delta: str, variant: str) -> str:
-    """The one shape `outputs/student_brief_<variant>.md` may have."""
+def canonical_projection(shared: str, delta: str, variant: str, language: BriefLanguage) -> str:
+    """The one shape `outputs/student_brief_<variant>.md` may have, in one language."""
 
     return "\n\n".join(
         [
-            f"# Student Brief - {variant}",
+            f"{language.title} - {variant}",
             shared.strip(),
-            projection_delta_heading(variant),
+            projection_delta_heading(language, variant),
             delta.strip(),
         ]
     )
 
 
-def brief_findings(source: str, projection: str, variant: str) -> list[str]:
+def brief_findings(source: str, projection: str, variant: str, language: BriefLanguage) -> list[str]:
     """A projection is compared WHOLE against the one canonical document.
 
     Comparing designated parts left the rest of the file unchecked: an
@@ -370,7 +482,7 @@ def brief_findings(source: str, projection: str, variant: str) -> list[str]:
     if not own:
         return [f"the brief source has no `### {variant}` delta"]
 
-    expected = canonical_projection(shared, own, variant)
+    expected = canonical_projection(shared, own, variant, language)
     if _normalized(projection) == _normalized(expected):
         return []
     return [

@@ -7,6 +7,9 @@ from pathlib import Path
 
 from thesis_review_workflow.assignment_draft import (
     VARIANT_RE,
+    BriefLanguage,
+    brief_language,
+    forbidden_headings_in,
     assignment_findings,
     brief_findings,
     citable_artifacts,
@@ -15,6 +18,7 @@ from thesis_review_workflow.assignment_draft import (
     supplement_line,
     unresolved_findings,
 )
+from thesis_review_workflow.cli.check_feedback_language import report_missing
 from thesis_review_workflow.cli.context import repo_root, require_case_dir, validate_id
 from thesis_review_workflow.metadata import case_kind, read_fields
 from thesis_review_workflow.paths import rel_repo
@@ -29,6 +33,25 @@ def assignment_rel(variant: str) -> Path:
 
 def brief_rel(variant: str) -> Path:
     return Path(f"outputs/student_brief_{variant}.md")
+
+
+def language_findings(label: str, text: str, language: BriefLanguage, variant: str | None) -> list[str]:
+    """The three rules `scripts/check-feedback-language` applies, on the brief's own headings.
+
+    `report_missing` is reused for the required set. The forbidden side cannot
+    be: it matches heading BASES so that any variant suffix is caught, which an
+    exact-list reporter cannot express.
+    """
+
+    required = language.source_headings() if variant is None else language.projection_headings(variant)
+    existing = {line.strip() for line in text.splitlines() if line.strip().startswith("#")}
+    errors: list[str] = []
+    report_missing(f"{label}: missing headings for the case feedback language:", list(required), existing, errors)
+    offending = forbidden_headings_in(text, language, variant)
+    if offending:
+        errors.append(f"{label}: headings of the wrong language or spelling:")
+        errors.extend(f"- {heading}" for heading in offending)
+    return errors
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,6 +75,16 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
             [
                 f"`Case kind: {kind}` — assignment authoring runs only in a `topic-proposal` case; "
                 "see docs/assignment-authoring.md"
+            ],
+            [],
+        )
+
+    language = brief_language(read_fields(case_dir / "case.md"))
+    if language is None:
+        return (
+            [
+                "`Student feedback language:` in case.md is not a supported value; "
+                "expected `cs` or `en` (see AGENTS.md `## Output Conventions`)"
             ],
             [],
         )
@@ -84,6 +117,9 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
     brief_source = read_text(case_dir / BRIEF_SOURCE_REL)
     if brief_source:
         findings.extend(unresolved_findings(BRIEF_SOURCE_REL.as_posix(), brief_source))
+        findings.extend(
+            language_findings(BRIEF_SOURCE_REL.as_posix(), brief_source, language, None)
+        )
     else:
         findings.append(f"missing {BRIEF_SOURCE_REL.as_posix()}; the brief source is authored once per topic")
 
@@ -106,8 +142,11 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
         elif brief_source:
             findings.extend(unresolved_findings(projection_rel.as_posix(), projection))
             findings.extend(
+                language_findings(projection_rel.as_posix(), projection, language, variant)
+            )
+            findings.extend(
                 f"{projection_rel.as_posix()}: {finding}"
-                for finding in brief_findings(brief_source, projection, variant)
+                for finding in brief_findings(brief_source, projection, variant, language)
             )
 
     # No separate cross-variant equality check: every literature bullet must equal an intake

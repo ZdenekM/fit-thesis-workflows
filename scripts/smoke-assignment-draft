@@ -57,6 +57,7 @@ expect_output "assignment authoring runs only in a \`topic-proposal\` case"
 cat >"$case_dir/case.md" <<'EOF'
 Case ID: smoke
 Case kind: topic-proposal
+Student feedback language: cs
 Reviewer profile: default
 EOF
 expect_failure "a topic case without an intake is refused" "$repo_root/scripts/check-assignment-draft" "$case_id"
@@ -83,15 +84,31 @@ cat >"$case_dir/notes/student_brief.md" <<'EOF'
 
 ## Shared Brief
 
-### How To Read The Assignment
+### Na čem práce staví
 
-Start from the platform README.
+Existující platforma.
+
+### Kde začít
+
+Začněte od README.
+
+### Jak budeme spolupracovat
+
+Týdenní předávka.
+
+### Jak číst zadání
+
+Volba domény je na vás.
+
+### Co do práce nepatří
+
+Mobilní klient.
 
 ## Variant Delta
 
 ### bp
 
-Contribution framing: one prototype.
+Přínos: jeden prototyp.
 EOF
 
 cat >"$case_dir/outputs/assignment_formal_bp.md" <<'EOF'
@@ -144,15 +161,31 @@ Datum schválení:
 EOF
 
 cat >"$case_dir/outputs/student_brief_bp.md" <<'EOF'
-# Student Brief - bp
+# Úvodní podklad k tématu - bp
 
-### How To Read The Assignment
+### Na čem práce staví
 
-Start from the platform README.
+Existující platforma.
 
-## Variant Delta - bp
+### Kde začít
 
-Contribution framing: one prototype.
+Začněte od README.
+
+### Jak budeme spolupracovat
+
+Týdenní předávka.
+
+### Jak číst zadání
+
+Volba domény je na vás.
+
+### Co do práce nepatří
+
+Mobilní klient.
+
+## Specifika varianty - bp
+
+Přínos: jeden prototyp.
 EOF
 
 expect_success "a complete bp bundle passes" "$repo_root/scripts/check-assignment-draft" "$case_id"

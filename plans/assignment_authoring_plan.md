@@ -222,7 +222,7 @@ Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
 
 ### Slice 4a - Brief language binding
 
-- Status: planned
+- Status: in_progress
 - Proposed commit message: `Bind the student brief to the case feedback language`
 - Why: a brief is the only student-facing artifact this workflow produces, and
   `AGENTS.md` requires student-facing text to follow `Student feedback language`
@@ -241,7 +241,10 @@ Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
     the thesis language and never the assignment's `Rendering:`.
   - Keep both heading sets in ONE place beside `RENDERINGS`, and have the
     template test derive from it, the arrangement Slice 3 adopted after the
-    template and the checker each carried their own copy.
+    template and the checker each carried their own copy. Derive the
+    ASCII-folded spellings too rather than listing them: a hand-written list
+    made `### Jak budeme spolupracovat`, which carries no diacritics, both
+    required and rejected.
   - Extend `scripts/check-assignment-draft` with the THREE rules
     `scripts/check-feedback-language` applies, not two: the required headings of
     the case's declared language are present, a `cs` artifact carries none of
@@ -260,7 +263,10 @@ Decisions: `2026-09-08 - Slice 3 review chain stops at its re-check, by the rule
     weaken the source check.
   - The canonical projection shape becomes language-dependent in its headings
     and only there; the whole-document comparison Slice 3 delivered stays
-    exactly as it is.
+    exactly as it is. Name the language-bound wrappers so that none is spelled
+    like a neutral source wrapper: the first review found that the exemption
+    protecting `## Variant Delta` also let `# Student Brief` sit inside a Czech
+    shared body and reach every projection.
   - `docs/assignment-authoring.md` states the language rule and its source
     field, next to the projection shape it already documents.
   - Tests: a Czech bundle passes; an English-headed brief in a `cs` case fails
