@@ -220,7 +220,7 @@ This model is being rolled out incrementally under
 | First Claude reviewer adapter + write-boundary guard (canary: `thesis-code-quality-reviewer`) | landed; live subagent write-boundary smoke pending maintainer |
 | 8 evidence-producer roles have Claude adapters; skill model notes generalized | landed (slice B2) |
 | 12 reviewer roles Claude-capable via the parent-mediated protocol (3 stay Codex-only) | landed (slice B3c) |
-| Live end-to-end Claude review (parent exports `CLAUDE_REVIEW_CASE`/`ROUND`; readiness/model at launch) | pending maintainer's whole-pipeline validation |
+| Live end-to-end Claude review (parent declares the scope via `CLAUDE_REVIEW_CASE`/`ROUND` or `scripts/set-review-scope`; readiness/model at launch) | exercised once end to end on a topic-proposal case (assignment review, four rounds); whole-pipeline validation on a thesis round still pending |
 | Provider selection + capability detection (`agent_providers.py`) + scheduling docs | landed (slice B3a) |
 | Provider provenance recorded as metadata in review records | landed (slice B3b) |
 | Provider-aware / substituted-provider independence gate (needs verified actual provider) | planned (future — currently name-only) |

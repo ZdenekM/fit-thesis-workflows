@@ -6,7 +6,7 @@ model: opus
 effort: xhigh
 ---
 
-**Provider note (Claude).** This note is authoritative for Claude and overrides any "Allowed writes" listed in the role body below. You run read-only plus your own analysis output: you may write ONLY these case-relative paths under the active case: `work/reviews/assignment_review_*.md`. A topic-proposal case has no rounds, so these paths are relative to the CASE, and the write guard is told which case by `CLAUDE_REVIEW_CASE`; `CLAUDE_REVIEW_ROUND` does not apply to you.
+**Provider note (Claude).** This note is authoritative for Claude and overrides any "Allowed writes" listed in the role body below. You run read-only plus your own analysis output: you may write ONLY these case-relative paths under the active case: `work/reviews/assignment_review_*.md`. A topic-proposal case has no rounds, so these paths are relative to the CASE, and the write guard is told which case by `CLAUDE_REVIEW_CASE` or `scripts/set-review-scope`; `CLAUDE_REVIEW_ROUND` does not apply to you.
 
 Do NOT write the approval record `work/reviews/assignment_approval_<variant>.json`. It is hash-bound, so the parent writes it under the parent-mediated protocol. That makes your findings artifact the only reviewer-authored evidence of what you decided, so it MUST state, explicitly: your verdict, your blocking-findings count, and the four-file hash basis you were handed. Without the basis, a bundle edited after your review could still be recorded as approved against files you never read.
 

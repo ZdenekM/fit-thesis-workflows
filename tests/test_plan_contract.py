@@ -26,6 +26,7 @@ Runs under Pants (`pants test tests/test_plan_contract.py`) and standalone via `
 """
 
 import re
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
@@ -228,6 +229,16 @@ def _check_required_headings_are_present_and_ordered(plan: Plan) -> None:
     heads = [text for _, text in _sections(lines)]
     missing = [heading for heading in REQUIRED_HEADINGS if heading not in heads]
     assert not missing, f"missing required headings: {missing}"
+    # `_section_range` and `heads.index` both resolve to the FIRST match, so a scripted edit
+    # that resolved a section boundary against the wrong occurrence and duplicated a whole
+    # plan body passed every other rule: the required headings were all present, the order
+    # still read as sorted, and the second copy was simply never looked at. Two authoritative
+    # copies of one charter is the outcome; counting is the whole fix.
+    counts = Counter(heads)
+    duplicated = [f"{heading} (x{counts[heading]})" for heading in REQUIRED_HEADINGS if counts[heading] > 1]
+    assert not duplicated, (
+        f"required heading appears more than once, and every check reads the first: {duplicated}"
+    )
     order = [heads.index(heading) for heading in REQUIRED_HEADINGS]
     assert order == sorted(order), f"required headings out of order: {heads}"
     if "## Acceptance Contract" in heads:
@@ -266,6 +277,12 @@ def _check_slice_charters_use_a_recognized_form(plan: Plan) -> None:
     fenced = fenced_all[start:end]
     slice_starts = [i for i, line in enumerate(body) if line.startswith("### ") and not fenced[i]]
     assert slice_starts, f"{path.name}: `## Slices` carries no `### ` slice heading"
+    repeats = Counter(body[i].rstrip() for i in slice_starts)
+    repeated = sorted(heading for heading, count in repeats.items() if count > 1)
+    assert not repeated, (
+        f"{path.name}: slice heading repeats, so two charters claim one slice and the reader "
+        f"takes the first: {repeated}"
+    )
     for pos, index in enumerate(slice_starts):
         heading = body[index].rstrip()
         stop = slice_starts[pos + 1] if pos + 1 < len(slice_starts) else len(body)
@@ -431,6 +448,49 @@ def main() -> int:
             print(f"  - {failure}")
         return 1
     return 0
+
+
+def _synthetic_plan(body: str) -> Plan:
+    return Path("synthetic_plan.md"), body.splitlines()
+
+
+MINIMAL_PLAN = (
+    "# Synthetic Plan\n\nStatus: planned\n\n"
+    + "\n\n".join(f"{heading}\n\nbody" for heading in REQUIRED_HEADINGS)
+    + "\n"
+)
+
+
+def _rejects(check: Check, plan: Plan, needle: str) -> None:
+    """Assert `check` rejects `plan` and says why. No pytest: the plan-lint hook has none."""
+    try:
+        check(plan)
+    except AssertionError as error:
+        assert needle in str(error), f"rejected, but not for {needle!r}: {error}"
+        return
+    raise AssertionError(f"expected rejection mentioning {needle!r}, but the check passed")
+
+
+def test_a_minimal_synthetic_plan_satisfies_the_heading_rule() -> None:
+    _check_required_headings_are_present_and_ordered(_synthetic_plan(MINIMAL_PLAN))
+
+
+def test_a_duplicated_plan_body_is_rejected() -> None:
+    """The failure this rule was added for: a scripted edit splicing a body in twice.
+
+    Every other rule passed such a file — the required headings were all present,
+    and `heads.index` still reported them in order, because it reads the first
+    occurrence of each and never sees the second copy.
+    """
+
+    first = REQUIRED_HEADINGS[0]
+    head, _, rest = MINIMAL_PLAN.partition(first)
+    doubled = head + first + rest + first + rest
+    _rejects(
+        _check_required_headings_are_present_and_ordered,
+        _synthetic_plan(doubled),
+        "appears more than once",
+    )
 
 
 if __name__ == "__main__":

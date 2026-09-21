@@ -100,6 +100,13 @@
 
 ## P2 - Later Automation
 
+- [ ] Close the same first-match hole in `notes/topic_intake.md`.
+   - `citable_artifacts` and `supplement_line` read the first `## Citable Artifacts`, exactly as the brief and assignment readers did before `repeated_headings_in` landed. A duplicated intake body would therefore still pass `scripts/check-assignment-draft`.
+   - The intake has no declared required-heading set, so this is a new contract rather than an extension of the existing rule — decide the heading set first, in `templates/topic-intake.md` and `docs/assignment-authoring.md`.
+- [ ] Give a topic-proposal case real tooling.
+   - `scripts/new-case` always writes `Case kind: thesis-review` and creates a round; both topic cases in this tree were hand-authored, so the case skeleton, `Variants:`, and the `work/reviews/` directory are conventions nothing enforces.
+   - `scripts/extract-pdf-text` refuses to write outside `cases/<case>/rounds/<round>/extracted/`, so importing a published assignment PDF into a topic case loses the hash-bound sidecar; the first real run fell back to a bare `pdftotext` call.
+   - Decide whether this is `scripts/new-case --kind topic-proposal` or a separate entrypoint, and whether the extract sidecar should follow the case rather than the round.
 - [ ] Give a review round its own artifact, instead of one fixed path per variant.
    - `work/reviews/assignment_review_<variant>.md` is a single path, so a second review overwrites the first and the record of what was found and fixed is lost. The first real run needed three rounds and kept them only by hand-copying to `.round1.md` / `.round2.md`.
    - Decide whether the skill should name a per-round path or an append-only artifact, then apply the same answer to the other review skills, which have the same shape.
@@ -111,24 +118,6 @@
    - Pick one and make both documents say it.
 - [ ] Re-derive the worked example in `docs/assignment-authoring.md` `## Where A Success Criterion Lands`.
    - It uses the out-of-seam enumeration criterion as its example of one that "fit no assignment point's style at all". The first real run split that criterion cleanly: the obligation half became an assignment point and the "zero is not required" half stayed in the brief. The example is now weaker than the case it was drawn from.
-- [ ] Make the live Claude reviewer write path exercisable from a Claude Code parent.
-   - `docs/agent-workflow.md` lists live end-to-end Claude review as pending. The first real run showed the concrete obstacle: the guard needs `CLAUDE_REVIEW_CASE` exported at launch, and a Claude Code parent cannot export an environment variable into its own hook environment mid-session. The guard failed closed correctly and the reviewers returned their artifacts as text for the parent to persist, so the role works and only the write path is unexercised.
-   - Decide whether the parent-supplied scope should come from something a session can actually set, or whether persisting reviewer output through the parent is the intended shape for Claude.
-
-- [ ] Give a review round its own artifact, instead of one fixed path per variant.
-   - `work/reviews/assignment_review_<variant>.md` is a single path, so a second review overwrites the first and the record of what was found and fixed is lost. The first real run needed three rounds and kept them only by hand-copying to `.round1.md` / `.round2.md`.
-   - Decide whether the skill should name a per-round path or an append-only artifact, then apply the same answer to the other review skills, which have the same shape.
-- [ ] Give `templates/topic-intake.md` a home for a recorded supervision consequence.
-   - A decision that deliberately moves an obligation out of the assignment fits none of the existing sections: `Rationale Only` is why the topic is worth doing, `Interpretation For The Student` goes to the brief, `Open Questions` is for unresolved items. Filed under `### Assessable As An Assignment Point` it is owed a point it must never receive, and a future re-render could pull the obligation back in.
-   - Two reviews of the first real topic asked for this independently.
-- [ ] Settle whether `profiles/local/default.md` applies automatically or only when `case.md` names it.
-   - `profiles/README.md` says local/default "refines the generic default profile for your local machine", which reads as an automatic overlay; `.agents/skills/thesis-assignment-review/SKILL.md` says layer 3 applies "when case.md selects one". A case saying `Reviewer profile: default` therefore has two readings, and a reviewer that picks the second reviews against layer 2 alone.
-   - Pick one and make both documents say it.
-- [ ] Re-derive the worked example in `docs/assignment-authoring.md` `## Where A Success Criterion Lands`.
-   - It uses the out-of-seam enumeration criterion as its example of one that "fit no assignment point's style at all". The first real run split that criterion cleanly: the obligation half became an assignment point and the "zero is not required" half stayed in the brief. The example is now weaker than the case it was drawn from.
-- [ ] Make the live Claude reviewer write path exercisable from a Claude Code parent.
-   - `docs/agent-workflow.md` lists live end-to-end Claude review as pending. The first real run showed the concrete obstacle: the guard needs `CLAUDE_REVIEW_CASE` exported at launch, and a Claude Code parent cannot export an environment variable into its own hook environment mid-session. The guard failed closed correctly and the reviewers returned their artifacts as text for the parent to persist, so the role works and only the write path is unexercised.
-   - Decide whether the parent-supplied scope should come from something a session can actually set, or whether persisting reviewer output through the parent is the intended shape for Claude.
 
 - [ ] Give the Codex reviewer a Serena it can actually start under `scripts/agent-review`.
    - Four reviews in one session ended `needs_human` because Serena was unreachable in the reviewer sandbox, so the verification step never ran and the review reported only what it could read.
@@ -164,10 +153,6 @@
    - Consider Zotero-compatible import/export formats such as BibTeX/RIS/CSL JSON for operator handoff.
    - Keep downloaded papers, metadata cache, and derived evidence inside the ignored case workspace.
    - Preserve the manual `thesis-literature-citation-review` workflow as the source of judgment.
-- [ ] Make the plan contract reject a duplicated section sequence.
-   - A scripted edit that resolved a section boundary against the first textual match duplicated an entire plan body, and `tests/test_plan_contract.py` still passed: the required headings were all present, so the second copy read as valid.
-   - Assert each required top-level heading appears exactly once, and that no slice heading repeats, so the next scripted edit cannot leave two authoritative copies of one charter.
-   - Keep it deterministic and structural; this is heading arithmetic, not prose analysis.
 - [ ] Stop `prepare-code-workspace --refresh` from silently deleting an imported GitHub checkout.
    - `--refresh` replaces the whole `work/code` workspace, and `import-github-code` checks repositories out into that same directory without a prepare manifest, so a refresh run removes a checkout it never prepared and leaves the round with no code evidence.
    - Either skip workspace roots that no prepare manifest claims, or refuse the refresh with a message naming the checkout, rather than reporting success after removing evidence.

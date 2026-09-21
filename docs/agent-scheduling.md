@@ -25,9 +25,20 @@ Codex-only), CLI presence can be
 probed, and provider provenance is recorded in review records. The parent still
 **applies** the matrix by following this document — it performs the launch, the
 launch-time readiness checks (Claude version, active hooks), the parent-mediated
-steps (import/acquisition/approval), and it must export `CLAUDE_REVIEW_CASE` /
-`CLAUDE_REVIEW_ROUND` so the write guard can confine a reviewer to the active
-round (the guard fails closed without them). Not yet done: automatic
+steps (import/acquisition/approval), and it must declare the active case — and
+for a round-scoped role the round — so the write guard can confine a reviewer to
+it (the guard fails closed without a scope). Two ways to declare it, environment
+first: `CLAUDE_REVIEW_CASE` / `CLAUDE_REVIEW_ROUND` exported at launch, or
+`scripts/set-review-scope <case-id> [round-id]`, which writes the ignored
+`.claude/hooks/review_scope.json` the guard falls back to. The second exists
+because a running Claude Code session cannot change its own process environment:
+without it, a parent that launched without the variables could not grant a scope
+at all, and the reviewer discovered that only after finishing its review, when
+its findings write was denied. Clear it with `scripts/set-review-scope --clear`
+when the wave ends; a stale scope denies rather than misroutes, but it denies
+confusingly. `scripts/set-review-scope` is a POSIX helper like
+`scripts/agent-review`; on native Windows, export the variables before starting
+the session instead. Not yet done: automatic
 orchestration wiring of the selection, a provider-aware / substituted-provider
 independence gate (currently name-only; needs a verified actual provider), and
 effective-launch model validation.

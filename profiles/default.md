@@ -136,6 +136,21 @@ Assessability:
 - An activity stated without any success criterion is the recurring weakness in
   the corpus and is worth flagging.
 
+Institutional vocabulary:
+
+- FIT VUT has **no `katedry`**. It has `ústavy`, and within them — occasionally
+  across them — research groups. Do not write `katedra` in an assignment, a
+  brief, or any other artifact about this faculty, and do not reach for a
+  replacement noun either: `aplikace katedry` usually wants to be just
+  `existující aplikace`, because the point is that the work does not build on
+  one, not whose it would have been. `Ústav:` in the FIT IS form is the field
+  label and is unrelated.
+- This is a documented fact about the institution, not a supervisor's
+  preference, which is why it sits in layer 2. It is deliberately not a
+  deterministic check: a substring gate over free-running prose is the kind of
+  lexical heuristic `AGENTS.md` forbids, and a Czech artifact may legitimately
+  name another school's katedra — the DCGI at FEL ČVUT is one.
+
 Avoid:
 
 - inventing an identifier, a date, or an academic year that could not be

@@ -245,3 +245,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+/.claude/hooks/review_scope.json

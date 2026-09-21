@@ -42,6 +42,7 @@ from pathlib import Path
 WRITE_TOOLS = {"Write", "Edit", "NotebookEdit"}
 READ_TOOLS = {"Read", "Grep", "Glob"}
 POLICY_REL = ".claude/hooks/reviewer_write_policy.json"
+SCOPE_REL = ".claude/hooks/review_scope.json"
 SCOPES = {"round", "case"}
 
 
@@ -60,6 +61,46 @@ def repo_root() -> Path:
         return Path(output.strip()).resolve()
     except (OSError, subprocess.CalledProcessError):
         return Path.cwd().resolve()
+
+
+def active_scope(root: Path) -> tuple[str, str]:
+    """The active `(case, round)`, from the environment or the declared scope file.
+
+    A Claude Code session cannot change its own process environment, so a parent
+    that did not have ``CLAUDE_REVIEW_CASE`` set at launch could not give a
+    reviewer a scope at all: the reviewer did its whole review and only then
+    discovered it could not save the findings. ``scripts/set-review-scope``
+    writes the file this reads, which the parent CAN do mid-session.
+
+    The environment still wins, so a session launched with the variables behaves
+    exactly as before. Neither source widens anything: both name ONE case, and a
+    reviewer cannot write the file, because every role's owned writes live under
+    ``cases/`` and this path does not. A malformed or absent file is no scope at
+    all, which denies.
+    """
+
+    case_scope = os.environ.get("CLAUDE_REVIEW_CASE", "").strip()
+    round_scope = os.environ.get("CLAUDE_REVIEW_ROUND", "").strip()
+    if case_scope:
+        return case_scope, round_scope
+    try:
+        raw = json.loads((root / SCOPE_REL).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return "", ""
+    if not isinstance(raw, dict):
+        return "", ""
+    declared_case = raw.get("case")
+    declared_round = raw.get("round")
+    if not isinstance(declared_case, str) or not declared_case.strip():
+        return "", ""
+    # A path separator in a declared segment would let one value reach into
+    # another case; the scope is a single path segment by construction.
+    if not isinstance(declared_round, str):
+        declared_round = ""
+    for value in (declared_case, declared_round):
+        if "/" in value or "\\" in value or value.strip() in {".", ".."}:
+            return "", ""
+    return declared_case.strip(), declared_round.strip()
 
 
 def load_policy(root: Path) -> dict[str, tuple[str, list[str]]] | None:
@@ -111,11 +152,11 @@ def owned_write(resolved: Path, root: Path, scope: str, allowed: list[str]) -> b
         parts = resolved.relative_to(root).parts
     except ValueError:
         return False
-    # The parent MUST export the active case (CLAUDE_REVIEW_CASE), and for a
-    # round-scoped role the active round too. The guard fails closed without
-    # them, and otherwise confines the write to that exact case, so a reviewer
-    # cannot touch another student's case.
-    case_scope = os.environ.get("CLAUDE_REVIEW_CASE")
+    # The parent MUST declare the active case, and for a round-scoped role the
+    # active round too. The guard fails closed without them, and otherwise
+    # confines the write to that exact case, so a reviewer cannot touch another
+    # student's case.
+    case_scope, round_scope = active_scope(root)
     if not case_scope or not parts or parts[0] != "cases":
         return False
     if len(parts) < 2 or parts[1] != case_scope:
@@ -123,7 +164,6 @@ def owned_write(resolved: Path, root: Path, scope: str, allowed: list[str]) -> b
 
     if scope == "round":
         # cases/<id>/rounds/<round>/<tail...>
-        round_scope = os.environ.get("CLAUDE_REVIEW_ROUND")
         if not round_scope:
             return False
         if len(parts) < 5 or parts[2] != "rounds" or parts[3] != round_scope:

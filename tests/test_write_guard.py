@@ -49,6 +49,25 @@ def _abs(rel: str) -> str:
     return str(REPO_ROOT / rel)
 
 
+def _scope_file(root: Path, payload: object) -> Path:
+    path = root / ".claude" / "hooks" / "review_scope.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(payload if isinstance(payload, str) else json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _guard_root(tmp_path: Path) -> Path:
+    """A repo root carrying the real policy, so only the scope source varies."""
+
+    root = tmp_path / "repo"
+    (root / ".claude" / "hooks").mkdir(parents=True)
+    (root / ".claude" / "hooks" / "reviewer_write_policy.json").write_text(
+        (REPO_ROOT / ".claude" / "hooks" / "reviewer_write_policy.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    return root
+
+
 def test_parent_is_never_constrained() -> None:
     # No agent_id => main/parent session, even if agent_type is present
     # (claude --agent gives the main thread an agent_type).
@@ -137,10 +156,14 @@ def test_final_reviewer_may_write_output_but_not_parent_mediated_approval() -> N
     assert _denies(payload("cases/demo/rounds/r1/work/reviews/supervisor_feedback_review.json"))
 
 
-def test_reviewer_write_without_active_scope_fails_closed() -> None:
-    # No CLAUDE_REVIEW_CASE/ROUND exported -> the guard cannot confine the write
-    # to the active student's round, so even an owned-output write is denied.
-    assert _denies(_reviewer("Write", _abs(OWNED)), scope=False)
+def test_reviewer_write_without_active_scope_fails_closed(tmp_path: Path) -> None:
+    # No CLAUDE_REVIEW_CASE/ROUND exported and no declared scope file -> the guard
+    # cannot confine the write to the active student's round, so even an
+    # owned-output write is denied. An isolated root is required rather than
+    # REPO_ROOT: a developer's own `.claude/hooks/review_scope.json` would
+    # otherwise decide whether this test tests anything.
+    root = _guard_root(tmp_path)
+    assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
 
 
 def test_malformed_input_fails_closed() -> None:
@@ -194,9 +217,11 @@ def test_a_case_scoped_reviewer_may_not_write_tracked_paths() -> None:
     assert _denies(_case_reviewer(_abs("docs/assignment-authoring.md")))
 
 
-def test_a_case_scoped_reviewer_needs_no_round_but_still_needs_a_case() -> None:
+def test_a_case_scoped_reviewer_needs_no_round_but_still_needs_a_case(tmp_path: Path) -> None:
     assert not _denies(_case_reviewer(_abs(CASE_OWNED)), extra_env={"CLAUDE_REVIEW_ROUND": ""})
-    assert _denies(_case_reviewer(_abs(CASE_OWNED)), scope=False)
+    # Isolated, for the same reason as above: no environment AND no scope file.
+    root = _guard_root(tmp_path)
+    assert _denies(_case_reviewer(str(root / CASE_OWNED)), root=root, scope=False)
 
 
 def test_a_round_scoped_reviewer_is_not_widened_by_a_missing_round() -> None:
@@ -277,3 +302,75 @@ def test_a_case_scoped_reviewer_cannot_escape_through_a_dangling_link(tmp_path: 
 
     assert _denies(_case_reviewer(str(target)), root=root)
     assert not (root / "docs" / "leak.md").exists()
+
+
+def test_a_declared_scope_file_grants_the_same_boundary_as_the_environment(tmp_path: Path) -> None:
+    """A session cannot set its own env, so the parent declares the scope in a file.
+
+    Without this the reviewer completed a whole review and only then discovered
+    it could not save its findings.
+    """
+
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": "r1"})
+    assert not _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
+    assert not _denies(
+        _reviewer("Write", str(root / CASE_OWNED), agent_type=CASE_SCOPED), root=root, scope=False
+    )
+
+
+def test_a_declared_scope_confines_to_its_case_exactly_like_the_environment(tmp_path: Path) -> None:
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": "r1"})
+    other = "cases/other/rounds/r1/outputs/code_quality_review.md"
+    assert _denies(_reviewer("Write", str(root / other)), root=root, scope=False)
+
+
+def test_the_environment_wins_over_a_declared_scope(tmp_path: Path) -> None:
+    """A session launched with the variables keeps behaving exactly as before."""
+
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "other", "round": "r1"})
+    assert not _denies(
+        _reviewer("Write", str(root / OWNED)),
+        root=root,
+        extra_env={"CLAUDE_REVIEW_CASE": "demo", "CLAUDE_REVIEW_ROUND": "r1"},
+        scope=False,
+    )
+
+
+def test_a_reviewer_may_not_write_the_scope_file_that_bounds_it(tmp_path: Path) -> None:
+    """Self-widening is the one thing the fallback must not make possible."""
+
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": "r1"})
+    scope_path = str(root / ".claude" / "hooks" / "review_scope.json")
+    assert _denies(_reviewer("Write", scope_path), root=root, scope=False)
+    assert _denies(_reviewer("Edit", scope_path, agent_type=CASE_SCOPED), root=root, scope=False)
+
+
+def test_a_malformed_or_empty_declared_scope_fails_closed(tmp_path: Path) -> None:
+    for payload in ("{not json", {}, {"case": ""}, {"case": 7}, [], {"round": "r1"}):
+        root = _guard_root(tmp_path / f"c{abs(hash(str(payload)))}")
+        _scope_file(root, payload)
+        assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False), payload
+
+
+def test_a_declared_scope_may_not_carry_a_path_separator(tmp_path: Path) -> None:
+    """`../other` in a declared segment would reach into another case."""
+
+    for payload in ({"case": "demo/rounds/r1", "round": "r1"}, {"case": "demo", "round": "../other"},
+                    {"case": "..", "round": "r1"}):
+        root = _guard_root(tmp_path / f"s{abs(hash(str(payload)))}")
+        _scope_file(root, payload)
+        assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False), payload
+
+
+def test_a_round_scoped_reviewer_still_needs_a_round_in_the_declared_scope(tmp_path: Path) -> None:
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": ""})
+    assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
+    # ... while a case-scoped role needs no round, the same asymmetry as the env path.
+    assert not _denies(
+        _reviewer("Write", str(root / CASE_OWNED), agent_type=CASE_SCOPED), root=root, scope=False
+    )
