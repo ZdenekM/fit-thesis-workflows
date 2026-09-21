@@ -126,6 +126,35 @@ must be able to name it.
 5. Open the source artifact with normal tools and verify the exact claim.
 6. Synthesize from verified sources, not from retrieved snippets alone.
 
+### Two Sweeps For A Wording Or Vocabulary Check
+
+When the question is "does this word, phrase or turn of phrase appear anywhere
+it should not", run **both** searches and take the verdict from the exact one.
+
+1. Exact, on the **stem**: `rg`/`grep` for the shortest invariant part. Current
+   with the disk, and the only search that can prove a zero.
+2. Semantic: a local RAG query for the concept. Catches the inflected or
+   paraphrased forms an exact search cannot match.
+3. Conclude from (1). Use (2) only to widen where to look.
+
+Neither alone is enough, and the reason is not redundancy — they fail
+differently. An exact search fails on Czech declension: in the first real topic
+case, five occurrences of `katedry` were fixed by a `katedr` sweep and the sixth,
+the locative `na katedře`, survived it, because `ř` is not `r`. A local RAG query
+returned that exact sentence as its top hit. Embeddings do not care about the
+ending.
+
+The converse failure is worse, so never invert the order: the index is refreshed
+by a machine timer, so it answers from whatever it held at the last run. In the
+same case it kept serving the offending sentence for twenty minutes after the
+sentence was deleted. RAG can tell you where to look; it cannot tell you that
+you are done.
+
+Also note that `rg` honours `.gitignore`, so a sweep from a repository root
+silently skips all of `cases/` and returns a reassuring zero that says nothing
+about a case. Sweep a case by explicit path, or use `grep`, which does not read
+`.gitignore`.
+
 ## Boundaries
 
 - For exact code behavior, identifiers, and implementation changes in this
