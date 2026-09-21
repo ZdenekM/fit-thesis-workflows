@@ -150,6 +150,12 @@ Institutional vocabulary:
   deterministic check: a substring gate over free-running prose is the kind of
   lexical heuristic `AGENTS.md` forbids, and a Czech artifact may legitimately
   name another school's katedra — the DCGI at FEL ČVUT is one.
+- It is a reading rule, not a search. Czech declension defeats the obvious
+  query: `katedra`, `katedry`, `katedrou`, and the locative `na katedře`, whose
+  `ř` means a search for `katedr` does not match it at all. On the first real
+  topic, five occurrences were fixed and the sixth — `na katedře` — survived
+  because of exactly that, and was caught by a reviewer reading the file, not by
+  the sweep. Search the stem `kated` if you search at all.
 
 Avoid:
 
