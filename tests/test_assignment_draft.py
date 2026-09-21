@@ -590,3 +590,58 @@ def test_a_semestral_requirement_outside_its_section_fails(topic_case: Path) -> 
     text = text.replace(f"{moved}\n", "").replace("Vedoucí práce: T", f"{moved}\nVedoucí práce: T")
     (topic_case / "outputs/assignment_formal_bp.md").write_text(text, encoding="utf-8")
     assert any("outside `### Semestral Defence Requirement`" in finding for finding in check(topic_case, "bp"))
+
+
+def test_a_brief_source_carrying_its_body_twice_fails(topic_case: Path) -> None:
+    """The failure this rule was added for: an anchored rewrite splicing the body in twice.
+
+    Every other rule passed such a file. The required headings were all
+    present, none belonged to the wrong language, and each projection was still
+    generated from the FIRST copy, so the canonical comparison passed too.
+    """
+
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    start = source.index("## Shared Brief")
+    end = source.index("## Variant Delta")
+    (topic_case / "notes/student_brief.md").write_text(
+        source[:end] + source[start:end] + source[end:], encoding="utf-8"
+    )
+    findings = check(topic_case, "bp")
+    assert any("occurs more than once" in finding for finding in findings)
+    assert any("## Shared Brief (x2)" in finding for finding in findings)
+
+
+def test_a_duplicated_projection_section_fails(topic_case: Path) -> None:
+    """A projection is compared whole, but the count names WHICH heading doubled."""
+
+    doubled = projection("bp").replace(
+        "### Where To Start\n\nStart from the README.\n",
+        "### Where To Start\n\nStart from the README.\n\n### Where To Start\n\nStart from the README.\n",
+    )
+    (topic_case / "outputs/student_brief_bp.md").write_text(doubled, encoding="utf-8")
+    findings = check(topic_case, "bp")
+    assert any("### Where To Start (x2)" in finding for finding in findings)
+
+
+def test_a_duplicated_assignment_section_fails(topic_case: Path) -> None:
+    """`positions` uses `find`, which sees the first occurrence and no other."""
+
+    text = (topic_case / "outputs/assignment_formal_bp.md").read_text(encoding="utf-8")
+    start = text.index("### Literature")
+    end = text.index("### Semestral Defence Requirement")
+    (topic_case / "outputs/assignment_formal_bp.md").write_text(
+        text[:end] + text[start:end] + text[end:], encoding="utf-8"
+    )
+    findings = check(topic_case, "bp")
+    assert any("### Literature (x2)" in finding for finding in findings)
+
+
+def test_a_heading_repeated_outside_the_required_set_is_not_a_finding(topic_case: Path) -> None:
+    """Only the enumerated structural headings are counted; free headings are the author's."""
+
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    (topic_case / "notes/student_brief.md").write_text(
+        source.replace("Weekly handover.", "#### Notes\n\nWeekly handover.\n\n#### Notes\n\nAnd more."),
+        encoding="utf-8",
+    )
+    assert not [finding for finding in check(topic_case, "bp") if "occurs more than once" in finding]

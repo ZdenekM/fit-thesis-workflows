@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -202,6 +204,29 @@ def forbidden_headings_in(text: str, language: BriefLanguage, variant: str | Non
     return offending
 
 
+def repeated_headings_in(text: str, headings: Iterable[str]) -> list[str]:
+    """Those of `headings` that occur more than once as a heading line, with counts.
+
+    A required heading is structural: a brief source has exactly one
+    `## Shared Brief`, a projection exactly one `### Kde začít`, an assignment
+    exactly one `### Literature`. Nothing else enforced that. `section_body`
+    reads the FIRST occurrence and stops at the next heading, and
+    `language_findings` collects heading lines into a SET — so a document
+    carrying its whole body twice satisfies the required set, the forbidden set
+    and every section read, while the second copy sits unchecked in the middle
+    of the file.
+
+    That is not hypothetical: an anchored rewrite whose anchor also occurred in
+    the operator note above `## Shared Brief` spliced the body in twice, and the
+    whole draft check passed. Counting the required headings is the cheapest
+    structural rule that catches it, and it is structural rather than lexical —
+    it counts headings the contract already enumerates, never prose.
+    """
+
+    counts = Counter(line.strip() for line in text.splitlines() if line.strip().startswith("#"))
+    return [f"{heading} (x{counts[heading]})" for heading in headings if counts[heading] > 1]
+
+
 @dataclass(frozen=True)
 class CitableArtifact:
     reference: str
@@ -334,6 +359,16 @@ def assignment_findings(assignment: str, variant: str, artifacts: list[CitableAr
         findings.append(f"missing section(s): {', '.join(missing)}")
     elif positions != sorted(positions):
         findings.append("sections are out of the FIT IS form order")
+
+    # Same gap as the brief source had: every reader below takes the FIRST match, so a
+    # second copy of a section is neither read nor reported. `positions` uses `find`,
+    # which cannot see one.
+    duplicated = repeated_headings_in(assignment, ASSIGNMENT_SECTIONS)
+    if duplicated:
+        findings.append(
+            "section occurs more than once; the checker reads the first and the rest goes unchecked: "
+            + ", ".join(duplicated)
+        )
 
     expected_title = rendering.titles.get(variant)
     if expected_title and expected_title not in assignment:

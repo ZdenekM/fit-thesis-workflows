@@ -15,6 +15,7 @@ from thesis_review_workflow.assignment_draft import (
     citable_artifacts,
     declared_variants,
     read_text,
+    repeated_headings_in,
     supplement_line,
     unresolved_findings,
 )
@@ -36,11 +37,17 @@ def brief_rel(variant: str) -> Path:
 
 
 def language_findings(label: str, text: str, language: BriefLanguage, variant: str | None) -> list[str]:
-    """The three rules `scripts/check-feedback-language` applies, on the brief's own headings.
+    """The three rules `scripts/check-feedback-language` applies, plus heading uniqueness.
 
     `report_missing` is reused for the required set. The forbidden side cannot
     be: it matches heading BASES so that any variant suffix is caught, which an
     exact-list reporter cannot express.
+
+    The uniqueness rule is here rather than beside the projection comparison
+    because only the SOURCE lacked one. A projection is compared whole against
+    its canonical shape, so a doubled body there already fails; the source has
+    no canonical form, and `existing` below is a set, so a source carrying its
+    body twice passed every rule and then projected cleanly.
     """
 
     required = language.source_headings() if variant is None else language.projection_headings(variant)
@@ -51,6 +58,13 @@ def language_findings(label: str, text: str, language: BriefLanguage, variant: s
     if offending:
         errors.append(f"{label}: headings of the wrong language or spelling:")
         errors.extend(f"- {heading}" for heading in offending)
+    repeated = repeated_headings_in(text, required)
+    if repeated:
+        errors.append(
+            f"{label}: required heading occurs more than once; the section readers take the first "
+            "and the duplicate goes unchecked:"
+        )
+        errors.extend(f"- {heading}" for heading in repeated)
     return errors
 
 

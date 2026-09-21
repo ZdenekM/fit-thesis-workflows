@@ -217,6 +217,17 @@ in order, a numbered point inside the points section, a filled
 semestral-requirement field, unresolved values, a usable variant identifier, and
 each brief projection matching the canonical shape above exactly.
 
+It also requires each **structural heading to occur exactly once** — the brief
+source's and each projection's required headings, and the assignment's six
+sections. Every other rule reads a document through its first match: the section
+readers stop at the next heading, and the language check collects headings into a
+set. So a file carrying its whole body twice satisfied the required set, the
+forbidden set and the canonical projection comparison, because the projection was
+generated from the first copy. That is not hypothetical — an edit anchored on a
+string that also appeared in the operator note above `## Shared Brief` spliced the
+body in twice and the whole check passed. Counting enumerated headings is
+structural, not lexical: it never reads prose.
+
 There is deliberately no separate cross-variant equality check. Every literature
 bullet must equal an intake entry exactly, so two variants citing one work
 necessarily cite it identically; requiring identical membership instead would
