@@ -110,6 +110,14 @@
 - [ ] Give a review round its own artifact, instead of one fixed path per variant.
    - `work/reviews/assignment_review_<variant>.md` is a single path, so a second review overwrites the first and the record of what was found and fixed is lost. The first real run needed three rounds and kept them only by hand-copying to `.round1.md` / `.round2.md`.
    - Decide whether the skill should name a per-round path or an append-only artifact, then apply the same answer to the other review skills, which have the same shape.
+- [ ] Make the FIT IS "komentář k zadání" part of assignment preparation.
+   - FIT IS carries a free-text comment alongside a published assignment, where the supervisor puts motivation and context for students browsing topics. Nothing in this repository models it: `rg -i "koment"` over `cases/` returns zero hits, and neither `templates/topic-intake.md` nor `templates/assignment-formal.md` nor `docs/assignment-authoring.md` mentions it.
+   - Cause worth recording: IS does not print the field into the exported assignment PDF. `cases/topic-2026-ar-object-labels/notes/published_assignment_174543.txt` is a real published export and contains no such section, so the artifact this pipeline reads cannot reveal that the field exists or is empty. It was never missed because it was never visible.
+   - Measured trigger: assignment 174529 (`cases/nosal-bp-2027`) reached an assigned student with an empty comment and an empty `Literatura:`. The supervisor noticed only when starting the case.
+   - The intake already authors the substance: `## Motivation` and `## Context And Starting Point` are written per topic and currently reach only the brief and the operator. Decide whether the comment is a third projection of the intake next to the assignment and the brief, or a field on the assignment output.
+   - Keep the audience distinction explicit. The comment is read by students who have not taken the topic yet, the brief by the one who has; the comment must not carry supervision conventions or anything naming a particular student.
+   - Whatever the shape, it needs a place in the intake, a projection rule, and a line in the authoring skill's process, so a published topic cannot silently ship without it.
+
 - [ ] Give `templates/topic-intake.md` a home for a recorded supervision consequence.
    - A decision that deliberately moves an obligation out of the assignment fits none of the existing sections: `Rationale Only` is why the topic is worth doing, `Interpretation For The Student` goes to the brief, `Open Questions` is for unresolved items. Filed under `### Assessable As An Assignment Point` it is owed a point it must never receive, and a future re-render could pull the obligation back in.
    - Two reviews of the first real topic asked for this independently.
