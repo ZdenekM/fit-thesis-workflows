@@ -68,9 +68,10 @@ for example `work/literature/`.
   availability is not a selection criterion: a source selected as key or suspicious stays selected
   after a paywall stops the download, and the review says what it could not read and asks for it.
   Only record a permanent limitation once the operator has been asked and cannot supply it.
-- Keep operator-supplied publisher PDFs inside `work/literature/`. They are licensed for personal
-  or institutional use, so they are operator evidence for this case only: never forward them to the
-  student, into a sendable artifact, or outside the ignored case workspace.
+- Keep operator-supplied publisher PDFs inside `work/literature/` as operator evidence, and pass on
+  the citation rather than the file. Students at the operator's institution generally hold the same
+  access, so a DOI or a full reference is what a reader needs; redistributing the PDF is neither
+  necessary nor what the licence covers.
 - Do not treat literature freshness as a problem unless the field, assignment, or thesis claim makes it material.
 - When recommending new literature in supervisor mode, explain the thesis gap it would address.
 - When summarizing into student-facing feedback, include only phase-appropriate action items and avoid exposing internal download/cache paths.

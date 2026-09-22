@@ -39,6 +39,8 @@ Observed state of the index, checked read-only through `list_files` and
   minutes by the refresh timer.
 - Reported to the operator; no agent purge, ingest or sync was performed, per
   the standing rule.
+- A class the rule never named has since appeared: `work/literature/`, holding
+  cached papers and a published dataset acquired for a supervisor round.
 
 Capability facts established in the same session, which the decision depends on:
 
@@ -116,6 +118,13 @@ Tasks:
 - State the evidence rule for thesis text explicitly at the point of decision,
   not only in the general handling section: a chunk has no page number, and a
   finding about a thesis cites a page or a section.
+- Decide `cases/**/work/literature/` — cached third-party papers, datasets and
+  their extracts, which the current list does not name at all. It is the one
+  class with no privacy question to weigh: the sources are published, so the
+  decision is purely whether indexed paper PDFs help discovery or only add
+  noise. Record that reason either way, and say whether operator-supplied
+  publisher PDFs differ from open-access ones, since only the former carry a
+  licence the index would be redistributing.
 
 Out of scope: changing the index; deciding the refresh question, which is S2.
 
@@ -186,7 +195,8 @@ shows only classes the decided policy admits.
 
 Not started. The operator has agreed to the shape in S1 — narrow the exclusion
 to non-prose and third-party classes, admit thesis prose — and raised the
-on-demand sync that S2 exists to settle.
+on-demand sync that S2 exists to settle. S1 gained a fourth class to decide,
+`work/literature/`, after a third misreconstruction of the rule on 2026-09-22.
 
 ## Decision Log
 
@@ -207,6 +217,16 @@ on-demand sync that S2 exists to settle.
   documentation nicety. It was reconstructed twice in one session, once by the
   operator and once by an agent, which is the cost of a rule that records only
   its conclusion.
+- 2026-09-22 — Reconstructed a third time, and wrongly. An agent populating
+  `work/literature/` for a supervisor round wrote into that round's notes that a
+  published third-party dataset must stay out of the index because it carries
+  forum URLs and user configurations. The dataset accompanies a peer-reviewed
+  paper and the threads are public community posts, so the privacy premise was
+  false; the operator caught it. Two things this fixes beyond the class split:
+  the rule reads as "case content is sensitive" and invites an agent to supply a
+  privacy reason for a class that has none, and it offers no signal that scope
+  questions are the operator's call even when the agent believes it is
+  tightening rather than loosening the rule.
 
 ## Final Audit
 
