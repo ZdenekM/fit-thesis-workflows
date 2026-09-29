@@ -78,6 +78,28 @@ reviewable bundle.
    approval reopen draft state, and
    `scripts/check-assignment-bundle` enforces that through the recorded hashes.
 
+## Negative Claims From Discovery
+
+A brief routinely says that something does not exist: no dataset, no prior
+measurement, no tool that does X. Such a claim is only as wide as the searches
+behind it, and discovery usually runs as several separate passes (literature,
+platform/ecosystem, datasets) that each search differently. Before a negative
+claim reaches the intake, a brief, or an assignment comment:
+
+- Check it against every discovery artifact of the case, not only the one it
+  came from. If any artifact records a counterexample, the claim is wrong as
+  worded; narrow it to what the searches actually covered or name the
+  counterexample.
+- Word what survives as a scoped search result ("jsem nenašel", with the date
+  and what was searched), never as a fact about the world.
+- Hand the reviewers the full set of discovery artifacts, so they can run the
+  same cross-check.
+
+Measured on a retrofit brief where the literature pass recorded "no public
+NL-to-automation dataset beyond four tasks" while the parallel ecosystem scan
+had downloaded a ~700-row one; the brief took the literature pass's wording
+and both reviewers caught it.
+
 ## Style Layers
 
 Read the reviewer profile selected by `Reviewer profile:` in `case.md`. The

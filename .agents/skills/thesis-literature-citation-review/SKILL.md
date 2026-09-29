@@ -64,6 +64,15 @@ for example `work/literature/`.
 - Do not claim to have read a source when only metadata or an abstract was available.
 - Do not equate inaccessible with irrelevant.
 - Do not leave source acquisition as manual work for selected key/suspicious citations unless access is blocked, the operator disables external lookup, or the limitation is explicitly recorded in `work/literature/source_acquisition.json`.
+- A negative search result ("no dataset", "no paper measured X") is scoped to the queries that
+  produced it. Before it feeds any downstream artifact, reconcile it with every other evidence
+  artifact of the round, such as a platform or dataset scan run by another role; a counterexample
+  anywhere in the round's evidence overrides it.
+- Tell the operator about EVERY source the review would use that could not be read in full,
+  whatever the cause (paywall, 403, TLS or certificate failure, script-blocked publisher page) and
+  whatever its selection state: discovered candidates and alternatives count as much as selected
+  thesis citations. Put the complete list in the operator-facing summary, not only in
+  `work/literature/source_acquisition.json`, and do not shorten it to the top few.
 - Treat a blocked acquisition as an open question for the operator, not as a closed one. Free
   availability is not a selection criterion: a source selected as key or suspicious stays selected
   after a paywall stops the download, and the review says what it could not read and asks for it.
