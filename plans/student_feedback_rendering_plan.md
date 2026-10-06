@@ -5,12 +5,13 @@ Created: 2026-10-06
 
 ## Start Here
 
-State: in_progress (operator activated 2026-10-06). Slices 1 and 2 are done and
-committed; Slice 1 is compacted, Slice 2 is not. Next action: compact Slice 2 into
-`plans/archive/student_feedback_rendering_plan/closed-slices-2026-10-06.md`, review the
-Slice 3 charter once (plan-critic), then implement Slice 3. Its Windows run is an
-operator step: ask, do not assume. Do not re-read the Slice 1 or 2 review entries;
-they are adjudicated.
+State: in_progress (operator activated 2026-10-06). Slices 1-2 done and compacted.
+Slice 3 is in progress: its docs and skill steps are committed; only the Windows check
+remains, which is an operator step. Next action: ask the operator whether a native Windows
+machine with Quarto 1.10.18+ is available, then follow the Slice 3 Windows task to the
+letter; record the result in `## Decision Log` and close Slice 3. Do not re-read the
+Slice 1-3 review entries; they are adjudicated.
+Open question for the operator: the Windows `render-feedback.cmd --draft` run.
 
 ## Goal
 
@@ -118,7 +119,7 @@ Decisions: `2026-10-06 - Link convention is a tracked skill default`,
 
 ### Slice 3 - Operator documentation and Windows check
 
-Status: planned
+Status: in_progress
 Proposed commit message: Tell operators and agents when and how to render the feedback PDF
 Why: `render-feedback` exists but nothing in the operator path or the skill names it, so
 the PDF only happens when someone already knows the command.
@@ -179,6 +180,8 @@ Charter only when a second supervisor or the operator asks for a different look.
   approved round pass; internal review, Codex slice review and narrow re-check adjudicated.
 - 2026-10-06: Slice 1 compacted; Slice 3 charter written (not yet reviewed). Slice 2
   done: tests, both smokes, and the checker on one real round (three advisory warnings).
+- 2026-10-06: Slice 2 compacted; Slice 3 charter reviewed (plan-critic + re-check). Slice 3
+  docs and skill steps landed; Windows operator check pending.
 
 ## Decision Log
 

@@ -161,6 +161,8 @@ checkout tím smaže.
 Nejběžnější výstupy:
 
 - `outputs/feedback_student.md` - studentská zpětná vazba,
+- `outputs/feedback_student.pdf` - PDF té zpětné vazby k odeslání studentovi,
+  vzniká jen ze schválené verze (viz níže),
 - `work/feedback_student_draft.md` - pracovní draft před nezávislým review,
 - `outputs/revision_diff.md` - rozdíl proti předchozí verzi,
 - `outputs/github_code_intake.md` - interní evidence GitHub repo/PR importu,
@@ -204,6 +206,37 @@ Studentský feedback, formální posudek vedoucího, oponentské materiály a n�
 oponentského posudku musí projít nezávislou review smyčkou. Po materiální úpravě
 se výstup znovu bere jako draft a potřebuje nové review nebo strukturovanou
 review deltu podle profilu.
+
+### PDF Pro Studenta
+
+```bash
+scripts/render-feedback <case-id> [round-id]
+scripts/render-feedback --draft <case-id> [round-id]
+```
+
+`render-feedback` vysází schválený `outputs/feedback_student.md` do A4 PDF
+`outputs/feedback_student.pdf`, které se dá přiložit k e-mailu nebo zprávě.
+Markdown zůstává zdrojem pravdy a příkaz ho nemění; agent PDF vytvoří po
+úspěšném closeoutu, ale nic neodesílá.
+
+- Vysází jen verzi, kterou kryje platné schválení v
+  `work/reviews/supervisor_feedback_review.json` včetně review manifestu, tedy
+  stejná brána jako u `confirm-supervisor-report`. Jinak skončí chybou.
+- Když schválení současný Markdown nekryje, smaže staré
+  `outputs/feedback_student.pdf`, a to samé udělá před každým schváleným
+  vysázením. PDF ve `outputs/` tak vždy odpovídá schválené verzi. Když je PDF
+  otevřené v prohlížeči a nejde smazat, příkaz to ohlásí; zavřete ho a spusťte
+  příkaz znovu.
+- `--draft` vysází i neschválenou verzi do `work/feedback_student_preview.pdf`
+  s viditelným razítkem NÁVRH/DRAFT. Je to jen náhled pro vás, ne pro studenta.
+- Potřebuje [Quarto](https://quarto.org) 1.10.18 nebo novější (obsahuje Typst,
+  LaTeX není potřeba). Quarto je volitelné: bez něj posíláte Markdown jako dřív a
+  `scripts/check-tooling` ho hlásí jako volitelný nástroj. Písmo je přibalené, na
+  stroji nemusí být nainstalované.
+- Na Windows použijte `dist\workflow-tools\bin\render-feedback.cmd` nebo
+  `.ps1` po zabalení nástrojů (viz Diagnostika níže).
+- Každé vysázení se zapíše do `work/operation_log.jsonl` s hashem zdroje, hashem
+  PDF a verzí Quarta.
 
 ## Povinné Gate Před Generováním
 
