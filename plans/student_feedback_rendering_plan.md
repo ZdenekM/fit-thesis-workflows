@@ -7,7 +7,8 @@ Created: 2026-10-06
 
 State: planned; a throwaway prototype (see `## Audit Base`) proved the render path on
 one real round without touching the source Markdown. Nothing is implemented yet.
-Next action: review the Slice 1 charter once (plan-change review), then implement it.
+The charter review and its one narrow re-check are done (Decision Log, 2026-10-06
+plan-critic round); the review chain is closed. Next action: implement Slice 1.
 Do not re-derive the format decision (Markdown source + Quarto/Typst PDF); it is in
 `## Decision Log`.
 
@@ -48,10 +49,11 @@ Contracts the render must not disturb:
 - Section headings are fixed and bilingual in
   `.agents/skills/thesis-supervisor-feedback/SKILL.md` (Czech names first); the
   priority table is parsed by `src/thesis_review_workflow/cli/check_feedback_output.py::check_priority_table`.
-- The sendable review records `reviewed_artifact_sha256` in its approval payload
-  (`src/thesis_review_workflow/review_approvals.py::build_review_approval_payload`);
-  the supervisor-feedback approval lives at `work/reviews/supervisor_feedback_review.json`
-  (`docs/agent-profile-matrix.md`).
+- The sendable review's approval payload binds the reviewed artifact and the review
+  basis by hash (`src/thesis_review_workflow/review_approvals.py::build_review_approval_payload`),
+  and `review_approvals.py::validate_review_approval_artifact` checks the whole
+  contract; the supervisor-feedback approval lives at
+  `work/reviews/supervisor_feedback_review.json` (`docs/agent-profile-matrix.md`).
 - Workflow tools are a `scripts/<tool>` POSIX wrapper over
   `thesis_review_workflow.cli.<module>`, listed in `scripts/BUILD` `shell_sources`, and
   a `pex_binary` tagged `workflow-tool` there; `scripts/package-workflow-tools`
@@ -101,10 +103,16 @@ Expected paths:
 - `src/thesis_review_workflow/render/BUILD`
 - `src/thesis_review_workflow/feedback_render.py`
 - `src/thesis_review_workflow/cli/render_feedback.py`
-- `scripts/render-feedback`, `scripts/BUILD`
+- `src/thesis_review_workflow/cli/BUILD` (its `python_source` target)
+- `src/thesis_review_workflow/commands.py` (`WORKFLOW_COMMAND_MODULES` entry)
+- `scripts/render-feedback`, `scripts/BUILD` (`shell_sources`, `pex_binary`, and
+  `WORKFLOW_CLI_RUNTIME_DEPS`)
 - `scripts/smoke-render-feedback`
 - `tests/test_feedback_render.py`
 - `src/thesis_review_workflow/cli/check_tooling.py`
+
+The registration list follows `docs/workflow-command-surface.md`
+(`### Operator Workflow Tools`); `tests/test_workflow_python_contracts.py` enforces it.
 
 Tasks:
 
@@ -118,20 +126,28 @@ Tasks:
   same reader `check_feedback_output.py::read_language` uses (locate the shared helper
   before writing a new one); copy the Markdown and resources into a `tempfile`
   directory; run `quarto render` there; write `outputs/feedback_student.pdf`.
-- Refuse to render unless the Markdown's SHA-256 equals `reviewed_artifact_sha256` in
-  the round's supervisor-feedback approval. `--draft` renders anyway and stamps a
-  visible `NÁVRH` / `DRAFT` watermark, for operator preview only.
+- Refuse to render unless the round's supervisor-feedback approval passes the existing
+  validator, `review_approvals.py::validate_review_approval_artifact`, bound to the
+  requested case, round, and `outputs/feedback_student.md`. A matching artifact hash
+  alone is not enough: the validator also checks verdict, blocking findings, and the
+  review-basis hash. `--draft` renders anyway and stamps a visible `NÁVRH` / `DRAFT`
+  watermark, for operator preview only.
 - Title-block labels and date format follow `Student feedback language` (cs/en).
   Omit the supervisor name (see `## Decision Log`).
 - Record the render with `operation_log.py::append_operation`: source hash, PDF hash,
   `quarto --version`, draft flag.
 - Fail with a typed, readable message when `quarto` is missing or older than the
   tested version; add `quarto` to `check_tooling.py::OPTIONAL_COMMANDS`.
-- Tests without Quarto: metadata extraction, approval-hash gating, draft flag, missing
-  binary. `scripts/smoke-render-feedback` renders a synthetic case-neutral cs and en
-  fixture when `quarto` is present (a skip otherwise) and asserts with `pdftotext`:
-  correct Czech quote pairs, the date line, each DOI present as a link annotation,
-  every priority row present.
+- Tests without Quarto: metadata extraction, draft flag, missing binary, and the
+  approval gate, including rejection of a stale review basis and of an invalid
+  approval whose artifact hash still matches.
+- `scripts/smoke-render-feedback` renders a synthetic case-neutral cs and en fixture
+  when `quarto` is present (a skip otherwise), through the generated packaged launcher
+  in a copy without checkout sources (the pattern of
+  `scripts/smoke-package-workflow-tools`), so missing package resources fail there.
+  Text assertions use `pdftotext`: correct Czech quote pairs, the date line, every
+  priority row. Link assertions use `pdfinfo -url`: each DOI/arXiv target present,
+  including a link whose label differs from its destination.
 - Windows-aware: `pathlib` only, no shell strings, explicit UTF-8, `quarto` resolved
   with `shutil.which` (picks up `quarto.exe`/`.cmd`).
 
@@ -140,8 +156,8 @@ docs beyond the command's `--help` (Slice 3).
 Verification:
 
 - `pants test tests/test_feedback_render.py`
-- `scripts/smoke-render-feedback`
-- `pants package scripts:render_feedback_tool`
+- `pants test tests/test_workflow_python_contracts.py`
+- `scripts/package-workflow-tools`, then `scripts/smoke-render-feedback`
 - `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
 - Omen MCP on `src/thesis_review_workflow/feedback_render.py` and
   `src/thesis_review_workflow/cli/render_feedback.py` during the slice.
@@ -203,6 +219,7 @@ Charter only when a second supervisor or the operator asks for a different look.
 ## Progress
 
 - 2026-10-06: plan created from the prototype session; no slice started.
+- 2026-10-06: Slice 1/2 charter review (Codex plan-critic) adjudicated; fixes applied.
 
 ## Decision Log
 
@@ -235,6 +252,19 @@ Residual: add a `case.md` field later if the operator wants the name printed.
 Decision: Slice 2 puts the short-link source format in the tracked skill, not the
 private profile. Why: it is student readability, not personal style; the bare-identifier
 check stays a warning so rounds in flight are not blocked.
+
+### 2026-10-06 - Plan-critic review of the Slice 1 and 2 charters
+
+Trigger: `scripts/agent-review --profile plan-critic --base HEAD~1` on commit `378fcae`.
+- (a) Hash equality is not approval: confirmed, `review_approvals.py:502` also checks
+  verdict, findings, basis hash. Fix: gate on `validate_review_approval_artifact`.
+- (b) Registration incomplete: confirmed, `docs/workflow-command-surface.md:13`,
+  `tests/test_workflow_python_contracts.py:522`. Fix: paths and contract test added.
+- (b) Packaged resources unverified: confirmed. Fix: smoke runs the packaged launcher
+  without checkout sources.
+- (b) `pdftotext` cannot see link annotations: confirmed. Fix: `pdfinfo -url`.
+- Slice 2's identifier check: no finding.
+Decision: all four accepted. Narrow re-check of the fix batch: pass, no new findings.
 
 ## Final Audit
 
