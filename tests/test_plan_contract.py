@@ -236,9 +236,7 @@ def _check_required_headings_are_present_and_ordered(plan: Plan) -> None:
     # copies of one charter is the outcome; counting is the whole fix.
     counts = Counter(heads)
     duplicated = [f"{heading} (x{counts[heading]})" for heading in REQUIRED_HEADINGS if counts[heading] > 1]
-    assert not duplicated, (
-        f"required heading appears more than once, and every check reads the first: {duplicated}"
-    )
+    assert not duplicated, f"required heading appears more than once, and every check reads the first: {duplicated}"
     order = [heads.index(heading) for heading in REQUIRED_HEADINGS]
     assert order == sorted(order), f"required headings out of order: {heads}"
     if "## Acceptance Contract" in heads:
@@ -360,6 +358,28 @@ def _check_compacted_records_point_at_entries_that_exist(plan: Plan) -> None:
             )
 
 
+DATED_ENTRY_HEADING = re.compile(r"^### \d{4}-\d{2}-\d{2} - ")
+
+
+def _check_dated_entries_sit_inside_the_decision_log(plan: Plan) -> None:
+    """A `### YYYY-MM-DD - ...` entry heading belongs to `## Decision Log` and nowhere else.
+
+    Adopted 2026-10-06 after a scripted edit inserted a Decision Log entry before the first
+    occurrence of the string `## Final Audit`, which was a mention inside `## Start Here`.
+    The plan stayed VALID while the entry sat in the middle of the next-action sentence and
+    the real Decision Log lacked it.
+    """
+    path, lines = plan
+    dl_start, dl_end = _section_range(lines, "## Decision Log")
+    fenced = _fenced(lines)
+    for index, line in enumerate(lines):
+        if fenced[index] or not DATED_ENTRY_HEADING.match(line):
+            continue
+        assert (
+            dl_start <= index < dl_end
+        ), f"line {index + 1}: dated entry heading `{line.strip()}` sits outside `## Decision Log`"
+
+
 def _check_line_anchors_do_not_grow_outside_the_decision_log(plan: Plan) -> None:
     """Living text cites `path::symbol` or test names; line anchors drift and belong in dated records."""
     path, lines = plan
@@ -410,6 +430,10 @@ def test_compacted_records_point_at_entries_that_exist() -> None:
     _for_each_plan(_check_compacted_records_point_at_entries_that_exist)
 
 
+def test_dated_entries_sit_inside_the_decision_log() -> None:
+    _for_each_plan(_check_dated_entries_sit_inside_the_decision_log)
+
+
 def test_line_anchors_do_not_grow_outside_the_decision_log() -> None:
     _for_each_plan(_check_line_anchors_do_not_grow_outside_the_decision_log)
 
@@ -427,6 +451,7 @@ def main() -> int:
         _check_slice_charters_use_a_recognized_form,
         _check_decision_log_entries_fit_the_cap,
         _check_compacted_records_point_at_entries_that_exist,
+        _check_dated_entries_sit_inside_the_decision_log,
         _check_line_anchors_do_not_grow_outside_the_decision_log,
         _check_plans_stay_within_their_size_budget,
     )

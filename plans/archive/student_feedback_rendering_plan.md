@@ -1,16 +1,13 @@
 # Student Feedback Rendering Plan
 
-Status: in_progress
+Status: done
 Created: 2026-10-06
 
 ## Start Here
 
-State: in_progress (operator activated 2026-10-06). Slices 1-3 are done and compacted;
-the native Windows run is a `TODO.md` residual. Slice 4 is a stub to charter only when a
-second supervisor or the operator asks for a different look. Next action: ask the
-operator whether Slice 4 is wanted now; if not, run `## Final Audit` (including the one
-cross-provider closeout review over the plan's diff), then archive the plan. Do not
-re-read the Slice 1-3 review entries; they are adjudicated.
+State: done and archived 2026-10-06. Slices 1-3 landed; Slice 4 was dropped to
+`TODO.md`; `## Final Audit` is recorded. Nothing remains to execute in this plan; its
+residuals live in `TODO.md`.
 
 ## Goal
 
@@ -131,11 +128,9 @@ Decisions: `2026-10-06 - Slice 3 charter review (Codex plan-critic)`,
 ### Slice 4 - Profile-level rendering style
 
 Charter form: stub
-Objective: let `profiles/local/<profile-id>.md` override accent colour and font family
-through a small labelled section; the tracked template stays neutral.
-Boundary: content, section mapping and the approval gate are not overridable.
-Serves: other supervisors using the repo (house style belongs in the profile layer).
-Charter only when a second supervisor or the operator asks for a different look.
+Objective: dropped from this plan on 2026-10-06; the idea lives in `TODO.md` (P2).
+Boundary: none; no work remains here.
+Serves: see `## Decision Log` `2026-10-06 - Slice 4 dropped to TODO`.
 
 ## Progress
 
@@ -147,6 +142,8 @@ Charter only when a second supervisor or the operator asks for a different look.
   done: tests, both smokes, and the checker on one real round (three advisory warnings).
 - 2026-10-06: Slice 2 compacted; Slice 3 charter reviewed (plan-critic + re-check). Slice 3
   docs and skill steps landed; Windows check moved to `TODO.md`; Slice 3 done and compacted.
+- 2026-10-06: Slice 4 dropped to `TODO.md` (operator). Final Audit ran; the closeout
+  review's three findings are fixed; plan archived.
 
 ## Decision Log
 
@@ -276,8 +273,45 @@ the existing P0 native Windows runtime item, and Slice 3 closed.
 Residual: native Windows rendering is unproven; the code path is Windows-aware by
 construction (`pathlib`, list-form subprocess, `shutil.which`, explicit UTF-8) only.
 
+### 2026-10-06 - Slice 4 dropped to TODO
+
+Trigger: asked after Slice 3; the operator does not want profile-level PDF styling now.
+Decision: Slice 4 leaves the plan; its objective and boundary moved to `TODO.md` (P2) so
+the plan can close. Why: the stub was conditional on a request that has not come.
+
+### 2026-10-06 - Closeout Codex review and narrow re-check
+
+Trigger: `scripts/agent-review --profile final-review --base 8106b16`, `changes_required`.
+- `--draft` after re-approval kept the earlier approved PDF: accepted; a draft keeps
+  `outputs/feedback_student.pdf` only when `feedback_render.py::pdf_rendered_from` proves
+  from the operation log that it was rendered from the current bytes.
+- DOI links lost balanced closing parentheses: accepted, `split_trailing` gives them
+  back; smoke asserts `https://doi.org/10.1000/example(2026)`.
+- A Decision Log entry had been inserted into `## Start Here` by a first-occurrence
+  string replace: accepted; moved, and `tests/test_plan_contract.py` gains
+  `_check_dated_entries_sit_inside_the_decision_log` so the gate catches it.
+Re-check (Claude subagent): fixes 1 and 2 pass; it noted an undecodable log crashing a
+draft, now treated as stale (`test_cli_draft_treats_an_unreadable_log_as_stale`), and the
+then-stale Start Here, rewritten at closeout.
+
 ## Final Audit
 
-Not started. Closeout runs `pants run :omen`, the Slice 1 and 2 verification blocks,
-`python3 tests/test_plan_contract.py`, `scripts/check-private`, `scripts/check-scripts`,
-and `git status --short --untracked-files=all`.
+Run 2026-10-06 on the end state:
+
+- `pants test tests/test_feedback_render.py tests/test_feedback_shape.py
+  tests/test_plan_contract.py tests/test_workflow_python_contracts.py`: pass.
+- `pants lint` and `pants check` on the touched modules: pass (mypy on test files still
+  lacks pytest stubs, pre-existing).
+- `scripts/package-workflow-tools`, `scripts/smoke-render-feedback`,
+  `scripts/smoke-feedback-output`: pass; one real approved round renders.
+- `python3 tests/test_plan_contract.py`, `scripts/check-private`, `scripts/check-scripts`,
+  `git diff --check`: pass.
+- `pants run :omen`: FAILS with `No module named 'thesis_review_workflow'`, identically
+  with this plan's BUILD change reverted, so it predates the plan; tracked in `TODO.md`.
+  Omen evidence for the plan's modules came from the `omen` CLI (largest cyclomatic 8).
+- Cross-provider closeout review: see `2026-10-06 - Closeout Codex review and narrow
+  re-check`.
+
+Residual risks: native Windows rendering unproven (`TODO.md`, P0); raw Typst or
+`header-includes` in the Markdown could still hide the draft stamp; old-style arXiv ids
+are neither warned nor linked. Archive decision: archived; residual work is in `TODO.md`.

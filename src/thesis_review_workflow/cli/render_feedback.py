@@ -22,6 +22,7 @@ from thesis_review_workflow.feedback_render import (
     RenderError,
     approval_errors,
     find_quarto,
+    pdf_rendered_from,
     quarto_version,
     read_case_metadata,
     render_metadata,
@@ -82,15 +83,24 @@ def report_unapproved(errors: list[str]) -> None:
 
 
 def passes_gate(round_dir: Path, args: argparse.Namespace, round_id: str, source_sha256: str) -> bool:
-    """Apply the approval gate; `--draft` passes it, but still clears an unbacked PDF."""
+    """Apply the approval gate and keep `outputs/` honest in both modes.
+
+    Unapproved Markdown: the PDF is removed and only `--draft` continues. Approved
+    Markdown: a final render clears the PDF first, so a failed render leaves none; a draft
+    keeps it only when the operation log shows it was rendered from these exact bytes.
+    """
     errors = approval_errors(round_dir, case_id=args.case_id, round_id=round_id, source_sha256=source_sha256)
-    if errors and not remove_stale_pdf(round_dir, f"no approval covers the current {FEEDBACK_REL}"):
-        return False
-    if errors and not args.draft:
-        report_unapproved(errors)
-        return False
-    # An approved render replaces the PDF; clear it first so a failed render leaves none.
-    return args.draft or remove_stale_pdf(round_dir, "")
+    if errors:
+        if not remove_stale_pdf(round_dir, f"no approval covers the current {FEEDBACK_REL}"):
+            return False
+        if not args.draft:
+            report_unapproved(errors)
+        return bool(args.draft)
+    if not args.draft:
+        return remove_stale_pdf(round_dir, "")
+    if pdf_rendered_from(round_dir, source_sha256):
+        return True
+    return remove_stale_pdf(round_dir, f"it was not rendered from the current {FEEDBACK_REL}")
 
 
 def record_render(

@@ -6,8 +6,16 @@ traverse = "topdown"
 -- The forms match `check_feedback_output.py::BARE_IDENTIFIER_RE`, which warns about the
 -- same identifiers in the Markdown: "DOI 10.x/y", "DOI: 10.x/y", "doi:10.x/y",
 -- "arXiv 2401.12345", "arXiv:2401.12345v2".
+-- Split trailing punctuation off an identifier, but give back each closing parenthesis
+-- that balances an opening one inside it: "10.1000/x(2026))." keeps "(2026)".
 local function split_trailing(s)
-  return s:match("^(.-)([%.,;:%)]*)$")
+  local core, tail = s:match("^(.-)([%.,;:%)]*)$")
+  local _, opens = core:gsub("%(", "")
+  local _, closes = core:gsub("%)", "")
+  while opens > closes and tail:sub(1, 1) == ")" do
+    core, tail, closes = core .. ")", tail:sub(2), closes + 1
+  end
+  return core, tail
 end
 
 local function url_for(kind, ident)

@@ -22,6 +22,7 @@ from typing import Any
 
 from thesis_review_workflow.cli.check_feedback_output import LANGUAGE, read_language
 from thesis_review_workflow.metadata import read_fields
+from thesis_review_workflow.operation_log import load_operation_log
 from thesis_review_workflow.review_approvals import (
     APPROVAL_PROFILES,
     load_review_approval,
@@ -142,6 +143,34 @@ def approval_errors(round_dir: Path, *, case_id: str, round_id: str, source_sha2
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def pdf_rendered_from(round_dir: Path, source_sha256: str) -> bool:
+    """True when `outputs/feedback_student.pdf` is the latest approved render of these bytes.
+
+    Read from the round's operation log: the last non-draft `render-feedback` record must
+    name `source_sha256` and the hash of the PDF now on disk.
+    """
+    pdf = round_dir / PDF_REL
+    if not pdf.is_file():
+        return False
+    try:
+        records, _ = load_operation_log(round_dir)
+    except (OSError, UnicodeDecodeError):
+        return False  # an unreadable log proves nothing, so the PDF is treated as stale
+    renders = [
+        record
+        for record in records
+        if record.get("operation") == "render-feedback"
+        and record.get("status") == "passed"
+        and isinstance(record.get("details"), dict)
+        and record["details"].get("draft") == "false"
+    ]
+    if not renders:
+        return False
+    details: dict[str, Any] = renders[-1]["details"]
+    pdf_sha256 = sha256_bytes(pdf.read_bytes())
+    return bool(details.get("source_sha256") == source_sha256 and details.get("pdf_sha256") == pdf_sha256)
 
 
 def find_quarto() -> Path:

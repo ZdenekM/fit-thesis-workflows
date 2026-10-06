@@ -7,6 +7,9 @@
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.
    - New or changed operator workflow commands must keep the command-surface contract in `docs/workflow-command-surface.md`: Python CLI, Pants/PEX target, generated `.cmd`/`.ps1` launchers, and targeted test or smoke coverage.
    - Include `render-feedback`, the one launcher that drives an external renderer: on a Windows checkout with Quarto 1.10.18+ and a round that has `outputs/feedback_student.md`, run `dist\workflow-tools\bin\render-feedback.cmd <case-id> <round-id> --draft` and open `work\feedback_student_preview.pdf`. A reproducible renderer defect goes back to the `render-feedback` code (`src/thesis_review_workflow/feedback_render.py`); missing Quarto or a missing round is setup.
+- [ ] Repair the `pants run :omen` and `pants run :jscpd` dev-hygiene targets.
+   - Both fail before running: the PEX entry point `thesis_review_workflow.cli.dev_hygiene:console_main` raises `ModuleNotFoundError: No module named 'thesis_review_workflow'`, although `pants dependencies --transitive :omen` lists the package.
+   - Observed 2026-10-06 and reproduced with `src/thesis_review_workflow/BUILD` at 8106b16, so it predates the feedback-rendering plan; until fixed, closeouts use the `omen` CLI (`omen -f json complexity`) and record the limitation.
 - [ ] Continue deterministic tests as workflow validators and helper contracts grow.
    - The highest-risk reliability helpers now have focused pytest coverage; keep adding pure tests for new validators, manifest/coverage rules, case-format helpers, and shared review-round closeout helpers.
    - Reuse the existing packet, wave-gate, materiality, and `work/reviews/*_review.json` approval-record tests as the pattern for future context-efficiency helpers.
@@ -101,6 +104,10 @@
 
 ## P2 - Later Automation
 
+- [ ] Let a private reviewer profile restyle the student feedback PDF.
+   - `render-feedback` uses a neutral tracked Typst template (`src/thesis_review_workflow/render/feedback/typst-template.typ`); a small labelled section in `profiles/local/<profile-id>.md` could override the accent colour and the font family.
+   - Content, the heading-to-block mapping and the approval gate stay non-overridable.
+   - Start only when a second supervisor or the operator asks for a different look (deferred 2026-10-06 from `plans/archive/student_feedback_rendering_plan.md`).
 - [ ] Close the same first-match hole in `notes/topic_intake.md`.
    - `citable_artifacts` and `supplement_line` read the first `## Citable Artifacts`, exactly as the brief and assignment readers did before `repeated_headings_in` landed. A duplicated intake body would therefore still pass `scripts/check-assignment-draft`.
    - The intake has no declared required-heading set, so this is a new contract rather than an extension of the existing rule — decide the heading set first, in `templates/topic-intake.md` and `docs/assignment-authoring.md`.

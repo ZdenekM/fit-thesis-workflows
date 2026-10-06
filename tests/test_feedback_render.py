@@ -382,6 +382,39 @@ def test_cli_reports_a_stale_pdf_it_cannot_remove(
     assert fake.metadata is None
 
 
+def test_cli_draft_after_reapproval_removes_the_earlier_pdf(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, _ = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback, version B\n", encoding="utf-8")
+    write_approval(round_dir)
+
+    assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 0
+
+    assert not (round_dir / feedback_render.PDF_REL).exists()
+
+
+def test_cli_draft_keeps_the_pdf_rendered_from_the_current_feedback(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, _ = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+
+    assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 0
+
+    assert (round_dir / feedback_render.PDF_REL).is_file()
+
+
+def test_cli_draft_treats_an_unreadable_log_as_stale(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, _ = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+    (round_dir / OPERATION_LOG_REL).write_bytes(b"\xff\xfe not utf-8\n")
+
+    assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 0
+
+    assert not (round_dir / feedback_render.PDF_REL).exists()
+
+
 def test_cli_renders_approved_feedback_and_logs_hashes(cli_round: tuple[Path, FakeRender]) -> None:
     round_dir, fake = cli_round
     write_approval(round_dir)
