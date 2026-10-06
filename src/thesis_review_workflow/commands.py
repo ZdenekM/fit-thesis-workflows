@@ -85,6 +85,7 @@ WORKFLOW_COMMAND_MODULES = {
     "record-theses-checker-summary": "thesis_review_workflow.cli.record_theses_checker_summary",
     "record-workflow-operation": "thesis_review_workflow.cli.record_workflow_operation",
     "refresh-round-hashes": "thesis_review_workflow.cli.refresh_round_hashes",
+    "render-feedback": "thesis_review_workflow.cli.render_feedback",
     "register-review-artifact": "thesis_review_workflow.cli.register_review_artifact",
     "review-round-closeout": "thesis_review_workflow.cli.review_round_closeout",
     "review-round-start": "thesis_review_workflow.cli.review_round_start",

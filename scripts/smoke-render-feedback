@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# Render synthetic cs and en feedback through the packaged render-feedback launcher,
+# in a repository copy without checkout sources, so a package resource missing from
+# the PEX fails here. Skips when quarto is not installed. Run
+# scripts/package-workflow-tools first.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! command -v quarto >/dev/null 2>&1; then
+  echo "SKIP: quarto not found; render-feedback smoke not run"
+  exit 0
+fi
+for tool in pdftotext pdfinfo; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing $tool (poppler-utils), needed for the render-feedback assertions" >&2
+    exit 1
+  fi
+done
+
+pex_info="$repo_root/dist/workflow-tools/pex/render-feedback/PEX-INFO"
+if [[ ! -f "$pex_info" ]]; then
+  echo "Missing packaged render-feedback; run scripts/package-workflow-tools first" >&2
+  exit 1
+fi
+stale="$(find src/thesis_review_workflow/render src/thesis_review_workflow/feedback_render.py \
+  src/thesis_review_workflow/cli/render_feedback.py -type f -newer "$pex_info" -print -quit)"
+if [[ -n "$stale" ]]; then
+  echo "Packaged render-feedback is older than $stale; run scripts/package-workflow-tools" >&2
+  exit 1
+fi
+
+tmp_repo="$(mktemp -d)"
+trap 'rm -rf "$tmp_repo"' EXIT
+mkdir -p "$tmp_repo/dist"
+cp -R "$repo_root/dist/workflow-tools" "$tmp_repo/dist/"
+git -C "$tmp_repo" init -q
+launcher="$tmp_repo/dist/workflow-tools/bin/render-feedback"
+
+# make_case <case-id> <language> <approved: yes|no>; reads the Markdown from stdin.
+make_case() {
+  local case_id="$1" language="$2" approved="$3"
+  local round_dir="$tmp_repo/cases/$case_id/rounds/round-1"
+  mkdir -p "$round_dir/outputs" "$round_dir/work"
+  printf 'round-1\n' >"$tmp_repo/cases/$case_id/current-round.txt"
+  printf '# Case\n\nStudent: Synthetic Student\nTopic: Synthetic smoke topic\nStudent feedback language: %s\n' \
+    "$language" >"$tmp_repo/cases/$case_id/case.md"
+  cat >"$round_dir/outputs/feedback_student.md"
+  cp "$round_dir/outputs/feedback_student.md" "$round_dir/work/feedback_student_draft.md"
+  if [[ "$approved" == yes ]]; then
+    PYTHONPATH="$repo_root/src" python3 - "$round_dir" "$case_id" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+from thesis_review_workflow.review_approvals import APPROVAL_PROFILES, build_review_approval_payload, sha256_file
+from thesis_review_workflow.review_manifest import MANIFEST_REL
+
+round_dir, case_id = Path(sys.argv[1]), sys.argv[2]
+profile = APPROVAL_PROFILES["supervisor-feedback"]
+reviewed = profile.reviewed_artifact_path
+manifest = {
+    "schema_version": "review-manifest-v1",
+    "case_id": case_id,
+    "round_id": "round-1",
+    "artifacts": [],
+    "helper_checks": [
+        {
+            "check": name,
+            "status": "passed",
+            "exit_code": 0,
+            "checked_at": "2026-10-06T00:00:00Z",
+            "target_artifacts": [reviewed],
+            "target_sha256": {reviewed: sha256_file(round_dir / reviewed)},
+        }
+        for name in profile.required_checks
+    ],
+}
+(round_dir / MANIFEST_REL).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+payload = build_review_approval_payload(
+    round_dir,
+    case_id=case_id,
+    round_id="round-1",
+    workflow_profile=profile.workflow_profile,
+    reviewer_role=profile.reviewer_role,
+    reviewer_agent="smoke-reviewer",
+    verdict="approved",
+    blocking_findings_count=0,
+    reviewed_artifact_path=profile.reviewed_artifact_path,
+    review_basis_path=profile.review_basis_candidates[0],
+    checks_observed=list(profile.required_checks),
+    limitations=[],
+    timestamp="2026-10-06T00:00:00Z",
+    manifest=manifest,
+    required_checks=profile.required_checks,
+    approval_path=profile.approval_path,
+)
+path = round_dir / profile.approval_path
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+  fi
+}
+
+# pdf_text <pdf>: extracted text with non-breaking spaces as plain spaces.
+pdf_text() {
+  pdftotext "$1" - | sed 's/\xc2\xa0/ /g'
+}
+
+expect_text() {
+  local pdf="$1" needle="$2"
+  if ! pdf_text "$pdf" | grep -Fq -- "$needle"; then
+    echo "Expected text not found in $(basename "$pdf"): $needle" >&2
+    pdf_text "$pdf" >&2
+    exit 1
+  fi
+}
+
+expect_url() {
+  local pdf="$1" url="$2"
+  if ! pdfinfo -url "$pdf" | awk '{print $3}' | grep -Fxq -- "$url"; then
+    echo "Expected link target not found: $url" >&2
+    pdfinfo -url "$pdf" >&2
+    exit 1
+  fi
+}
+
+make_case smoke-render-cs cs yes <<'EOF'
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 2026-10-06
+
+## Krátké celkové shrnutí
+
+Práce má formulovaný cíl a „klasika“ oboru je v rešerši pokryta. Druhá „citace“ ve větě.
+
+## Rozsah kontroly
+
+Prošel jsem text práce; kód nebyl dostupný, proto „soulad s kódem“ nebyl ověřen (DOI 10.5555/12345678).
+
+## Co je na práci už dobré
+
+- Přehled existujících nástrojů je věcný.
+
+## Nejvyšší priority pro aktuální iteraci
+
+| Priorita | Oblast | Proč je to důležité teď | Co udělat | Kde se to projevuje |
+|---|---|---|---|---|
+| P0 | Cíl práce | Bez cíle nejde hodnotit návrh. | Doplňte do úvodu měřitelný cíl práce. | kapitola 1, str. 3 |
+| P1 | Rešerše | Chybí srovnání přístupů. | Přidejte srovnávací tabulku přístupů. | kapitola 2, str. 7 |
+| P2 | Formální stránka | Drobné překlepy. | Projděte text kontrolou pravopisu. | celý text |
+
+## Připomínky k textu práce
+
+Viz DOI 10.1145/3290605.3300233 a preprint (arXiv 2401.12345). Odkaz [Krátký název](https://doi.org/10.1000/xyz123) zůstává.
+Odkaz [DOI 10.1000/inner](https://example.org/landing) vede jinam, než říká jeho text.
+EOF
+
+make_case smoke-render-en en yes <<'EOF'
+# Feedback on the Current Thesis Version
+
+Review date: 2026-10-06
+
+## Brief Overall Summary
+
+The goal is stated and the “classic” approaches are covered.
+
+## Review Scope
+
+Thesis text only; the code was not available, so text-code alignment was not checked.
+
+## Highest Priorities for This Iteration
+
+| Priority | Area | Why it matters now | What to do | Where it appears |
+|---|---|---|---|---|
+| P1 | [Goal](https://example.org/goal-guide) | The design cannot be judged without it. | State a measurable goal in the introduction. | chapter 1, p. 3 |
+| P2 | Formal presentation | Minor typos. | Run a spell check over the whole text. | whole text |
+EOF
+
+# Front matter must not override the renderer's values: neither the draft stamp nor the
+# language nor the section mapping.
+make_case smoke-render-unapproved cs no <<'EOF'
+---
+lang: en
+feedback:
+  draft: false
+---
+# Zpětná vazba k aktuální verzi práce
+
+Datum kontroly: 2026-10-06
+
+## Nejvyšší priority pro aktuální iteraci
+
+| Priorita | Oblast | Proč je to důležité teď | Co udělat | Kde se to projevuje |
+|---|---|---|---|---|
+| P1 | Cíl práce | Bez cíle nejde hodnotit návrh. | Doplňte do úvodu měřitelný cíl práce. | kapitola 1, str. 3 |
+EOF
+
+cd "$tmp_repo"
+
+cs_round="$tmp_repo/cases/smoke-render-cs/rounds/round-1"
+cs_source_hash="$(sha256sum "$cs_round/outputs/feedback_student.md")"
+"$launcher" smoke-render-cs >/dev/null
+cs_pdf="$cs_round/outputs/feedback_student.pdf"
+test -f "$cs_pdf"
+[[ "$(sha256sum "$cs_round/outputs/feedback_student.md")" == "$cs_source_hash" ]]
+# The typographic quotes below are the assertion, not a typo.
+# shellcheck disable=SC1111
+expect_text "$cs_pdf" "„klasika“"
+# shellcheck disable=SC1111
+expect_text "$cs_pdf" "„citace“"
+if pdf_text "$cs_pdf" | grep -Fq "„klasika„"; then
+  echo "Czech opening quote rendered as a closing quote" >&2
+  exit 1
+fi
+expect_text "$cs_pdf" "6. 10. 2026"
+expect_text "$cs_pdf" "Synthetic Student"
+expect_text "$cs_pdf" "P0 · Cíl práce"
+expect_text "$cs_pdf" "P1 · Rešerše"
+expect_text "$cs_pdf" "P2 · Formální stránka"
+expect_text "$cs_pdf" "Doplňte do úvodu měřitelný cíl práce."
+expect_text "$cs_pdf" "kapitola 2, str. 7"
+# shellcheck disable=SC1111
+expect_text "$cs_pdf" "„soulad s kódem“"
+expect_url "$cs_pdf" "https://doi.org/10.1145/3290605.3300233"
+expect_url "$cs_pdf" "https://arxiv.org/abs/2401.12345"
+expect_url "$cs_pdf" "https://doi.org/10.1000/xyz123"
+expect_url "$cs_pdf" "https://doi.org/10.5555/12345678"
+expect_url "$cs_pdf" "https://example.org/landing"
+if pdfinfo -url "$cs_pdf" | grep -Fq "https://doi.org/10.1000/inner"; then
+  echo "An identifier inside an existing link label was re-linked" >&2
+  exit 1
+fi
+grep -Fq '"operation": "render-feedback"' "$cs_round/work/operation_log.jsonl"
+
+en_round="$tmp_repo/cases/smoke-render-en/rounds/round-1"
+"$launcher" smoke-render-en >/dev/null
+en_pdf="$en_round/outputs/feedback_student.pdf"
+# shellcheck disable=SC1111
+expect_text "$en_pdf" "“classic”"
+expect_text "$en_pdf" "6 October 2026"
+expect_text "$en_pdf" "P1 · Goal"
+expect_url "$en_pdf" "https://example.org/goal-guide"
+expect_text "$en_pdf" "P2 · Formal presentation"
+
+unapproved_round="$tmp_repo/cases/smoke-render-unapproved/rounds/round-1"
+if "$launcher" smoke-render-unapproved >/dev/null 2>&1; then
+  echo "render-feedback rendered feedback without a review approval" >&2
+  exit 1
+fi
+test ! -e "$unapproved_round/outputs/feedback_student.pdf"
+"$launcher" smoke-render-unapproved --draft >/dev/null
+test -f "$unapproved_round/work/feedback_student_preview.pdf"
+# The stamp is rotated, so only content-order extraction keeps its letters together.
+pdftotext -raw "$unapproved_round/work/feedback_student_preview.pdf" - | grep -Fxq "NÁVRH"
+expect_text "$unapproved_round/work/feedback_student_preview.pdf" "P1 · Cíl práce"
+expect_text "$unapproved_round/work/feedback_student_preview.pdf" "6. 10. 2026"
+test ! -e "$unapproved_round/outputs/feedback_student.pdf"
+
+echo "render-feedback smoke passed"

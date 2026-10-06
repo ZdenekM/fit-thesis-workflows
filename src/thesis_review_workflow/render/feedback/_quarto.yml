@@ -1,0 +1,20 @@
+# Quarto defaults for rendering outputs/feedback_student.md to PDF.
+# render-feedback copies this directory and the Markdown into a temporary
+# directory and writes the per-render values (language, student, topic, the
+# section headings to map, draft stamp) to feedback-render.json next to it;
+# filters/feedback-blocks.lua assigns them over any front matter.
+callout-icon: false
+filters:
+  # Emits callout Divs, so it must run before Quarto processes callouts.
+  - path: filters/feedback-blocks.lua
+    at: pre-ast
+  - filters/identifier-links.lua
+  - filters/czech-quotes.lua
+format:
+  typst:
+    from: markdown-smart
+    papersize: a4
+    font-paths:
+      - fonts
+    template-partials:
+      - typst-template.typ

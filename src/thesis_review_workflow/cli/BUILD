@@ -72,6 +72,7 @@ python_source(name="record_submitted_supervisor_report", source="record_submitte
 python_source(name="record_theses_checker_summary", source="record_theses_checker_summary.py")
 python_source(name="record_workflow_operation", source="record_workflow_operation.py")
 python_source(name="refresh_round_hashes", source="refresh_round_hashes.py")
+python_source(name="render_feedback", source="render_feedback.py")
 python_source(name="register_review_artifact", source="register_review_artifact.py")
 python_source(name="review_round_closeout", source="review_round_closeout.py")
 python_source(name="review_round_start", source="review_round_start.py")

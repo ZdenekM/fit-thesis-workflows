@@ -1,16 +1,16 @@
 # Student Feedback Rendering Plan
 
-Status: planned
+Status: in_progress
 Created: 2026-10-06
 
 ## Start Here
 
-State: planned; a throwaway prototype (see `## Audit Base`) proved the render path on
-one real round without touching the source Markdown. Nothing is implemented yet.
-The charter review and its one narrow re-check are done (Decision Log, 2026-10-06
-plan-critic round); the review chain is closed. Next action: implement Slice 1.
-Do not re-derive the format decision (Markdown source + Quarto/Typst PDF); it is in
-`## Decision Log`.
+State: in_progress (operator activated 2026-10-06). Slice 1 is done and committed; its
+charter is not yet compacted. Next action: compact Slice 1 into
+`plans/archive/student_feedback_rendering_plan/` with its commit, write the full Slice 3
+charter (it becomes the next slice), then implement Slice 2, whose charter was reviewed
+in the 2026-10-06 plan-critic round. Do not re-derive the format decision (Markdown
+source + Quarto/Typst PDF) or re-read the Slice 1 review entries; both are adjudicated.
 
 ## Goal
 
@@ -92,7 +92,7 @@ Out of scope:
 
 ### Slice 1 - Render command for approved student feedback
 
-Status: planned
+Status: done
 Proposed commit message: Render reviewed student feedback to a PDF the student can open
 Why: the student gets a plain Markdown file today; the prototype showed a readable
 PDF needs no change to the source, the agents, or the checkers.
@@ -101,6 +101,8 @@ Expected paths:
 - `src/thesis_review_workflow/render/feedback/**` (Typst partial, Lua filters, Quarto
   defaults, vendored OFL fonts with their licence files)
 - `src/thesis_review_workflow/render/BUILD`
+- `src/thesis_review_workflow/BUILD` (dependency override: `importlib.resources` use is
+  invisible to inference)
 - `src/thesis_review_workflow/feedback_render.py`
 - `src/thesis_review_workflow/cli/render_feedback.py`
 - `src/thesis_review_workflow/cli/BUILD` (its `python_source` target)
@@ -118,20 +120,23 @@ Tasks:
 
 - Move the prototype template and filters into package resources loaded through
   `importlib.resources`, and declare them with a Pants `resources` target so the PEX
-  carries them. Vendor one OFL sans family (prefer a single family for body and
-  headings; record the measured file sizes and the choice in `## Decision Log`) and
-  point Typst `font-paths` at it.
+  carries them. Vendor one OFL sans family, subset (see `## Decision Log`), and point
+  Typst `font-paths` at it.
 - `render-feedback <case-id> [round-id]`: resolve the round as the other tools do;
-  read `Student:`, `Topic:`, `Student feedback language:` from `case.md` through the
-  same reader `check_feedback_output.py::read_language` uses (locate the shared helper
-  before writing a new one); copy the Markdown and resources into a `tempfile`
-  directory; run `quarto render` there; write `outputs/feedback_student.pdf`.
-- Refuse to render unless the round's supervisor-feedback approval passes the existing
-  validator, `review_approvals.py::validate_review_approval_artifact`, bound to the
-  requested case, round, and `outputs/feedback_student.md`. A matching artifact hash
-  alone is not enough: the validator also checks verdict, blocking findings, and the
-  review-basis hash. `--draft` renders anyway and stamps a visible `NÁVRH` / `DRAFT`
-  watermark, for operator preview only.
+  read `Student:` and `Topic:` through `metadata.py::read_fields` and the language through
+  `check_feedback_output.py::read_language`; read the Markdown bytes once; copy them and
+  the resources into a `tempfile` directory; run `quarto render` there; write
+  `outputs/feedback_student.pdf`.
+- Refuse to render unless the round's supervisor-feedback approval passes
+  `review_approvals.py::validate_review_approval_with_manifest` (the gate
+  `confirm-supervisor-report` uses) bound to the requested case, round, and
+  `outputs/feedback_student.md`, and its artifact hash equals the bytes read for
+  rendering. Remove `outputs/feedback_student.pdf` whenever no approval covers the
+  current Markdown and before every approved render. `--draft` renders anyway to
+  `work/feedback_student_preview.pdf` with a visible `NÁVRH` / `DRAFT` stamp, for
+  operator preview only.
+- Renderer values (language, title-block fields, mapped headings, stamp) go to
+  `feedback-render.json`, which the pre-AST filter assigns over any source front matter.
 - Title-block labels and date format follow `Student feedback language` (cs/en).
   Omit the supervisor name (see `## Decision Log`).
 - Record the render with `operation_log.py::append_operation`: source hash, PDF hash,
@@ -139,15 +144,17 @@ Tasks:
 - Fail with a typed, readable message when `quarto` is missing or older than the
   tested version; add `quarto` to `check_tooling.py::OPTIONAL_COMMANDS`.
 - Tests without Quarto: metadata extraction, draft flag, missing binary, and the
-  approval gate, including rejection of a stale review basis and of an invalid
-  approval whose artifact hash still matches.
+  approval gate, including rejection of a stale review basis, of feedback edited after
+  approval, of a missing manifest or observed check, and of an invalid approval whose
+  artifact hash still matches; the mapped headings exist in the skill's output contract.
 - `scripts/smoke-render-feedback` renders a synthetic case-neutral cs and en fixture
   when `quarto` is present (a skip otherwise), through the generated packaged launcher
   in a copy without checkout sources (the pattern of
   `scripts/smoke-package-workflow-tools`), so missing package resources fail there.
-  Text assertions use `pdftotext`: correct Czech quote pairs, the date line, every
-  priority row. Link assertions use `pdfinfo -url`: each DOI/arXiv target present,
-  including a link whose label differs from its destination.
+  Text assertions use `pdftotext`: correct Czech quote pairs (also inside a callout), the
+  date line, every priority row with its cell text, the draft stamp. Link assertions use
+  `pdfinfo -url`: each DOI/arXiv target present, a link whose label differs from its
+  destination, and no re-link of an identifier inside an existing link label.
 - Windows-aware: `pathlib` only, no shell strings, explicit UTF-8, `quarto` resolved
   with `shutil.which` (picks up `quarto.exe`/`.cmd`).
 
@@ -159,8 +166,9 @@ Verification:
 - `pants test tests/test_workflow_python_contracts.py`
 - `scripts/package-workflow-tools`, then `scripts/smoke-render-feedback`
 - `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
-- Omen MCP on `src/thesis_review_workflow/feedback_render.py` and
-  `src/thesis_review_workflow/cli/render_feedback.py` during the slice.
+- Omen on `src/thesis_review_workflow/feedback_render.py` and
+  `src/thesis_review_workflow/cli/render_feedback.py` (CLI `omen -f json complexity`;
+  the MCP server returned zero files, see `## Decision Log`).
 - Manual: render one real approved round into its ignored `outputs/`, open the PDF.
 
 ### Slice 2 - Short, clickable sources in student feedback
@@ -220,6 +228,8 @@ Charter only when a second supervisor or the operator asks for a different look.
 
 - 2026-10-06: plan created from the prototype session; no slice started.
 - 2026-10-06: Slice 1/2 charter review (Codex plan-critic) adjudicated; fixes applied.
+- 2026-10-06: Slice 1 done: unit tests, contract test, packaged smoke and one real
+  approved round pass; internal review, Codex slice review and narrow re-check adjudicated.
 
 ## Decision Log
 
@@ -265,6 +275,50 @@ Trigger: `scripts/agent-review --profile plan-critic --base HEAD~1` on commit `3
 - (b) `pdftotext` cannot see link annotations: confirmed. Fix: `pdfinfo -url`.
 - Slice 2's identifier check: no finding.
 Decision: all four accepted. Narrow re-check of the fix batch: pass, no new findings.
+
+### 2026-10-06 - Vendored font: Noto Sans, subset
+
+Decision: one family, Noto Sans Regular/Bold/Italic/BoldItalic (OFL 1.1, no Reserved
+Font Name) from Debian `fonts-noto-core`, subset with fontTools to Czech/Western Latin,
+punctuation, Greek, arrows and common operators; recipe in
+`src/thesis_review_workflow/render/feedback/fonts/SUBSET.md`.
+Why: every workflow-tool PEX depends on `WORKFLOW_CLI_RUNTIME_DEPS`, so resources ship in
+all of them. Measured: full four files 2.09 MB, Lato 2.74 MB, the subset 265 kB; render
+resources add about 330 kB per PEX. Out-of-range characters fall back to any font Typst
+finds. The licence file is `LICENSE-OFL`, since `check-private` treats `*.txt` as
+extracted thesis text.
+
+### 2026-10-06 - Slice 1 internal review (Claude read-only subagent)
+
+- Gate used the base validator, which skips observed checks, basis candidates and
+  reviewer independence: confirmed against `confirm_supervisor_report.py`. Fix: gate on
+  `validate_review_approval_with_manifest`; the one real approved round passes it.
+- Stale approved PDF survives a refused render: accepted, removed on refusal.
+- Check-then-render race: accepted, bytes read once and bound to the approval hash.
+- Windows locking on replace and temp cleanup: accepted, typed error, `.partial` unlinked.
+- Card title assumed column 2: accepted, area located by header (`AREA_HEADER`).
+- Draft output named like the review basis: renamed `work/feedback_student_preview.pdf`.
+- Test and smoke gaps (edited source, cell bodies, link label, stamp, callout): accepted.
+- Deferred nits: `doi:`/versioned arXiv forms (Slice 2 territory); `case.md` values
+  are parsed as Markdown by Quarto, so a topic starting `1. ` would render as a list.
+Omen MCP returned zero files for the repo root and both modules (path handling); the
+`omen` CLI measured them instead, `main` split from cyclomatic 13 to 8.
+
+### 2026-10-06 - Slice 1 Codex slice review and narrow re-check
+
+Trigger: `scripts/agent-review --profile slice-review` on the uncommitted slice, verdict
+`changes_required`; fixes re-checked by a read-only Claude subagent, not by Codex.
+- Front matter overrode `feedback.draft`: confirmed, worse (it replaced the whole map, so
+  no stamp, no section mapping, no cards). Fix: `feedback-render.json` read by the
+  pre-AST filter overrides front matter; smoke fixture with such front matter.
+- Missing-source refusal kept a stale PDF: accepted, removed on that path too.
+- Area-cell links dropped from card titles: accepted, title is a callout heading.
+- Re-check: fixes 1 and 3 verified; the new unlink could raise on a PDF open in a
+  Windows viewer, and a failed re-render kept the earlier approved PDF. Fix: typed
+  error on removal failure; the PDF is cleared before every approved render.
+Residual: raw Typst or `header-includes` in the Markdown could still hide the stamp
+(code injection, not metadata override); `pants check` on tests lacks pytest stubs
+(pre-existing, `tests/test_feedback_shape.py` too).
 
 ## Final Audit
 

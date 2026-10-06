@@ -25,6 +25,7 @@ OPTIONAL_COMMANDS = (
     ("hunspell", "spell checks"),
     ("aspell", "spell checks"),
     ("pandoc", "document conversion/reference inspection"),
+    ("quarto", "student feedback PDF rendering"),
     ("anystyle", "bibliography parsing"),
     ("grobid_client", "literature PDF reference extraction"),
 )
