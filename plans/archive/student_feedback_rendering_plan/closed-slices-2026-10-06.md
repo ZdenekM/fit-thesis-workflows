@@ -86,3 +86,43 @@ Verification:
   `src/thesis_review_workflow/cli/render_feedback.py` (CLI `omen -f json complexity`;
   the MCP server returned zero files, see `## Decision Log`).
 - Manual: render one real approved round into its ignored `outputs/`, open the PDF.
+
+### Slice 2 - Short, clickable sources in student feedback
+
+Status: done
+Proposed commit message: Write student-facing sources as short links, not formal citations
+Why: the operator asked (2026-10-06) for clickable literature without full formal
+citations; a student needs to recognise and open a source, and writes the formal
+citation in the thesis anyway.
+Expected paths:
+
+- `.agents/skills/thesis-supervisor-feedback/SKILL.md`
+- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
+- `src/thesis_review_workflow/cli/check_feedback_output.py`
+- `scripts/smoke-feedback-output`
+- `tests/test_feedback_shape.py`
+- `src/thesis_review_workflow/render/feedback/filters/identifier-links.lua` and
+  `scripts/smoke-render-feedback` (same identifier forms as the checker)
+
+Tasks:
+
+- Skill rule: every source the feedback recommends or discusses carries a link taken
+  from a source opened in the round, never from memory (DOI preferred, then arXiv, then
+  a stable public URL; authors, venue and year only when none was verified), written as
+  `**Authors, Venue Year:** [Title](https://doi.org/...)` in lists and as
+  `[Short title](...) (Authors, Venue Year)` in tables; drop a long subtitle after a
+  colon; no full formal citation and no bare DOI text.
+- Review skill: the unconditional `check-feedback-output` step checks the rule.
+- `check_feedback_output.py::check_bare_identifiers`: a `verify:` warning (not an error)
+  for a `DOI 10.…`, `doi:10.…` or `arXiv NNNN.NNNNN` identifier outside a Markdown link.
+  Identifier syntax only; the PDF filter links the same forms.
+- Smoke: one positive and one negative case.
+
+Out of scope: the literature-citation review's internal evidence format; already sent
+feedback.
+Verification:
+
+- `scripts/smoke-feedback-output`, and `scripts/smoke-render-feedback` after
+  `scripts/package-workflow-tools`
+- `pants test tests/test_feedback_shape.py`
+- `scripts/check-scripts`, `git diff --check`

@@ -106,43 +106,15 @@ Decisions: `2026-10-06 - Vendored font: Noto Sans, subset`,
 
 ### Slice 2 - Short, clickable sources in student feedback
 
-Status: done
-Proposed commit message: Write student-facing sources as short links, not formal citations
-Why: the operator asked (2026-10-06) for clickable literature without full formal
-citations; a student needs to recognise and open a source, and writes the formal
-citation in the thesis anyway.
-Expected paths:
-
-- `.agents/skills/thesis-supervisor-feedback/SKILL.md`
-- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
-- `src/thesis_review_workflow/cli/check_feedback_output.py`
-- `scripts/smoke-feedback-output`
-- `tests/test_feedback_shape.py`
-- `src/thesis_review_workflow/render/feedback/filters/identifier-links.lua` and
-  `scripts/smoke-render-feedback` (same identifier forms as the checker)
-
-Tasks:
-
-- Skill rule: every source the feedback recommends or discusses carries a link taken
-  from a source opened in the round, never from memory (DOI preferred, then arXiv, then
-  a stable public URL; authors, venue and year only when none was verified), written as
-  `**Authors, Venue Year:** [Title](https://doi.org/...)` in lists and as
-  `[Short title](...) (Authors, Venue Year)` in tables; drop a long subtitle after a
-  colon; no full formal citation and no bare DOI text.
-- Review skill: the unconditional `check-feedback-output` step checks the rule.
-- `check_feedback_output.py::check_bare_identifiers`: a `verify:` warning (not an error)
-  for a `DOI 10.…`, `doi:10.…` or `arXiv NNNN.NNNNN` identifier outside a Markdown link.
-  Identifier syntax only; the PDF filter links the same forms.
-- Smoke: one positive and one negative case.
-
-Out of scope: the literature-citation review's internal evidence format; already sent
-feedback.
-Verification:
-
-- `scripts/smoke-feedback-output`, and `scripts/smoke-render-feedback` after
-  `scripts/package-workflow-tools`
-- `pants test tests/test_feedback_shape.py`
-- `scripts/check-scripts`, `git diff --check`
+Charter form: compacted
+Landed: bdd9a54
+Added the short-link source rule (link only from an opened source) to the
+supervisor-feedback skill and its review step, an advisory `verify:` warning for bare
+DOI/arXiv identifiers in `check-feedback-output`, and the same identifier forms in the
+PDF link filter; unit tests and smoke cases.
+Full charter: `plans/archive/student_feedback_rendering_plan/closed-slices-2026-10-06.md`.
+Decisions: `2026-10-06 - Link convention is a tracked skill default`,
+`2026-10-06 - Slice 2 internal review (Claude read-only subagent)`.
 
 ### Slice 3 - Operator documentation and Windows check
 
@@ -153,30 +125,40 @@ the PDF only happens when someone already knows the command.
 Expected paths:
 
 - `.agents/skills/thesis-supervisor-feedback/SKILL.md` (closing step after closeout)
+- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` (hand-off to that step)
 - `docs/operator-reference.md` (`## Výstupy` entry and a short render subsection)
 - `README.md` (`## Co vznikne`, one line)
 
 Tasks:
 
-- Skill: after `review-round-closeout`, when `scripts/check-tooling` reports `quarto`,
-  run `scripts/render-feedback <case-id> [round-id]` and report the PDF path; without
-  Quarto, report the Markdown as the sendable artifact. Rendering is not sending; the
-  agent never sends, and never uses `--draft` output as sendable.
+- Skill: after a successful `review-round-closeout`, when `quarto` is on PATH, the
+  parent runs `scripts/render-feedback <case-id> [round-id]` and reports the PDF path
+  only when the command succeeded. On failure (missing or too old Quarto, render error)
+  report the error and that no `outputs/feedback_student.pdf` exists, unless the error
+  says the stale PDF could not be removed: then the operator must close and delete it
+  or rerun. The Markdown stays the sendable artifact while its approval is valid. Rendering is not sending; the agent
+  never sends, and never treats `--draft` output as sendable.
+- Review skill: after approval, the parent applies that closing step, also when the
+  review was requested on its own; the reviewer role does not render.
 - Operator reference: what the command does, the approval gate, stale-PDF removal,
   `--draft` to `work/feedback_student_preview.pdf`, Quarto as an optional dependency
   with the tested minimum version, Windows launcher names.
 - README: one line under `## Co vznikne` for `outputs/feedback_student.pdf`; the
   chat-first top path stays unchanged.
-- Windows: ask the operator to run, on a native Windows checkout with Quarto installed,
+- Windows: ask the operator to run, on a native Windows checkout with Quarto 1.10.18 or
+  newer and a local round that has `outputs/feedback_student.md`,
   `scripts\package-workflow-tools.cmd`, then
-  `dist\workflow-tools\bin\render-feedback.cmd <case-id> --draft`, and open the PDF.
-  Record the result in `## Decision Log`. A failure reopens Slice 1; if the operator has
-  no Windows machine during this plan, move the check to `TODO.md` as a residual.
+  `dist\workflow-tools\bin\render-feedback.cmd <case-id> <round-id> --draft`, and open
+  the PDF. This is draft-path evidence only. Record the result, without case details, in
+  `## Decision Log`. A setup blocker (missing Quarto, round, or Markdown) is fixed on the
+  operator side; only a reproducible renderer defect reopens Slice 1. Stay pending while
+  the question is unanswered; move the check to `TODO.md` only when the operator confirms
+  no Windows machine is available during this plan.
 
 Out of scope: new behaviour of the command; profile styling (Slice 4); student briefs.
 Verification:
 
-- `pants test tests/test_feedback_shape.py tests/test_workflow_python_contracts.py`
+- `pants test tests/test_feedback_shape.py tests/test_feedback_render.py tests/test_workflow_python_contracts.py`
 - `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
 - `python3 tests/test_plan_contract.py`
 
@@ -301,6 +283,21 @@ Residual: raw Typst or `header-includes` in the Markdown could still hide the st
 Decision: no separate Codex round for this skill-text and advisory-warning slice; the
 plan's closeout cross-provider review covers it. Residual: old-style arXiv ids
 (`cs/0112017`) are neither warned nor linked.
+
+### 2026-10-06 - Slice 3 charter review (Codex plan-critic)
+
+Trigger: `scripts/agent-review --profile plan-critic --base 4f73817`, `changes_required`.
+- Review skill had no render hand-off, so a standalone review left an old PDF: accepted
+  (b), the review skill joins the expected paths with a parent hand-off.
+- Closing step had no failure path; `check-tooling` reports Quarto by presence, not
+  version (`check_tooling.py::check_optional_commands`): accepted (b), report a PDF only
+  after success, else the error and the absent PDF.
+- Windows step lacked preconditions and reopened Slice 1 on any failure: accepted (b),
+  preconditions named, setup blockers separated from renderer defects.
+- `tests/test_feedback_render.py` added to verification (c).
+Decision: all accepted. Narrow re-check (Claude subagent): fixes 1, 3, 4 pass; fix 2
+claimed no PDF remains, false when a locked stale PDF cannot be removed
+(`render_feedback.py::remove_stale_pdf`); wording corrected, review chain closed.
 
 ## Final Audit
 
