@@ -126,3 +126,49 @@ Verification:
   `scripts/package-workflow-tools`
 - `pants test tests/test_feedback_shape.py`
 - `scripts/check-scripts`, `git diff --check`
+
+### Slice 3 - Operator documentation and Windows check
+
+Status: done
+Proposed commit message: Tell operators and agents when and how to render the feedback PDF
+Why: `render-feedback` exists but nothing in the operator path or the skill names it, so
+the PDF only happens when someone already knows the command.
+Expected paths:
+
+- `.agents/skills/thesis-supervisor-feedback/SKILL.md` (closing step after closeout)
+- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` (hand-off to that step)
+- `docs/operator-reference.md` (`## Výstupy` entry and a short render subsection)
+- `README.md` (`## Co vznikne`, one line)
+
+Tasks:
+
+- Skill: after a successful `review-round-closeout`, when `quarto` is on PATH, the
+  parent runs `scripts/render-feedback <case-id> [round-id]` and reports the PDF path
+  only when the command succeeded. On failure (missing or too old Quarto, render error)
+  report the error and that no `outputs/feedback_student.pdf` exists, unless the error
+  says the stale PDF could not be removed: then the operator must close and delete it
+  or rerun. The Markdown stays the sendable artifact while its approval is valid. Rendering is not sending; the agent
+  never sends, and never treats `--draft` output as sendable.
+- Review skill: after approval, the parent applies that closing step, also when the
+  review was requested on its own; the reviewer role does not render.
+- Operator reference: what the command does, the approval gate, stale-PDF removal,
+  `--draft` to `work/feedback_student_preview.pdf`, Quarto as an optional dependency
+  with the tested minimum version, Windows launcher names.
+- README: one line under `## Co vznikne` for `outputs/feedback_student.pdf`; the
+  chat-first top path stays unchanged.
+- Windows: ask the operator to run, on a native Windows checkout with Quarto 1.10.18 or
+  newer and a local round that has `outputs/feedback_student.md`,
+  `scripts\package-workflow-tools.cmd`, then
+  `dist\workflow-tools\bin\render-feedback.cmd <case-id> <round-id> --draft`, and open
+  the PDF. This is draft-path evidence only. Record the result, without case details, in
+  `## Decision Log`. A setup blocker (missing Quarto, round, or Markdown) is fixed on the
+  operator side; only a reproducible renderer defect reopens Slice 1. Stay pending while
+  the question is unanswered; move the check to `TODO.md` only when the operator confirms
+  no Windows machine is available during this plan.
+
+Out of scope: new behaviour of the command; profile styling (Slice 4); student briefs.
+Verification:
+
+- `pants test tests/test_feedback_shape.py tests/test_feedback_render.py tests/test_workflow_python_contracts.py`
+- `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
+- `python3 tests/test_plan_contract.py`

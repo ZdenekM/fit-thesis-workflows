@@ -6,6 +6,7 @@
    - Keep Python as the primary command surface for workflow helpers; POSIX `scripts/*` wrappers may remain convenience entrypoints only.
    - `scripts/smoke-package-workflow-tools` proves structural generation and POSIX launcher runtime in this Linux checkout; add a real Windows cmd, PowerShell, or CI run before claiming native Windows runtime proof.
    - New or changed operator workflow commands must keep the command-surface contract in `docs/workflow-command-surface.md`: Python CLI, Pants/PEX target, generated `.cmd`/`.ps1` launchers, and targeted test or smoke coverage.
+   - Include `render-feedback`, the one launcher that drives an external renderer: on a Windows checkout with Quarto 1.10.18+ and a round that has `outputs/feedback_student.md`, run `dist\workflow-tools\bin\render-feedback.cmd <case-id> <round-id> --draft` and open `work\feedback_student_preview.pdf`. A reproducible renderer defect goes back to the `render-feedback` code (`src/thesis_review_workflow/feedback_render.py`); missing Quarto or a missing round is setup.
 - [ ] Continue deterministic tests as workflow validators and helper contracts grow.
    - The highest-risk reliability helpers now have focused pytest coverage; keep adding pure tests for new validators, manifest/coverage rules, case-format helpers, and shared review-round closeout helpers.
    - Reuse the existing packet, wave-gate, materiality, and `work/reviews/*_review.json` approval-record tests as the pattern for future context-efficiency helpers.

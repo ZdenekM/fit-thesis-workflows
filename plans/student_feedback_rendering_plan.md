@@ -5,13 +5,12 @@ Created: 2026-10-06
 
 ## Start Here
 
-State: in_progress (operator activated 2026-10-06). Slices 1-2 done and compacted.
-Slice 3 is in progress: its docs and skill steps are committed; only the Windows check
-remains, which is an operator step. Next action: ask the operator whether a native Windows
-machine with Quarto 1.10.18+ is available, then follow the Slice 3 Windows task to the
-letter; record the result in `## Decision Log` and close Slice 3. Do not re-read the
-Slice 1-3 review entries; they are adjudicated.
-Open question for the operator: the Windows `render-feedback.cmd --draft` run.
+State: in_progress (operator activated 2026-10-06). Slices 1-3 are done and compacted;
+the native Windows run is a `TODO.md` residual. Slice 4 is a stub to charter only when a
+second supervisor or the operator asks for a different look. Next action: ask the
+operator whether Slice 4 is wanted now; if not, run `## Final Audit` (including the one
+cross-provider closeout review over the plan's diff), then archive the plan. Do not
+re-read the Slice 1-3 review entries; they are adjudicated.
 
 ## Goal
 
@@ -119,49 +118,15 @@ Decisions: `2026-10-06 - Link convention is a tracked skill default`,
 
 ### Slice 3 - Operator documentation and Windows check
 
-Status: in_progress
-Proposed commit message: Tell operators and agents when and how to render the feedback PDF
-Why: `render-feedback` exists but nothing in the operator path or the skill names it, so
-the PDF only happens when someone already knows the command.
-Expected paths:
-
-- `.agents/skills/thesis-supervisor-feedback/SKILL.md` (closing step after closeout)
-- `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` (hand-off to that step)
-- `docs/operator-reference.md` (`## Výstupy` entry and a short render subsection)
-- `README.md` (`## Co vznikne`, one line)
-
-Tasks:
-
-- Skill: after a successful `review-round-closeout`, when `quarto` is on PATH, the
-  parent runs `scripts/render-feedback <case-id> [round-id]` and reports the PDF path
-  only when the command succeeded. On failure (missing or too old Quarto, render error)
-  report the error and that no `outputs/feedback_student.pdf` exists, unless the error
-  says the stale PDF could not be removed: then the operator must close and delete it
-  or rerun. The Markdown stays the sendable artifact while its approval is valid. Rendering is not sending; the agent
-  never sends, and never treats `--draft` output as sendable.
-- Review skill: after approval, the parent applies that closing step, also when the
-  review was requested on its own; the reviewer role does not render.
-- Operator reference: what the command does, the approval gate, stale-PDF removal,
-  `--draft` to `work/feedback_student_preview.pdf`, Quarto as an optional dependency
-  with the tested minimum version, Windows launcher names.
-- README: one line under `## Co vznikne` for `outputs/feedback_student.pdf`; the
-  chat-first top path stays unchanged.
-- Windows: ask the operator to run, on a native Windows checkout with Quarto 1.10.18 or
-  newer and a local round that has `outputs/feedback_student.md`,
-  `scripts\package-workflow-tools.cmd`, then
-  `dist\workflow-tools\bin\render-feedback.cmd <case-id> <round-id> --draft`, and open
-  the PDF. This is draft-path evidence only. Record the result, without case details, in
-  `## Decision Log`. A setup blocker (missing Quarto, round, or Markdown) is fixed on the
-  operator side; only a reproducible renderer defect reopens Slice 1. Stay pending while
-  the question is unanswered; move the check to `TODO.md` only when the operator confirms
-  no Windows machine is available during this plan.
-
-Out of scope: new behaviour of the command; profile styling (Slice 4); student briefs.
-Verification:
-
-- `pants test tests/test_feedback_shape.py tests/test_feedback_render.py tests/test_workflow_python_contracts.py`
-- `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
-- `python3 tests/test_plan_contract.py`
+Charter form: compacted
+Landed: 32cf979
+Added the post-closeout render step to the supervisor-feedback skill and its review
+hand-off, an operator-reference section and a README output line. The Windows launcher
+run moved to `TODO.md` (P0 native Windows runtime proof): no Windows machine was
+available during this plan.
+Full charter: `plans/archive/student_feedback_rendering_plan/closed-slices-2026-10-06.md`.
+Decisions: `2026-10-06 - Slice 3 charter review (Codex plan-critic)`,
+`2026-10-06 - Windows check deferred to TODO`.
 
 ### Slice 4 - Profile-level rendering style
 
@@ -181,7 +146,7 @@ Charter only when a second supervisor or the operator asks for a different look.
 - 2026-10-06: Slice 1 compacted; Slice 3 charter written (not yet reviewed). Slice 2
   done: tests, both smokes, and the checker on one real round (three advisory warnings).
 - 2026-10-06: Slice 2 compacted; Slice 3 charter reviewed (plan-critic + re-check). Slice 3
-  docs and skill steps landed; Windows operator check pending.
+  docs and skill steps landed; Windows check moved to `TODO.md`; Slice 3 done and compacted.
 
 ## Decision Log
 
@@ -301,6 +266,15 @@ Trigger: `scripts/agent-review --profile plan-critic --base 4f73817`, `changes_r
 Decision: all accepted. Narrow re-check (Claude subagent): fixes 1, 3, 4 pass; fix 2
 claimed no PDF remains, false when a locked stale PDF cannot be removed
 (`render_feedback.py::remove_stale_pdf`); wording corrected, review chain closed.
+
+### 2026-10-06 - Windows check deferred to TODO
+
+Trigger: the Slice 3 Windows task asked the operator; answer: no Windows machine is
+available during this plan.
+Decision: per the charter, the `render-feedback.cmd --draft` run moved to `TODO.md` under
+the existing P0 native Windows runtime item, and Slice 3 closed.
+Residual: native Windows rendering is unproven; the code path is Windows-aware by
+construction (`pathlib`, list-form subprocess, `shutil.which`, explicit UTF-8) only.
 
 ## Final Audit
 
