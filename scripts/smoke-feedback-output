@@ -435,13 +435,13 @@ declare_early_phase() {
   local case_id="$1" round_id="${2:-round-a}"
   mkdir -p "$repo_root/cases/$case_id/rounds/$round_id/work"
   printf '{"review_phase": "early"}\n' \
-    > "$repo_root/cases/$case_id/rounds/$round_id/work/review_run_trace.json"
+    >"$repo_root/cases/$case_id/rounds/$round_id/work/review_run_trace.json"
 }
 
 write_early_cs_feedback() {
   local target="$1"
   mkdir -p "$(dirname "$target")"
-  cat > "$target" <<'EARLY'
+  cat >"$target" <<'EARLY'
 # Zpětná vazba k aktuální verzi práce
 
 Datum kontroly: 2026-09-07
@@ -484,6 +484,31 @@ make_case "$case_id" "Student feedback language: cs"
 write_valid_cs_feedback "$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
 declare_early_phase "$case_id"
 expect_success "late shape still passes in a declared early phase" "$repo_root/scripts/check-feedback-output" "$case_id"
+
+case_id="${case_prefix}_linked_source"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Text má srozumitelnou strukturu" "Text má srozumitelnou strukturu, viz [Krátký název](https://doi.org/10.1145/3290605.3300233) (Autor a kol., CHI 2019)"
+expect_success "linked source passes without a warning" "$repo_root/scripts/check-feedback-output" "$case_id"
+if grep -Fq "bare source identifier" /tmp/check-feedback-output.err; then
+  echo "A linked source was reported as a bare identifier" >&2
+  cat /tmp/check-feedback-output.err >&2
+  exit 1
+fi
+
+case_id="${case_prefix}_bare_source_identifier"
+make_case "$case_id" "Student feedback language: cs"
+feedback="$repo_root/cases/$case_id/rounds/round-a/outputs/feedback_student.md"
+write_valid_cs_feedback "$feedback"
+replace_text "$feedback" "Text má srozumitelnou strukturu" "Text má srozumitelnou strukturu, viz DOI 10.1145/3290605.3300233"
+expect_success "bare source identifier only warns" "$repo_root/scripts/check-feedback-output" "$case_id"
+if ! grep -Fq "possible bare source identifier outside a Markdown link: DOI 10.1145/3290605.3300233" \
+  /tmp/check-feedback-output.err; then
+  echo "Expected a bare-identifier warning" >&2
+  cat /tmp/check-feedback-output.err >&2
+  exit 1
+fi
 
 rm -f /tmp/check-feedback-output.out /tmp/check-feedback-output.err
 echo "Feedback output smoke passed"

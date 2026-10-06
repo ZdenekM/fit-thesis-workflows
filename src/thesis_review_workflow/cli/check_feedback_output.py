@@ -113,6 +113,12 @@ AUTOLINK_RE = re.compile(
     r"(?:https?://|mailto:)[^\s<>]+|[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+",
     re.IGNORECASE,
 )
+MARKDOWN_LINK_RE = re.compile(r"\[[^\]\n]*\]\([^)\n]*\)|<(?:https?://|doi:)[^>\s]+>", re.IGNORECASE)
+BARE_IDENTIFIER_RE = re.compile(
+    r"\b(?:DOI:?\s*|doi:)10\.\d{4,9}/[^\s)\]>`|]+|\barXiv:?\s*\d{4}\.\d{4,5}(?:v\d+)?",
+    re.IGNORECASE,
+)
+"""Identifier syntax only: a DOI or arXiv id the student cannot click. Advisory, never a gate."""
 
 CONCRETE_ANCHORS = (
     "zadání",
@@ -506,6 +512,21 @@ def check_placeholders(text: str, errors: list[str], warnings: list[str]) -> Non
         warnings.append("feedback mentions TODO; verify it is intentional student-facing wording")
 
 
+def check_bare_identifiers(text: str, warnings: list[str]) -> None:
+    """Warn about DOI/arXiv identifiers written outside a Markdown link.
+
+    The skill asks for `[Title](https://doi.org/...)`; text inside a link (its label or
+    its target) is removed first, so only identifiers a student would have to copy remain.
+    """
+    unlinked = MARKDOWN_LINK_RE.sub(" ", text)
+    for match in BARE_IDENTIFIER_RE.finditer(unlinked):
+        identifier = match.group(0).rstrip(".,;:")
+        warnings.append(
+            f"verify: possible bare source identifier outside a Markdown link: {identifier}; "
+            "if it names a source, write it as [Title](https://doi.org/...) or [Title](https://arxiv.org/abs/...)"
+        )
+
+
 def check_czech_diacritics(text: str, lines: list[str], errors: list[str], warnings: list[str]) -> None:
     plain = body_text(lines)
     letters = re.findall(r"[A-Za-zÁ-ž]", plain)
@@ -594,6 +615,7 @@ def main(argv: list[str]) -> int:
         check_checklist(lines, lang, errors, warnings)
     check_internal_leaks(text, case_id, round_id, errors, warnings)
     check_placeholders(text, errors, warnings)
+    check_bare_identifiers(text, warnings)
     if lang == "cs":
         check_czech_diacritics(text, lines, errors, warnings)
 

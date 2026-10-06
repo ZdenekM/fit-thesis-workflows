@@ -3,35 +3,64 @@
 -- syntax only; text already inside a Markdown link is left alone.
 traverse = "topdown"
 
+-- The forms match `check_feedback_output.py::BARE_IDENTIFIER_RE`, which warns about the
+-- same identifiers in the Markdown: "DOI 10.x/y", "DOI: 10.x/y", "doi:10.x/y",
+-- "arXiv 2401.12345", "arXiv:2401.12345v2".
 local function split_trailing(s)
   return s:match("^(.-)([%.,;:%)]*)$")
 end
 
-local function link_for(label, ident)
-  local l = label:lower():gsub("^%(", "")
-  if l == "doi" and ident:match("^10%.%d+/%S+$") then
+local function url_for(kind, ident)
+  kind = kind:lower()
+  if kind == "doi" and ident:match("^10%.%d+/%S+$") then
     return "https://doi.org/" .. ident
-  elseif l == "arxiv" and ident:match("^%d%d%d%d%.%d%d%d%d%d?$") then
+  elseif kind == "arxiv" and ident:match("^%d%d%d%d%.%d%d%d%d%d?v?%d*$") then
     return "https://arxiv.org/abs/" .. ident
   end
+end
+
+-- Link inlines for "(label ident" + trailing punctuation, or nil when it is no identifier.
+local function linked(open, label, ident_text, url_label)
+  local ident, tail = split_trailing(ident_text)
+  local url = url_for(label:gsub(":$", ""), ident)
+  if not url then return nil end
+  local out = pandoc.Inlines({})
+  if open ~= "" then out:insert(pandoc.Str(open)) end
+  out:insert(pandoc.Link(url_label(ident), url))
+  if tail ~= "" then out:insert(pandoc.Str(tail)) end
+  return out
+end
+
+-- "doi:10.x/y" or "arXiv:2401.12345" as one token.
+local function single(str)
+  local open, label, rest = str.text:match("^(%(?)(%a+):(%S+)$")
+  if not open then return nil end
+  return linked(open, label, rest, function(ident) return { pandoc.Str(label .. ":" .. ident) } end)
+end
+
+-- "DOI 10.x/y", "DOI: 10.x/y", "arXiv 2401.12345" as label, space, identifier.
+local function pair(a, b)
+  local open, label = a.text:match("^(%(?)(%a+:?)$")
+  if not open then return nil end
+  return linked(open, label, b.text, function(ident)
+    return { pandoc.Str(label), pandoc.Space(), pandoc.Str(ident) }
+  end)
 end
 
 function Inlines(inl)
   local out, i = pandoc.Inlines({}), 1
   while i <= #inl do
     local a, sp, b = inl[i], inl[i + 1], inl[i + 2]
-    local done = false
+    local replaced = nil
     if a.t == "Str" and sp and sp.t == "Space" and b and b.t == "Str" then
-      local ident, tail = split_trailing(b.text)
-      local url = link_for(a.text, ident)
-      if url then
-        if a.text:match("^%(") then out:insert(pandoc.Str("(")) end
-        out:insert(pandoc.Link({ pandoc.Str((a.text:gsub("^%(", ""))), pandoc.Space(), pandoc.Str(ident) }, url))
-        if tail ~= "" then out:insert(pandoc.Str(tail)) end
-        i, done = i + 3, true
-      end
+      replaced = pair(a, b)
+      if replaced then out:extend(replaced); i = i + 3 end
     end
-    if not done then out:insert(a); i = i + 1 end
+    if not replaced and a.t == "Str" then
+      replaced = single(a)
+      if replaced then out:extend(replaced); i = i + 1 end
+    end
+    if not replaced then out:insert(a); i = i + 1 end
   end
   return out
 end

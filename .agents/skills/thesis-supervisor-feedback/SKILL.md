@@ -379,6 +379,8 @@ Avoid internal workflow identifiers in student-facing prose. Do not include case
 
 Keep `Rozsah kontroly` / `Review Scope` student-relevant. Mention what kinds of materials and important limitations affect the feedback, but omit internal mechanics such as source-zip diffing, local build policy, extraction tooling, or operator artifact names unless the student must act on them.
 
+Write every source the feedback recommends or discusses as reading as a short link the student can open, not as a formal citation: the student needs to recognise and open the source, and writes the formal citation in the thesis anyway. This does not cover quoting an entry of the student's own bibliography to point at a problem in it. Take the link only from a source actually opened in this round, such as `outputs/literature_citation_review.md` or the source itself, never from memory: prefer the DOI (`https://doi.org/...`), else the arXiv abstract page, else a stable public URL. In lists write `**Authors, Venue Year:** [Title](https://doi.org/...)`; in tables write `[Short title](https://doi.org/...) (Authors, Venue Year)`. Drop a long subtitle after a colon, and never leave a bare `DOI 10....` or `arXiv NNNN.NNNNN` outside the link; `check-feedback-output` warns about one. A source without a verified link is named by authors, venue and year only.
+
 ## Early-Phase Output Shape
 
 When the round declares `review_phase: early` in `work/review_run_trace.json`, write

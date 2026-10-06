@@ -254,3 +254,26 @@ def test_a_late_phase_round_keeps_the_wider_priority_allowance(monkeypatch, tmp_
 def test_required_headings_rejects_an_unsupported_language() -> None:
     with pytest.raises(ValueError):
         check_feedback_language.required_headings("de", "early")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Viz DOI 10.1145/3290605.3300233.", ["DOI 10.1145/3290605.3300233"]),
+        ("Preprint (arXiv 2401.12345v2).", ["arXiv 2401.12345v2"]),
+        ("Zdroj doi:10.1000/xyz123", ["doi:10.1000/xyz123"]),
+        ("[Short title](https://doi.org/10.1145/3290605.3300233) (Author, CHI 2019)", []),
+        ("[DOI 10.1145/3290605.3300233](https://example.org/landing)", []),
+        ("<https://doi.org/10.1000/xyz123>", []),
+        ("Viz `doi:10.1145/3290605.3300233` v kódu.", ["doi:10.1145/3290605.3300233"]),
+        ("| P1 | DOI 10.1145/3290605.3300233| kapitola 2 |", ["DOI 10.1145/3290605.3300233"]),
+        ("Section 10.1145 of the standard", []),
+    ],
+)
+def test_bare_source_identifiers_warn_outside_links_only(text: str, expected: list[str]) -> None:
+    warnings: list[str] = []
+
+    check_feedback_output.check_bare_identifiers(text, warnings)
+
+    assert all(warning.startswith("verify: ") for warning in warnings)
+    assert [warning.split("link: ", 1)[1].split(";", 1)[0] for warning in warnings] == expected

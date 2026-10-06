@@ -5,12 +5,12 @@ Created: 2026-10-06
 
 ## Start Here
 
-State: in_progress (operator activated 2026-10-06). Slice 1 is done and committed; its
-charter is not yet compacted. Next action: compact Slice 1 into
-`plans/archive/student_feedback_rendering_plan/` with its commit, write the full Slice 3
-charter (it becomes the next slice), then implement Slice 2, whose charter was reviewed
-in the 2026-10-06 plan-critic round. Do not re-derive the format decision (Markdown
-source + Quarto/Typst PDF) or re-read the Slice 1 review entries; both are adjudicated.
+State: in_progress (operator activated 2026-10-06). Slices 1 and 2 are done and
+committed; Slice 1 is compacted, Slice 2 is not. Next action: compact Slice 2 into
+`plans/archive/student_feedback_rendering_plan/closed-slices-2026-10-06.md`, review the
+Slice 3 charter once (plan-critic), then implement Slice 3. Its Windows run is an
+operator step: ask, do not assume. Do not re-read the Slice 1 or 2 review entries;
+they are adjudicated.
 
 ## Goal
 
@@ -92,88 +92,21 @@ Out of scope:
 
 ### Slice 1 - Render command for approved student feedback
 
-Status: done
-Proposed commit message: Render reviewed student feedback to a PDF the student can open
-Why: the student gets a plain Markdown file today; the prototype showed a readable
-PDF needs no change to the source, the agents, or the checkers.
-Expected paths:
-
-- `src/thesis_review_workflow/render/feedback/**` (Typst partial, Lua filters, Quarto
-  defaults, vendored OFL fonts with their licence files)
-- `src/thesis_review_workflow/render/BUILD`
-- `src/thesis_review_workflow/BUILD` (dependency override: `importlib.resources` use is
-  invisible to inference)
-- `src/thesis_review_workflow/feedback_render.py`
-- `src/thesis_review_workflow/cli/render_feedback.py`
-- `src/thesis_review_workflow/cli/BUILD` (its `python_source` target)
-- `src/thesis_review_workflow/commands.py` (`WORKFLOW_COMMAND_MODULES` entry)
-- `scripts/render-feedback`, `scripts/BUILD` (`shell_sources`, `pex_binary`, and
-  `WORKFLOW_CLI_RUNTIME_DEPS`)
-- `scripts/smoke-render-feedback`
-- `tests/test_feedback_render.py`
-- `src/thesis_review_workflow/cli/check_tooling.py`
-
-The registration list follows `docs/workflow-command-surface.md`
-(`### Operator Workflow Tools`); `tests/test_workflow_python_contracts.py` enforces it.
-
-Tasks:
-
-- Move the prototype template and filters into package resources loaded through
-  `importlib.resources`, and declare them with a Pants `resources` target so the PEX
-  carries them. Vendor one OFL sans family, subset (see `## Decision Log`), and point
-  Typst `font-paths` at it.
-- `render-feedback <case-id> [round-id]`: resolve the round as the other tools do;
-  read `Student:` and `Topic:` through `metadata.py::read_fields` and the language through
-  `check_feedback_output.py::read_language`; read the Markdown bytes once; copy them and
-  the resources into a `tempfile` directory; run `quarto render` there; write
-  `outputs/feedback_student.pdf`.
-- Refuse to render unless the round's supervisor-feedback approval passes
-  `review_approvals.py::validate_review_approval_with_manifest` (the gate
-  `confirm-supervisor-report` uses) bound to the requested case, round, and
-  `outputs/feedback_student.md`, and its artifact hash equals the bytes read for
-  rendering. Remove `outputs/feedback_student.pdf` whenever no approval covers the
-  current Markdown and before every approved render. `--draft` renders anyway to
-  `work/feedback_student_preview.pdf` with a visible `NÁVRH` / `DRAFT` stamp, for
-  operator preview only.
-- Renderer values (language, title-block fields, mapped headings, stamp) go to
-  `feedback-render.json`, which the pre-AST filter assigns over any source front matter.
-- Title-block labels and date format follow `Student feedback language` (cs/en).
-  Omit the supervisor name (see `## Decision Log`).
-- Record the render with `operation_log.py::append_operation`: source hash, PDF hash,
-  `quarto --version`, draft flag.
-- Fail with a typed, readable message when `quarto` is missing or older than the
-  tested version; add `quarto` to `check_tooling.py::OPTIONAL_COMMANDS`.
-- Tests without Quarto: metadata extraction, draft flag, missing binary, and the
-  approval gate, including rejection of a stale review basis, of feedback edited after
-  approval, of a missing manifest or observed check, and of an invalid approval whose
-  artifact hash still matches; the mapped headings exist in the skill's output contract.
-- `scripts/smoke-render-feedback` renders a synthetic case-neutral cs and en fixture
-  when `quarto` is present (a skip otherwise), through the generated packaged launcher
-  in a copy without checkout sources (the pattern of
-  `scripts/smoke-package-workflow-tools`), so missing package resources fail there.
-  Text assertions use `pdftotext`: correct Czech quote pairs (also inside a callout), the
-  date line, every priority row with its cell text, the draft stamp. Link assertions use
-  `pdfinfo -url`: each DOI/arXiv target present, a link whose label differs from its
-  destination, and no re-link of an identifier inside an existing link label.
-- Windows-aware: `pathlib` only, no shell strings, explicit UTF-8, `quarto` resolved
-  with `shutil.which` (picks up `quarto.exe`/`.cmd`).
-
-Out of scope: the citation-format change (Slice 2), profile-level style overrides,
-docs beyond the command's `--help` (Slice 3).
-Verification:
-
-- `pants test tests/test_feedback_render.py`
-- `pants test tests/test_workflow_python_contracts.py`
-- `scripts/package-workflow-tools`, then `scripts/smoke-render-feedback`
-- `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
-- Omen on `src/thesis_review_workflow/feedback_render.py` and
-  `src/thesis_review_workflow/cli/render_feedback.py` (CLI `omen -f json complexity`;
-  the MCP server returned zero files, see `## Decision Log`).
-- Manual: render one real approved round into its ignored `outputs/`, open the PDF.
+Charter form: compacted
+Landed: 4f73817
+Delivered `scripts/render-feedback` (packaged with Windows launchers): renders an
+approved `outputs/feedback_student.md` to `outputs/feedback_student.pdf` behind the
+manifest-backed approval gate, `--draft` to a stamped `work/feedback_student_preview.pdf`,
+with package-resource template, filters and a Noto Sans subset; unit tests and
+`scripts/smoke-render-feedback`.
+Full charter: `plans/archive/student_feedback_rendering_plan/closed-slices-2026-10-06.md`.
+Decisions: `2026-10-06 - Vendored font: Noto Sans, subset`,
+`2026-10-06 - Slice 1 internal review (Claude read-only subagent)`,
+`2026-10-06 - Slice 1 Codex slice review and narrow re-check`.
 
 ### Slice 2 - Short, clickable sources in student feedback
 
-Status: planned
+Status: done
 Proposed commit message: Write student-facing sources as short links, not formal citations
 Why: the operator asked (2026-10-06) for clickable literature without full formal
 citations; a student needs to recognise and open a source, and writes the formal
@@ -184,36 +117,68 @@ Expected paths:
 - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md`
 - `src/thesis_review_workflow/cli/check_feedback_output.py`
 - `scripts/smoke-feedback-output`
+- `tests/test_feedback_shape.py`
+- `src/thesis_review_workflow/render/feedback/filters/identifier-links.lua` and
+  `scripts/smoke-render-feedback` (same identifier forms as the checker)
 
 Tasks:
 
-- Skill rule: every source named in student-facing feedback carries a resolvable link
-  (DOI preferred, then arXiv, then a stable URL), written as
+- Skill rule: every source the feedback recommends or discusses carries a link taken
+  from a source opened in the round, never from memory (DOI preferred, then arXiv, then
+  a stable public URL; authors, venue and year only when none was verified), written as
   `**Authors, Venue Year:** [Title](https://doi.org/...)` in lists and as
   `[Short title](...) (Authors, Venue Year)` in tables; drop a long subtitle after a
   colon; no full formal citation and no bare DOI text.
-- Review skill: the sendability pass checks the rule.
-- `check_feedback_output.py`: a warning (not an error) for a `DOI 10.…` or
-  `arXiv NNNN.NNNNN` identifier outside a Markdown link. Identifier syntax only.
+- Review skill: the unconditional `check-feedback-output` step checks the rule.
+- `check_feedback_output.py::check_bare_identifiers`: a `verify:` warning (not an error)
+  for a `DOI 10.…`, `doi:10.…` or `arXiv NNNN.NNNNN` identifier outside a Markdown link.
+  Identifier syntax only; the PDF filter links the same forms.
 - Smoke: one positive and one negative case.
 
 Out of scope: the literature-citation review's internal evidence format; already sent
 feedback.
 Verification:
 
-- `scripts/smoke-feedback-output`
+- `scripts/smoke-feedback-output`, and `scripts/smoke-render-feedback` after
+  `scripts/package-workflow-tools`
 - `pants test tests/test_feedback_shape.py`
 - `scripts/check-scripts`, `git diff --check`
 
 ### Slice 3 - Operator documentation and Windows check
 
-Charter form: stub
-Objective: document `render-feedback` in `docs/operator-reference.md` and the
-closing step of the supervisor-feedback skill (render after approval, attach the PDF),
-add a one-line mention to the README's chat-first path, and run the packaged
-launcher once on Windows with Quarto installed.
-Boundary: no new behaviour; a Windows failure reopens Slice 1.
-Serves: `## Goal` for operators on both platforms.
+Status: planned
+Proposed commit message: Tell operators and agents when and how to render the feedback PDF
+Why: `render-feedback` exists but nothing in the operator path or the skill names it, so
+the PDF only happens when someone already knows the command.
+Expected paths:
+
+- `.agents/skills/thesis-supervisor-feedback/SKILL.md` (closing step after closeout)
+- `docs/operator-reference.md` (`## Výstupy` entry and a short render subsection)
+- `README.md` (`## Co vznikne`, one line)
+
+Tasks:
+
+- Skill: after `review-round-closeout`, when `scripts/check-tooling` reports `quarto`,
+  run `scripts/render-feedback <case-id> [round-id]` and report the PDF path; without
+  Quarto, report the Markdown as the sendable artifact. Rendering is not sending; the
+  agent never sends, and never uses `--draft` output as sendable.
+- Operator reference: what the command does, the approval gate, stale-PDF removal,
+  `--draft` to `work/feedback_student_preview.pdf`, Quarto as an optional dependency
+  with the tested minimum version, Windows launcher names.
+- README: one line under `## Co vznikne` for `outputs/feedback_student.pdf`; the
+  chat-first top path stays unchanged.
+- Windows: ask the operator to run, on a native Windows checkout with Quarto installed,
+  `scripts\package-workflow-tools.cmd`, then
+  `dist\workflow-tools\bin\render-feedback.cmd <case-id> --draft`, and open the PDF.
+  Record the result in `## Decision Log`. A failure reopens Slice 1; if the operator has
+  no Windows machine during this plan, move the check to `TODO.md` as a residual.
+
+Out of scope: new behaviour of the command; profile styling (Slice 4); student briefs.
+Verification:
+
+- `pants test tests/test_feedback_shape.py tests/test_workflow_python_contracts.py`
+- `scripts/check-scripts`, `scripts/check-private`, `git diff --check`
+- `python3 tests/test_plan_contract.py`
 
 ### Slice 4 - Profile-level rendering style
 
@@ -230,6 +195,8 @@ Charter only when a second supervisor or the operator asks for a different look.
 - 2026-10-06: Slice 1/2 charter review (Codex plan-critic) adjudicated; fixes applied.
 - 2026-10-06: Slice 1 done: unit tests, contract test, packaged smoke and one real
   approved round pass; internal review, Codex slice review and narrow re-check adjudicated.
+- 2026-10-06: Slice 1 compacted; Slice 3 charter written (not yet reviewed). Slice 2
+  done: tests, both smokes, and the checker on one real round (three advisory warnings).
 
 ## Decision Log
 
@@ -319,6 +286,21 @@ Trigger: `scripts/agent-review --profile slice-review` on the uncommitted slice,
 Residual: raw Typst or `header-includes` in the Markdown could still hide the stamp
 (code injection, not metadata override); `pants check` on tests lacks pytest stubs
 (pre-existing, `tests/test_feedback_shape.py` too).
+
+### 2026-10-06 - Slice 2 internal review (Claude read-only subagent)
+
+- Links could be written from memory: accepted, the rule requires a link from a source
+  opened in the round, else authors, venue and year.
+- Review check contradicted the writer rule and sat under a conditional item: accepted,
+  moved to the unconditional `check-feedback-output` step and aligned.
+- Rule covered quoting the student's own bibliography: accepted, narrowed to sources the
+  feedback recommends or discusses.
+- Warning read as an instruction: accepted, prefixed `verify:` per AGENTS.md.
+- Regex kept a trailing backtick or table pipe: fixed; filter and checker grammars
+  differed: `identifier-links.lua` now links `DOI:`, `doi:` and versioned arXiv forms.
+Decision: no separate Codex round for this skill-text and advisory-warning slice; the
+plan's closeout cross-provider review covers it. Residual: old-style arXiv ids
+(`cs/0112017`) are neither warned nor linked.
 
 ## Final Audit
 
