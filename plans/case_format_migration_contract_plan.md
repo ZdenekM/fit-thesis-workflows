@@ -51,7 +51,7 @@ Constraints:
   surfaces and generated `.cmd`/`.ps1` launchers.
 - Run Pants commands sequentially.
 - Use Serena for non-trivial Python navigation when practical.
-- Use `pants run :omen` as developer-hygiene evidence on implementation slices;
+- Use `pants run scripts:omen` as developer-hygiene evidence on implementation slices;
   do not make it a case-pipeline gate.
 
 ## Contract Levels
@@ -283,7 +283,7 @@ Out of scope:
   - `scripts/check-private`
   - `scripts/check-scripts`
   - `git status --short --untracked-files=all`
-  - `pants run :omen`
+  - `pants run scripts:omen`
   - `git diff --check`
 
 ## Deferred TODO Items

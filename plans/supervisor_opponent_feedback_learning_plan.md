@@ -415,7 +415,7 @@ scripts/check-scripts
 - 2026-05-25: Omen MCP was attempted on `src/thesis_review_workflow` and
   `src/thesis_review_workflow/work_artifacts.py`; both returned zero files for
   non-empty targets, so this is recorded as an MCP/path-handling blocker rather
-  than code evidence. Use `pants run :omen` for reproducible closeout evidence.
+  than code evidence. Use `pants run scripts:omen` for reproducible closeout evidence.
 - 2026-05-25: Post-implementation agent review findings were incorporated:
   metadata-only preflight now avoids semantic intake fields before
   authorization, `thesis_evidence_calibrator` owns

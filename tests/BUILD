@@ -7,6 +7,7 @@ python_tests(
         "//:agent_profile_registry_metadata",
         "//:assignment_authoring_metadata",
         "//:codex_agent_profile_metadata",
+        "//:omen_config",
         "//scripts:workflow_contract_metadata",
         "//scripts:workflow_shell",
         "//src/thesis_review_workflow/cli:workflow_contract_metadata",

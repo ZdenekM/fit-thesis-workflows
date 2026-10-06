@@ -202,7 +202,7 @@ Promoted to: `thesis-literature-citation-review`,
 
 Status: promoted
 
-`pants run :omen` is developer hygiene for this workflow repository and its
+`pants run scripts:omen` is developer hygiene for this workflow repository and its
 `omen.toml` intentionally ignores `cases/` to avoid scanning private thesis
 data. That privacy boundary does not prohibit targeted Omen use on submitted
 student code after it has been prepared under an ignored case workspace. In

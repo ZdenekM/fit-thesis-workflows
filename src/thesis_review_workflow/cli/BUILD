@@ -43,6 +43,7 @@ python_source(name="check_typography_formal", source="check_typography_formal.py
 python_source(name="confirm_supervisor_report", source="confirm_supervisor_report.py")
 python_source(name="context", source="context.py")
 python_source(name="dev_hygiene", source="dev_hygiene.py")
+python_source(name="omen_quality", source="omen_quality.py")
 python_source(name="draft_opponent_report", source="draft_opponent_report.py")
 python_source(name="draft_supervisor_report", source="draft_supervisor_report.py")
 python_source(name="export_opponent_report", source="export_opponent_report.py")

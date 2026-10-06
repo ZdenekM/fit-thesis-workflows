@@ -1007,3 +1007,24 @@ pex_binary(
     output_path="workflow-tools/pex/write-review-approval",
     tags=["workflow-tool"],
 )
+
+# Dev-only hygiene runners. They live under a source root because `pants run` of a
+# pex_binary defined in the repo-root BUILD (not a source root) cannot import the
+# first-party package: `No module named 'thesis_review_workflow'`. Not workflow tools,
+# so no `workflow-tool` tag and no packaged launcher.
+pex_binary(
+    name="omen",
+    description="Run the dev-only Omen health report with scope validation and ratchets.",
+    entry_point="thesis_review_workflow.cli.omen_quality:console_main",
+    dependencies=["src/thesis_review_workflow/cli:omen_quality"],
+    tags=["dev-hygiene"],
+)
+
+pex_binary(
+    name="jscpd",
+    description="Run a dev-only duplicate-code scan over workflow code.",
+    entry_point="thesis_review_workflow.cli.dev_hygiene:console_main",
+    dependencies=["src/thesis_review_workflow/cli:dev_hygiene"],
+    args=["jscpd"],
+    tags=["dev-hygiene"],
+)

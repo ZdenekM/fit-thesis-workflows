@@ -1040,7 +1040,7 @@ git diff --check
 If code changed materially in this repository, also attempt:
 
 ```bash
-pants run :omen
+pants run scripts:omen
 ```
 
 Record Omen absence or failure as developer-hygiene limitation, not as a thesis

@@ -1,7 +1,13 @@
 # Omen is used here as a developer-only codebase health tool. It is not part of
 # the thesis case pipeline and must not inspect private case workspaces.
+# Run it through `pants run scripts:omen`, which also verifies on our side that no
+# payload names a `cases/` or `dist/` path.
+#
+# The key is `exclude`: omen 4.24.2 silently ignores `exclude_patterns` (measured
+# 2026-10-06 — `tests/**` under that key still analysed 71 test files, under `exclude`
+# none). Until then `cases/` stayed out only because Omen also honours .gitignore.
 
-exclude_patterns = [
+exclude = [
   ".git/**",
   ".mypy_cache/**",
   ".omen/**",
@@ -26,16 +32,13 @@ max_nesting = 4
 categories = ["design", "defect", "requirement", "test", "performance", "security"]
 custom_markers = []
 
-[churn]
-since = "6m"
-top = 20
+# No [churn] or [hotspot] section: omen 4.24.2 ignored `[churn] since`/`top` and
+# `[hotspot] top` (churn stayed at 30 days, both returned more than `top` rows). The
+# runner passes `churn --days` itself.
 
 [duplicates]
 min_tokens = 100
 min_similarity = 0.9
-
-[hotspot]
-top = 20
 
 [score.thresholds]
 complexity = 85.0

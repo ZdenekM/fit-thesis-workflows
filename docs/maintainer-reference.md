@@ -41,8 +41,8 @@ kontroly:
 
 ```bash
 pants run :vulture
-pants run :jscpd
-pants run :omen
+pants run scripts:jscpd
+pants run scripts:omen
 ```
 
 Tyto cíle hlídají mrtvý kód, duplicity a obecné codebase health signály. Nejsou
@@ -51,7 +51,7 @@ baseline jsou v [Developer Hygiene](dev-hygiene.md).
 
 Omen má dvě oddělené role:
 
-- `pants run :omen` je repo-maintainer hygiena a záměrně ignoruje `cases/`;
+- `pants run scripts:omen` je repo-maintainer hygiena a záměrně ignoruje `cases/`;
 - code-quality reviewer může použít Omen jako volitelný case-local advisory
   signál nad připraveným studentským rootem v ignorovaném workspace.
 

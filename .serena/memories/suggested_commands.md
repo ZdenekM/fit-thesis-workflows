@@ -11,4 +11,4 @@
 - `scripts/<smoke-name>` - run the relevant smoke script when changing a deterministic workflow helper or validator.
 - `scripts/init-review-manifest --run-checks <case-id> [round-id]`, `scripts/check-agent-coverage <case-id> [round-id]`, and `scripts/check-review-manifest --require-complete <case-id> [round-id]` - case-work closeout when generated/reviewed artifacts are changed.
 - `scripts/check-opponent-report --mode canonical <case-id> [round-id]`, `scripts/export-opponent-report <case-id> [round-id]`, and `scripts/check-opponent-report --mode clean <case-id> [round-id]` - opponent-report canonical/clean route.
-- `pants run :omen` - repo developer Omen signal using `omen.toml`; intentionally ignores `cases/`.
+- `pants run scripts:omen` - repo developer Omen report with scope validation and ratchets (`-- complexity --focus <file>` for a touched module); intentionally ignores `cases/`.

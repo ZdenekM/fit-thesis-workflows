@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -61,47 +60,13 @@ def jscpd_command() -> list[str]:
     ]
 
 
-def omen_binary(root: Path) -> str | None:
-    configured = os.environ.get("OMEN_BIN")
-    if configured:
-        return configured
-    on_path = shutil.which("omen")
-    if on_path:
-        return on_path
-    for relative in (
-        Path(".pants.d/dev-tools/omen/bin/omen"),
-        Path(".pants.d/dev-tools/omen/bin/omen.exe"),
-    ):
-        candidate = root / relative
-        if candidate.is_file():
-            return str(candidate)
-    return None
-
-
-def omen_commands(root: Path) -> list[list[str]]:
-    binary = omen_binary(root)
-    if binary is None:
-        raise SystemExit(
-            "omen not found. Install it on PATH, set OMEN_BIN, or install it into "
-            ".pants.d/dev-tools/omen/bin/omen. This target is dev-only and is not "
-            "part of the thesis case pipeline."
-        )
-    base = [binary, "-c", "omen.toml", "-p", ".", "-f", "text"]
-    return [base + [subcommand] for subcommand in ("score", "hotspot", "deadcode")]
-
-
 def main(argv: list[str]) -> int:
     root = repo_root()
-    if len(argv) != 2 or argv[1] not in {"jscpd", "omen"}:
-        print("Usage: dev-hygiene {jscpd|omen}", file=sys.stderr)
+    if len(argv) != 2 or argv[1] != "jscpd":
+        # Omen has its own validated runner: `pants run scripts:omen` (omen_quality.py).
+        print("Usage: dev-hygiene jscpd", file=sys.stderr)
         return 2
-    if argv[1] == "jscpd":
-        return run(jscpd_command(), cwd=root)
-    for command in omen_commands(root):
-        code = run(command, cwd=root)
-        if code != 0:
-            return code
-    return 0
+    return run(jscpd_command(), cwd=root)
 
 
 def console_main() -> int:

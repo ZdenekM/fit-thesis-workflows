@@ -17,6 +17,12 @@ python_requirement(
 )
 
 files(
+    name="omen_config",
+    # Read by tests/test_omen_quality.py to pin the exclude key Omen actually honours.
+    sources=["omen.toml"],
+)
+
+files(
     name="codex_agent_profile_metadata",
     sources=[
         ".codex/config.toml",
@@ -60,23 +66,5 @@ pex_binary(
         "--exclude",
         DEV_HYGIENE_IGNORE_GLOBS,
     ],
-    tags=["dev-hygiene"],
-)
-
-pex_binary(
-    name="jscpd",
-    description="Run a dev-only duplicate-code scan over workflow code.",
-    entry_point="thesis_review_workflow.cli.dev_hygiene:console_main",
-    dependencies=["src/thesis_review_workflow/cli:dev_hygiene"],
-    args=["jscpd"],
-    tags=["dev-hygiene"],
-)
-
-pex_binary(
-    name="omen",
-    description="Run a dev-only Omen codebase health overview.",
-    entry_point="thesis_review_workflow.cli.dev_hygiene:console_main",
-    dependencies=["src/thesis_review_workflow/cli:dev_hygiene"],
-    args=["omen"],
     tags=["dev-hygiene"],
 )

@@ -216,7 +216,7 @@ Windows runtime proof.
 
 ### Dev Hygiene Targets
 
-`pants run :vulture`, `pants run :jscpd`, and `pants run :omen` are developer
+`pants run :vulture`, `pants run scripts:jscpd`, and `pants run scripts:omen` are developer
 hygiene signals. They help maintain the repository as it grows, but they are not
 case-pipeline gates and must not be required for normal supervisor or opponent
 workflow execution. The repo Omen target intentionally ignores `cases/`; a

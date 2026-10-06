@@ -88,9 +88,10 @@ When a round contains code, supervisor feedback, supervisor reports, and opponen
 Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
 
 For repo-maintainer code changes, use Omen as an advisory code-quality signal:
-attempt Omen MCP for scoped, iterative checks of touched Python modules during a
-slice when it can inspect the intended target, and use reproducible `pants run
-:omen` evidence for larger slice or closeout validation when code changed
+attempt scoped, iterative checks of touched Python modules during a slice
+(`pants run scripts:omen -- complexity --focus <path>`, or Omen MCP when it can
+inspect the intended target), and use reproducible `pants run
+scripts:omen` evidence for larger slice or closeout validation when code changed
 materially. If Omen is requested by the user, prompt, plan, or repo instruction,
 do not silently drop it after one failure: first repair scope/tooling when
 reasonable, retry with a concrete module/root, and record the observed result.
@@ -100,7 +101,7 @@ and ask before substituting other evidence unless the workflow explicitly
 permits continuing. For thesis code-quality review, Omen may be used as an
 advisory static-analysis signal for complexity, dead code, churn, and ownership
 risk on prepared submitted-code roots under the ignored case workspace. This is
-separate from repo developer hygiene: `pants run :omen` uses `omen.toml` and
+separate from repo developer hygiene: `pants run scripts:omen` uses `omen.toml` and
 intentionally ignores `cases/` to avoid scanning private case data. Prefer the
 Omen MCP server only when it can inspect the actual repo or prepared code root;
 if MCP returns zero files for a non-empty root, treat that as an
@@ -186,7 +187,7 @@ Before closing a repo-maintainer task, run relevant lightweight checks such as
 use the dev-only hygiene targets in `docs/dev-hygiene.md`; when the touched
 surface includes analyzable Python workflow code or scripts, attempt scoped Omen
 MCP during implementation when it can inspect the target, and use `pants run
-:omen` for reproducible closeout. These developer checks must not become thesis
+scripts:omen` for reproducible closeout. These developer checks must not become thesis
 case pipeline gates.
 When changing deterministic checkers, run their smoke scripts and targeted Pants
 tests too. For generated thesis-review artifacts, use the role-specific
