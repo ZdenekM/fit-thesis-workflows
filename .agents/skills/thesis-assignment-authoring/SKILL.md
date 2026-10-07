@@ -114,7 +114,10 @@ shared by every supervisor using this repository.
 - The operator cannot supply a factual value and no source resolves it: mark
   it, do not guess, and carry it as a publication blocker.
 - Publishing to FIT IS or sending a brief: not this skill's decision. The
-  plan's acceptance criteria and the operator own it.
+  plan's acceptance criteria and the operator own it. When the operator asks
+  for the brief as a PDF, render the approved variant with
+  `scripts/render-brief <case-id> <variant>` and report the PDF path only when
+  the command succeeded; rendering sends nothing.
 
 ## Outputs
 

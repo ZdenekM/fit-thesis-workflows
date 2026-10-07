@@ -238,6 +238,36 @@ Markdown zůstává zdrojem pravdy a příkaz ho nemění; agent PDF vytvoří p
 - Každé vysázení se zapíše do `work/operation_log.jsonl` s hashem zdroje, hashem
   PDF a verzí Quarta.
 
+### PDF Úvodního Podkladu
+
+```bash
+scripts/render-brief <topic-case-id> <variant>
+scripts/render-brief --draft <topic-case-id> <variant>
+```
+
+`render-brief` vysází schválený úvodní podklad tématu
+`outputs/student_brief_<variant>.md` z topic case do A4 PDF
+`outputs/student_brief_<variant>.pdf` se stejnou šablonou a písmem jako PDF se
+zpětnou vazbou. Markdown se nemění; nadpis a sekce podkladu se jen srovnají pod
+hlavičku s typem práce, oficiálním názvem z `outputs/assignment_formal_<variant>.md`
+(pole `Název:`/`Title:`) a datem vysázení. Všechno vytištěné tedy kryje schválení
+bundlu; pole `Topic:` z `case.md` se netiskne.
+
+- Bránou je schválení bundlu varianty, tedy totéž, co kontroluje
+  `scripts/check-assignment-bundle <topic-case-id> <variant>`. Bez něj příkaz
+  skončí chybou a smaže staré `outputs/student_brief_<variant>.pdf`; před každým
+  schváleným vysázením ho smaže také, takže neúspěšné vysázení nenechá starou
+  verzi.
+- `--draft` vysází i neschválený podklad do
+  `work/student_brief_<variant>_preview.pdf` s razítkem NÁVRH/DRAFT. PDF ve
+  `outputs/` nechá jen tehdy, když vzniklo pod právě platným schválením.
+- Topic case nemá operation log, proto se každé schválené vysázení zapíše do
+  `work/student_brief_<variant>_pdf.json` (hash záznamu o schválení, hash PDF,
+  verze Quarta). Po znovuschválení upraveného podkladu spusťte příkaz znovu; dokud
+  to neuděláte, PDF ve `outputs/` odpovídá předchozí verzi.
+- Vysázení není odeslání: o předání studentovi a o `promote-assignment --issued`
+  rozhodujete vy. Quarto a launchery na Windows platí stejně jako výše.
+
 ## Povinné Gate Před Generováním
 
 Před studentskou zpětnou vazbou od vedoucího agent spouští

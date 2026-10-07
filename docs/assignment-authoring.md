@@ -272,6 +272,23 @@ then validates `work/reviews/assignment_approval_<variant>.json` as
 A hash mismatch is how "material edits after review reopen draft state" is
 enforced: change any bound file and the check names it.
 
+`scripts/render-brief <case-id> <variant>` renders the approved projection to
+`outputs/student_brief_<variant>.pdf` for handing to the student, with the
+student-feedback PDF's template. Its gate is this check, re-run on the exact bytes
+it renders; without it the command refuses and removes any earlier PDF, and
+`--draft` writes a stamped preview to `work/` instead. Everything printed comes
+from bound files: the projection, and the masthead's official title from the
+variant's formal assignment (`Název:`/`Title:`), never `Topic:` in `case.md`. The
+layout drops the projection title into the PDF masthead, sets the content headings
+level with the delta heading, and drops the ` - <variant>` suffix the masthead
+already states; it matches only the headings of the declared brief language, so
+the Markdown contract above is unchanged. The projection is read without Pandoc's
+front-matter and citation extensions, so a `---` fenced field block or an `@name`
+in the body prints as written. Because a topic case has no operation log, each
+approved render writes `work/student_brief_<variant>_pdf.json` with the approval
+record's hash, and a later `--draft` removes an `outputs/` PDF that record does not
+tie to the current approval. Rendering is not sending.
+
 Two limits, stated rather than implied. Independence here rests on the record's
 own `author_agent`: unlike a review round, a topic case has no
 `work/review_manifest.json` recording who generated what, so the field is

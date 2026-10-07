@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+# Render synthetic cs and en topic briefs through the packaged render-brief launcher,
+# in a repository copy without checkout sources, so a package resource missing from
+# the PEX fails here. Skips when quarto is not installed. Run
+# scripts/package-workflow-tools first.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! command -v quarto >/dev/null 2>&1; then
+  echo "SKIP: quarto not found; render-brief smoke not run"
+  exit 0
+fi
+for tool in pdftotext pdfinfo; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing $tool (poppler-utils), needed for the render-brief assertions" >&2
+    exit 1
+  fi
+done
+
+pex_info="$repo_root/dist/workflow-tools/pex/render-brief/PEX-INFO"
+if [[ ! -f "$pex_info" ]]; then
+  echo "Missing packaged render-brief; run scripts/package-workflow-tools first" >&2
+  exit 1
+fi
+stale="$(find src/thesis_review_workflow/render src/thesis_review_workflow/pdf_render.py \
+  src/thesis_review_workflow/brief_render.py src/thesis_review_workflow/cli/render_brief.py \
+  src/thesis_review_workflow/assignment_bundle.py src/thesis_review_workflow/assignment_draft.py \
+  -type f -newer "$pex_info" -print -quit)"
+if [[ -n "$stale" ]]; then
+  echo "Packaged render-brief is older than $stale; run scripts/package-workflow-tools" >&2
+  exit 1
+fi
+
+tmp_repo="$(mktemp -d)"
+trap 'rm -rf "$tmp_repo"' EXIT
+mkdir -p "$tmp_repo/dist"
+cp -R "$repo_root/dist/workflow-tools" "$tmp_repo/dist/"
+git -C "$tmp_repo" init -q
+launcher="$tmp_repo/dist/workflow-tools/bin/render-brief"
+
+# Two topic cases built from the structural checker's own fixtures: en (bp and dp) and cs,
+# each with an approval of variant bp only. Each brief body ends with the two constructs
+# Pandoc's default Markdown would eat (a `---` fenced field block and an `@name`), and each
+# assignment carries a distinct official title for the masthead.
+PYTHONPATH="$repo_root/src:$repo_root/tests" python3 - "$tmp_repo/cases" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+from test_assignment_draft import BRIEF_SOURCE, INTAKE, assignment, czech_bundle, projection
+from thesis_review_workflow.assignment_bundle import approval_rel, build_bundle_approval_payload
+
+
+def append_to_body(path: Path, last_line: str, extra: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert text.count(last_line) == 1, path
+    path.write_text(text.replace(last_line, last_line + extra), encoding="utf-8")
+
+
+cases = Path(sys.argv[1])
+for case_id, czech in (("smoke-brief-en", False), ("smoke-brief-cs", True)):
+    case_dir = cases / case_id
+    (case_dir / "notes").mkdir(parents=True)
+    (case_dir / "outputs").mkdir()
+    (case_dir / "work" / "reviews").mkdir(parents=True)
+    (case_dir / "case.md").write_text(
+        "Case ID: t\nCase kind: topic-proposal\nTopic: Case label never printed\nStudent feedback language: en\n",
+        encoding="utf-8",
+    )
+    (case_dir / "notes/topic_intake.md").write_text(INTAKE, encoding="utf-8")
+    (case_dir / "notes/student_brief.md").write_text(BRIEF_SOURCE, encoding="utf-8")
+    for variant in ("bp", "dp"):
+        (case_dir / f"outputs/assignment_formal_{variant}.md").write_text(assignment(variant=variant), encoding="utf-8")
+        (case_dir / f"outputs/student_brief_{variant}.md").write_text(projection(variant), encoding="utf-8")
+    if czech:
+        czech_bundle(case_dir)
+    last_line = "Mobilní klient." if czech else "The mobile client."
+    extra = "\n\n---\nKontakt: konzultace\n---\n\nPište na @vedouci."
+    for brief in ("notes/student_brief.md", "outputs/student_brief_bp.md", "outputs/student_brief_dp.md"):
+        append_to_body(case_dir / brief, last_line, extra)
+    title = "Syntetické téma" if czech else "Synthetic smoke topic"
+    for variant in ("bp", "dp"):
+        formal = case_dir / f"outputs/assignment_formal_{variant}.md"
+        formal.write_text(formal.read_text(encoding="utf-8").replace("Název: Téma", f"Název: {title}"), encoding="utf-8")
+    payload = build_bundle_approval_payload(
+        case_dir,
+        case_id=case_id,
+        variant="bp",
+        author_agent="smoke-author",
+        reviewer_agent="smoke-reviewer",
+        reviewer_role="thesis-assignment-review",
+        verdict="approved",
+        blocking_findings_count=0,
+        checks_observed=["scripts/check-assignment-draft"],
+        limitations=[],
+        timestamp="2026-10-07T00:00:00Z",
+    )
+    (case_dir / approval_rel("bp")).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+
+# pdf_text <pdf>: extracted text with non-breaking spaces as plain spaces.
+pdf_text() {
+  pdftotext "$1" - | sed 's/\xc2\xa0/ /g'
+}
+
+expect_text() {
+  local pdf="$1" needle="$2"
+  if ! pdf_text "$pdf" | grep -Fq -- "$needle"; then
+    echo "Expected text not found in $(basename "$pdf"): $needle" >&2
+    pdf_text "$pdf" >&2
+    exit 1
+  fi
+}
+
+# expect_flat_outline <pdf> <heading>...: every heading is a top-level outline entry, so the
+# content headings were promoted level with the variant delta. Needs mutool; skipped without.
+expect_flat_outline() {
+  local pdf="$1" outline heading
+  shift
+  if ! command -v mutool >/dev/null 2>&1; then
+    echo "NOTE: mutool not found; heading levels not checked"
+    return
+  fi
+  outline="$(mutool show "$pdf" outline)"
+  for heading in "$@"; do
+    if ! grep -Fxq -- "$(printf '|\t"%s"' "$heading")" <(printf '%s\n' "$outline" | sed 's/\t#page=.*$//'); then
+      echo "Expected top-level outline entry: $heading" >&2
+      printf '%s\n' "$outline" >&2
+      exit 1
+    fi
+  done
+}
+
+reject_text() {
+  local pdf="$1" needle="$2"
+  if pdf_text "$pdf" | grep -Fq -- "$needle"; then
+    echo "Unexpected text in $(basename "$pdf"): $needle" >&2
+    exit 1
+  fi
+}
+
+cd "$tmp_repo"
+
+cs_case="$tmp_repo/cases/smoke-brief-cs"
+cs_source_hash="$(sha256sum "$cs_case/outputs/student_brief_bp.md")"
+"$launcher" smoke-brief-cs bp >/dev/null
+cs_pdf="$cs_case/outputs/student_brief_bp.pdf"
+test -f "$cs_pdf"
+[[ "$(sha256sum "$cs_case/outputs/student_brief_bp.md")" == "$cs_source_hash" ]]
+expect_text "$cs_pdf" "BAKALÁŘSKÁ PRÁCE"
+expect_text "$cs_pdf" "Úvodní podklad k tématu"
+expect_text "$cs_pdf" "Syntetické téma"
+expect_text "$cs_pdf" "$(date +%-d). $(date +%-m). $(date +%Y)"
+expect_text "$cs_pdf" "Na čem práce staví"
+expect_text "$cs_pdf" "Specifika varianty"
+expect_text "$cs_pdf" "Přínos: prototyp."
+expect_text "$cs_pdf" "Kontakt: konzultace"
+expect_text "$cs_pdf" "Pište na @vedouci."
+reject_text "$cs_pdf" "?@vedouci"
+reject_text "$cs_pdf" "Case label never printed"
+expect_flat_outline "$cs_pdf" "Na čem práce staví" "Kde začít" "Jak budeme spolupracovat" "Jak číst zadání" \
+  "Co do práce nepatří" "Specifika varianty"
+reject_text "$cs_pdf" "Úvodní podklad k tématu - bp"
+reject_text "$cs_pdf" "Specifika varianty - bp"
+reject_text "$cs_pdf" "Student"
+
+en_case="$tmp_repo/cases/smoke-brief-en"
+"$launcher" smoke-brief-en bp >/dev/null
+en_pdf="$en_case/outputs/student_brief_bp.pdf"
+expect_text "$en_pdf" "BACHELOR'S THESIS"
+expect_text "$en_pdf" "Thesis Topic Brief"
+expect_text "$en_pdf" "$(date +%-d) $(LC_ALL=C date +%B) $(date +%Y)"
+expect_text "$en_pdf" "What The Work Builds On"
+expect_text "$en_pdf" "For This Variant"
+expect_text "$en_pdf" "Synthetic smoke topic"
+expect_text "$en_pdf" "Kontakt: konzultace"
+reject_text "$en_pdf" "For This Variant - bp"
+test -f "$en_case/work/student_brief_bp_pdf.json"
+
+# A draft of the approved brief keeps the PDF rendered under that approval.
+"$launcher" smoke-brief-en bp --draft >/dev/null
+test -f "$en_pdf"
+
+# dp has no approval: refused, then previewable as a stamped draft outside outputs/.
+if "$launcher" smoke-brief-en dp >/dev/null 2>&1; then
+  echo "render-brief rendered a brief without a bundle approval" >&2
+  exit 1
+fi
+test ! -e "$en_case/outputs/student_brief_dp.pdf"
+"$launcher" smoke-brief-en dp --draft >/dev/null
+preview="$en_case/work/student_brief_dp_preview.pdf"
+test -f "$preview"
+# The stamp is rotated, so only content-order extraction keeps its letters together.
+pdftotext -raw "$preview" - | grep -Fxq "DRAFT"
+expect_text "$preview" "MASTER'S THESIS"
+test ! -e "$en_case/outputs/student_brief_dp.pdf"
+
+# An edit after approval reopens draft state: the earlier approved PDF is removed.
+printf '\nAn obligation added after review.\n' >>"$cs_case/outputs/student_brief_bp.md"
+if "$launcher" smoke-brief-cs bp >/dev/null 2>&1; then
+  echo "render-brief rendered a brief edited after its approval" >&2
+  exit 1
+fi
+test ! -e "$cs_pdf"
+"$launcher" smoke-brief-cs bp --draft >/dev/null
+pdftotext -raw "$cs_case/work/student_brief_bp_preview.pdf" - | grep -Fxq "NÁVRH"
+test ! -e "$cs_pdf"
+
+echo "render-brief smoke passed"

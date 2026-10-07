@@ -1,8 +1,8 @@
-// Student-facing supervisor feedback: Quarto Typst template partial.
+// Student-facing PDF (supervisor feedback, topic brief): Quarto Typst template partial.
 // Keeps Quarto's `article()` signature so the stock `typst-show.typ` calls it unchanged.
-// Per-render values (labels, student, topic, draft stamp) come from the `feedback`
-// metadata that render-feedback writes; colours and the font family are the only
-// house-style knobs.
+// Per-render values (kind, labels, student, topic, draft stamp) come from the `masthead`
+// metadata that the kind's layout filter assigns; colours and the font family are the only
+// house-style knobs. A masthead row whose value is absent is left out.
 
 #let fb-accent = rgb("#1f4e79")
 #let fb-muted = rgb("#5b6470")
@@ -11,13 +11,13 @@
 #let fb-font = ("Noto Sans",)
 
 #let fb-meta = (
-  kind: [$feedback.labels.kind$],
-  student-label: [$feedback.labels.student$],
-  topic-label: [$feedback.labels.topic$],
-  date-label: [$feedback.labels.date$],
-  student: [$if(feedback.student)$$feedback.student$$endif$],
-  topic: [$if(feedback.topic)$$feedback.topic$$endif$],
-  draft: $if(feedback.draft)$[$feedback.draft$]$else$none$endif$,
+  kind: [$masthead.kind$],
+  student-label: [$masthead.labels.student$],
+  topic-label: [$masthead.labels.topic$],
+  date-label: [$masthead.labels.date$],
+  student: $if(masthead.student)$[$masthead.student$]$else$none$endif$,
+  topic: $if(masthead.topic)$[$masthead.topic$]$else$none$endif$,
+  draft: $if(masthead.draft)$[$masthead.draft$]$else$none$endif$,
 )
 
 // Quarto's callout is unbreakable and boxed twice; a feedback item can run half a page, so
@@ -98,7 +98,7 @@
     header: context {
       if counter(page).get().first() > 1 {
         set text(size: 8.5pt, fill: fb-muted)
-        grid(columns: (1fr, auto), title, fb-meta.student)
+        grid(columns: (1fr, auto), title, [#fb-meta.student])
         v(-2pt)
         line(length: 100%, stroke: 0.5pt + fb-rule)
       }
@@ -137,14 +137,11 @@
     #text(size: 20pt, weight: "bold", fill: fb-accent, title)
     #v(0.6em)
     #set text(size: 9.5pt)
-    #grid(
-      columns: (auto, 1fr),
-      column-gutter: 10pt,
-      row-gutter: 5pt,
-      text(fill: fb-muted, fb-meta.student-label), fb-meta.student,
-      text(fill: fb-muted, fb-meta.topic-label), fb-meta.topic,
-      text(fill: fb-muted, fb-meta.date-label), if date != none { date },
-    )
+    #let rows = ()
+    #if fb-meta.student != none { rows += (text(fill: fb-muted, fb-meta.student-label), fb-meta.student) }
+    #if fb-meta.topic != none { rows += (text(fill: fb-muted, fb-meta.topic-label), fb-meta.topic) }
+    #if date != none { rows += (text(fill: fb-muted, fb-meta.date-label), date) }
+    #grid(columns: (auto, 1fr), column-gutter: 10pt, row-gutter: 5pt, ..rows)
     #v(0.4em)
     #line(length: 100%, stroke: 1.2pt + fb-accent)
   ]

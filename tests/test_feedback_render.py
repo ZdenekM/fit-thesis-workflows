@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from thesis_review_workflow import feedback_render
+from thesis_review_workflow import feedback_render, pdf_render
 from thesis_review_workflow.cli import render_feedback
 from thesis_review_workflow.cli.check_feedback_output import LANGUAGE
 from thesis_review_workflow.operation_log import OPERATION_LOG_REL
@@ -117,10 +117,11 @@ def test_render_metadata_carries_draft_stamp_only_for_drafts(language: str) -> N
     draft = feedback_render.render_metadata(case, draft=True)
 
     assert final["lang"] == language
-    assert "draft" not in final["feedback"]
-    assert final["feedback"]["sections"]["area_header"] == feedback_render.AREA_HEADER[language]
-    assert draft["feedback"]["draft"] == feedback_render.DRAFT_STAMP[language]
-    assert final["feedback"]["sections"]["date_label"] == LANGUAGE[language]["date_label"]
+    assert "draft" not in final["masthead"]
+    assert final["masthead"]["kind"] == feedback_render.KIND[language]
+    assert final["sections"]["area_header"] == feedback_render.AREA_HEADER[language]
+    assert draft["masthead"]["draft"] == pdf_render.DRAFT_STAMP[language]
+    assert final["sections"]["date_label"] == LANGUAGE[language]["date_label"]
 
 
 @pytest.mark.parametrize("language", ["cs", "en"])
@@ -128,7 +129,7 @@ def test_mapped_headings_exist_in_the_skill_output_contract(language: str) -> No
     skill_text = SKILL.read_text(encoding="utf-8")
     sections = feedback_render.render_metadata(
         feedback_render.FeedbackCaseMetadata(language=language, student="", topic=""), draft=False
-    )["feedback"]["sections"]
+    )["sections"]
 
     headings = [sections["scope"], sections["priority"], *sections["tips"]]
     for heading in headings:
@@ -138,7 +139,7 @@ def test_mapped_headings_exist_in_the_skill_output_contract(language: str) -> No
 
 
 def test_packaged_resources_cover_quarto_config(tmp_path: Path) -> None:
-    feedback_render.copy_resources(feedback_render.resource_root(), tmp_path)
+    pdf_render.stage_resources(feedback_render.RENDER_KIND, tmp_path)
 
     config = (tmp_path / "_quarto.yml").read_text(encoding="utf-8")
     for name in ("filters/feedback-blocks.lua", "filters/identifier-links.lua", "filters/czech-quotes.lua"):
@@ -149,13 +150,13 @@ def test_packaged_resources_cover_quarto_config(tmp_path: Path) -> None:
     assert fonts == [f"NotoSans-{style}.ttf" for style in ("Bold", "BoldItalic", "Italic", "Regular")]
     assert (tmp_path / "fonts" / "LICENSE-OFL").is_file()
     blocks_filter = (tmp_path / "filters" / "feedback-blocks.lua").read_text(encoding="utf-8")
-    assert f'"{feedback_render.RENDER_VALUES_NAME}"' in blocks_filter
+    assert f'"{pdf_render.RENDER_VALUES_NAME}"' in blocks_filter
 
 
 def test_find_quarto_reports_missing_binary(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(feedback_render.shutil, "which", lambda name: None)
+    monkeypatch.setattr(pdf_render.shutil, "which", lambda name: None)
 
-    with pytest.raises(feedback_render.RenderError, match="quarto is not installed"):
+    with pytest.raises(pdf_render.RenderError, match=f"quarto is not installed.*send {feedback_render.FEEDBACK_REL}"):
         feedback_render.find_quarto()
 
 
@@ -164,12 +165,12 @@ def test_quarto_version_refuses_older_than_tested(monkeypatch: pytest.MonkeyPatc
     def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(args=[], returncode=0, stdout=output, stderr="")
 
-    monkeypatch.setattr(feedback_render.subprocess, "run", fake_run)
+    monkeypatch.setattr(pdf_render.subprocess, "run", fake_run)
     if accepted:
-        assert feedback_render.quarto_version(Path("quarto")) == output.strip()
+        assert pdf_render.quarto_version(Path("quarto")) == output.strip()
     else:
-        with pytest.raises(feedback_render.RenderError, match="older than the tested"):
-            feedback_render.quarto_version(Path("quarto"))
+        with pytest.raises(pdf_render.RenderError, match="older than the tested"):
+            pdf_render.quarto_version(Path("quarto"))
 
 
 def gate_errors(round_dir: Path, *, case_id: str = "case-a") -> list[str]:
@@ -423,7 +424,7 @@ def test_cli_renders_approved_feedback_and_logs_hashes(cli_round: tuple[Path, Fa
 
     pdf = round_dir / feedback_render.PDF_REL
     assert pdf.is_file()
-    assert fake.metadata is not None and "draft" not in fake.metadata["feedback"]  # type: ignore[operator]
+    assert fake.metadata is not None and "draft" not in fake.metadata["masthead"]  # type: ignore[operator]
     [record] = operation_records(round_dir)
     assert record["operation"] == "render-feedback"
     assert record["artifacts"] == [feedback_render.FEEDBACK_REL, feedback_render.PDF_REL]
@@ -443,7 +444,7 @@ def test_cli_draft_renders_without_approval_outside_outputs(cli_round: tuple[Pat
     assert (round_dir / feedback_render.PREVIEW_PDF_REL).is_file()
     assert not (round_dir / feedback_render.PDF_REL).exists()
     assert fake.metadata is not None
-    assert fake.metadata["feedback"]["draft"] == "NÁVRH"  # type: ignore[index]
+    assert fake.metadata["masthead"]["draft"] == "NÁVRH"  # type: ignore[index]
     [record] = operation_records(round_dir)
     assert record["details"]["draft"] == "true"  # type: ignore[index]
 

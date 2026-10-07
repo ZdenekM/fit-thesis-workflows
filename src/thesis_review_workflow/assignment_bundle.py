@@ -31,14 +31,24 @@ def findings_rel(variant: str) -> str:
     return f"work/reviews/assignment_review_{variant}.md"
 
 
+def assignment_formal_rel(variant: str) -> str:
+    return f"outputs/assignment_formal_{variant}.md"
+
+
+def brief_projection_rel(variant: str) -> str:
+    """The student-facing brief of one variant; `render-brief` renders exactly this file."""
+
+    return f"outputs/student_brief_{variant}.md"
+
+
 def bundle_paths(variant: str) -> tuple[str, ...]:
     """The four files one approval binds: what publishing a variant actually sends."""
 
     return (
         INTAKE_REL,
         BRIEF_SOURCE_REL,
-        f"outputs/assignment_formal_{variant}.md",
-        f"outputs/student_brief_{variant}.md",
+        assignment_formal_rel(variant),
+        brief_projection_rel(variant),
     )
 
 
@@ -150,8 +160,7 @@ def validate_bundle_approval_payload(
     blocking = payload.get("blocking_findings_count")
     if not _is_zero_count(blocking):
         errors.append(
-            f"{rel_path}: an approved record must carry an integer blocking_findings_count of 0, "
-            f"not {blocking!r}"
+            f"{rel_path}: an approved record must carry an integer blocking_findings_count of 0, " f"not {blocking!r}"
         )
 
     errors.extend(_audit_field_errors(payload, rel_path))
@@ -222,9 +231,7 @@ def _file_errors(payload: dict[str, Any], case_dir: Path, variant: str, rel_path
             errors.append(f"{rel_path}: bound file is missing from the case: {expected}")
             continue
         if sha256_file(path) != recorded[expected]:
-            errors.append(
-                f"{rel_path}: {expected} changed after approval; a material edit reopens draft state"
-            )
+            errors.append(f"{rel_path}: {expected} changed after approval; a material edit reopens draft state")
     for extra in sorted(set(recorded) - set(bundle_paths(variant))):
         errors.append(f"{rel_path}: the approval binds a file outside the bundle: {extra}")
     return errors

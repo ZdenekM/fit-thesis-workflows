@@ -24,8 +24,9 @@ if [[ ! -f "$pex_info" ]]; then
   echo "Missing packaged render-feedback; run scripts/package-workflow-tools first" >&2
   exit 1
 fi
-stale="$(find src/thesis_review_workflow/render src/thesis_review_workflow/feedback_render.py \
-  src/thesis_review_workflow/cli/render_feedback.py -type f -newer "$pex_info" -print -quit)"
+stale="$(find src/thesis_review_workflow/render src/thesis_review_workflow/pdf_render.py \
+  src/thesis_review_workflow/feedback_render.py src/thesis_review_workflow/cli/render_feedback.py \
+  -type f -newer "$pex_info" -print -quit)"
 if [[ -n "$stale" ]]; then
   echo "Packaged render-feedback is older than $stale; run scripts/package-workflow-tools" >&2
   exit 1
@@ -218,6 +219,8 @@ if pdf_text "$cs_pdf" | grep -Fq "„klasika„"; then
 fi
 expect_text "$cs_pdf" "6. 10. 2026"
 expect_text "$cs_pdf" "Synthetic Student"
+expect_text "$cs_pdf" "ZPĚTNÁ VAZBA VEDOUCÍHO"
+expect_text "$cs_pdf" "Synthetic smoke topic"
 expect_text "$cs_pdf" "P0 · Cíl práce"
 expect_text "$cs_pdf" "P1 · Rešerše"
 expect_text "$cs_pdf" "P2 · Formální stránka"
@@ -246,6 +249,7 @@ en_pdf="$en_round/outputs/feedback_student.pdf"
 # shellcheck disable=SC1111
 expect_text "$en_pdf" "“classic”"
 expect_text "$en_pdf" "6 October 2026"
+expect_text "$en_pdf" "SUPERVISOR FEEDBACK"
 expect_text "$en_pdf" "P1 · Goal"
 expect_url "$en_pdf" "https://example.org/goal-guide"
 expect_text "$en_pdf" "P2 · Formal presentation"

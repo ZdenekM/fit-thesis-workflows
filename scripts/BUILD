@@ -71,6 +71,7 @@ shell_sources(
         "record-theses-checker-summary",
         "record-workflow-operation",
         "refresh-round-hashes",
+        "render-brief",
         "render-feedback",
         "register-review-artifact",
         "review-round-closeout",
@@ -108,6 +109,7 @@ shell_sources(
         "smoke-record-submitted-opponent-report",
         "smoke-record-submitted-supervisor-report",
         "smoke-refresh-round-hashes",
+        "smoke-render-brief",
         "smoke-render-feedback",
         "smoke-supervisor-report-calibration-profile",
         "smoke-theses-checker-summary",
@@ -227,6 +229,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:record_theses_checker_summary",
     "src/thesis_review_workflow/cli:record_workflow_operation",
     "src/thesis_review_workflow/cli:refresh_round_hashes",
+    "src/thesis_review_workflow/cli:render_brief",
     "src/thesis_review_workflow/cli:render_feedback",
     "src/thesis_review_workflow/cli:register_review_artifact",
     "src/thesis_review_workflow/cli:review_round_closeout",
@@ -925,6 +928,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/register-review-artifact",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="render_brief_tool",
+    entry_point="thesis_review_workflow.cli.render_brief:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/render-brief",
     tags=["workflow-tool"],
 )
 

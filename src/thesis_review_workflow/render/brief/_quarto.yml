@@ -1,0 +1,22 @@
+# Quarto defaults for rendering a topic brief projection,
+# outputs/student_brief_<variant>.md, to PDF. render-brief copies ../shared
+# (template, fonts, common filters), then this directory, and the Markdown into
+# a temporary directory, and writes the per-render values (language, title,
+# date, masthead, the headings to map, draft stamp) to render-values.json next
+# to it; filters/brief-blocks.lua assigns them over any front matter.
+filters:
+  - path: filters/brief-blocks.lua
+    at: pre-ast
+  - filters/identifier-links.lua
+  - filters/czech-quotes.lua
+format:
+  typst:
+    # No front matter or citations exist in a projection: without these extensions a
+    # `---` fenced `Label: value` block in the body is not swallowed as metadata, and
+    # `@name` is not turned into a citation.
+    from: markdown-smart-yaml_metadata_block-citations
+    papersize: a4
+    font-paths:
+      - fonts
+    template-partials:
+      - typst-template.typ

@@ -141,7 +141,8 @@ Použij agenty; nezveřejňuj nic do IS, jen mi to připrav ke kontrole.
 Toto je jediný workflow v repozitáři, který zadání vytváří; všechny ostatní
 proti existujícímu zadání práci měří. Běží ve vlastním case s
 `Case kind: topic-proposal`, bez studenta a bez termínů. Pravidla popisuje
-`docs/assignment-authoring.md`.
+`docs/assignment-authoring.md`. Schválený brief můžete studentovi předat i jako
+PDF: řekněte agentovi „dej mi ten brief jako PDF“.
 
 ### Samostatná otázka nebo dílčí kontrola
 

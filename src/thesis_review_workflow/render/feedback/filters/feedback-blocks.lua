@@ -1,7 +1,7 @@
 -- Render-time layout for outputs/feedback_student.md. The Markdown keeps the
 -- supervisor-feedback skill's section contract unchanged; this filter only maps
 -- headings of that contract to blocks. The headings arrive from render-feedback in
--- feedback-render.json (see `render_values`), so this file carries no language:
+-- render-values.json (see `render_values`), so this file carries no language:
 --   H1 and the review-date line -> title block metadata
 --   scope section               -> note block
 --   progress / working-well     -> tip block
@@ -15,13 +15,13 @@ local EN_MONTHS = {
   "July", "August", "September", "October", "November", "December",
 }
 
--- render-feedback writes the language, title-block fields, section headings and the
--- draft stamp to feedback-render.json beside the Markdown. Read here and assigned to the
+-- render-feedback writes the language, masthead fields, section headings and the
+-- draft stamp to render-values.json beside the Markdown. Read here and assigned to the
 -- metadata, they override any front matter in the source, which must never drop the
 -- draft stamp or the section mapping. Plain strings become MetaString values, so a topic
 -- is printed literally rather than parsed as Markdown.
 local function render_values()
-  local path = pandoc.path.join({ pandoc.path.directory(quarto.doc.input_file), "feedback-render.json" })
+  local path = pandoc.path.join({ pandoc.path.directory(quarto.doc.input_file), "render-values.json" })
   local handle = io.open(path, "rb")
   if handle == nil then error("render-feedback values missing: " .. path) end
   local data = handle:read("a")
@@ -105,8 +105,8 @@ end
 function Pandoc(doc)
   local values = render_values()
   doc.meta.lang = values.lang
-  doc.meta.feedback = values.feedback
-  local sections = values.feedback.sections
+  doc.meta.masthead = values.masthead
+  local sections = values.sections
   local lang = values.lang
   local date_label = sections.date_label
   local scope = sections.scope

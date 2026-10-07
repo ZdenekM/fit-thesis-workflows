@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+from thesis_review_workflow import pdf_render
 from thesis_review_workflow.cli.context import (
     repo_root,
     require_case_dir,
@@ -19,18 +20,16 @@ from thesis_review_workflow.feedback_render import (
     FEEDBACK_REL,
     PDF_REL,
     PREVIEW_PDF_REL,
-    RenderError,
     approval_errors,
     find_quarto,
     pdf_rendered_from,
-    quarto_version,
     read_case_metadata,
     render_metadata,
     render_pdf,
-    sha256_bytes,
 )
 from thesis_review_workflow.operation_log import append_operation
 from thesis_review_workflow.paths import rel_repo
+from thesis_review_workflow.pdf_render import RenderError, quarto_version, sha256_bytes
 from thesis_review_workflow.review_approvals import sha256_file
 
 
@@ -62,17 +61,7 @@ def remove_stale_pdf(round_dir: Path, reason: str) -> bool:
     Called whenever no approval covers the current Markdown, and before every approved
     render, so a failed render never leaves an earlier version behind to be attached.
     """
-    stale = round_dir / PDF_REL
-    if not stale.is_file():
-        return True
-    try:
-        stale.unlink()
-    except OSError as exc:
-        print(f"ERROR: cannot remove the stale {PDF_REL} (close it if it is open in a viewer): {exc}")
-        return False
-    if reason:
-        print(f"Removed the stale {PDF_REL}: {reason}.")
-    return True
+    return pdf_render.remove_stale_pdf(round_dir, PDF_REL, reason)
 
 
 def report_unapproved(errors: list[str]) -> None:
