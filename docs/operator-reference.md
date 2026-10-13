@@ -254,6 +254,10 @@ scripts/render-brief <topic-case-id> <variant>
 scripts/render-brief --draft <topic-case-id> <variant>
 ```
 
+Úvodní podklad má jedinou cestu, i když zadání už je vypsané v IS: takové
+zadání se převezme do topic case (viz `docs/assignment-authoring.md`, sekce
+`## Adopting An Issued Assignment`) a brief vzniká, schvaluje se a sází stejně.
+
 `render-brief` vysází schválený úvodní podklad tématu
 `outputs/student_brief_<variant>.md` z topic case do A4 PDF
 `outputs/student_brief_<variant>.pdf` se stejnou šablonou a písmem jako PDF se

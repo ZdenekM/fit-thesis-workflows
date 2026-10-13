@@ -17,8 +17,8 @@ Important constraints:
 
 `Case kind` defaults to `thesis-review` when the field is absent. A
 `topic-proposal` case authors assignments instead of reviewing a thesis, so its
-`Work type`, `Student`, and deadline fields stay empty; see
-`docs/assignment-authoring.md`.
+`Work type` and deadline fields stay empty, and `Student` stays empty until a
+student takes the topic; see `docs/assignment-authoring.md`.
 
 ## Standing Context
 

@@ -5,8 +5,9 @@ Created: 2026-10-13
 
 ## Start Here
 
-Design review and its narrow re-check are done and folded into Slice A.
-Next action: implement Slice A (documentation only), then review it. Read only this plan,
+Slice A (documentation) has landed. Next action: compact Slice A's charter into
+`plans/archive/adopted_assignment_brief_plan/`, write nothing new into it, and
+implement Slice B as chartered below. Read only this plan,
 `docs/assignment-authoring.md` and the two skills Slice A names; nothing is
 archived yet.
 
@@ -70,7 +71,7 @@ readiness gate; judging assignment quality of an adopted topic.
 
 ### Slice A - Adoption as an entry to the authoring workflow
 
-- Status: in_progress
+- Status: done
 - Proposed commit message: Route every starting brief through a topic case, adopted assignments included
 - Why: agents improvised two different paths for an assignment issued outside the
   pipeline; the one that bypasses the topic case produces an unchecked,
@@ -78,7 +79,8 @@ readiness gate; judging assignment quality of an adopted topic.
 - Expected paths: `docs/assignment-authoring.md`,
   `.agents/skills/thesis-assignment-authoring/SKILL.md`,
   `.agents/skills/thesis-assignment-review/SKILL.md`, `AGENTS.md`, `README.md`,
-  `templates/topic-intake.md`, `docs/operator-reference.md`, `TODO.md`
+  `templates/topic-intake.md`, `templates/case-notes.md`,
+  `docs/operator-reference.md`, `TODO.md`
 - Tasks:
   - `docs/assignment-authoring.md`: new `## Adopting An Issued Assignment`
     after `## The Topic Case`: the topic case is opened for an assignment already
@@ -106,7 +108,8 @@ readiness gate; judging assignment quality of an adopted topic.
     matches the approved variant, and `--issued-note` records that date and state.
   - Existing thesis-round `notes/assignment.md` (every round has one from its
     template): before `--replace`, copy it to
-    `work/assignment_source/prior_assignment.md` in that round; pass `--replace`
+    the round's `work/assignment_source/`, named like the approval copy promotion
+    retains there (`assignment_promotion.py::RETAINED_APPROVAL_DIR`); pass `--replace`
     only once the operator confirms the promoted variant supersedes it (an
     unfilled template counts as superseded); after promotion, carry over any
     private notes and coverage hints it held that the new file lacks.
@@ -160,7 +163,8 @@ readiness gate; judging assignment quality of an adopted topic.
 ## Progress
 
 - 2026-10-13: plan written; design review and narrow re-check done (see
-  `## Decision Log`); Slice A next.
+  `## Decision Log`).
+- 2026-10-13: Slice A done; Slice B next.
 
 ## Decision Log
 
@@ -188,6 +192,18 @@ readiness gate; judging assignment quality of an adopted topic.
   N3 unnamed snapshot path, N4 immutable-field defect classification -> each a
   wording fix in Slice A. Stopping rule: B1 is a one-line fix to the minimum,
   so no third round; Slice A's own review covers the landed text.
+
+- 2026-10-13 Slice A review (Claude Plan agent, read-only, `git diff HEAD`): no
+  blocking findings except `templates/case-notes.md` still saying `Student` stays
+  empty -> reworded and added to Expected paths. Non-blocking, all applied: an
+  explicit `Important constraints:` statement as the adopted marker item 9 keys
+  on; the IS PDF in the review skill's inputs and stated as unbound by the
+  approval; Claude reviewer records issued-field limitations in its findings;
+  "verbatim" means field values inside the template structure; first-meeting
+  material stays in existing sections until Slice B; render on the operator's
+  request; README asks only for literature to add to IS and names both promotion
+  conditions. Skipped: a pointer in `templates/assignment.md` (still right for
+  cases without a starting brief).
 
 ## Final Audit
 

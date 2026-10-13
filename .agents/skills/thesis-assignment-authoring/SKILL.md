@@ -11,9 +11,13 @@ command names. On Windows, use the packaged
 not run or click extensionless `scripts/<tool>` files.
 
 Use this skill when a supervisor wants to turn a topic idea into something
-publishable in FIT IS. It is the only workflow in this repository that
-PRODUCES an assignment; every other one measures a thesis against an existing
-`notes/assignment.md`.
+publishable in FIT IS, AND when a student needs a starting brief for an
+assignment that is already issued in IS (adopted from outside this pipeline,
+often with the student already on it). It is the only workflow in this
+repository that PRODUCES an assignment or a starting brief; every other one
+measures a thesis against an existing `notes/assignment.md`. Never write a
+starting brief inside a thesis case: route it through a topic case here, then
+promote it.
 
 `docs/assignment-authoring.md` is the contract this skill executes. Read it
 first: it owns the topic case, the variant bundle, the three style layers,
@@ -38,6 +42,30 @@ cases/<topic-case-id>/
 The thesis readiness gates do not apply. Do not run
 `scripts/check-supervisor-ready` or `scripts/check-round-ready` here; they
 answer questions a topic case has no student for.
+
+## Adopted Assignment
+
+`docs/assignment-authoring.md` `## Adopting An Issued Assignment` owns the
+rules; in short:
+
+- open a topic case for the issued assignment, put its IS PDF in `inputs/`,
+  declare only the issued variant in `Variants:`, state in `Important
+  constraints:` of `case.md` that the assignment is issued in FIT IS, which PDF
+  holds it and which fields stay editable, and fill `Student:` once the student
+  is known;
+- transcribe the issued points verbatim into
+  `outputs/assignment_formal_<variant>.md` and author only what the operator
+  can still edit in IS, typically `Literatura:`;
+- fill the intake to its adopted minimum and write the brief for that student,
+  including what a first meeting agreed, inside the existing content sections;
+- if an issued field the operator cannot edit fails
+  `scripts/check-assignment-draft`, stop and ask; there is no override;
+- after approval, render with `scripts/render-brief` when the operator asks
+  for the brief as a PDF, and stop there. Run
+  `scripts/promote-assignment --issued` only when the operator confirms the
+  brief was delivered and IS matches the approved variant, and snapshot and
+  reconcile the thesis round's existing `notes/assignment.md` before
+  `--replace`.
 
 ## Process
 

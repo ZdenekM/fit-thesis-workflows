@@ -61,7 +61,7 @@ Treat `scripts/<tool>` references in these instructions and skills as logical wo
 
 Use these repo-local skills as the primary workflow definitions:
 
-- `.agents/skills/thesis-assignment-authoring/SKILL.md` for authoring a new topic's FIT IS assignment variants and student briefs.
+- `.agents/skills/thesis-assignment-authoring/SKILL.md` for authoring a new topic's FIT IS assignment variants and student briefs, and for every student's starting brief, including one for an assignment already issued in IS (never written inside a thesis case).
 - `.agents/skills/thesis-assignment-review/SKILL.md` for the required independent review of one authored assignment variant and its brief.
 - `.agents/skills/thesis-supervisor-feedback/SKILL.md` for iterative student-facing supervisor feedback.
 - `.agents/skills/thesis-supervisor-feedback-review/SKILL.md` for the required critical second pass before sending supervisor feedback.

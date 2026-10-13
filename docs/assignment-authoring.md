@@ -18,12 +18,64 @@ claim.
 Assignment authoring happens in its own case under ignored `cases/`, marked by
 `Case kind: topic-proposal` in `case.md`. `Case kind` defaults to
 `thesis-review` when the field is absent, so existing cases are unaffected. A
-topic-proposal case has no student, no work type, and no deadline; the thesis
-readiness gates do not apply to it and are not run against it.
+topic-proposal case has no work type and no deadline, and no student until one
+takes the topic: `Student:` in its `case.md` stays empty until then and is filled
+once the student is known (the brief's hand-over PDF copy is then named by their
+surname).
+The thesis readiness gates do not apply to it and are not run against it.
 
 The accepted values live once in
 `thesis_review_workflow.metadata::CASE_KINDS`, read through
 `thesis_review_workflow.metadata::case_kind`.
+
+## Adopting An Issued Assignment
+
+A supervisor who adopts this pipeline usually brings assignments that are already
+issued in FIT IS, often with a student on them. Such an assignment takes the same
+path as one authored here, so a student's starting brief has exactly one route:
+a topic case, its draft check and bundle approval, `scripts/render-brief`, and
+`scripts/promote-assignment` into the student's thesis case. A starting brief is
+never authored inside a thesis case: there it has no structure check, no approval
+and no renderer.
+
+What changes for an adopted assignment:
+
+- **Source.** The IS PDF of the issued assignment goes into the topic case's
+  `inputs/`, and `outputs/assignment_formal_<variant>.md` carries its field values
+  verbatim inside the `templates/assignment-formal.md` structure; a label or
+  section that does not fit that structure is a transcription defect to fix. Only
+  fields the operator can still edit in IS are authored, typically `Literatura:`.
+  `Important constraints:` in `case.md` states that the assignment is issued in
+  FIT IS, names the PDF in `inputs/`, and lists the fields still editable; that
+  statement is what tells the reviewer the variant is adopted.
+  Opening a topic case is still manual (see `TODO.md`, "Give a topic-proposal
+  case real tooling.").
+- **Intake minimum.** `Variants:` names only the issued variant. The issued
+  points go under `### Assessable As An Assignment Point`, the supervisor's
+  reading of them under `### Interpretation For The Student`, and every
+  literature entry the assignment will carry, issued or newly authored, under
+  `## Citable Artifacts`. `## Motivation` and `## Context And Starting Point` come
+  from the issued text and the operator.
+- **Brief.** Written for the student who has the topic, and after a first meeting
+  it may carry what was agreed there, inside the brief's existing content
+  sections. It uses the same contract as any brief.
+- **Issued content cannot be re-authored.** A transcription or brief defect is
+  fixed. A weakness of an issued field the operator cannot edit is reported as a
+  limitation, never as a blocking finding. If such a field fails a deterministic
+  check of `scripts/check-assignment-draft` (for example an empty semestral
+  requirement), stop and ask the operator; there is no override.
+- **Two separate end points.** Rendering the approved brief ends the preparation.
+  Promotion with `--issued` asserts more, that the student received the brief and
+  that the IS assignment now matches the approved variant, so it runs only after
+  the operator confirms both; record the date and IS state with `--issued-note`.
+- **An existing assignment context.** Every thesis round already has a
+  `notes/assignment.md`, and `--replace` overwrites all of it. Before replacing,
+  copy it in that round to
+  `work/assignment_source/<topic-case-id>__<variant>__prior_assignment.md`, beside
+  the approval copy promotion retains there. Pass `--replace` only once the
+  operator confirms the promoted variant supersedes it (an unfilled template
+  does), and afterwards carry over any private notes or coverage hints the new
+  file lacks.
 
 ## The Variant Bundle
 

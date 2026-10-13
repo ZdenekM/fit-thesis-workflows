@@ -34,6 +34,7 @@ notes/topic_intake.md
 notes/student_brief.md
 outputs/assignment_formal_<variant>.md
 outputs/student_brief_<variant>.md
+inputs/<issued assignment PDF>          adopted assignment only, named in case.md
 ```
 
 Tracked, repository-relative:
@@ -88,11 +89,21 @@ case: shared material is checked across variants, not within one.
    filled.
 8. **Unresolved values.** Any unresolved marker in the value position is a
    publication blocker; name each one.
-9. **Layer discipline.** No supervision convention or personal phrasing in
-   `notes/topic_intake.md`, and no factual field value taken from a profile.
-   Provenance of a value cannot be read off the finished bundle: report a
-   suspicious value as unverified provenance for the operator to confirm, never
-   as a passed check.
+9. **Adopted assignment.** When `Important constraints:` in `case.md` states
+   that the assignment is issued in FIT IS (see `docs/assignment-authoring.md`
+   `## Adopting An Issued Assignment`), check the issued fields against the IS
+   PDF it names for verbatim transcription instead of reviewing them as
+   authoring; items 1 to 3 then apply only to the fields still editable. A
+   weakness of an issued field the operator cannot edit is a limitation, never a
+   blocking finding: write it in your findings artifact under limitations, for
+   the parent to carry into the record's `limitations`. Only a transcription
+   error, an editable field, or the brief can block. The IS PDF is not bound by
+   the approval record, so state the transcription check as a reading you made.
+10. **Layer discipline.** No supervision convention or personal phrasing in
+    `notes/topic_intake.md`, and no factual field value taken from a profile.
+    Provenance of a value cannot be read off the finished bundle: report a
+    suspicious value as unverified provenance for the operator to confirm, never
+    as a passed check.
 
 ## Outputs
 

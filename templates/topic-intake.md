@@ -9,6 +9,10 @@ an academic year — write the unresolved marker in the value position instead o
 guessing. The marker blocks publication of the bundle it appears in; see
 `docs/assignment-authoring.md` `## Unresolved Values`.
 
+For an assignment already issued in FIT IS, fill this intake to the adopted
+minimum in `docs/assignment-authoring.md` `## Adopting An Issued Assignment`:
+only the issued variant, the issued points as the assessable criteria.
+
 Topic id:
 Academic year:
 Variants: bp / dp
