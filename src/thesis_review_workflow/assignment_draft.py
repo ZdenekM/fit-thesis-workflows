@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,6 +42,10 @@ NUMBERED_POINT_RE = re.compile(r"^\s*\d+\.\s+\S")
 # A variant is a path segment of `outputs/assignment_formal_<variant>.md`, so it is
 # constrained here rather than trusted from the intake.
 VARIANT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+SECTION_HEADING_RE = re.compile(r"^###(?:[ \t]+(.*))?$")
+"""An ATX level-3 heading with any whitespace after the marker, as `_delta_body` reads one."""
+FENCE_RE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+"""A fenced code block's opening or closing line; its inner lines are code, not headings."""
 
 WORK_TYPE_BY_VARIANT = {"bp": "BP", "dp": "DP"}
 """Which FIT work type a variant is. Also what `assignment_promotion` matches a target against."""
@@ -227,6 +231,65 @@ def repeated_headings_in(text: str, headings: Iterable[str]) -> list[str]:
     return [f"{heading} (x{counts[heading]})" for heading in headings if counts[heading] > 1]
 
 
+def _outside_fences(lines: Iterable[str]) -> Iterator[str]:
+    """The stripped lines that are not part of a fenced code block, fence lines included."""
+
+    fence = ""
+    for line in lines:
+        stripped = line.strip()
+        marker = FENCE_RE.match(stripped)
+        if fence:
+            if marker and marker.group(1)[0] == fence[0] and len(marker.group(1)) >= len(fence) and not marker.group(2):
+                fence = ""
+        elif marker:
+            fence = marker.group(1)
+        else:
+            yield stripped
+
+
+def stray_section_headings_in(
+    text: str, language: BriefLanguage, variant: str | None = None, wrappers: Iterable[str] = ()
+) -> list[str]:
+    """`###` headings inside the brief that are not one of its fixed sections.
+
+    `###` is reserved for the fixed, checked outline; the brief's own subsections
+    are `####` under a content section, which the layout renders one level below
+    that section. In the source only the text from `## Shared Brief` on is the
+    brief, and under `## Variant Delta` only `### <variant>` for a declared
+    variant (`wrappers`) is structural: any other `###` there would end the delta
+    body `_delta_body` reads, and the text after it would reach no projection. A
+    heading of the wrong language is left to `forbidden_headings_in`.
+
+    A heading is recognised as `_delta_body` and Pandoc recognise it, with any
+    whitespace after the marker, and never inside a fenced code block, where a
+    `###` line is code.
+    """
+
+    lines = text.splitlines()
+    if variant is None:
+        starts = [index for index, line in enumerate(lines) if line.strip() == SHARED_BRIEF_HEADING]
+        lines = lines[starts[0] :] if starts else []
+    allowed = set(language.content_headings)
+    delta_wrappers = set(wrappers)
+    bases = forbidden_heading_bases()
+    stray: list[str] = []
+    in_delta = False
+    for stripped in _outside_fences(lines):
+        if stripped.startswith("## "):
+            in_delta = variant is None and stripped == VARIANT_DELTA_HEADING
+        match = SECTION_HEADING_RE.match(stripped)
+        if match is None:
+            continue
+        title = (match.group(1) or "").strip()
+        heading = f"### {title}" if title else "###"
+        if heading in allowed or (in_delta and title in delta_wrappers):
+            continue
+        if any(heading == base or heading.startswith(f"{base} - ") for base in bases):
+            continue
+        stray.append(heading)
+    return stray
+
+
 @dataclass(frozen=True)
 class CitableArtifact:
     reference: str
@@ -382,7 +445,11 @@ def assignment_findings(assignment: str, variant: str, artifacts: list[CitableAr
     for label in expected:
         optional = label in rendering.optional_metadata and not (masters and label in rendering.masters_only_metadata)
         if not optional and label not in found:
-            suffix = " — the school form carries it for a diplomová práce" if label in rendering.masters_only_metadata else ""
+            suffix = (
+                " — the school form carries it for a diplomová práce"
+                if label in rendering.masters_only_metadata
+                else ""
+            )
             findings.append(f"form label `{label}` is missing{suffix}")
     in_form_order = [label for label in expected if label in found]
     if found != in_form_order:
@@ -557,10 +624,11 @@ def _delta_body(source: str, variant: str) -> str:
 
 
 def unresolved_findings(label: str, text: str) -> list[str]:
-    return [f"{label}:{number} unresolved value blocks publication: {description or '(unnamed)'}"
-            for number, description in unresolved_values(text)]
+    return [
+        f"{label}:{number} unresolved value blocks publication: {description or '(unnamed)'}"
+        for number, description in unresolved_values(text)
+    ]
 
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else ""
-

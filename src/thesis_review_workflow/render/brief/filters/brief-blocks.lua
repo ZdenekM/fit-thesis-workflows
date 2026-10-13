@@ -5,7 +5,8 @@
 --   projection title (H1)       -> dropped; the masthead carries the title
 --   brief content headings (H3) -> section headings (H2), level with the variant delta
 --   variant delta heading (H2)  -> its text without the " - <variant>" suffix
--- Only those exact headings are touched; every other block renders as written.
+--   own subsections (H4 and deeper) -> one level up, so they sit under their H2 section
+-- Every other block renders as written.
 
 -- Read here and assigned to the metadata, the values override any front matter in the
 -- source, which must never drop the draft stamp. Plain strings become MetaString
@@ -44,6 +45,8 @@ function Pandoc(doc)
       out:insert(pandoc.Header(2, b.content, b.attr))
     elseif name and b.level == 2 and name == headings.delta then
       out:insert(pandoc.Header(2, pandoc.Inlines(headings.delta_display), b.attr))
+    elseif name and b.level >= 4 then
+      out:insert(pandoc.Header(b.level - 1, b.content, b.attr))
     else
       out:insert(b)
     end

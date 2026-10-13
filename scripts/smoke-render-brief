@@ -78,6 +78,8 @@ for case_id, czech in (("smoke-brief-en", False), ("smoke-brief-cs", True)):
         czech_bundle(case_dir)
     last_line = "Mobilní klient." if czech else "The mobile client."
     extra = "\n\n---\nKontakt: konzultace\n---\n\nPište na @vedouci."
+    if czech:
+        extra = "\n\n#### Vlastní podsekce\n\nText podsekce." + extra
     for brief in ("notes/student_brief.md", "outputs/student_brief_bp.md", "outputs/student_brief_dp.md"):
         append_to_body(case_dir / brief, last_line, extra)
     title = "Syntetické téma" if czech else "Synthetic smoke topic"
@@ -114,6 +116,11 @@ expect_text() {
   fi
 }
 
+# ere_escape <text>: the text as a literal inside an extended regular expression.
+ere_escape() {
+  printf '%s' "$1" | sed 's/[][\.|$(){}?+*^]/\\&/g'
+}
+
 # expect_flat_outline <pdf> <heading>...: every heading is a top-level outline entry, so the
 # content headings were promoted level with the variant delta. Needs mutool; skipped without.
 expect_flat_outline() {
@@ -125,12 +132,29 @@ expect_flat_outline() {
   fi
   outline="$(mutool show "$pdf" outline)"
   for heading in "$@"; do
-    if ! grep -Fxq -- "$(printf '|\t"%s"' "$heading")" <(printf '%s\n' "$outline" | sed 's/\t#page=.*$//'); then
+    # mutool marks an entry with children `+` (closed) or `-` (open) instead of `|`.
+    if ! grep -Exq -- "$(printf '[-|+]\t"%s"' "$(ere_escape "$heading")")" <(printf '%s\n' "$outline" | sed 's/\t#page=.*$//'); then
       echo "Expected top-level outline entry: $heading" >&2
       printf '%s\n' "$outline" >&2
       exit 1
     fi
   done
+}
+
+# expect_nested_outline <pdf> <heading>: the heading is an outline entry one level below a
+# top-level one, so an own `####` subsection was lifted under its section. Needs mutool.
+expect_nested_outline() {
+  local pdf="$1" heading="$2" outline
+  if ! command -v mutool >/dev/null 2>&1; then
+    echo "NOTE: mutool not found; subsection level not checked"
+    return
+  fi
+  outline="$(mutool show "$pdf" outline | sed 's/\t#page=.*$//')"
+  if ! grep -Exq -- "$(printf '[-|+]\t\t"%s"' "$(ere_escape "$heading")")" <(printf '%s\n' "$outline"); then
+    echo "Expected second-level outline entry: $heading" >&2
+    printf '%s\n' "$outline" >&2
+    exit 1
+  fi
 }
 
 reject_text() {
@@ -158,6 +182,8 @@ expect_text "$cs_pdf" "Specifika varianty"
 expect_text "$cs_pdf" "Přínos: prototyp."
 expect_text "$cs_pdf" "Kontakt: konzultace"
 expect_text "$cs_pdf" "Pište na @vedouci."
+expect_text "$cs_pdf" "Text podsekce."
+expect_nested_outline "$cs_pdf" "Vlastní podsekce"
 reject_text "$cs_pdf" "?@vedouci"
 reject_text "$cs_pdf" "Case label never printed"
 expect_flat_outline "$cs_pdf" "Na čem práce staví" "Kde začít" "Jak budeme spolupracovat" "Jak číst zadání" \

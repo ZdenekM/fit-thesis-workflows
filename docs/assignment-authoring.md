@@ -57,8 +57,8 @@ What changes for an adopted assignment:
   `## Citable Artifacts`. `## Motivation` and `## Context And Starting Point` come
   from the issued text and the operator.
 - **Brief.** Written for the student who has the topic, and after a first meeting
-  it may carry what was agreed there, inside the brief's existing content
-  sections. It uses the same contract as any brief.
+  it may carry what was agreed there, as `####` subsections of the content
+  sections (`## Brief Language`). It uses the same contract as any brief.
 - **Issued content cannot be re-authored.** A transcription or brief defect is
   fixed. A weakness of an issued field the operator cannot edit is reported as a
   limitation, never as a blocking finding. If such a field fails a deterministic
@@ -182,6 +182,16 @@ The source and a projection have different required sets on purpose. The
 source's `## Shared Brief`, `## Variant Delta` and `### <variant>` are neutral
 authoring structure the student never sees; a projection carries the
 language-bound title and delta heading instead.
+
+The outline is fixed, but a brief may carry its own subsections: `####`
+headings under a content section or inside a variant's delta, which the PDF
+layout prints one level below their section. Material a first meeting produced,
+further reading, or scenarios belong there. `###` is reserved for the fixed,
+checked outline: a `###` heading in the brief that is not one of its content
+headings (or, under `## Variant Delta` of the source, the `### <variant>` wrapper
+of a declared variant) is a finding of `scripts/check-assignment-draft`. Inside
+a delta it would also end the delta body, so the text after it would reach no
+projection.
 
 ## Where A Success Criterion Lands
 

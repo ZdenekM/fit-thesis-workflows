@@ -35,6 +35,11 @@ Content headings, English (`Student feedback language: en`):
 `### What The Work Builds On`, `### Where To Start`, `### Working Agreements`,
 `### How To Read The Assignment`, `### What Is Out Of Scope`.
 
+Apart from the `### <variant>` wrappers under `## Variant Delta`, these are the
+only `###` headings of the brief. Own subsections — material from a first
+meeting, scenarios, further reading — are `####` under the content section, or
+inside the variant delta, they belong to.
+
 ### What The Work Builds On
 
 The platform, prior thesis, dataset, or deployment the student starts from, and

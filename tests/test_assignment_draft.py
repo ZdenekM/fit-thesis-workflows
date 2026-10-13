@@ -7,7 +7,6 @@ judgment, so every case here is built to isolate one rule.
 from pathlib import Path
 
 import pytest
-
 from thesis_review_workflow.assignment_draft import RENDERINGS
 from thesis_review_workflow.cli import check_assignment_draft
 
@@ -404,7 +403,9 @@ def test_a_deeper_heading_cannot_hide_unsourced_literature(topic_case: Path) -> 
 
     (topic_case / "outputs/assignment_formal_bp.md").write_text(
         assignment(
-            literature="- Example, A. Provenance. Journal, 2026.\n\n#### Additional reading\n\n- Ghost, E. Unsourced. 2026."
+            literature=(
+                "- Example, A. Provenance. Journal, 2026.\n\n#### Additional reading\n\n" "- Ghost, E. Unsourced. 2026."
+            )
         ),
         encoding="utf-8",
     )
@@ -645,3 +646,113 @@ def test_a_heading_repeated_outside_the_required_set_is_not_a_finding(topic_case
         encoding="utf-8",
     )
     assert not [finding for finding in check(topic_case, "bp") if "occurs more than once" in finding]
+
+
+def with_brief_extra(case_dir: Path, extra: str) -> None:
+    """Append `extra` after the shared body's last line in the source and both projections alike."""
+
+    for rel in ("notes/student_brief.md", "outputs/student_brief_bp.md", "outputs/student_brief_dp.md"):
+        path = case_dir / rel
+        text = path.read_text(encoding="utf-8")
+        assert text.count("The mobile client.") == 1, rel
+        path.write_text(text.replace("The mobile client.", "The mobile client." + extra), encoding="utf-8")
+
+
+def test_an_own_subsection_under_a_content_section_passes(topic_case: Path) -> None:
+    with_brief_extra(topic_case, "\n\n#### Agreed At The First Meeting\n\nA scenario list by Friday.")
+
+    assert check(topic_case) == []
+
+
+def test_an_extra_section_heading_in_the_brief_fails(topic_case: Path) -> None:
+    """An extra `###` prints level with nothing in the layout and reads as a section the contract lacks."""
+
+    with_brief_extra(topic_case, "\n\n### Agreed At The First Meeting\n\nA scenario list by Friday.")
+
+    findings = check(topic_case, "bp")
+    assert any("not one of the brief's sections" in finding for finding in findings)
+    assert any(finding == "- ### Agreed At The First Meeting" for finding in findings)
+    assert sum("not one of the brief's sections" in finding for finding in findings) == 2  # source and projection
+
+
+def test_the_source_delta_wrappers_and_text_above_the_brief_are_not_stray(topic_case: Path) -> None:
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    (topic_case / "notes/student_brief.md").write_text(
+        source.replace("# Student Brief\n", "# Student Brief\n\n### Operator note\n\nNot sent.\n", 1),
+        encoding="utf-8",
+    )
+
+    assert check(topic_case) == []
+
+
+def test_a_variant_named_heading_in_the_shared_body_is_stray(topic_case: Path) -> None:
+    with_brief_extra(topic_case, "\n\n### Notes\n\nSee above.")
+
+    assert any(finding == "- ### Notes" for finding in check(topic_case, "bp"))
+
+
+def test_an_extra_section_heading_inside_a_source_delta_fails(topic_case: Path) -> None:
+    """A one-word `###` there would end the delta body and silently drop the text after it."""
+
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    (topic_case / "notes/student_brief.md").write_text(
+        source.replace(
+            "### bp\n\nContribution framing: prototype.\n",
+            "### bp\n\nContribution framing: prototype.\n\n### Scenarios\n\nLost text.\n",
+        ),
+        encoding="utf-8",
+    )
+
+    assert any(finding == "- ### Scenarios" for finding in check(topic_case, "bp"))
+
+
+def test_a_subsection_inside_a_delta_passes(topic_case: Path) -> None:
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    (topic_case / "notes/student_brief.md").write_text(
+        source.replace(
+            "Contribution framing: prototype.\n", "Contribution framing: prototype.\n\n#### Milestones\n\nDecember.\n"
+        ),
+        encoding="utf-8",
+    )
+    (topic_case / "outputs/student_brief_bp.md").write_text(
+        projection("bp") + "\n#### Milestones\n\nDecember.\n", encoding="utf-8"
+    )
+
+    assert check(topic_case, "bp") == []
+
+
+def test_a_bare_section_marker_is_stray(topic_case: Path) -> None:
+    with_brief_extra(topic_case, "\n\n###\n\nOrphan.")
+
+    assert any(finding == "- ###" for finding in check(topic_case, "bp"))
+
+
+def test_an_ascii_folded_heading_is_reported_only_as_forbidden(topic_case: Path) -> None:
+    czech_bundle(topic_case)
+    projection_path = topic_case / "outputs/student_brief_bp.md"
+    text = projection_path.read_text(encoding="utf-8")
+    projection_path.write_text(text.replace("### Kde začít", "### Kde zacit"), encoding="utf-8")
+
+    findings = check(topic_case, "bp")
+    assert "- ### Kde zacit" in findings
+    assert not any("not one of the brief's sections" in finding for finding in findings)
+
+
+def test_a_tab_separated_section_heading_in_a_source_delta_fails(topic_case: Path) -> None:
+    source = (topic_case / "notes/student_brief.md").read_text(encoding="utf-8")
+    (topic_case / "notes/student_brief.md").write_text(
+        source.replace(
+            "### bp\n\nContribution framing: prototype.\n",
+            "### bp\n\nContribution framing: prototype.\n\n###\tScenarios\n\nLost text.\n",
+        ),
+        encoding="utf-8",
+    )
+
+    assert any(finding == "- ### Scenarios" for finding in check(topic_case, "bp"))
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~", "````"])
+def test_a_section_marker_inside_fenced_code_is_not_a_heading(topic_case: Path, fence: str) -> None:
+    with_brief_extra(topic_case, f"\n\n{fence}bash\n### Prepare the workspace\nmake setup\n{fence}")
+
+    assert check(topic_case) == []

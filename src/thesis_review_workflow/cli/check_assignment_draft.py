@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from pathlib import Path
 
 from thesis_review_workflow.assignment_draft import (
     VARIANT_RE,
     BriefLanguage,
-    brief_language,
-    forbidden_headings_in,
     assignment_findings,
     brief_findings,
+    brief_language,
     citable_artifacts,
     declared_variants,
+    forbidden_headings_in,
     read_text,
     repeated_headings_in,
+    stray_section_headings_in,
     supplement_line,
     unresolved_findings,
 )
@@ -36,7 +38,9 @@ def brief_rel(variant: str) -> Path:
     return Path(f"outputs/student_brief_{variant}.md")
 
 
-def language_findings(label: str, text: str, language: BriefLanguage, variant: str | None) -> list[str]:
+def language_findings(
+    label: str, text: str, language: BriefLanguage, variant: str | None, wrappers: Iterable[str] = ()
+) -> list[str]:
     """The three rules `scripts/check-feedback-language` applies, plus heading uniqueness.
 
     `report_missing` is reused for the required set. The forbidden side cannot
@@ -58,6 +62,13 @@ def language_findings(label: str, text: str, language: BriefLanguage, variant: s
     if offending:
         errors.append(f"{label}: headings of the wrong language or spelling:")
         errors.extend(f"- {heading}" for heading in offending)
+    stray = stray_section_headings_in(text, language, variant, wrappers)
+    if stray:
+        errors.append(
+            f"{label}: `###` heading that is not one of the brief's sections; write an own subsection "
+            "as `####` under a content section:"
+        )
+        errors.extend(f"- {heading}" for heading in stray)
     repeated = repeated_headings_in(text, required)
     if repeated:
         errors.append(
@@ -121,7 +132,8 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
     if requested is not None:
         if requested not in variants:
             return (
-                findings + [f"variant `{requested}` is not declared in {INTAKE_REL.as_posix()} (`{'/'.join(variants)}`)"],
+                findings
+                + [f"variant `{requested}` is not declared in {INTAKE_REL.as_posix()} (`{'/'.join(variants)}`)"],
                 [],
             )
         checked = [requested]
@@ -131,9 +143,7 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
     brief_source = read_text(case_dir / BRIEF_SOURCE_REL)
     if brief_source:
         findings.extend(unresolved_findings(BRIEF_SOURCE_REL.as_posix(), brief_source))
-        findings.extend(
-            language_findings(BRIEF_SOURCE_REL.as_posix(), brief_source, language, None)
-        )
+        findings.extend(language_findings(BRIEF_SOURCE_REL.as_posix(), brief_source, language, None, variants))
     else:
         findings.append(f"missing {BRIEF_SOURCE_REL.as_posix()}; the brief source is authored once per topic")
 
@@ -155,9 +165,7 @@ def check_case(case_dir: Path, requested: str | None) -> tuple[list[str], list[s
             findings.append(f"missing {projection_rel.as_posix()}")
         elif brief_source:
             findings.extend(unresolved_findings(projection_rel.as_posix(), projection))
-            findings.extend(
-                language_findings(projection_rel.as_posix(), projection, language, variant)
-            )
+            findings.extend(language_findings(projection_rel.as_posix(), projection, language, variant))
             findings.extend(
                 f"{projection_rel.as_posix()}: {finding}"
                 for finding in brief_findings(brief_source, projection, variant, language)

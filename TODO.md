@@ -112,6 +112,9 @@
    - `scripts/new-case` always writes `Case kind: thesis-review` and creates a round; both topic cases in this tree were hand-authored, so the case skeleton, `Variants:`, and the `work/reviews/` directory are conventions nothing enforces.
    - `scripts/extract-pdf-text` refuses to write outside `cases/<case>/rounds/<round>/extracted/`, so importing a published assignment PDF into a topic case loses the hash-bound sidecar; the first real run fell back to a bare `pdftotext` call.
    - Decide whether this is `scripts/new-case --kind topic-proposal` or a separate entrypoint, and whether the extract sidecar should follow the case rather than the round.
+- [ ] Report a `##` heading inside a brief's shared body instead of silently cutting it.
+   - `section_text(..., SHARED_BRIEF_HEADING, stop_pattern=r"^##\s+")` in `assignment_draft.py::brief_findings` ends the shared body at any H2, so `## Further Reading` after the last content section drops its text from every projection and no rule reports it (found by the Slice B review of `plans/archive/adopted_assignment_brief_plan.md`).
+   - Decide whether the brief contract lists its allowed H1/H2 headings and reports any other, extending `stray_section_headings_in` beyond `###`.
 - [ ] Give a review round its own artifact, instead of one fixed path per variant.
    - `work/reviews/assignment_review_<variant>.md` is a single path, so a second review overwrites the first and the record of what was found and fixed is lost. The first real run needed three rounds and kept them only by hand-copying to `.round1.md` / `.round2.md`.
    - Decide whether the skill should name a per-round path or an append-only artifact, then apply the same answer to the other review skills, which have the same shape.

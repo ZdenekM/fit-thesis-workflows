@@ -57,7 +57,8 @@ rules; in short:
   `outputs/assignment_formal_<variant>.md` and author only what the operator
   can still edit in IS, typically `Literatura:`;
 - fill the intake to its adopted minimum and write the brief for that student,
-  including what a first meeting agreed, inside the existing content sections;
+  including what a first meeting agreed, as `####` subsections of a content
+  section or of the variant delta;
 - if an issued field the operator cannot edit fails
   `scripts/check-assignment-draft`, stop and ask; there is no override;
 - after approval, render with `scripts/render-brief` when the operator asks
