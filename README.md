@@ -186,8 +186,9 @@ pod `cases/<case-id>/rounds/<round>/outputs/`. Agent má v závěru uvést přes
 cestu. Běžné výstupy jsou například:
 
 - `outputs/feedback_student.md` - studentská zpětná vazba,
-- `outputs/feedback_student.pdf` - PDF schválené zpětné vazby k přiložení, pokud
-  je nainstalované Quarto,
+- `outputs/feedback_student.pdf` - PDF schválené zpětné vazby, pokud je
+  nainstalované Quarto; k přiložení slouží jeho kopie s datovaným jménem, např.
+  `outputs/2026-10-13_Novak_BP_zpetna-vazba.pdf`,
 - `outputs/vedouci_posudek_revidovany.md` - revidovaný návrh posudku vedoucího,
 - `outputs/oponent_podklady_revidovane.md` - revidované interní podklady
   oponenta,

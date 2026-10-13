@@ -372,3 +372,79 @@ def test_packaged_resources_cover_the_brief_quarto_config(tmp_path: Path) -> Non
     assert f'"{pdf_render.RENDER_VALUES_NAME}"' in blocks_filter
     fonts = sorted(path.name for path in (tmp_path / "fonts").glob("*.ttf"))
     assert fonts == [f"NotoSans-{style}.ttf" for style in ("Bold", "BoldItalic", "Italic", "Regular")]
+
+
+def send_copies(case_dir: Path) -> list[str]:
+    return sorted(path.name for path in (case_dir / "outputs").iterdir() if path.name.startswith("20"))
+
+
+def test_cli_places_a_dated_named_copy_beside_the_pdf(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    today = datetime.date.today().isoformat()
+
+    assert run("bp") == 0
+
+    assert send_copies(case_dir) == [f"{today}_{CASE_ID}_BP_topic-brief.pdf"]
+    assert (case_dir / "outputs" / send_copies(case_dir)[0]).read_bytes() == (case_dir / PDF_REL).read_bytes()
+
+
+def test_cli_names_the_copy_by_the_student_once_one_is_assigned(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    (case_dir / "case.md").write_text(
+        (case_dir / "case.md").read_text(encoding="utf-8") + "Student: Jana Nováková\n", encoding="utf-8"
+    )
+
+    assert run("bp") == 0
+
+    assert send_copies(case_dir) == [f"{datetime.date.today().isoformat()}_Novakova_BP_topic-brief.pdf"]
+
+
+def test_cli_refusal_removes_the_named_copy_of_its_own_variant_only(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    assert run("bp") == 0
+    other = case_dir / "outputs" / "2026-01-01_x_DP_topic-brief.pdf"
+    other.write_bytes(b"%PDF other variant\n")
+    (case_dir / BRIEF_REL).write_text("# edited\n", encoding="utf-8")
+
+    assert run("bp") == 1
+
+    assert send_copies(case_dir) == [other.name]
+
+
+def test_cli_draft_writes_no_named_copy(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+
+    assert run("--draft", "bp") == 0
+
+    assert send_copies(case_dir) == []
+
+
+def test_cli_draft_keeps_the_named_copy_rendered_under_the_approval(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    assert run("bp") == 0
+    copies = send_copies(case_dir)
+
+    assert run("--draft", "bp") == 0
+
+    assert send_copies(case_dir) == copies
+
+
+def test_cli_wrong_case_variant_keeps_the_named_copy(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    assert run("bp") == 0
+    copies = send_copies(case_dir)
+
+    run("BP")
+
+    assert send_copies(case_dir) == copies
+
+
+def test_cli_missing_projection_removes_the_named_copy_without_the_pdf(cli_case: tuple[Path, FakeRender]) -> None:
+    case_dir, fake = cli_case
+    assert run("bp") == 0
+    (case_dir / PDF_REL).unlink()
+    (case_dir / BRIEF_REL).unlink()
+
+    assert run("bp") == 1
+
+    assert send_copies(case_dir) == []

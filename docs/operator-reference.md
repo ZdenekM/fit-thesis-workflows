@@ -161,8 +161,9 @@ checkout tím smaže.
 Nejběžnější výstupy:
 
 - `outputs/feedback_student.md` - studentská zpětná vazba,
-- `outputs/feedback_student.pdf` - PDF té zpětné vazby k odeslání studentovi,
-  vzniká jen ze schválené verze (viz níže),
+- `outputs/feedback_student.pdf` - PDF té zpětné vazby, vzniká jen ze
+  schválené verze (viz níže); vedle něj stejná kopie s datovaným jménem k
+  odeslání, například `outputs/2026-10-13_Novak_BP_zpetna-vazba.pdf`,
 - `work/feedback_student_draft.md` - pracovní draft před nezávislým review,
 - `outputs/revision_diff.md` - rozdíl proti předchozí verzi,
 - `outputs/github_code_intake.md` - interní evidence GitHub repo/PR importu,
@@ -215,7 +216,8 @@ scripts/render-feedback --draft <case-id> [round-id]
 ```
 
 `render-feedback` vysází schválený `outputs/feedback_student.md` do A4 PDF
-`outputs/feedback_student.pdf`, které se dá přiložit k e-mailu nebo zprávě.
+`outputs/feedback_student.pdf` a vedle něj uloží jeho kopii s datovaným jménem,
+kterou přiložíte k e-mailu nebo zprávě (viz níže).
 Markdown zůstává zdrojem pravdy a příkaz ho nemění; agent PDF vytvoří po
 úspěšném closeoutu, ale nic neodesílá.
 
@@ -223,7 +225,7 @@ Markdown zůstává zdrojem pravdy a příkaz ho nemění; agent PDF vytvoří p
   `work/reviews/supervisor_feedback_review.json` včetně review manifestu, tedy
   stejná brána jako u `confirm-supervisor-report`. Jinak skončí chybou.
 - Když schválení současný Markdown nekryje, smaže staré
-  `outputs/feedback_student.pdf`, a to samé udělá před každým schváleným
+  `outputs/feedback_student.pdf` i jeho datovanou kopii, a to samé udělá před každým schváleným
   vysázením. PDF ve `outputs/` tak vždy odpovídá schválené verzi. Když je PDF
   otevřené v prohlížeči a nejde smazat, příkaz to ohlásí; zavřete ho a spusťte
   příkaz znovu.
@@ -235,6 +237,13 @@ Markdown zůstává zdrojem pravdy a příkaz ho nemění; agent PDF vytvoří p
   stroji nemusí být nainstalované.
 - Na Windows použijte `dist\workflow-tools\bin\render-feedback.cmd` nebo
   `.ps1` po zabalení nástrojů (viz Diagnostika níže).
+- Vedle `outputs/feedback_student.pdf` vznikne stejná kopie se jménem pro
+  studenta, `<datum>_<příjmení>_<BP|DP>_zpetna-vazba.pdf` (anglicky `feedback`),
+  například `2026-10-13_Novak_BP_zpetna-vazba.pdf`. Tu přikládejte. Datum je
+  z řádku `Datum kontroly:` ve zpětné vazbě, příjmení je poslední slovo pole
+  `Student:` a typ práce pole `Work type:` z `case.md` (jen BP nebo DP, jinak se
+  vynechá); jméno je bez diakritiky a mezer. Každou smazanou kopii příkaz vypíše. Kopie se maže a obnovuje spolu s PDF, takže ve `outputs/` je vždy
+  jen ta aktuální. Bez čitelného data příkaz skončí chybou.
 - Každé vysázení se zapíše do `work/operation_log.jsonl` s hashem zdroje, hashem
   PDF a verzí Quarta.
 
@@ -265,6 +274,11 @@ bundlu; pole `Topic:` z `case.md` se netiskne.
   `work/student_brief_<variant>_pdf.json` (hash záznamu o schválení, hash PDF,
   verze Quarta). Po znovuschválení upraveného podkladu spusťte příkaz znovu; dokud
   to neuděláte, PDF ve `outputs/` odpovídá předchozí verzi.
+- Vedle PDF vznikne stejná kopie k předání,
+  `outputs/<datum>_<příjmení>_<BP|DP>_podklad-k-tematu.pdf` (anglicky
+  `topic-brief`) s datem vysázení. Dokud pole `Student:` v `case.md` topic case
+  není vyplněné, stojí místo příjmení ID případu. Kopie se maže a obnovuje
+  spolu s PDF své varianty.
 - Vysázení není odeslání: o předání studentovi a o `promote-assignment --issued`
   rozhodujete vy. Quarto a launchery na Windows platí stejně jako výše.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import TypedDict
 
@@ -27,6 +27,15 @@ class LanguageConfig(TypedDict):
     action_header: str
     scope_terms: tuple[str, ...]
 
+
+REVIEW_DATE_FORMATS = (
+    "%Y-%m-%d",
+    "%d. %m. %Y",
+    "%d.%m.%Y",
+    "%B %d, %Y",
+    "%b %d, %Y",
+)
+"""The review-date formats the checker accepts; `send_name` reads the same date."""
 
 LANGUAGE: dict[str, LanguageConfig] = {
     "cs": {
@@ -283,15 +292,30 @@ def normalized(value: str) -> str:
     return value
 
 
+def review_date_value(text: str, lang: str) -> str | None:
+    """The text after the review-date label, or None when the line is missing."""
+    label = LANGUAGE[lang]["date_label"]
+    match = re.search(rf"^{re.escape(label)}\s*(.*)$", text, re.MULTILINE)
+    return match.group(1).strip() if match else None
+
+
+def parse_review_date(value: str) -> date | None:
+    """The review date in one of the accepted formats, or None."""
+    for date_format in REVIEW_DATE_FORMATS:
+        try:
+            return datetime.strptime(value, date_format).date()
+        except ValueError:
+            pass
+    return None
+
+
 def find_review_date(text: str, lang: str, errors: list[str]) -> None:
     label = LANGUAGE[lang]["date_label"]
-    pattern = re.compile(rf"^{re.escape(label)}\s*(.*)$", re.MULTILINE)
-    match = pattern.search(text)
-    if not match:
+    value = review_date_value(text, lang)
+    if value is None:
         errors.append(f"missing review date line: {label}")
         return
 
-    value = match.group(1).strip()
     lowered = value.lower()
     if (
         not value
@@ -305,19 +329,8 @@ def find_review_date(text: str, lang: str, errors: list[str]) -> None:
         errors.append(f"invalid placeholder review date: {value or '<empty>'}")
         return
 
-    date_formats = (
-        "%Y-%m-%d",
-        "%d. %m. %Y",
-        "%d.%m.%Y",
-        "%B %d, %Y",
-        "%b %d, %Y",
-    )
-    for date_format in date_formats:
-        try:
-            datetime.strptime(value, date_format)
-            return
-        except ValueError:
-            pass
+    if parse_review_date(value) is not None:
+        return
 
     errors.append(
         f"review date must be a real date in ISO YYYY-MM-DD, Czech D. M. YYYY, or English Month D, YYYY format: {value}"

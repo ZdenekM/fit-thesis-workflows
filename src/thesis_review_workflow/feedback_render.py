@@ -12,7 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from thesis_review_workflow import pdf_render
-from thesis_review_workflow.cli.check_feedback_output import LANGUAGE, read_language
+from thesis_review_workflow.cli.check_feedback_output import (
+    LANGUAGE,
+    parse_review_date,
+    read_language,
+    review_date_value,
+)
 from thesis_review_workflow.metadata import read_fields
 from thesis_review_workflow.operation_log import load_operation_log
 from thesis_review_workflow.pdf_render import DRAFT_STAMP, RenderError, sha256_bytes
@@ -22,6 +27,7 @@ from thesis_review_workflow.review_approvals import (
     validate_review_approval_with_manifest,
 )
 from thesis_review_workflow.review_manifest import MANIFEST_REL, load_manifest
+from thesis_review_workflow.send_name import send_pdf_name, surname, work_type_part
 
 FEEDBACK_REL = "outputs/feedback_student.md"
 PDF_REL = "outputs/feedback_student.pdf"
@@ -54,6 +60,7 @@ class FeedbackCaseMetadata:
     language: str
     student: str
     topic: str
+    work_type: str = ""
 
 
 def read_case_metadata(case_md: Path) -> FeedbackCaseMetadata:
@@ -65,6 +72,7 @@ def read_case_metadata(case_md: Path) -> FeedbackCaseMetadata:
         language=language,
         student=fields.get("student", ""),
         topic=fields.get("topic", ""),
+        work_type=fields.get("work type", ""),
     )
 
 
@@ -161,3 +169,23 @@ def find_quarto() -> Path:
 def render_pdf(source: bytes, output_pdf: Path, metadata: dict[str, Any], quarto: Path) -> None:
     """Render the feedback Markdown `source` bytes to `output_pdf` in a scratch directory."""
     pdf_render.render_pdf(RENDER_KIND, SOURCE_NAME, source, output_pdf, metadata, quarto)
+
+
+def feedback_send_name(case: FeedbackCaseMetadata, source_text: str) -> str:
+    """The student-facing PDF name, dated by the feedback's own review-date line.
+
+    The checker requires that line on every approved feedback, so a missing or unreadable
+    date is an error rather than a reason to fall back to today.
+    """
+    label = LANGUAGE[case.language]["date_label"]
+    value = review_date_value(source_text, case.language)
+    day = parse_review_date(value) if value else None
+    if day is None:
+        raise RenderError(f"{FEEDBACK_REL}: cannot read the date after '{label}' for the PDF file name")
+    return send_pdf_name(
+        day=day,
+        who=surname(case.student),
+        scope=work_type_part(case.work_type),
+        kind=RENDER_KIND,
+        language=case.language,
+    )

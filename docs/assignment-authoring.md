@@ -287,7 +287,11 @@ front-matter and citation extensions, so a `---` fenced field block or an `@name
 in the body prints as written. Because a topic case has no operation log, each
 approved render writes `work/student_brief_<variant>_pdf.json` with the approval
 record's hash, and a later `--draft` removes an `outputs/` PDF that record does not
-tie to the current approval. Rendering is not sending.
+tie to the current approval. Beside the PDF the command places an identical copy
+named for handing over, `outputs/<date>_<surname>_<work type>_<kind>.pdf`
+(`podklad-k-tematu` or `topic-brief`), dated by the render and named by the case
+ID while `Student:` in `case.md` is empty; it is removed and replaced with the
+variant's PDF. Rendering is not sending.
 
 Two limits, stated rather than implied. Independence here rests on the record's
 own `author_agent`: unlike a review round, a topic case has no

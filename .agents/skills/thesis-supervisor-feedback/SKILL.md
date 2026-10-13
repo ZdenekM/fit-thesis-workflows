@@ -108,11 +108,13 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     supervisor_feedback <case-id> [round-id]`.
 23. After a successful closeout, when `quarto` is on PATH, render the approved
     feedback with `scripts/render-feedback <case-id> [round-id]` so the operator
-    can attach `outputs/feedback_student.pdf`. Report the PDF path only when the
-    command succeeded. On failure (missing or too old Quarto, render error),
-    report the error and that no `outputs/feedback_student.pdf` exists, unless the
-    error says the stale PDF could not be removed: then the operator closes and
-    deletes it, or reruns. The Markdown stays the sendable artifact while its
+    can attach the dated copy it prints as `For the student:`
+    (`outputs/<date>_<surname>_<work type>_zpetna-vazba.pdf`, or `_feedback.pdf`
+    in English) beside `outputs/feedback_student.pdf`. Report the paths only when the
+    command succeeded. On failure (missing or too old Quarto, an unreadable
+    review date, render error), report the error and that neither PDF exists,
+    unless the error says a stale PDF or dated copy could not be removed: then the
+    operator closes and deletes that file, or reruns. The Markdown stays the sendable artifact while its
     approval is valid. Rendering is not sending: never send the feedback, and never
     treat `--draft` output (`work/feedback_student_preview.pdf`) as sendable.
 

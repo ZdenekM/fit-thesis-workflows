@@ -116,8 +116,9 @@ shared by every supervisor using this repository.
 - Publishing to FIT IS or sending a brief: not this skill's decision. The
   plan's acceptance criteria and the operator own it. When the operator asks
   for the brief as a PDF, render the approved variant with
-  `scripts/render-brief <case-id> <variant>` and report the PDF path only when
-  the command succeeded; rendering sends nothing.
+  `scripts/render-brief <case-id> <variant>` and report the dated copy it
+  prints as `For the student:` only when the command succeeded; rendering
+  sends nothing.
 
 ## Outputs
 

@@ -21,8 +21,15 @@ CASE_MD = """# Case
 
 Student: Test Student
 Topic: Synthetic topic
+Work type: BP
 Student feedback language: {language}
 """
+
+
+def feedback_text(title: str, *, language: str = "cs") -> str:
+    """A feedback body with the review-date line the PDF file name is dated by."""
+    label = LANGUAGE.get(language, LANGUAGE["cs"])["date_label"]
+    return f"# {title}\n\n{label} 13. 10. 2026\n"
 
 
 def make_round(tmp_path: Path, *, language: str = "cs") -> Path:
@@ -32,7 +39,9 @@ def make_round(tmp_path: Path, *, language: str = "cs") -> Path:
     (round_dir / "work").mkdir()
     (case_dir / "case.md").write_text(CASE_MD.format(language=language), encoding="utf-8")
     (case_dir / "current-round.txt").write_text("round-a\n", encoding="utf-8")
-    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback\n", encoding="utf-8")
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(
+        feedback_text("Feedback", language=language), encoding="utf-8"
+    )
     (round_dir / BASIS_REL).write_text("# Draft\n", encoding="utf-8")
     return round_dir
 
@@ -89,13 +98,13 @@ def write_approval(round_dir: Path, **overrides: object) -> Path:
     return path
 
 
-def test_case_metadata_reads_student_topic_and_language(tmp_path: Path) -> None:
+def test_case_metadata_reads_student_topic_work_type_and_language(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path, language="EN")
 
     metadata = feedback_render.read_case_metadata(round_dir.parents[1] / "case.md")
 
     assert metadata == feedback_render.FeedbackCaseMetadata(
-        language="en", student="Test Student", topic="Synthetic topic"
+        language="en", student="Test Student", topic="Synthetic topic", work_type="BP"
     )
 
 
@@ -229,7 +238,9 @@ def test_approval_gate_rejects_approval_for_another_round(tmp_path: Path) -> Non
 def test_approval_gate_rejects_feedback_edited_after_approval(tmp_path: Path) -> None:
     round_dir = make_round(tmp_path)
     write_approval(round_dir)
-    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback, edited after the review\n", encoding="utf-8")
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(
+        feedback_text("Feedback, edited after the review"), encoding="utf-8"
+    )
 
     errors = gate_errors(round_dir)
 
@@ -321,7 +332,7 @@ def test_cli_refusal_removes_a_stale_approved_pdf(cli_round: tuple[Path, FakeRen
     round_dir, fake = cli_round
     write_approval(round_dir)
     assert render_feedback.main(["render-feedback", "case-a"]) == 0
-    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback, edited\n", encoding="utf-8")
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(feedback_text("Feedback, edited"), encoding="utf-8")
 
     assert render_feedback.main(["render-feedback", "case-a"]) == 1
 
@@ -343,7 +354,7 @@ def test_cli_draft_after_an_edit_removes_the_stale_approved_pdf(cli_round: tuple
     round_dir, _ = cli_round
     write_approval(round_dir)
     assert render_feedback.main(["render-feedback", "case-a"]) == 0
-    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback, edited\n", encoding="utf-8")
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(feedback_text("Feedback, edited"), encoding="utf-8")
 
     assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 0
 
@@ -387,7 +398,7 @@ def test_cli_draft_after_reapproval_removes_the_earlier_pdf(cli_round: tuple[Pat
     round_dir, _ = cli_round
     write_approval(round_dir)
     assert render_feedback.main(["render-feedback", "case-a"]) == 0
-    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback, version B\n", encoding="utf-8")
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(feedback_text("Feedback, version B"), encoding="utf-8")
     write_approval(round_dir)
 
     assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 0
@@ -427,7 +438,9 @@ def test_cli_renders_approved_feedback_and_logs_hashes(cli_round: tuple[Path, Fa
     assert fake.metadata is not None and "draft" not in fake.metadata["masthead"]  # type: ignore[operator]
     [record] = operation_records(round_dir)
     assert record["operation"] == "render-feedback"
-    assert record["artifacts"] == [feedback_render.FEEDBACK_REL, feedback_render.PDF_REL]
+    send_rel = "outputs/2026-10-13_Student_BP_zpetna-vazba.pdf"
+    assert record["artifacts"] == [feedback_render.FEEDBACK_REL, feedback_render.PDF_REL, send_rel]
+    assert (round_dir / send_rel).read_bytes() == pdf.read_bytes()
     assert record["details"] == {
         "source_sha256": sha256_file(round_dir / feedback_render.FEEDBACK_REL),
         "pdf_sha256": sha256_file(pdf),
@@ -462,3 +475,64 @@ def test_cli_reports_missing_quarto(
     assert render_feedback.main(["render-feedback", "case-a", "--draft"]) == 1
     assert "ERROR: quarto is not installed" in capsys.readouterr().out
     assert operation_records(round_dir) == []
+
+
+def send_copies(round_dir: Path) -> list[str]:
+    return sorted(path.name for path in (round_dir / "outputs").iterdir() if path.name.startswith("20"))
+
+
+def test_cli_refusal_removes_the_named_copy_too(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, fake = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+    assert send_copies(round_dir) == ["2026-10-13_Student_BP_zpetna-vazba.pdf"]
+    (round_dir / feedback_render.FEEDBACK_REL).write_text(feedback_text("Feedback, edited"), encoding="utf-8")
+
+    assert render_feedback.main(["render-feedback", "case-a"]) == 1
+
+    assert send_copies(round_dir) == []
+
+
+def test_cli_rerender_with_a_new_date_replaces_the_named_copy(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, fake = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+    source = round_dir / feedback_render.FEEDBACK_REL
+    source.write_text(source.read_text(encoding="utf-8").replace("13. 10. 2026", "2026-10-20"), encoding="utf-8")
+    write_approval(round_dir)
+
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+
+    assert send_copies(round_dir) == ["2026-10-20_Student_BP_zpetna-vazba.pdf"]
+
+
+def test_cli_refuses_feedback_without_a_readable_date_and_leaves_no_pdf(
+    cli_round: tuple[Path, FakeRender], capsys: pytest.CaptureFixture[str]
+) -> None:
+    round_dir, fake = cli_round
+    (round_dir / feedback_render.FEEDBACK_REL).write_text("# Feedback\n", encoding="utf-8")
+    write_approval(round_dir)
+
+    assert render_feedback.main(["render-feedback", "case-a"]) == 1
+
+    assert fake.metadata is None
+    assert not (round_dir / feedback_render.PDF_REL).exists()
+    assert "cannot read the date" in capsys.readouterr().out
+
+
+def test_cli_draft_writes_no_named_copy(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, fake = cli_round
+
+    assert render_feedback.main(["render-feedback", "--draft", "case-a"]) == 0
+
+    assert send_copies(round_dir) == []
+
+
+def test_cli_draft_keeps_the_named_copy_rendered_from_the_current_feedback(cli_round: tuple[Path, FakeRender]) -> None:
+    round_dir, fake = cli_round
+    write_approval(round_dir)
+    assert render_feedback.main(["render-feedback", "case-a"]) == 0
+
+    assert render_feedback.main(["render-feedback", "--draft", "case-a"]) == 0
+
+    assert send_copies(round_dir) == ["2026-10-13_Student_BP_zpetna-vazba.pdf"]

@@ -9,8 +9,9 @@ from pathlib import Path
 
 from thesis_review_workflow import pdf_render
 from thesis_review_workflow.assignment_bundle import assignment_formal_rel, brief_projection_rel
-from thesis_review_workflow.assignment_draft import VARIANT_RE
+from thesis_review_workflow.assignment_draft import VARIANT_RE, WORK_TYPE_BY_VARIANT
 from thesis_review_workflow.brief_render import (
+    RENDER_KIND,
     approval_errors,
     brief_case,
     exact_entry,
@@ -28,6 +29,7 @@ from thesis_review_workflow.brief_render import (
 from thesis_review_workflow.cli.context import repo_root, require_case_dir, validate_id
 from thesis_review_workflow.paths import rel_repo
 from thesis_review_workflow.pdf_render import RenderError, quarto_version
+from thesis_review_workflow.send_name import ascii_slug, install_send_copy, remove_send_copies, send_pdf_name, surname
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,6 +54,27 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def copy_scope(variant: str) -> str:
+    """The variant's part of a copy name: its work type, or the variant itself when it has none."""
+    return WORK_TYPE_BY_VARIANT.get(variant, variant)
+
+
+def remove_stale_pdf(case_dir: Path, variant: str, reason: str) -> bool:
+    """Remove the variant's brief PDF and its named copy; False when one cannot be removed."""
+    output_rel = pdf_rel(variant)
+    # The named copy goes first: it is the file that gets handed over.
+    if not remove_send_copies((case_dir / output_rel).parent, kind=RENDER_KIND, scope=copy_scope(variant)):
+        return False
+    return pdf_render.remove_stale_pdf(case_dir, output_rel, reason)
+
+
+def brief_send_name(fields: dict[str, str], case_id: str, variant: str, language: str, day: datetime.date) -> str:
+    """The student-facing PDF name; a topic without a student yet is named by its case ID."""
+    student = surname(fields.get("student", ""))
+    who = student if ascii_slug(student) else case_id
+    return send_pdf_name(day=day, who=who, scope=copy_scope(variant), kind=RENDER_KIND, language=language)
+
+
 def passes_gate(case_dir: Path, args: argparse.Namespace, read: dict[str, bytes]) -> tuple[bool, str]:
     """Apply the approval gate and keep `outputs/` honest in both modes.
 
@@ -60,11 +83,10 @@ def passes_gate(case_dir: Path, args: argparse.Namespace, read: dict[str, bytes]
     only when its render record shows it was rendered under this exact approval. Returns
     whether to continue and the approval record's hash ("" when nothing approves).
     """
-    output_rel = pdf_rel(args.variant)
     brief_rel = brief_projection_rel(args.variant)
     errors, approval_sha256 = approval_errors(case_dir, case_id=args.case_id, variant=args.variant, read=read)
     if errors:
-        if not pdf_render.remove_stale_pdf(case_dir, output_rel, f"no bundle approval covers the current {brief_rel}"):
+        if not remove_stale_pdf(case_dir, args.variant, f"no bundle approval covers the current {brief_rel}"):
             return False, ""
         if not args.draft:
             print(f"ERROR: {brief_rel} has no valid bundle approval; refusing to render it:")
@@ -73,11 +95,11 @@ def passes_gate(case_dir: Path, args: argparse.Namespace, read: dict[str, bytes]
             print("Finish the assignment review, or use --draft for a stamped operator preview.")
         return bool(args.draft), ""
     if not args.draft:
-        return pdf_render.remove_stale_pdf(case_dir, output_rel, ""), approval_sha256
+        return remove_stale_pdf(case_dir, args.variant, ""), approval_sha256
     if pdf_rendered_from(case_dir, args.variant, approval_sha256):
         return True, approval_sha256
     reason = "it was not rendered under the current bundle approval"
-    return pdf_render.remove_stale_pdf(case_dir, output_rel, reason), approval_sha256
+    return remove_stale_pdf(case_dir, args.variant, reason), approval_sha256
 
 
 def main(argv: list[str]) -> int:
@@ -97,10 +119,11 @@ def main(argv: list[str]) -> int:
     source = case_dir / brief_projection_rel(args.variant)
     if not exact_entry(source):
         print(f"ERROR: missing {rel_repo(root, source)} (spelled exactly so); author and review the brief first.")
-        if exact_entry(case_dir / pdf_rel(args.variant)):
-            pdf_render.remove_stale_pdf(
-                case_dir, pdf_rel(args.variant), f"{brief_projection_rel(args.variant)} is missing"
-            )
+        # Only for a variant that is really this one: the PDF spelled exactly so, or a
+        # canonical variant name. On a case-insensitive filesystem a mistyped `BP` would
+        # otherwise remove the real `bp` variant's PDF and copy.
+        if exact_entry(case_dir / pdf_rel(args.variant)) or args.variant in WORK_TYPE_BY_VARIANT:
+            remove_stale_pdf(case_dir, args.variant, f"{brief_projection_rel(args.variant)} is missing")
         return 1
     read = read_bound(case_dir, args.variant)
     proceed, approval_sha256 = passes_gate(case_dir, args, read)
@@ -108,22 +131,30 @@ def main(argv: list[str]) -> int:
         return 1
 
     output_rel = preview_pdf_rel(args.variant) if args.draft else pdf_rel(args.variant)
+    send_copy: Path | None = None
     try:
         case = brief_case(fields, case_dir.name)
         quarto = find_quarto(args.variant)
         version = quarto_version(quarto)
         topic = official_title(read[assignment_formal_rel(args.variant)].decode("utf-8", errors="replace"))
-        values = render_values(case, args.variant, topic=topic, today=datetime.date.today(), draft=args.draft)
+        today = datetime.date.today()
+        values = render_values(case, args.variant, topic=topic, today=today, draft=args.draft)
         render_pdf(read[brief_projection_rel(args.variant)], case_dir / output_rel, values, quarto)
         if not args.draft:
+            name = brief_send_name(fields, args.case_id, args.variant, case.language.key, today)
+            send_copy = install_send_copy(case_dir / output_rel, name)
             write_render_record(
                 case_dir, case_id=args.case_id, variant=args.variant, approval_sha256=approval_sha256, version=version
             )
     except (RenderError, OSError) as exc:
         print(f"ERROR: {exc}")
+        if not args.draft:
+            remove_stale_pdf(case_dir, args.variant, "")
         return 1
 
     print(f"Rendered: {rel_repo(root, case_dir / output_rel)} (Quarto {version})")
+    if send_copy is not None:
+        print(f"For the student: {rel_repo(root, send_copy)}")
     if args.draft:
         print("Draft preview only: it carries a visible draft stamp and must not be sent.")
     return 0
