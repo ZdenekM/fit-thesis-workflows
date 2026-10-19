@@ -38,11 +38,7 @@ typography/formal, Theses.cz, and GitHub intake outputs when they exist.
 
 ## Authorization And Source Status
 
-Before opening any file under `inputs/external_opponent_report/`, copied report
-text, public-url record, or writing semantic findings, confirm that the current
-user request explicitly authorizes agents to read the external report and
-produce the postmortem analysis. If authorization is missing, stop after case
-metadata and metadata-only intake preflight and ask for agent authorization.
+A request for this postmortem workflow includes its required role agents and independent review; do not ask for a separate agent-use confirmation. Before opening external report sources or writing semantic findings, verify the source-access and intended-use permissions in the intake described below. These restrictions concern the source material, not permission to spawn agents.
 
 Preflight may read `case.md`, `current-round.txt`, directory inventory, and
 metadata-only fields from `work/external_opponent_report_intake.json` or the
@@ -50,7 +46,7 @@ metadata-only fields from `work/external_opponent_report_intake.json` or the
 `notes/external-opponent-report-intake.md` to determine whether a source exists,
 its stated status, and permission. Do not read intake `Operator Context`,
 `Comparison Basis`, `Promotion Decision Draft`, report-derived notes, or any
-semantic criticism summaries before authorization. The semantic pass may proceed
+semantic criticism summaries before source-access permission is established. The semantic pass may proceed
 only when `work/external_opponent_report_intake.json` records:
 
 - one of the allowed source statuses:
@@ -70,10 +66,9 @@ the operator for a clearer permission record.
    `scripts/check-external-opponent-feedback <case-id> [round-id]` to validate
    the current structural state. If raw report files exist without intake,
    create or ask for the ignored case-local intake first.
-2. Confirm current-request agent authorization before reading report sources or
-   producing semantic classifications.
+2. Use the required role agents and verify source-access permission before reading report sources or producing semantic classifications.
 3. Read `work/external_opponent_report_intake.json` first. Use
-   `notes/external-opponent-report-intake.md` only after authorization for
+   `notes/external-opponent-report-intake.md` only after source-access permission is established for
    operator context; it is not evidence for thesis-quality claims.
 4. Open external report sources only as needed for the authorized comparison.
    Do not copy opponent-report excerpts into tracked paths, tests, templates, or
@@ -99,7 +94,7 @@ the operator for a clearer permission record.
    metrics, grades, or opponent-report wording.
 9. Run `scripts/check-external-opponent-feedback <case-id> [round-id]
    --require-analysis`.
-10. Have a different explicitly authorized reviewer run an independent review
+10. Have a different reviewer run an independent review
     before treating `outputs/external_opponent_feedback_analysis.md` as durable
     operator evidence. Record the approval in
     `work/reviews/external_opponent_feedback_review.json`, with
@@ -119,7 +114,7 @@ the operator for a clearer permission record.
 round-relative paths, source allowlists, hashes, review-record shape,
 placeholders, and stale refs. It must not infer whether criticism is justified,
 missed, important, or promotable from raw prose. Those labels are authored only
-by an explicitly authorized human or semantic agent and then reviewed.
+by a human or semantic reviewer agent and then reviewed.
 
 Source refs for the external report stay under
 `inputs/external_opponent_report/`. Comparison refs can point to case-local

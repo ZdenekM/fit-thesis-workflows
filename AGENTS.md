@@ -16,7 +16,7 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Pipeline and helper-script extensions must be general and context-aware. Do not encode one real thesis, domain, dataset, concrete metric value, filename, or expected conclusion as an active workflow rule. When a case exposes a useful pattern, generalize it into evidence classes, configurable reviewer prompts, or cross-case checks, and apply the interpretation in the context of the current assignment, thesis phase, artifacts, and claims.
 - Do not add brittle free-text heuristics such as "if raw thesis/code/README
   text contains this substring, infer meaning or choose workflow behavior."
-  Semantic interpretation of free-form text belongs to an explicitly authorized
+  Semantic interpretation of free-form text belongs to the requested
   agent/LLM workflow that writes a structured artifact with evidence anchors.
   Deterministic code should consume structured metadata, parsed sections with
   documented schemas, explicit operator configuration, typed evidence classes,
@@ -50,8 +50,8 @@ This repository is a workflow layer for supervising and reviewing BP/DP theses. 
 - Before generating supervisor feedback, require assignment, deadline, and reviewer-profile context with `scripts/check-supervisor-ready <case-id> [round-id]`. If it fails, stop and ask for the missing assignment, academic year, work type, deadline override, or valid reviewer profile.
 - Before generating opponent materials, require assignment and reviewer-profile context with `scripts/check-round-ready <case-id> [round-id]`. Supervisor deadline calibration does not apply to opponent reports.
 - Use `scripts/case-doctor <case-id> [round-id]` as a read-only operator snapshot when orienting in a case or checking what is missing; it summarizes state but does not replace required workflow gates.
-- Supervisor feedback, supervisor reports, opponent materials, opponent-report review, external opponent-report postmortem learning, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. If the user has not explicitly authorized agent use in the current request, stop before producing or revising sendable/final artifacts, reading external opponent-report sources, or writing semantic findings, and ask for explicit permission to use agents. Once authorized, use role-split agents and give them enough time.
-- Use the strongest available model and high reasoning effort for semantic thesis-review roles that read thesis text, submitted code, evidence, synthesis drafts, or final/reviewable artifacts. Lower-cost models such as Spark are acceptable only for mechanical, validator-backed helper roles and must not be the sole basis for evidence claims, grading/report calibration, or sendable wording.
+- Supervisor feedback, supervisor reports, opponent materials, opponent-report review, external opponent-report postmortem learning, revision diff, code consistency, code quality, and literature/citation review are multi-agent workflows. A request for one of these workflows includes its required role agents and independent review; use them without asking for a separate agent-use confirmation, and give them enough time. Respect an explicit user restriction on delegation; if it prevents a required review, explain the limitation before treating the artifact as final. Source-access restrictions and approval to publish remain separate.
+- Use the strongest available model and high reasoning effort for semantic thesis-review roles that read thesis text, submitted code, evidence, synthesis drafts, or final/reviewable artifacts. Lower-cost models such as GPT-6 Luna are acceptable only for mechanical, validator-backed helper roles and must not be the sole basis for evidence claims, grading/report calibration, or sendable wording.
 
 ## Command Routing
 
@@ -85,7 +85,7 @@ Use these repo-local skills as the primary workflow definitions:
 
 When a round contains code, supervisor feedback, supervisor reports, and opponent materials must use both `thesis-code-consistency` and `thesis-code-quality-review`, or explicitly state why one of them could not be performed from the available inputs.
 
-Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. After agent use is explicitly authorized, make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical. If authorization is missing, stop before generating any agent-dependent final artifact and ask for it.
+Code artifacts include source directories and archives copied into `inputs/`, plus read-only GitHub repo/PR snapshots imported into the ignored round workspace. If both a submitted archive and GitHub source are present, treat the submitted archive as the authoritative code submission unless case/round notes explicitly say the GitHub snapshot is the submitted source; if they are not compared, carry that limitation into downstream findings. Make code inspectable under the ignored round workspace, typically with `scripts/prepare-code-workspace <case-id> [round-id]` or GitHub intake before delegating to read-only reviewer agents. Prefer Serena for symbol-aware inspection of prepared code roots when practical.
 
 For repo-maintainer code changes, use Omen as an advisory code-quality signal:
 attempt scoped, iterative checks of touched Python modules during a slice
@@ -143,10 +143,7 @@ Do not repeat old feedback mechanically.
 
 ## Parallel Review
 
-When the user explicitly authorizes agents, use role coverage rather than
-arbitrary file splits, and synthesize findings into the requested artifact. If
-authorization is missing, ask once and stop before any parallel review or
-sendable/final artifact generation.
+Use the role agents required by the requested workflow without a separate confirmation. Delegate by role coverage rather than arbitrary file splits, and synthesize findings into the requested artifact. Preserve independent review even when the concurrency limit requires sequential waves.
 
 `docs/agent-scheduling.md` owns concurrency, wave sequencing, subagent handoff
 shape, role failure handling, and parent synthesis. `docs/agent-profile-matrix.md`

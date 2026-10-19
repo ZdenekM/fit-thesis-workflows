@@ -10,15 +10,13 @@ command names. On Windows, use the packaged
 `dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launcher from `README.md`; do
 not run or click extensionless `scripts/<tool>` files.
 
-Use this skill only after the user explicitly authorizes agents in the current
-request. Historical reports, theses, code, notes, generated case analyses,
+Use the required role agents and independent review for a requested historical calibration; no separate agent-use confirmation is needed. Historical reports, theses, code, notes, generated case analyses,
 profiles, checklists, and reviews stay under ignored `cases/`.
 
 ## Workflow
 
 1. Resolve the private calibration case and round.
-2. Confirm explicit current-request authorization. If missing, stop before
-   reading historical materials or writing semantic artifacts.
+2. Confirm the requested calibration scope and available source materials; use the required agents without a separate confirmation.
 3. For each historical case under `inputs/historical_cases/<id>/`, an authorized
    agent reads the private materials and writes
    `work/calibration/historical_case_analyses/<id>.json`. Any
@@ -82,7 +80,7 @@ exist, use the private profile only through the current-case contract:
    <case-id> [round-id]`.
 6. After the operator reads the packet and draft, store the free-form operator
    notes in `notes/opponent-report-operator-feedback.md`.
-7. An explicitly authorized agent, or a human reviewer, normalizes those notes
+7. A reviewer agent, or a human reviewer, normalizes those notes
    into `work/opponent_report_revision_request.json`. Use only typed feedback
    categories: `evidence_request`, `grading_calibration`, `tone_style`,
    `missing_check`, `factual_correction`, `wording_preference`,

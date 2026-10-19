@@ -70,10 +70,7 @@ rules; in short:
 
 ## Process
 
-This is a parent-owned workflow: the main agent holds the operator dialogue
-that produces the intake, then delegates review to a separate role. Confirm
-explicit agent authorization in the current request before generating a
-reviewable bundle.
+This is a parent-owned workflow: the main agent holds the operator dialogue that produces the intake, then delegates review to a separate role. A request for assignment authoring includes this independent review; no separate agent-use confirmation is needed.
 
 1. **Intake first.** Fill `notes/topic_intake.md` from
    `templates/topic-intake.md` with the operator. Everything
@@ -139,7 +136,6 @@ shared by every supervisor using this repository.
 
 ## Stop Conditions
 
-- No agent authorization in the current request: stop and ask.
 - The operator cannot supply a factual value and no source resolves it: mark
   it, do not guess, and carry it as a publication blocker.
 - Publishing to FIT IS or sending a brief: not this skill's decision. The

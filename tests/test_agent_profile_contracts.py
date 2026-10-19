@@ -1,7 +1,14 @@
 import tomllib
 from pathlib import Path
 
-from thesis_review_workflow import agent_coverage, agent_profiles, opponent_packets, review_profiles, supervisor_packets
+from thesis_review_workflow import (
+    agent_coverage,
+    agent_profiles,
+    opponent_packets,
+    review_packets,
+    review_profiles,
+    supervisor_packets,
+)
 from thesis_review_workflow.paths import is_safe_round_relative_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -127,10 +134,10 @@ def test_configured_codex_agent_profiles_match_registry_contract() -> None:
         assert profile_path.is_file()
 
         profile_config = load_profile_config(config_file)
-        assert profile_config["model"] == "gpt-5.5"
+        assert profile_config["model"] == review_packets.SEMANTIC_MODEL == "gpt-6-astra"
         assert profile_config["model_reasoning_effort"] == "xhigh"
-        assert profile_config["approval_policy"] == "never"
-        assert profile_config["sandbox_mode"] == route.sandbox_mode
+        assert "approval_policy" not in profile_config
+        assert "sandbox_mode" not in profile_config
 
         developer_instructions = profile_config["developer_instructions"]
         assert isinstance(developer_instructions, str)

@@ -173,8 +173,6 @@ def test_prepare_review_round_skips_legacy_round_ready_for_opponent_report_revie
     args = argparse.Namespace(
         skip_ready_check=False,
         skip_materiality_check=False,
-        agents_authorized=False,
-        authorization_note="authorized",
     )
 
     command = prepare_review_round.packet_command_args(
@@ -281,8 +279,6 @@ def test_prepare_review_round_refreshes_materiality_before_packet_generation(mon
     args = argparse.Namespace(
         skip_ready_check=False,
         skip_materiality_check=False,
-        agents_authorized=True,
-        authorization_note="authorized",
     )
     command = prepare_review_round.packet_command_args(
         args,
@@ -295,7 +291,7 @@ def test_prepare_review_round_refreshes_materiality_before_packet_generation(mon
     assert "--skip-materiality-check" in command
 
 
-def test_prepare_review_round_validates_packet_options_before_materiality_refresh(monkeypatch) -> None:
+def test_prepare_review_round_stops_on_snapshot_failure_before_packet_generation(monkeypatch) -> None:
     case_id = "__prepare_review_auth_pytest"
     round_id = "round-a"
     case_dir = REPO_ROOT / "cases" / case_id
@@ -311,14 +307,14 @@ def test_prepare_review_round_validates_packet_options_before_materiality_refres
 
         def fake_run_step(root: Path, label: str, args: list[str]) -> Step:
             calls.append(args)
-            return Step(label=label, command=args, returncode=0, output="")
+            return Step(label=label, command=args, returncode=2, output="Missing supervisor input")
 
         monkeypatch.setattr(prepare_review_round, "run_step", fake_run_step)
 
         result = prepare_review_round.main([case_id, round_id, "--profile", "supervisor_report"])
 
-        assert result == 2
-        assert calls == []
+        assert result == 1
+        assert calls == [["update-current-evidence-snapshot", case_id, round_id]]
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)
 

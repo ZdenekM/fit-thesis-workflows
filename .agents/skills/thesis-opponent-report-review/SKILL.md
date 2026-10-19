@@ -52,7 +52,7 @@ draft path plus the clean proposal path.
 
 ## Process
 
-Before reviewing or rewriting a sendable report, confirm that the user explicitly authorized agent use in the current request. This workflow requires an independent agent review. If explicit authorization is missing, stop and ask the user to authorize agents.
+Use an independent reviewer agent for the requested report review; no separate agent-use confirmation is needed.
 
 Review the report as a report, not as the student's thesis. Check:
 
@@ -144,7 +144,7 @@ verification, contradiction checks, or contested report wording.
 
 ## Review Loop
 
-This skill is the independent review pass for a human-drafted or exported opponent report. If agent authorization is missing, ask before writing final sendable review feedback. Reviewer agents should not directly edit `outputs/oponent_posudek_navrh.md` unless the parent explicitly assigns a rewrite artifact; the normal correction path is feedback or revision-request evidence, followed by parent/human updates to the canonical draft, re-export, and a fresh independent review. If an agent does rewrite report text itself, run this review again with a different explicitly authorized reviewer agent before treating the report as sendable.
+This skill is the independent review pass for a human-drafted or exported opponent report. Reviewer agents should not directly edit `outputs/oponent_posudek_navrh.md` unless the parent explicitly assigns a rewrite artifact; the normal correction path is feedback or revision-request evidence, followed by parent/human updates to the canonical draft, re-export, and a fresh independent review. If an agent does rewrite report text itself, run this review again with a different reviewer agent before treating the report as sendable.
 
 After writing or revising `outputs/feedback_k_posudku.md`, use `scripts/write-review-approval --profile opponent-report-review` to write or update `work/reviews/opponent_report_review.json` with the workflow profile, reviewer role/agent, `verdict: approved`, `blocking_findings_count: 0`, the reviewed artifact path/hash, the review-basis path/hash, checks observed, limitations, and timestamp. The review basis must be the exact round-relative report text reviewed: normally `outputs/oponent_posudek_navrh.md`, or `work/oponent_posudek_draft.md` only before the clean proposal exists. Include `check-opponent-report:canonical`, `check-opponent-report:clean`, and `check-review-wave.opponent-report.draft` in observed checks when the clean proposal comes from the canonical draft; never record the ambiguous generic `check-opponent-report` ID. Include `check-report-calibration` as well when the reviewed basis is a report bound to `work/report_calibration_basis.json` or when the trace records a typed no-applicable-calibration limitation that `scripts/check-report-calibration` validates. Then run `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record the reviewer role and reviewed hash in `work/review_manifest.json`, and run `scripts/check-review-manifest --require-complete <case-id> [round-id]`. If an operator changes or challenges the reviewed report feedback afterward, record a `work/review_deltas/*.json` entry with `scripts/record-review-delta --profile opponent_report_review`; material or evidence-challenge deltas reopen the independent review path before closeout can pass.
 
@@ -172,8 +172,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-review workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this skill
-must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another low-cost
+review workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for this skill
+must carry the same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) or another low-cost
 model for the first or only pass over report drafts, reviewed materials,
 opponent trace state, point/grade consistency, tone, fairness, or report
 rewrites. Mechanical helper summaries may use cheaper models only when

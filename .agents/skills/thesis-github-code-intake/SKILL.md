@@ -56,9 +56,7 @@ Typical user-provided inputs:
 1. Stay read-only. Do not comment on PRs, request reviews, push, merge, close,
    label, trigger workflows, or otherwise mutate GitHub state unless the user
    explicitly asks outside the thesis-review workflow.
-2. If the task will feed sendable supervisor feedback, opponent materials, or
-   final standalone evidence, require explicitly authorized agents according to
-   the main repo workflow.
+2. If the task will feed sendable supervisor feedback, opponent materials, or final standalone evidence, use the required role agents and independent review according to the main repo workflow; no separate agent-use confirmation is needed.
 3. Resolve the case and round. For supervisor feedback, run
    `scripts/check-supervisor-ready <case-id> [round-id]`; for opponent work, run
    `scripts/check-round-ready <case-id> [round-id]`.
@@ -117,9 +115,9 @@ Typical user-provided inputs:
 
 Use the strongest available model with high reasoning effort when this intake
 will feed supervisor feedback, opponent materials, code consistency, code
-quality, or final standalone evidence. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts
+quality, or final standalone evidence. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts
 generated for this skill must carry the same requirement. Do not downshift to
-a low-cost model (Codex Spark or a small Claude tier) for the first or only pass over PR scope,
+a low-cost model (a smaller Codex model or a small Claude tier) for the first or only pass over PR scope,
 student contribution boundaries, GitHub-vs-archive authority, review/CI
 limitations, or synthesis implications. Mechanical helper summaries may use
 cheaper models only when validator-backed and consumed by a high-reasoning
@@ -159,7 +157,7 @@ patterns and cite the internal evidence privately.
 ## Review Loop
 
 When `outputs/github_code_intake.md` is used as final standalone evidence, it is
-draft evidence until a different explicitly authorized reviewer agent checks it.
+draft evidence until a different reviewer agent checks it.
 A downstream synthesis review certifies only the findings it uses, not the whole
 standalone artifact.
 

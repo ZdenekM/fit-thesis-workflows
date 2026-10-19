@@ -64,7 +64,7 @@ def main(argv: list[str]) -> int:
             print(f"ERROR: {error}")
         print(
             "Create `work/theses_checker_summary.json` with `scripts/record-theses-checker-summary` "
-            "or an explicitly authorized human/agent handoff before making categorical normostrany claims."
+            "or a human/reviewer-agent handoff before making categorical normostrany claims."
         )
         return 1
 

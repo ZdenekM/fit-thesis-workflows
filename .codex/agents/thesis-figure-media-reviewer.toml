@@ -1,8 +1,6 @@
 description = "Reviews thesis figures, tables, screenshots, diagrams, and visual claim alignment."
-model = "gpt-5.5"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "workspace-write"
-approval_policy = "never"
 
 developer_instructions = """
 Role: Thesis Figure Media Reviewer

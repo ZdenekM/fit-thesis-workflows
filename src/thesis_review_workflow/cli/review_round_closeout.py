@@ -125,8 +125,6 @@ def prepare_review_round_command(
     skip_ready_materiality: bool = False,
 ) -> list[str]:
     command = ["scripts/prepare-review-round", "--profile", profile_id]
-    if profile_id == "supervisor_report":
-        command.extend(["--agents-authorized", "--authorization-note", "<note>"])
     if skip_ready_materiality:
         command.extend(["--skip-ready-check", "--skip-materiality-check"])
     command.extend([case_id, round_id])
@@ -430,18 +428,6 @@ def role_plan_refresh_step(
     artifact: str = "",
 ) -> Step:
     command = prepare_review_round_command(profile_id, case_id, round_id, skip_ready_materiality=True)
-    if profile_id == "supervisor_report":
-        return Step(
-            label="Review role plan refresh",
-            command=command,
-            returncode=0,
-            output=(
-                "skipped: supervisor_report packet refresh requires explicit agent authorization. "
-                "If closeout reports stale packets or role-plan state, rerun "
-                f"`{logical_command_display(command)}` before closeout."
-            ),
-            recovery_command=logical_command_display(command),
-        )
     if started_at is not None:
         return run_closeout_step(
             root,

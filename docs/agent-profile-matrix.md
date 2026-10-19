@@ -49,7 +49,9 @@ parent forgot to export it.
 
 ## Routing Matrix
 
-| Skill or source | Status | Codex agent role profile | Kind | Sandbox | Owned outputs / allowed writes | Review separation | Validators |
+The registry field `sandbox_mode` below records the access required to perform a role. It is not an enforced sandbox for Codex subagents: those inherit the parent's permissions and approval policy. Allowed writes remain role instructions and artifact-ownership contracts. Configure the parent to allow the required work without treating this table as technical write isolation.
+
+| Skill or source | Status | Codex agent role profile | Kind | Required access | Owned outputs / allowed writes | Review separation | Validators |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `AGENTS.md:text-structure-assignment-coverage` | `profile` | `thesis_text_reviewer` | evidence-producer | workspace-write | `work/supervisor_packets/text_assignment_findings.md`, `work/opponent_packets/text_structure_assignment_findings.md` | downstream synthesis decides use | none |
 | `thesis-code-consistency` | `profile` | `thesis_code_consistency_reviewer` | evidence-producer | workspace-write | `outputs/code_consistency.md` | standalone review by `thesis_evidence_calibrator`, or downstream synthesis review for used findings | `scripts/check-code-consistency` |

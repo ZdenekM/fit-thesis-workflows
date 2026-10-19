@@ -366,7 +366,7 @@ def _validate_findings_payload(
                 f"{rel_path}: findings require workflow_learning_permission allowed or current_case_only in intake"
             )
         if intake.get("agent_report_reading_authorized") is not True:
-            errors.append(f"{rel_path}: intake must record current-request agent report-reading authorization")
+            errors.append(f"{rel_path}: intake must record permission to read the external report")
         source_ref_ids = _source_ref_ids(intake)
 
     findings = loaded.get("findings")

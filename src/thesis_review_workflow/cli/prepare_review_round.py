@@ -73,15 +73,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--skip-ready-check", action="store_true")
     parser.add_argument("--skip-materiality-check", action="store_true")
-    parser.add_argument(
-        "--agents-authorized",
-        action="store_true",
-        help="Pass through explicit role-agent authorization where the packet contract requires it.",
-    )
-    parser.add_argument(
-        "--authorization-note",
-        default="current request explicitly authorizes review role agents and independent review loop",
-    )
     parser.add_argument("--generated-at", default="", help=argparse.SUPPRESS)
     return parser
 
@@ -144,9 +135,7 @@ def update_declared_code_source(round_dir: Path, requested: str, *, profile_id: 
     if not isinstance(loaded, dict):
         raise ValueError(f"{REVIEW_RUN_TRACE_REL} is not an object")
     if loaded.get("profile_id") != profile_id:
-        raise ValueError(
-            f"{REVIEW_RUN_TRACE_REL} belongs to profile {loaded.get('profile_id')!r}, not {profile_id!r}"
-        )
+        raise ValueError(f"{REVIEW_RUN_TRACE_REL} belongs to profile {loaded.get('profile_id')!r}, not {profile_id!r}")
     if requested == CODE_SOURCE_CLEARED:
         loaded.pop("code_source", None)
         resolved = None
@@ -216,9 +205,6 @@ def packet_command_args(
     if command == "prepare-supervisor-report-packets":
         if args.skip_materiality_check or materiality_refreshed:
             command_args.append("--skip-materiality-check")
-        if not args.agents_authorized:
-            raise ValueError("supervisor_report packet preparation requires --agents-authorized")
-        command_args.extend(["--agents-authorized", "--authorization-note", args.authorization_note])
     return command_args
 
 
@@ -258,7 +244,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Declared code source: {changed or '(cleared)'}")
 
     try:
-        packet_command_args(args, profile_id=profile_id, case_id=args.case_id, round_id=round_id)
         materiality_refreshed = refresh_materiality_before_packets(
             root,
             profile_id=profile_id,

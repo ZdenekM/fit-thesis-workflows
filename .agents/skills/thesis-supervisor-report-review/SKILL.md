@@ -45,8 +45,7 @@ present, and optional supervisor-report calibration artifacts.
 
 ## Process
 
-Before reviewing or rewriting a report, confirm explicit agent authorization in
-the current request. This workflow requires an independent agent review.
+Use an independent reviewer agent for the requested report review; no separate agent-use confirmation is needed.
 
 Review the draft as a formal supervisor report, not as general student feedback:
 start from `work/supervisor_report_trace.json`,

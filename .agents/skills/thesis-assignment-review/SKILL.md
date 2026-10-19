@@ -162,7 +162,6 @@ refuses to consider it at all until `scripts/check-assignment-draft` passes.
 ## Stop Conditions
 
 - You authored or materially edited any artifact in the bundle: stop, say so.
-- No agent authorization in the current request: stop and ask.
 - Approving is not publishing. Publication to FIT IS and sending the brief stay
   with the operator.
 

@@ -7,7 +7,7 @@ a clear non-blocking advisory, not a failed readiness check.
 Historical calibration is not model fine-tuning and does not replace the normal
 `Reviewer profile` configured in `case.md`. The existing reviewer profile stays
 the readiness gate for opponent workflows. Historical calibration is additional
-case-local context that an explicitly authorized agent may use after the current
+case-local context that a reviewer agent may use in the requested workflow after the current
 case already has reviewed opponent materials and an accepted report trace.
 
 Command routing: `scripts/<tool>` examples in this document are Linux/dev
@@ -99,7 +99,7 @@ profile, profile manifest, checklist, append-only profile history, private
 `work/calibration/profile_review.md`, and a current reviewed
 `work/review_manifest.json` entry for `outputs/reviewer_calibration_profile.md`.
 It is still only a structural gate; synthesis and anti-overfit judgment belong
-to explicitly authorized agents or human reviewers.
+to reviewer agents or human reviewers.
 
 The independent profile review must include an ownership-boundary check: active
 calibration should not duplicate public-report hygiene, path/privacy leak
@@ -150,7 +150,7 @@ For a normal opponent case, historical calibration can be used only after:
 
 - `outputs/oponent_podklady_revidovane.md` exists and is current;
 - `work/opponent_report_trace.json` exists and is accepted;
-- current-request agent authorization is explicit.
+- the requested workflow includes the required role agents and independent review.
 
 If a profile is selected, the workflow writes:
 
@@ -242,12 +242,9 @@ does not update the reviewer profile; a later profile refresh still requires a
 separate authorized historical-case analysis, independent review, history entry,
 and default-profile approval.
 
-## Agent Authorization
+## Agent Review And Provenance
 
-Semantic interpretation of historical reports, current materials, or operator
-feedback belongs to explicitly authorized agents or human reviewers. Without
-authorization, commands and skills must stop before reading private materials or
-writing semantic calibration artifacts.
+Semantic interpretation of historical reports, current materials, or operator feedback belongs to the role agents required by the requested workflow or human reviewers. Use those agents without a separate consent step. Preserve source-access restrictions, independent review and approval of profile changes. Where a structured artifact requires `authorization_note`, record the requested workflow and repository delegation instructions as the basis; do not invent an explicit confirmation the operator never gave.
 
 Deterministic code may:
 

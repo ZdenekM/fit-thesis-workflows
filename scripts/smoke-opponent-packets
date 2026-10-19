@@ -60,7 +60,8 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 - Synthetic private note.
 EOF
 printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
-printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
+printf 'print("synthetic submitted code")\n' >"$round_dir/inputs/submitted-src/main.py"
+expect_success "prepare code workspace" "$repo_root/scripts/prepare-code-workspace" "$case_id"
 cat >"$round_dir/notes/opponent-report-operator-feedback.md" <<'EOF'
 # Opponent Report Operator Feedback
 
@@ -101,7 +102,6 @@ payload = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
 
 expect_success "prepare opponent packets" "$repo_root/scripts/prepare-opponent-packets" "$case_id"
 expect_output "Opponent packets: 4"
@@ -129,7 +129,7 @@ grep -Fq "inputs/submitted-src/" "$common_briefing"
 grep -Fq "## Report Calibration Basis" "$packet_dir/text_structure_assignment.md"
 grep -Fq "Start from \`work/report_calibration_basis.json\` when present" "$packet_dir/text_structure_assignment.md"
 grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
-grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-6-astra\`" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
 grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 

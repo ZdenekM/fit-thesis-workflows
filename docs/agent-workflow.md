@@ -116,10 +116,7 @@ Known limitations (tracked in the plan, not yet closed):
 
 ### Reviewer write boundary (B1)
 
-`.claude/hooks/pre_tool_use_write_guard.py` is the authoritative reviewer
-sandbox for Claude — it enforces the boundary Codex expresses via a role-scoped
-`workspace-write` sandbox, and holds even if a shadowing same-name adapter
-granted extra tools. It:
+`.claude/hooks/pre_tool_use_write_guard.py` enforces the reviewer write boundary for Claude when the hook is active, even if a shadowing same-name adapter granted extra tools. Codex subagents instead inherit the parent's actual permissions; the role's allowed writes are instructions, not a role-scoped sandbox. The registry's `sandbox_mode` describes the access the workflow needs and does not establish runtime isolation. The Claude guard:
 
 - acts **only** on spawned subagents, detected by the presence of `agent_id`
   (not `agent_type`, which `claude --agent` also sets on the main session), so
@@ -144,7 +141,7 @@ Windows operators use the Codex path until the packaged native launcher lands
 
 **Model:** reviewer adapters set a strong model and high effort as their
 *default* (`model: opus`, `effort: xhigh`) rather than `inherit`, mirroring the
-Codex `gpt-5.5`/`xhigh` pin. Note this is the frontmatter default only —
+Codex `gpt-6-astra`/`xhigh` pin. Note this is the frontmatter default only —
 environment (`CLAUDE_CODE_SUBAGENT_MODEL`) or per-invocation selection can
 override it, so B3 validates the *effective* launched model/effort before
 treating a Claude pass as a semantic review.

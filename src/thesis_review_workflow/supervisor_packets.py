@@ -350,8 +350,7 @@ PACKET_ROLES = (
         model=MECHANICAL_MODEL,
         reasoning=MECHANICAL_REASONING,
         model_note=(
-            "Mechanical helper role; Spark is acceptable only because downstream semantic roles consume validated "
-            "state."
+            "Mechanical helper role; a small model may be used only because semantic roles consume validated state."
         ),
     ),
     PacketRole(

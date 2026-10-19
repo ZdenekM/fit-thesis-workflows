@@ -203,8 +203,8 @@ def test_step_status_distinguishes_required_and_optional_failures() -> None:
 def test_command_display_allows_synthetic_steps_without_commands() -> None:
     assert command_display(None) == ""
     assert command_display(["scripts/check-private"]) == "check-private"
-    assert command_display(["scripts/prepare-review-round", "--authorization-note", "approved by supervisor"]) == (
-        "prepare-review-round --authorization-note 'approved by supervisor'"
+    assert command_display(["scripts/prepare-review-round", "case with spaces"]) == (
+        "prepare-review-round 'case with spaces'"
     )
 
 

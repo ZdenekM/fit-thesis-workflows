@@ -56,9 +56,7 @@ supervisor does not know a dimension, the intake must say that explicitly.
 ## Process
 
 1. Resolve the active case and round.
-2. Confirm explicit agent authorization in the current request before drafting
-   or revising a report. This workflow requires role-split agents and an
-   independent review pass.
+2. Use role-split agents and an independent review pass for the requested report workflow; no separate agent-use confirmation is needed.
 3. Run `scripts/check-supervisor-report-ready <case-id> [round-id]`. If it
    fails, stop before generating a trace, draft, or reviewed output and ask for
    the missing assignment, deadline/profile context, or supervisor-report
@@ -82,9 +80,7 @@ supervisor does not know a dimension, the intake must say that explicitly.
 7. When code is present, use both `thesis-code-consistency` and
    `thesis-code-quality-review`, or record a typed limitation explaining why one
    could not be performed.
-8. Before spawning role agents, use the optimized deterministic boundary after
-   confirming the current request authorizes role agents and the independent
-   review loop: `scripts/review-round-start --profile supervisor_report
+8. Before spawning role agents, use the optimized deterministic boundary: `scripts/review-round-start --profile supervisor_report
    <case-id> [round-id]`, then `scripts/prepare-review-round --profile
    supervisor_report <case-id> [round-id]`. The second command delegates to
    supervisor-report packet preparation, refreshes current evidence and final

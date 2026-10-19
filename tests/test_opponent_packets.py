@@ -259,7 +259,7 @@ def test_generate_packets_writes_all_role_files(tmp_path: Path) -> None:
     assert (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").is_file()
     text = (round_dir / "work" / "opponent_packets" / "text_structure_assignment.md").read_text(encoding="utf-8")
     assert "Schema version: `opponent-review-packet-v1`" in text
-    assert "Recommended model: `gpt-5.5`" in text
+    assert "Recommended model: `gpt-6-astra`" in text
     assert "Recommended reasoning: `xhigh`" in text
     assert f"Common briefing: `{COMMON_BRIEFING_REL}`" in text
     briefing = json.loads((round_dir / COMMON_BRIEFING_REL).read_text(encoding="utf-8"))
@@ -567,7 +567,7 @@ def test_packet_includes_synthesis_review_contract(tmp_path: Path) -> None:
 
     assert "Run an independent thesis-opponent-materials-review pass" in text
     assert "work/oponent_podklady_draft.md" in text
-    assert "Recommended model: `gpt-5.5`" in text
+    assert "Recommended model: `gpt-6-astra`" in text
 
 
 def test_report_review_packet_starts_from_trace_controls_and_synthesis_handoffs(tmp_path: Path) -> None:

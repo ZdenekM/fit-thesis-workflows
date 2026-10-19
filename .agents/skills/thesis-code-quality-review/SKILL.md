@@ -28,12 +28,12 @@ cases/<case-id>/rounds/<round-id>/
   outputs/
 ```
 
-Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. GitHub repo/PR snapshots imported by `thesis-github-code-intake` also count as code evidence, but PR-mode review must stay scoped to student-owned diffs and contribution areas. After agent use is authorized, the main workflow should run `scripts/prepare-code-workspace <case-id> [round-id]` or otherwise unpack/import code into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
+Prefer unpacked code under `work/code/` when available. Archives in `inputs/` count as code. GitHub repo/PR snapshots imported by `thesis-github-code-intake` also count as code evidence, but PR-mode review must stay scoped to student-owned diffs and contribution areas. The main workflow should run `scripts/prepare-code-workspace <case-id> [round-id]` or otherwise unpack/import code into `work/code/` before delegating to read-only reviewers. If the code cannot be unpacked or inspected, state that concrete limitation instead of inventing findings.
 
 ## Process
 
 1. Resolve the active case and round.
-2. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+2. Use the required role agents and independent review for the requested workflow; no separate agent-use confirmation is needed.
 3. Enumerate available code artifacts, GitHub intake evidence, README/developer docs, dependency files, configs, tests, experiment scripts, generated/bundled assets, thesis text that explains implementation choices, current-evidence snapshots, reuse-index decisions, role packets, reusable evidence artifacts, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Use the inventory to choose targeted reads; do not load broad source trees only because they exist.
 4. If code is present only as an archive, run `scripts/prepare-code-workspace <case-id> [round-id]` when the current task permits writing ignored case workspace evidence. Use `work/code_workspace.md` and `work/serena_roots.json` as orientation aids for which roots exist and where to look; inspect them with `rg` and targeted reads, one root at a time. Serena does not cover submitted code: `cases/**` is in `ignored_paths` in the tracked `.serena/project.yml`, and the shared single-project server cannot be repointed at a per-case root. Use `--refresh` only after confirming the whole ignored `work/code/` workspace can be rebuilt, because it removes manually imported code roots too. If GitHub URL/PR evidence is present but not yet imported, run or request `thesis-github-code-intake` before judging code quality. If you are in a read-only reviewer agent, report the missing prepared workspace/evidence instead of silently skipping the review.
 5. Identify the project type and framework conventions before judging design. Do not punish a small thesis prototype for not looking like a production service.
@@ -77,7 +77,7 @@ Prefer unpacked code under `work/code/` when available. Archives in `inputs/` co
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent checks it. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 After writing or revising `outputs/code_quality_review.md`, register the
 artifact through the current `work/review_role_plan.json` preset when available,
@@ -110,8 +110,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for
-this skill must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for
+this skill must carry the same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) or another
 low-cost model for the first or only pass over implementation design,
 maintainability, runtime risk, reviewer-confidence findings, or Omen-informed
 interpretation. Mechanical helper summaries may use cheaper models only when

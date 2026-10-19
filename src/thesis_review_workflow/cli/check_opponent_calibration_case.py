@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{HISTORICAL_CASE_ANALYSIS_PREFIX}<historical-case-id>.json"
         )
         print(
-            "Create these artifacts with explicitly authorized historical-opponent-calibration agents "
+            "Create these artifacts with workflow historical-opponent-calibration agents "
             "or human reviewers before running this check."
         )
         return 1

@@ -1,8 +1,6 @@
 description = "Reviews cited literature for relevance, source availability, and claim support."
-model = "gpt-5.5"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "workspace-write"
-approval_policy = "never"
 
 developer_instructions = """
 Role: Thesis Literature Citation Reviewer

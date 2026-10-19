@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         for error in errors:
             print(f"ERROR: {error}")
         print(
-            "Create `work/assignment_coverage_agent.json` with an explicitly authorized "
+            "Create `work/assignment_coverage_agent.json` with a workflow "
             "assignment-coverage agent or human reviewer before running this check."
         )
         return 1

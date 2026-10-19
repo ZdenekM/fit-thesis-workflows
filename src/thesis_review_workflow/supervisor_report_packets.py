@@ -344,8 +344,7 @@ PACKET_ROLES = (
         model=MECHANICAL_MODEL,
         reasoning=MECHANICAL_REASONING,
         model_note=(
-            "Mechanical helper role; Spark is acceptable only because downstream semantic roles consume validated "
-            "state."
+            "Mechanical helper role; a small model may be used only because semantic roles consume validated state."
         ),
     ),
     PacketRole(
@@ -425,8 +424,6 @@ def render_packet(
     generated_at: str,
     round_dir: Path,
     role: PacketRole,
-    *,
-    agent_authorization: str,
 ) -> str:
     role_existing = existing_paths(
         round_dir,
@@ -472,7 +469,6 @@ def render_packet(
             f"Recommended model: `{role.model}`",
             f"Recommended reasoning: `{role.reasoning}`",
             f"Model note: {role.model_note}",
-            f"Agent authorization: `{agent_authorization}`",
             "",
             "## Mission",
             "",
@@ -541,8 +537,6 @@ def generate_packets(
     round_id: str,
     generated_at: str,
     round_dir: Path,
-    *,
-    agent_authorization: str = "direct-call-not-verified",
 ) -> list[Path]:
     packet_dir = round_dir / PACKET_DIR_REL
     packet_dir.mkdir(parents=True, exist_ok=True)
@@ -561,7 +555,6 @@ def generate_packets(
                 generated_at,
                 round_dir,
                 role,
-                agent_authorization=agent_authorization,
             ),
         )
         written.append(path)

@@ -43,9 +43,7 @@ dolaďuje (vývojově), takže zatím nástroj zvolte v chatu.
 3. Řekněte, co chcete získat: studentskou zpětnou vazbu, formální posudek
    vedoucího, oponentské podklady, revizní diff, kontrolu kódu, kontrolu citací
    nebo review hotového posudku.
-4. Pokud má vzniknout finální nebo odesílatelný výstup, nebo samostatná interní
-   evidence, na kterou se budete spoléhat, napište výslovně `použij agenty`.
-   Workflow tím spustí nezávislou kontrolu více rolí.
+4. Workflow samo použije potřebné role agentů a nezávislou kontrolu. Samostatný souhlas s použitím agentů není potřeba; případné omezení delegování napište přímo do požadavku.
 5. Agent si doplní chybějící kontext, založí nebo aktualizuje case, zpracuje
    vstupy v ignorovaném workspace a uloží výstupy do aktivního roundu.
 
@@ -70,7 +68,7 @@ Přikládám zadání, PDF práce, případně zdrojový zip, kód a Theses.cz r
 Moje poznámky k práci a zadání jsou: <kontext, omezení, co si mám podle tebe
 ověřit, co už nechci znovu otevírat>.
 
-Použij agenty. Pokud je dostupný kód, zkontroluj soulad textu s kódem i kvalitu
+Pokud je dostupný kód, zkontroluj soulad textu s kódem i kvalitu
 implementace. Výsledný feedback napiš tak, abych ho mohl poslat studentovi s
 minimální úpravou.
 ```
@@ -84,7 +82,7 @@ podkladů; pokud to nejde, řekne, co je skutečný blocker.
 ```text
 Tady je aktuální verze práce a předchozí zpětná vazba. Založ nový round ve
 stávajícím case, porovnej posun od minule a připrav krátký final-sprint
-feedback. Použij agenty, dej jim dost času a nálezy z review oprav.
+feedback. Nálezy z nezávislého review oprav.
 ```
 
 Pokud říkáte, že student něco nově doplnil nebo změnil, agent má nejdřív ověřit,
@@ -95,7 +93,7 @@ nebo jasně označit výstup jako provizorní.
 
 ```text
 Připrav interní oponentské podklady pro tuto BP/DP. Přikládám zadání, PDF,
-zdroje, kód a případně Theses.cz report podobnosti po odevzdání. Použij agenty.
+zdroje, kód a případně Theses.cz report podobnosti po odevzdání.
 Pokud je dostupný kód, zkontroluj soulad textu s kódem i kvalitu implementace.
 Výstup má být interní evidence pro oponenta, ne studentský feedback.
 ```
@@ -105,7 +103,7 @@ Výstup má být interní evidence pro oponenta, ne studentský feedback.
 ```text
 Připrav draft formálního posudku vedoucího pro IS. Přikládám zadání, aktuální
 PDF práce, případně kód a svoje poznámky k aktivitě, samostatnosti, komunikaci,
-dokončování, publikacím a navrhované známce/bodům. Použij agenty.
+dokončování, publikacím a navrhované známce/bodům.
 Předchozí feedback využij jen tam, kde je z něj a z revizí vidět reakce
 studenta; pokud to průkazné není, opři procesní hodnocení o moje poznámky.
 ```
@@ -117,7 +115,7 @@ Mám oponentský posudek k práci, kterou jsem vedl. Přidej ho do case jako
 postmortem vstup, porovnej oprávněné výtky s tím, co student dostal v dřívější
 zpětné vazbě, a navrhni, které typy problémů máme příště hlídat lépe.
 
-Použij agenty. Posudek je zatím draft sdílený oponentem ke konzultaci /
+Posudek je zatím draft sdílený oponentem ke konzultaci /
 oficiální neveřejná kopie / veřejně dostupný posudek.
 ```
 
@@ -125,8 +123,7 @@ oficiální neveřejná kopie / veřejně dostupný posudek.
 
 ```text
 Tady je můj draft oponentského posudku. Zkontroluj férovost, oporu v důkazech,
-tón, konzistenci bodů/známky, pokrytí zadání a otázky k obhajobě. Použij
-agenty. Nálezy promítni jen způsobem, který zachová vazbu na podklady a review,
+tón, konzistenci bodů/známky, pokrytí zadání a otázky k obhajobě. Nálezy promítni jen způsobem, který zachová vazbu na podklady a review,
 nebo mi vrať blokující připomínky, pokud by bylo potřeba návrh přepracovat ručně.
 ```
 
@@ -135,7 +132,7 @@ nebo mi vrať blokující připomínky, pokud by bylo potřeba návrh přepracov
 ```text
 Chci vypsat nové téma. Mám nápad, ne hotové zadání. Připrav se mnou podklad
 tématu a z něj zadání pro BP i DP variantu a k tomu úvodní brief pro studenta.
-Použij agenty; nezveřejňuj nic do IS, jen mi to připrav ke kontrole.
+Nezveřejňuj nic do IS, jen mi to připrav ke kontrole.
 ```
 
 Toto je jediný workflow v repozitáři, který zadání vytváří; všechny ostatní
@@ -149,7 +146,7 @@ PDF: řekněte agentovi „dej mi ten brief jako PDF“.
 ```text
 Student má zadání, které už je vypsané v IS (přikládám PDF zadání). Připrav mu
 úvodní brief, případně i literaturu, kterou doplním do IS. Byli jsme spolu na
-první schůzce: <co jsme probrali>. Použij agenty.
+první schůzce: <co jsme probrali>.
 ```
 
 Převzaté zadání jde stejnou cestou jako nové téma: agent ho přepíše doslova do
@@ -166,7 +163,7 @@ odpovídají tomu, co je v kódu a v README.
 
 ```text
 Udělej samostatný review kódu pro aktuální round. Odděl nesoulad textu s kódem,
-design/runtime rizika a nice-to-have zlepšení. Použij agenty.
+design/runtime rizika a nice-to-have zlepšení.
 ```
 
 ## Co agent potřebuje

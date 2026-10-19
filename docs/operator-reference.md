@@ -11,10 +11,7 @@ jakou práci chcete zpracovat, jaký výstup očekáváte a kde jsou podklady. A
 má rozlišit, jestli jde o průzkumnou otázku, pracovní draft, nebo finální
 výstup vyžadující agentní review.
 
-Pro finální studentskou zpětnou vazbu, posudky, oponentské podklady a
-samostatnou interní evidenci napište v aktuálním požadavku výslovně
-`použij agenty`. Bez toho má agent zastavit před sendable/final artefaktem a
-vyžádat si autorizaci.
+Požadavek na finální studentskou zpětnou vazbu, posudek, oponentské podklady nebo samostatnou interní evidenci zahrnuje potřebné role agentů a nezávislou kontrolu. Samostatný souhlas s použitím agentů není potřeba. Případné omezení delegování uveďte přímo; chybějící povinné review pak nelze vydávat za hotové.
 
 ## Local RAG
 
@@ -87,7 +84,7 @@ studentskou zpětnou vazbu od vedoucího.
 ```text
 Pro aktuální round udělej finální kontrolu před odevzdáním. Priorita:
 splnění zadání, technická pravdivost, chybějící soubory, výsledky,
-README/reprodukovatelnost a obhajitelnost. Použij agenty a nálezy oprav ve
+README/reprodukovatelnost a obhajitelnost. Nálezy z review oprav ve
 feedbacku.
 ```
 
@@ -95,7 +92,7 @@ feedbacku.
 
 ```text
 Porovnej aktuální round s předchozí verzí práce. Zaměř se na to, co z minulé
-zpětné vazby bylo vyřešeno, co zůstává a co je nové riziko. Použij agenty.
+zpětné vazby bylo vyřešeno, co zůstává a co je nové riziko.
 ```
 
 Pokud operátor říká, že student doplnil nebo změnil aktuální materiály, agent
@@ -112,7 +109,7 @@ PR: https://github.com/owner/project/pull/123
 GitHub login studenta: <login>
 Nejdřív udělej GitHub code intake: metadata PR, diff, komentáře, review a CI
 stav. Potom použij jen ověřené závěry pro soulad textu s kódem a code-quality
-review. Použij agenty.
+review.
 ```
 
 Pokud neznáte přesný seznam PR, uveďte upstream repo a autorův GitHub login.
@@ -420,8 +417,7 @@ Markdown draft.
 
 1. Agent ověří `check-supervisor-report-ready <case-id> [round-id]`, včetně
    reportového vstupu vedoucího.
-2. Role packets připraví jen po explicitním `použij agenty`; přitom obnoví
-   current evidence a materiality pro `supervisor_report`.
+2. Připraví role packets a přitom obnoví current evidence a materiality pro `supervisor_report`; samostatné potvrzení použití agentů není potřeba.
 3. Parent agent vytvoří `work/supervisor_report_trace.json` a pracovní draft.
 4. Jiný autorizovaný agent provede nezávislé review posudku.
 5. Před IS se obnoví manifest, potvrdí známka/body/oficiální text a neveřejný

@@ -39,9 +39,7 @@ logical `scripts/<tool>` name in development checkouts and through generated
 
 The final supervisor-report operator path is command-surface sensitive because
 it is used by role agents as well as humans. `prepare-supervisor-report-packets`
-must be run only after current-request agent authorization is explicit; its
-normal invocation includes `--agents-authorized` and refreshes current evidence
-plus final `supervisor_report` materiality before packet emission. After the
+prepares packets for the role agents required by the requested workflow without a separate consent flag. Its normal invocation refreshes current evidence plus final `supervisor_report` materiality before packet emission. After the
 reviewed report and `work/reviews/supervisor_report_review.json` exist,
 `init-review-manifest --run-checks`, `confirm-supervisor-report`, and
 `supervisor-report-closeout` are the supported closeout surface. Closeout

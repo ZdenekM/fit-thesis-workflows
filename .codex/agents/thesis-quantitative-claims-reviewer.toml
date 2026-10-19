@@ -1,8 +1,6 @@
 description = "Reviews quantitative, evaluation, metric, performance, scale, and result claims for unit, baseline, practical-context, reproducibility, and overclaim risk."
-model = "gpt-5.5"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "workspace-write"
-approval_policy = "never"
 
 developer_instructions = """
 Role: Thesis Quantitative Claims Reviewer

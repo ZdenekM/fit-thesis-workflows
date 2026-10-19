@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         for error in errors:
             print(f"ERROR: {error}")
         print(
-            "Create `work/evidence_requirements.json` with an explicitly authorized "
+            "Create `work/evidence_requirements.json` with a workflow "
             "evidence-requirements agent or human reviewer before running this check."
         )
         remove_stale_media_inventory(media_path)

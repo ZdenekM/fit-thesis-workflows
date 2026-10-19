@@ -87,7 +87,7 @@ def main(argv: list[str]) -> int:
         for error in errors:
             print(f"ERROR: {error}")
         print(
-            "Create `work/quantitative_claims.json` with an explicitly authorized "
+            "Create `work/quantitative_claims.json` with a workflow "
             "quantitative-claims agent or human reviewer before running this check."
         )
         return 1

@@ -19,7 +19,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 ## Process
 
 1. Resolve the active case and round from the user's target or `current-round.txt`.
-2. Confirm that the user explicitly authorized agent use in the current request when this check will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+2. Use the required role agents and independent review for the requested workflow; no separate agent-use confirmation is needed.
 3. Enumerate `inputs/`, `extracted/`, GitHub intake evidence, code artifacts, current-evidence snapshots, reuse-index decisions, role packets, reusable evidence artifacts, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Treat submitted PDFs as rendered thesis evidence. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory; do not build LaTeX/Overleaf sources by default. Use `pdf-reader-mcp` only for targeted page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction.
 4. When quantitative, evaluation, experiment, metric, performance, or result claims matter to text-code consistency, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact. Do not use deterministic text matching to decide whether such claims exist or what they mean. If this role discovers a material prose-only metric/result claim, route it to `thesis-quantitative-claims-review` rather than expanding deterministic raw-text scans.
 5. Identify thesis claims about:
@@ -81,7 +81,7 @@ For README, reproducibility, and smoke-test evidence: this skill checks whether 
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent checks it. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 After writing or revising `outputs/code_consistency.md`, register the artifact
 through the current `work/review_role_plan.json` preset when available, usually
@@ -114,8 +114,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for
-this skill must carry the same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) or another
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for
+this skill must carry the same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) or another
 low-cost model for the first or only pass over thesis claims, code evidence,
 reproducibility, or text-code mismatch findings. Mechanical helper summaries may
 use cheaper models only when validator-backed and consumed by a high-reasoning

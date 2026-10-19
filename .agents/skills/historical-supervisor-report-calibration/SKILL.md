@@ -9,8 +9,7 @@ Command routing: treat `scripts/<tool>` examples below as logical workflow
 command names. On Windows, use packaged
 `dist\workflow-tools\bin\<tool>.cmd` or `.ps1` launchers; do not run or click extensionless `scripts/<tool>` files.
 
-Use this skill only after the user explicitly authorizes agents in the current
-request. Historical reports and generated calibration artifacts stay under
+Use the required role agents and independent review for a requested historical calibration; no separate agent-use confirmation is needed. Historical reports and generated calibration artifacts stay under
 ignored `cases/`.
 
 ## Workflow

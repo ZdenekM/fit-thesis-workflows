@@ -1,8 +1,6 @@
 description = "Imports and reviews read-only GitHub repository or PR evidence for thesis rounds."
-model = "gpt-5.5"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "workspace-write"
-approval_policy = "never"
 
 developer_instructions = """
 Role: Thesis GitHub Code Intake Reviewer

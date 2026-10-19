@@ -34,9 +34,7 @@ does not control `Student feedback language`.
 
 ## Process
 
-1. Confirm that the user explicitly authorized agent use when this review will
-   produce final standalone evidence or feed supervisor/opponent artifacts. If
-   authorization is missing, stop before writing or relying on a final artifact.
+1. Use the required role agents and independent review for final standalone evidence or downstream supervisor/opponent artifacts; no separate agent-use confirmation is needed.
 2. Resolve the active case and round. For supervisor/student-facing use, run
    `scripts/check-supervisor-ready <case-id> [round-id]`; for opponent/internal
    use, run `scripts/check-round-ready <case-id> [round-id]`.
@@ -89,9 +87,7 @@ mention only severe readability problems or defer typography to later.
 ## Review Loop
 
 When this artifact is generated as standalone output, it is draft evidence until
-a different explicitly authorized reviewer agent checks it. If agent
-authorization is missing, ask before marking or relying on it as final
-standalone evidence. A downstream synthesis review certifies only the findings
+a different reviewer agent checks it. A downstream synthesis review certifies only the findings
 it uses, not the whole standalone artifact.
 
 ## Agent Final Response Contract
@@ -107,8 +103,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
-same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) for the
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
+same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) for the
 first or only pass over formal-presentation severity, language-sensitive
 typography findings, or downstream synthesis recommendations. Mechanical helper
 summaries may use cheaper models only when validator-backed and consumed by a

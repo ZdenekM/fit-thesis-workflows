@@ -40,7 +40,7 @@ for example `work/literature/`.
 
 ## Process
 
-1. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+1. Use the required role agents and independent review for the requested workflow; no separate agent-use confirmation is needed.
 2. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, or a standalone operator check. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]` unless fresh output from that command is already in context. For opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
 3. Start from role packets, current-evidence snapshots, reuse-index decisions, and existing literature/citation evidence when present. Collect bibliography entries and in-text citations from the submitted PDF text first. Use `.bib` files and LaTeX sources to resolve keys, metadata, and exact source locations, or to flag source/PDF mismatches. Keep a source map from citation key or title to thesis locations and claims it appears to support.
 4. Triage citations before external lookup. Select only key or suspicious items: sources central to the assignment, thesis method, thesis conclusions, or report-grade claims; citations with metadata/title-claim mismatch; sources used for contested quantitative or state-of-the-art claims; and thin or inaccessible entries that materially affect a finding. Do not attempt to download every bibliography item by default.
@@ -87,7 +87,7 @@ for example `work/literature/`.
 
 ## Review Loop
 
-When this artifact is generated as standalone output, it is draft evidence until a different explicitly authorized reviewer agent checks it. If agent authorization is missing, ask before marking or relying on it as final standalone evidence; if authorization is not granted, stop before final standalone use or before using the artifact in a sendable supervisor/opponent synthesis. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
+When this artifact is generated as standalone output, it is draft evidence until a different reviewer agent checks it. A downstream synthesis review certifies only the findings it uses, not the whole standalone artifact.
 
 After writing or revising `outputs/literature_citation_review.md`, register the
 artifact through the current `work/review_role_plan.json` preset when available,
@@ -113,8 +113,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
-same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) for the
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
+same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) for the
 first or only pass over source relevance, claim support, missing-source risk,
 or downstream synthesis recommendations. Mechanical helper summaries may use
 cheaper models only when validator-backed and consumed by a high-reasoning

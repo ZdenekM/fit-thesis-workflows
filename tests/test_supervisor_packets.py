@@ -143,7 +143,7 @@ def test_generate_supervisor_packets_starts_with_mandatory_base_only(tmp_path: P
     assert [path.name for path in written] == ["text_assignment.md", "current_evidence_snapshot.md"]
     text = (round_dir / "work" / "supervisor_packets" / "text_assignment.md").read_text(encoding="utf-8")
     assert "Schema version: `supervisor-feedback-packet-v1`" in text
-    assert "Recommended model: `gpt-5.5`" in text
+    assert "Recommended model: `gpt-6-astra`" in text
     assert "Official deadline: 2026-05-13" in text
     assert "## Final-Sprint Action Budget" in text
     assert f"Common briefing: `{COMMON_BRIEFING_REL}`" in text

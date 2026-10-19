@@ -51,9 +51,7 @@ not replace the semantic quantitative review or downstream independent review.
 ## Process
 
 1. Resolve the active case and round.
-2. Confirm that the user explicitly authorized agent use in the current request
-   before writing evidence that feeds supervisor/opponent synthesis. If
-   authorization is missing, stop and ask for it.
+2. Use the required role agents and independent review for evidence that feeds supervisor/opponent synthesis; no separate agent-use confirmation is needed.
 3. Identify material quantitative claims from available structured inputs,
    role packets, materiality next actions, prior reviews, thesis extracts,
    tables, result figures, README/configs, logs, notebooks, and code evidence.
@@ -106,7 +104,7 @@ Write UTF-8 JSON to `work/quantitative_claims.json`:
   "producer_type": "agent",
   "producer_role": "quantitative-claims-reviewer",
   "producer_agent": "<agent-or-model-id>",
-  "authorization_note": "Current request explicitly authorized agents.",
+  "authorization_note": "The requested workflow includes its required role agents and independent review.",
   "source_refs": [
     "extracted/thesis.txt",
     "outputs/code_consistency.md"
@@ -196,9 +194,8 @@ grade/report defensibility, limitations, defense questions, or manual checks.
 
 ## Model And Reasoning
 
-Use the active provider's strongest tier at `xhigh` effort (Codex `gpt-5.5`,
-Claude `opus`); see `docs/agent-scheduling.md` for the provider-neutral model
-policy. Do not downshift this role to a low-cost model (Codex Spark or a small
+Use the active provider's strongest tier at `xhigh` effort; see `docs/agent-scheduling.md` for the provider-neutral model
+policy. Do not downshift this role to a low-cost model (a smaller Codex model or a small
 Claude tier) or another mechanical helper model: the first pass over unit,
 scale, baseline, reproducibility, practical magnitude, and overclaim risk is a
 semantic review.

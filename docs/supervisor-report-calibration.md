@@ -3,7 +3,7 @@
 Historical supervisor reports are private style calibration evidence for formal
 supervisor reports. They are never evidence about the current student.
 
-Use the workflow only after explicit agent authorization. Keep historical
+Use the required agents and independent review when the operator requests this workflow, without a separate agent-use confirmation. Keep historical
 reports, extracted text, case analyses, generated calibration profiles, and
 reviews under ignored `cases/`.
 

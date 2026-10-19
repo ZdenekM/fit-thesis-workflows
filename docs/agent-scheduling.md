@@ -1,9 +1,8 @@
 # Agent Scheduling
 
-This workflow uses role coverage, not unlimited concurrency. When a user
-explicitly authorizes agents, keep review quality and required role separation,
-but bound the number of live agents so thesis rounds can run on machines with
-limited RAM.
+The requested workflow includes its required role agents and independent review, without a separate agent-use confirmation. Keep review quality and required role separation, but bound the number of live agents so thesis rounds can run on machines with limited RAM.
+
+When a structured semantic artifact requires `authorization_note`, record the requested workflow and these delegation instructions as its basis. Do not claim the operator gave a separate explicit confirmation. Source-access restrictions, submitted-code execution permission, and approval to publish remain separate.
 
 Command routing: `scripts/<tool>` examples in this document are Linux/dev
 shorthand and logical workflow command names. On Windows, package the workflow
@@ -76,10 +75,7 @@ Codex or Claude writer/orchestrator). It applies **globally across providers**:
 not reduce required role coverage, independent review, manifest evidence, or
 `scripts/check-agent-coverage`.
 
-The runtime default is enforced in `.codex/config.toml` with
-`agents.max_threads = 2`, `agents.max_depth = 1`, and
-`agents.job_max_runtime_seconds = 3600`. Keep this document aligned with that
-config if the project default changes. Role-to-profile routing is tracked in
+The concurrency limit is configured in `.codex/config.toml` with `agents.max_concurrent_threads_per_session = 2`. The installed V1 runtime also accepts `agents.max_depth = 1` and `agents.job_max_runtime_seconds = 3600`; acceptance of the latter does not establish a wall-clock deadline for an ordinary spawned reviewer turn. Keep this document aligned with configuration changes. Role-to-profile routing is tracked in
 `docs/agent-profile-matrix.md`; keep that matrix and
 `src/thesis_review_workflow/agent_profiles.py` aligned when adding or changing a
 repo-local workflow skill.
@@ -90,7 +86,7 @@ Quality-critical thesis-review roles should use the strongest available model
 and reasoning effort **of whichever provider runs the role**. This is the
 provider-neutral source that the repo-local skills point to:
 
-- Codex adapters (`.codex/agents/*.toml`): `gpt-5.5` with
+- Codex adapters (`.codex/agents/*.toml`): `gpt-6-astra` with
   `model_reasoning_effort = "xhigh"`.
 - Claude adapters (`.claude/agents/*.md`): `model: opus` with `effort: xhigh`.
 
@@ -98,9 +94,13 @@ Both pins target the strongest available tier at high effort for every semantic
 role listed as `profile` in `docs/agent-profile-matrix.md`. Keep the two adapter
 surfaces at parity when the strongest available tier changes.
 
+The Codex pin was checked against the available account model catalogue and official OpenAI guidance on 2026-10-19. Keep it explicit: inheriting a model from a coding parent could silently change the semantic-review tier. Routine mechanical packet helpers use `gpt-6-luna` with `high` effort. The parent session's model is not set by this repository. Model defaults are also consumed by `review_packets.py`; update the profile contract and packet checks together when changing them.
+
+Codex role agents inherit the parent's actual permissions, approval policy and MCP access. Their allowed-write lists are instructions and workflow ownership contracts, not separate operating-system sandboxes. Custom role files must not claim to narrow permissions through `sandbox_mode` or `approval_policy`; configure the parent appropriately and keep reviewer writes within the assigned outputs. See the [official subagent contract](https://learn.chatgpt.com/docs/agent-configuration/subagents).
+
 Do not downshift semantic roles that read thesis text, submitted code,
 evidence artifacts, synthesis drafts, or final/reviewable outputs. Cheaper
-models (Codex `gpt-5.3-codex-spark`, or a small Claude tier) are candidates only
+models (Codex `gpt-6-luna`, or a small Claude tier) are candidates only
 for mechanical, validator-backed helper roles such as packet inventory
 summaries, expected-file checks, or manifest-shape triage. Any such
 helper output must be validated by deterministic checks and reviewed by a

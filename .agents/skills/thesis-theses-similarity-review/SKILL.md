@@ -39,9 +39,7 @@ revision-diff metric.
 
 ## Process
 
-1. Confirm explicit agent authorization before writing or relying on
-   `outputs/theses_similarity_review.md` for final standalone evidence or
-   downstream supervisor/opponent synthesis.
+1. Use the required role agents and independent review before relying on `outputs/theses_similarity_review.md` for final standalone evidence or downstream supervisor/opponent synthesis; no separate agent-use confirmation is needed.
 2. Resolve the active case and round. Run
    `scripts/check-theses-similarity-report <case-id> [round-id]`. If it fails,
    repair the import/evidence shape or record a typed limitation before
@@ -138,7 +136,7 @@ authorship wording unless the reviewed evidence supports that narrow statement.
 ## Review Loop
 
 `outputs/theses_similarity_review.md` is internal evidence. If used as final
-standalone evidence, it needs an independent explicitly authorized reviewer. The
+standalone evidence, it needs an independent reviewer. The
 approval record uses `work/reviews/theses_similarity_review.json` through the
 canonical `theses-similarity-review` approval profile. Material edits after the
 approval reopen draft state.
@@ -159,7 +157,7 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for semantic
-review of similarity matches and downstream wording. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Mechanical parsing and helper
+review of similarity matches and downstream wording. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Mechanical parsing and helper
 checks may use cheaper models only when validator-backed and consumed by this
 semantic pass.
 

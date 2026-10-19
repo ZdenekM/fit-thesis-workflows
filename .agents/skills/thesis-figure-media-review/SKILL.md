@@ -35,7 +35,7 @@ thesis claim depends on them.
 
 ## Process
 
-1. Confirm that the user explicitly authorized agent use in the current request when this review will produce final standalone evidence or feed supervisor/opponent artifacts. If explicit authorization is missing, stop before writing the artifact and ask the user to authorize agents.
+1. Use the required role agents and independent review for the requested workflow; no separate agent-use confirmation is needed.
 2. Resolve the active case and round. Record whether the review is for supervisor/student-facing downstream use, opponent/internal-only use, revision diff, or standalone operator evidence. For supervisor/student-facing use, run `scripts/check-supervisor-ready <case-id> [round-id]`; for opponent/internal-only use, run `scripts/check-round-ready <case-id> [round-id]`.
 3. Treat the submitted PDF as the authoritative rendered artifact. Use `pdftotext -layout` extracts for stable text/caption evidence. Use `pdf-reader-mcp`, screenshots, crops, or other vision evidence only for targeted visual inspection. Use LaTeX/Overleaf/source assets as a precision layer for original image quality and provenance, never as a replacement for the final PDF.
 4. Inventory relevant visual elements from the rendered PDF text, captions, list of figures/tables, nearby claims, and source assets. Write one JSON object per relevant item to `work/figure_media/visual_inventory.jsonl`.
@@ -128,9 +128,7 @@ may be omitted when no previous round exists. Current V1 versions are
 ## Review Loop
 
 When this artifact is generated as standalone output, it is draft evidence until
-a different explicitly authorized reviewer agent checks it. If agent
-authorization is missing, ask before marking or relying on it as final
-standalone evidence. A downstream synthesis review certifies only the findings
+a different reviewer agent checks it. A downstream synthesis review certifies only the findings
 it uses, not the whole standalone artifact.
 
 ## Agent Final Response Contract
@@ -146,8 +144,8 @@ that affect parent verification.
 ## Model And Reasoning
 
 Use the strongest available model with high reasoning effort for this semantic
-workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort (Codex adapter: `gpt-5.5`; Claude adapter where available: `opus`); see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
-same requirement. Do not downshift to a low-cost model (Codex Spark or a small Claude tier) for the
+workflow. Use the strongest available tier of whichever provider runs this role, at `xhigh` effort; see `docs/agent-scheduling.md`. Packet prompts generated for this skill must carry the
+same requirement. Do not downshift to a low-cost model (a smaller Codex model or a small Claude tier) for the
 first or only pass over visual evidence, figure/table claim alignment,
 media/demo support, or downstream synthesis recommendations. Mechanical helper
 summaries may use cheaper models only when validator-backed and consumed by a

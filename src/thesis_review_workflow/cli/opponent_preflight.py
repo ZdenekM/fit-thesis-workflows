@@ -165,7 +165,9 @@ def output_next_actions(
         for line in bundle_lines:
             print(line)
     print("- If this preflight has FAIL items, fix them before generating opponent materials.")
-    print("- If it passes, start the role-split opponent workflow with explicit agent authorization.")
+    print(
+        "- If it passes, start the role-split opponent workflow with its required role agents and independent review."
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

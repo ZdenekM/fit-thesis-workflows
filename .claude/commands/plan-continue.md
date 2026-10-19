@@ -27,8 +27,8 @@ sentence "Continue the active plan."
    narrow re-check, then shrink the object rather than buying a third round.
 5. Execute exactly the action `## Start Here` names — one slice or one pass, not more. Respect every
    stop condition in the charter and in `plans/README.md`. Decision points that belong to the
-   operator (plan approval, anything sendable to a student or FIT IS, anything that spends money,
-   agent authorization) end the turn with an explicit question, never with silence and never by
+   operator (plan approval, anything sendable to a student or FIT IS, anything that spends money)
+   end the turn with an explicit question, never with silence and never by
    proceeding.
 6. End per `## Session Handoff`: update `## Start Here` (state, exact next action, open questions),
    run the plan gate and the repo's lightweight checks, commit green work, stop. Never write a

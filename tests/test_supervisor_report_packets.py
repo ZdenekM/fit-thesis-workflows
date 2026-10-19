@@ -94,7 +94,7 @@ def test_generate_supervisor_report_packets_starts_with_mandatory_roles(tmp_path
     text = (round_dir / "work" / "supervisor_report_packets" / "trace.md").read_text(encoding="utf-8")
     assert "Schema version: `supervisor-report-packet-v1`" in text
     assert "Expected output: `work/supervisor_report_trace.json`" in text
-    assert "Agent authorization: `direct-call-not-verified`" in text
+    assert "Agent authorization:" not in text
     assert "Supervisor input is authoritative" in text
     assert str(tmp_path) not in text
 
@@ -285,7 +285,7 @@ def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality
     monkeypatch.setattr(prepare_supervisor_report_packets, "repo_root", lambda: root)
     monkeypatch.setattr(prepare_supervisor_report_packets, "run_step", fake_run_step)
 
-    result = prepare_supervisor_report_packets.main(["--agents-authorized", "case-a", "round-a"])
+    result = prepare_supervisor_report_packets.main(["case-a", "round-a"])
 
     assert result == 0
     assert calls == [
@@ -295,14 +295,14 @@ def test_prepare_supervisor_report_packets_refreshes_snapshot_before_materiality
     ]
 
 
-def test_prepare_supervisor_report_packets_requires_agent_authorization(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_prepare_supervisor_report_packets_still_requires_readiness(tmp_path: Path, monkeypatch) -> None:
     round_dir = make_round(tmp_path)
     root = round_dir.parents[3]
     calls: list[str] = []
 
     def fake_run_step(root_arg: Path, label: str, args: list[str], *, required: bool = True) -> Step:
         calls.append(label)
-        return Step(label=label, command=args, returncode=0, output="", required=required)
+        return Step(label=label, command=args, returncode=2, output="Missing supervisor input", required=required)
 
     monkeypatch.setattr(prepare_supervisor_report_packets, "repo_root", lambda: root)
     monkeypatch.setattr(prepare_supervisor_report_packets, "run_step", fake_run_step)
@@ -310,5 +310,5 @@ def test_prepare_supervisor_report_packets_requires_agent_authorization(tmp_path
     result = prepare_supervisor_report_packets.main(["case-a", "round-a"])
 
     assert result == 2
-    assert calls == []
-    assert "requires --agents-authorized" in capsys.readouterr().out
+    assert calls == ["supervisor report readiness"]
+    assert not (round_dir / "work/supervisor_report_packets").exists()

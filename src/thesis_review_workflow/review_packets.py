@@ -50,9 +50,9 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
 )
 
-SEMANTIC_MODEL = "gpt-5.5"
+SEMANTIC_MODEL = "gpt-6-astra"
 SEMANTIC_REASONING = "xhigh"
-MECHANICAL_MODEL = "gpt-5.3-codex-spark"
+MECHANICAL_MODEL = "gpt-6-luna"
 MECHANICAL_REASONING = "high"
 
 CASE_INPUTS = ("case.md",)
@@ -179,7 +179,9 @@ class PacketRole:
     activation_paths: tuple[str, ...] = ()
     model: str = SEMANTIC_MODEL
     reasoning: str = SEMANTIC_REASONING
-    model_note: str = "Semantic reviewer role; keep on gpt-5.5/xhigh unless the operator changes the policy."
+    model_note: str = (
+        f"Semantic reviewer role; keep on {SEMANTIC_MODEL}/{SEMANTIC_REASONING} unless the operator changes the policy."
+    )
     activation_check: tuple[str, ...] = ()
     activation_workflow_profile: str | None = None
     agent_profile_id: str = ""

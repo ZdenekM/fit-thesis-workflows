@@ -244,6 +244,15 @@ def test_review_round_closeout_delegates_supervisor_report_after_shared_current_
     assert common_briefing_workflow_profiles == ["supervisor_report"]
     assert steps[0].label == "Free-space preflight"
     assert any(step.label == "Review role plan refresh" for step in steps)
+    assert commands_seen["Review role plan refresh"] == [
+        "scripts/prepare-review-round",
+        "--profile",
+        "supervisor_report",
+        "--skip-ready-check",
+        "--skip-materiality-check",
+        "case-a",
+        "round-a",
+    ]
     assert commands_seen["Delegated profile closeout: supervisor-report-closeout"] == [
         "scripts/supervisor-report-closeout",
         "--skip-repo-hygiene",
@@ -420,18 +429,13 @@ def test_closeout_logical_command_display_quotes_spaced_values() -> None:
         "scripts/prepare-review-round",
         "--profile",
         "supervisor_report",
-        "--authorization-note",
-        "approved by supervisor",
-        "case-a",
+        "case with spaces",
         "round-a",
     ]
 
     rendered = review_round_closeout.logical_command_display(command)
 
-    assert rendered == (
-        "prepare-review-round --profile supervisor_report --authorization-note "
-        "'approved by supervisor' case-a round-a"
-    )
+    assert rendered == ("prepare-review-round --profile supervisor_report 'case with spaces' round-a")
 
 
 def test_commands_run_step_terminates_process_tree_on_interrupt(monkeypatch, tmp_path: Path) -> None:

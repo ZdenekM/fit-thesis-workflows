@@ -64,8 +64,8 @@ cat >"$round_dir/notes/assignment.md" <<'EOF'
 EOF
 printf 'Synthetic extracted thesis text.\n' >"$round_dir/extracted/thesis.txt"
 printf '# Previous feedback\n' >"$prev_round_dir/outputs/feedback_student.md"
-printf 'Prepared code root: inputs/submitted-src\n' >"$round_dir/work/code_workspace.md"
-printf '{"classification": "static_setup_present"}\n' >"$round_dir/work/code_reproducibility.json"
+printf 'print("synthetic submitted code")\n' >"$round_dir/inputs/submitted-src/main.py"
+expect_success "prepare code workspace" "$repo_root/scripts/prepare-code-workspace" "$case_id"
 
 expect_success "prepare supervisor packets" "$repo_root/scripts/prepare-supervisor-packets" "$case_id"
 expect_output "Supervisor packets: 4"
@@ -86,7 +86,7 @@ grep -Fq "Common briefing: \`work/common_briefing.json\`" "$packet_dir/text_assi
 grep -Fq "Official deadline: 2026-05-13" "$packet_dir/text_assignment.md"
 grep -Fq "round \`round-a\`: \`outputs/feedback_student.md\`" "$common_briefing"
 grep -Fq "inputs/submitted-src/" "$common_briefing"
-grep -Fq "Recommended model: \`gpt-5.5\`" "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-6-astra\`" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
 grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 

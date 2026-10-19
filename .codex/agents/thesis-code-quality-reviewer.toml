@@ -1,8 +1,6 @@
 description = "Reviews implementation architecture, maintainability, runtime risks, tests, and developer evidence."
-model = "gpt-5.5"
+model = "gpt-6-astra"
 model_reasoning_effort = "xhigh"
-sandbox_mode = "workspace-write"
-approval_policy = "never"
 
 developer_instructions = """
 Role: Thesis Code Quality Reviewer
