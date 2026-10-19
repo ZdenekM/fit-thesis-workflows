@@ -52,10 +52,13 @@ rules; in short:
   declare only the issued variant in `Variants:`, state in `Important
   constraints:` of `case.md` that the assignment is issued in FIT IS, which PDF
   holds it and which fields stay editable, and fill `Student:` once the student
-  is known;
+  is known. Ask the operator which fields are still editable instead of
+  assuming only `Literatura:` is; an assignment not yet approved in FIT IS may
+  be editable as a whole;
 - transcribe the issued points verbatim into
   `outputs/assignment_formal_<variant>.md` and author only what the operator
-  can still edit in IS, typically `Literatura:`;
+  can still edit in IS; a point the operator changes is named in `Important
+  constraints:` and reviewed as authoring;
 - fill the intake to its adopted minimum and write the brief for that student,
   including what a first meeting agreed, as `####` subsections of a content
   section or of the variant delta;
@@ -117,9 +120,15 @@ claim reaches the intake, a brief, or an assignment comment:
   worded; narrow it to what the searches actually covered or name the
   counterexample.
 - Word what survives as a scoped search result ("jsem nenašel", with the date
-  and what was searched), never as a fact about the world.
+  and what was searched, including which research communities and application
+  domains), never as a fact about the world.
 - Hand the reviewers the full set of discovery artifacts, so they can run the
   same cross-check.
+
+For literature discovery, `docs/assignment-authoring.md` `## Literature
+Selection And Currency` also owns two rules that keep these passes from coming
+back too narrow: search application domains, not only the originating community,
+and ask the operator for publications about the platform the topic builds on.
 
 Measured on a retrofit brief where the literature pass recorded "no public
 NL-to-automation dataset beyond four tasks" while the parallel ecosystem scan

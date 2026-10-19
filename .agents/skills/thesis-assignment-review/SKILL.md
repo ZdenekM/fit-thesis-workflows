@@ -67,7 +67,11 @@ case: shared material is checked across variants, not within one.
    Also assess the bibliography against `docs/assignment-authoring.md`
    `## Literature Selection And Currency`: verify the role of retained older
    sources and whether the list covers relevant current approaches. Verified
-   identifiers alone do not satisfy this semantic check.
+   identifiers alone do not satisfy this semantic check. A negative finding
+   about currency must name the communities and domains searched; flag one that
+   generalizes from a single research community. For a topic built on an
+   existing platform, check that the intake records the operator's answer about
+   publications on the platform and its upstream components.
 2. **Assessability.** Could this repository's own opponent pipeline evaluate a
    finished thesis against each point a year from now? An activity with no
    success criterion is the recurring corpus weakness.
@@ -97,7 +101,9 @@ case: shared material is checked across variants, not within one.
    that the assignment is issued in FIT IS (see `docs/assignment-authoring.md`
    `## Adopting An Issued Assignment`), check the issued fields against the IS
    PDF it names for verbatim transcription instead of reviewing them as
-   authoring; items 1 to 3 then apply only to the fields still editable. A
+   authoring; items 1 to 3 then apply only to the fields still editable,
+   including any issued point the operator decided to change, which `case.md`
+   records and which is reviewed as authored text. A
    weakness of an issued field the operator cannot edit is a limitation, never a
    blocking finding: write it in your findings artifact under limitations, for
    the parent to carry into the record's `limitations`. Only a transcription

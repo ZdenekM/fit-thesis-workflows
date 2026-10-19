@@ -42,12 +42,17 @@ What changes for an adopted assignment:
 
 - **Source.** The IS PDF of the issued assignment goes into the topic case's
   `inputs/`, and `outputs/assignment_formal_<variant>.md` carries its field values
-  verbatim inside the `templates/assignment-formal.md` structure; a label or
-  section that does not fit that structure is a transcription defect to fix. Only
-  fields the operator can still edit in IS are authored, typically `Literatura:`.
+  verbatim inside the `templates/assignment-formal.md` structure, except fields
+  the operator decided to change; a label or section that does not fit that
+  structure is a transcription defect to fix. Only fields the operator can still
+  edit in IS are authored, typically `Literatura:`. Which fields those are is the
+  operator's answer, not an assumption: an assignment not yet approved in FIT IS
+  may still be editable as a whole, so ask before treating the points as frozen.
   `Important constraints:` in `case.md` states that the assignment is issued in
-  FIT IS, names the PDF in `inputs/`, and lists the fields still editable; that
-  statement is what tells the reviewer the variant is adopted.
+  FIT IS, names the PDF in `inputs/`, lists the fields still editable, and names
+  each issued point the operator changed; that statement is what tells the
+  reviewer the variant is adopted and which differences from the PDF are
+  deliberate. A changed point is authored text and is reviewed as authoring.
   Opening a topic case is still manual (see `TODO.md`, "Give a topic-proposal
   case real tooling.").
 - **Intake minimum.** `Variants:` names only the issued variant. The issued
@@ -59,7 +64,7 @@ What changes for an adopted assignment:
 - **Brief.** Written for the student who has the topic, and after a first meeting
   it may carry what was agreed there, as `####` subsections of the content
   sections (`## Brief Language`). It uses the same contract as any brief.
-- **Issued content cannot be re-authored.** A transcription or brief defect is
+- **Issued content the operator cannot edit is not re-authored.** A transcription or brief defect is
   fixed. A weakness of an issued field the operator cannot edit is reported as a
   limitation, never as a blocking finding. If such a field fails a deterministic
   check of `scripts/check-assignment-draft` (for example an empty semestral
@@ -151,6 +156,8 @@ Apply this semantic check when recommending literature, revising an assignment b
 - Verify bibliographic dates from authoritative records. When a review's currency matters, inspect its search cutoff or period covered where available; a recent publication year does not establish recent coverage. If the coverage could not be established, say so. Document tool versions or access dates when the recommendation depends on current software behavior.
 - Retain older foundational or methodological works when their specific contribution remains useful, and state that role. Treat older empirical findings as evidence about the studied sample, setting, and period; they do not by themselves establish present-day adoption, prevalence of problems, or technology limitations. Compare newer evidence when those present-day claims matter.
 - Prefer relevance and evidence quality over novelty alone. Neither a familiar classic nor a newer article earns a place solely through its age. Explain material retention, replacement, or supplementation decisions and any remaining gap in current coverage.
+- When the topic builds on an existing platform, system, dataset, or model, ask the operator which publications describe it and the upstream components it reuses (for example a model or library taken from another project). The answer can also live in the platform's own files, such as a citation file or the references in its README, but those need not exist; do not conclude that there is no such publication because none was found there. Record what the operator said, or that the operator knows of none.
+- Search where the technique is used, not only where it is studied. A technique may still be used and published in application domains even when its originating research community has moved on, and those sources matter for the survey and the recommendations an assignment asks for. A negative finding about currency names the venues and domains searched; a claim scoped to one community is worded as such.
 - Bound conclusions by what was actually read: metadata verifies bibliographic facts; an abstract may support candidate relevance, but it does not establish detailed coverage or present-day superiority. Record partial access and unknown coverage without treating inaccessibility as irrelevance. Citation-review source-acquisition obligations remain in `.agents/skills/thesis-literature-citation-review/SKILL.md`.
 
 In a topic bundle, keep the concise role and currency rationale in the intake's existing relevance notes; the formal IS literature field contains the references. Reviewers record material currency findings in their existing review artifact. For chat-only recommendations, state material selection reasons and limitations in the response. Currency remains agent judgment, not a deterministic age or free-text gate.
