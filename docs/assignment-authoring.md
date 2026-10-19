@@ -142,6 +142,19 @@ round that a student must not take together are recorded under
 `### Sibling Topics This One Excludes`. The distinction matters because a
 dependency is a supervision risk while an exclusion is an offering rule.
 
+## Literature Selection And Currency
+
+Apply this semantic check when recommending literature, revising an assignment bibliography, or reviewing material citations. A chat-only request for recommended literature needs the same source judgment, without implying authoring a whole assignment bundle or creating a thesis case.
+
+- Identify each recommended source's role: foundational concepts, research methodology, empirical evidence from a particular period, or coverage of technologies and current capabilities. Assess currency against that role, the assignment or claim, and the pace of the relevant field.
+- For time-sensitive topics, compare relevant recent research, reviews, and primary tool documentation before choosing sources. Assess the balance of the whole list; a collection of individually useful older works can still leave current approaches uncovered. Do not require replacement candidates for every foundational or methodological source, exhaustive acquisition, an age quota, or a fixed publication-year cutoff.
+- Verify bibliographic dates from authoritative records. When a review's currency matters, inspect its search cutoff or period covered where available; a recent publication year does not establish recent coverage. If the coverage could not be established, say so. Document tool versions or access dates when the recommendation depends on current software behavior.
+- Retain older foundational or methodological works when their specific contribution remains useful, and state that role. Treat older empirical findings as evidence about the studied sample, setting, and period; they do not by themselves establish present-day adoption, prevalence of problems, or technology limitations. Compare newer evidence when those present-day claims matter.
+- Prefer relevance and evidence quality over novelty alone. Neither a familiar classic nor a newer article earns a place solely through its age. Explain material retention, replacement, or supplementation decisions and any remaining gap in current coverage.
+- Bound conclusions by what was actually read: metadata verifies bibliographic facts; an abstract may support candidate relevance, but it does not establish detailed coverage or present-day superiority. Record partial access and unknown coverage without treating inaccessibility as irrelevance. Citation-review source-acquisition obligations remain in `.agents/skills/thesis-literature-citation-review/SKILL.md`.
+
+In a topic bundle, keep the concise role and currency rationale in the intake's existing relevance notes; the formal IS literature field contains the references. Reviewers record material currency findings in their existing review artifact. For chat-only recommendations, state material selection reasons and limitations in the response. Currency remains agent judgment, not a deterministic age or free-text gate.
+
 ## Three Style Layers
 
 Only the first layer is fixed.

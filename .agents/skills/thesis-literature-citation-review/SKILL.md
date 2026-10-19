@@ -81,7 +81,7 @@ for example `work/literature/`.
   the citation rather than the file. Students at the operator's institution generally hold the same
   access, so a DOI or a full reference is what a reader needs; redistributing the PDF is neither
   necessary nor what the licence covers.
-- Do not treat literature freshness as a problem unless the field, assignment, or thesis claim makes it material.
+- Explicitly assess currency for material citations selected for review and for new recommendations, following `docs/assignment-authoring.md` `## Literature Selection And Currency`. Judge a citation against the claim it supports; age alone is not a finding. Compare newer evidence when the field, assignment, or claim makes currency material, preserving targeted acquisition and phase-appropriate recommendations.
 - When recommending new literature in supervisor mode, explain the thesis gap it would address.
 - When summarizing into student-facing feedback, include only phase-appropriate action items and avoid exposing internal download/cache paths.
 

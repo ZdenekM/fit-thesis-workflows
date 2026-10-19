@@ -64,6 +64,10 @@ case: shared material is checked across variants, not within one.
    verifiable identifiers, and a point count read as a loose bound that says
    nothing about work type or scope adequacy. Do not treat this list as
    satisfied because the points read well.
+   Also assess the bibliography against `docs/assignment-authoring.md`
+   `## Literature Selection And Currency`: verify the role of retained older
+   sources and whether the list covers relevant current approaches. Verified
+   identifiers alone do not satisfy this semantic check.
 2. **Assessability.** Could this repository's own opponent pipeline evaluate a
    finished thesis against each point a year from now? An activity with no
    success criterion is the recurring corpus weakness.
