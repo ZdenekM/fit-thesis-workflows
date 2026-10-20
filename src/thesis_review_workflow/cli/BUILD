@@ -72,6 +72,7 @@ python_source(name="record_submitted_report_delta", source="record_submitted_rep
 python_source(name="record_submitted_supervisor_report", source="record_submitted_supervisor_report.py")
 python_source(name="record_theses_checker_summary", source="record_theses_checker_summary.py")
 python_source(name="record_workflow_operation", source="record_workflow_operation.py")
+python_source(name="refresh_rag_case_mirror", source="refresh_rag_case_mirror.py")
 python_source(name="refresh_round_hashes", source="refresh_round_hashes.py")
 python_source(name="render_brief", source="render_brief.py")
 python_source(name="render_feedback", source="render_feedback.py")

@@ -29,33 +29,47 @@ per-client cost this arrangement exists to remove. Setup and rationale are in
 **Agents do not ingest.** The index is machine-level state shared by every
 session, refreshed outside any agent's run by a `systemd --user` timer. Never
 call `ingest_file`, `ingest_data`, `sync_start`, or `delete_file`. If a query
-returns nothing for content you can see on disk, the index is stale for that
-file: report it and fall back to `rg`. Do not fix it by ingesting.
+returns nothing for content you can see on disk, either the case mirror's
+allowlist does not name that file (intentionally unindexed, see below) or the
+index is stale for it: report which, and fall back to `rg`. Do not fix it by ingesting.
+
+Case data reaches the index only through `cases/_rag/`, an allowlisted copy of
+case Markdown that `scripts/refresh-rag-case-mirror` rebuilds before every timer
+sync (`src/thesis_review_workflow/rag_case_mirror.py` holds the allowlist). The
+bridge's `BASE_DIRS` names `diplomky_v2/cases/_rag`, never `diplomky_v2/cases`:
+`mcp-local-rag` has no exclude setting, so a `cases/` root indexed thesis PDFs,
+extracted text, submitted code and sources, which buried the notes and outputs
+that make RAG useful for case work. A hit at `cases/_rag/<path>` is a pointer to
+`cases/<path>`; open and cite the original, never the mirror copy. A file the
+allowlist does not name stays out of the index, so a new Markdown artifact kind
+that should be searchable needs a rule there.
 
 The scope rules below are the **operator's** contract for what the shared index
 is allowed to contain. They stay here because they define the privacy boundary
 that retrieved chunks inherit, and because an agent that notices a violation
 must be able to name it.
 
-- Prefer curated Markdown ingest over raw directory ingest. A raw ingest of
-  `cases/` will also see prepared submitted-code roots and vendor/source
-  documentation unless an exclude layer prevents it.
+- Prefer curated Markdown ingest over raw directory ingest. Never configure
+  `cases/` itself as a root: a raw `cases/` root also sees thesis PDFs,
+  extracted text, prepared submitted-code roots and vendor/source
+  documentation, and the bridge has no exclude layer.
 - `BASE_DIRS` is bridge-level machine configuration, not a per-repo setting. It
   is only a reachability boundary for MCP/CLI operations; it is not a file-level
-  allowlist and does not by itself exclude unsafe subpaths. A broad configured
-  root such as `cases/` is acceptable only when bulk ingest uses a separate
-  curated file list or explicit safe subroots.
-- For `cases/`, ingest these Markdown classes: `case.md`, `notes/`,
-  `outputs/`, reviewer profiles, `work/*_draft.md`, `work/*_summary.md`,
-  packet summaries, operation summaries, and other operator-authored review
-  evidence. From the literature library, ingest only
-  `cases/_literature/*/notes.md`.
-- Case `inputs/` need stricter handling: direct Markdown files such as prior
-  feedback or operator-provided review notes may be useful, and historical
-  calibration snapshots may be useful. For GitHub intake, prefer curated
-  summaries such as `outputs/github_code_intake.md`, small metadata manifests,
-  or review-oriented `work/github-intake/contribution-map.md`; do not bulk-ingest
-  raw `inputs/github/**` snapshots.
+  allowlist and does not by itself exclude unsafe subpaths. For case data it
+  names only the `cases/_rag/` mirror.
+- The mirror carries these classes: `case.md`, `notes/` (Markdown and text),
+  `outputs/` Markdown, top-level `work/*.md` except mechanical inventories,
+  role-owned `work/*_packets/*_findings.md` (not the packet prompts),
+  `work/reviews/`, `work/literature/`, `work/submitted_reports/`,
+  `work/calibration/`, `work/github-intake/contribution-map.md`, and from the
+  literature library only `cases/_literature/*/notes.md`.
+- Case `inputs/` are not mirrored. Next to prior feedback they hold what students
+  submitted, and nothing structural tells the two apart; prior feedback reaches
+  the index from the earlier round's `outputs/`. Historical calibration
+  snapshots under `inputs/historical_cases/**` duplicate live cases and stay out.
+  For GitHub intake, the curated summaries `outputs/github_code_intake.md` and
+  `work/github-intake/contribution-map.md` are indexed; raw `inputs/github/**`
+  snapshots never are.
 - Do not bulk-ingest these case paths: `cases/**/work/code/**`,
   `cases/**/work/submission_bundle/**`, unpacked source submissions,
   raw GitHub diffs, patches, review comment dumps, check logs, checkout

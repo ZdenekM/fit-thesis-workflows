@@ -70,6 +70,7 @@ shell_sources(
         "record-submitted-supervisor-report",
         "record-theses-checker-summary",
         "record-workflow-operation",
+        "refresh-rag-case-mirror",
         "refresh-round-hashes",
         "render-brief",
         "render-feedback",
