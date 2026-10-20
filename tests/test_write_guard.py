@@ -13,6 +13,8 @@ OWNED = "cases/demo/rounds/r1/outputs/code_quality_review.md"
 # The first case-scoped role: a `Case kind: topic-proposal` case has no rounds.
 CASE_SCOPED = "thesis-assignment-reviewer"
 CASE_OWNED = "cases/demo/work/reviews/assignment_review_bp.md"
+# A spawned subagent's hook payload carries its parent session's id.
+SESSION = "sess-1"
 
 
 def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None = None, scope: bool = True) -> bool:
@@ -38,7 +40,13 @@ def _denies(payload: dict | str, root: Path = REPO_ROOT, extra_env: dict | None 
 
 
 def _reviewer(tool: str, path: str | None = None, agent_type: str = CANARY) -> dict:
-    payload: dict = {"agent_type": agent_type, "agent_id": "abc", "tool_name": tool, "tool_input": {}}
+    payload: dict = {
+        "agent_type": agent_type,
+        "agent_id": "abc",
+        "session_id": SESSION,
+        "tool_name": tool,
+        "tool_input": {},
+    }
     if path is not None:
         field = "notebook_path" if tool == "NotebookEdit" else "file_path"
         payload["tool_input"][field] = path
@@ -49,8 +57,8 @@ def _abs(rel: str) -> str:
     return str(REPO_ROOT / rel)
 
 
-def _scope_file(root: Path, payload: object) -> Path:
-    path = root / ".claude" / "hooks" / "review_scope.json"
+def _scope_file(root: Path, payload: object, session: str = SESSION) -> Path:
+    path = root / ".claude" / "hooks" / "review_scopes" / f"{session}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload if isinstance(payload, str) else json.dumps(payload), encoding="utf-8")
     return path
@@ -160,7 +168,7 @@ def test_reviewer_write_without_active_scope_fails_closed(tmp_path: Path) -> Non
     # No CLAUDE_REVIEW_CASE/ROUND exported and no declared scope file -> the guard
     # cannot confine the write to the active student's round, so even an
     # owned-output write is denied. An isolated root is required rather than
-    # REPO_ROOT: a developer's own `.claude/hooks/review_scope.json` would
+    # REPO_ROOT: a developer's own `.claude/hooks/review_scopes/` file would
     # otherwise decide whether this test tests anything.
     root = _guard_root(tmp_path)
     assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
@@ -343,8 +351,7 @@ def test_a_reviewer_may_not_write_the_scope_file_that_bounds_it(tmp_path: Path) 
     """Self-widening is the one thing the fallback must not make possible."""
 
     root = _guard_root(tmp_path)
-    _scope_file(root, {"case": "demo", "round": "r1"})
-    scope_path = str(root / ".claude" / "hooks" / "review_scope.json")
+    scope_path = str(_scope_file(root, {"case": "demo", "round": "r1"}))
     assert _denies(_reviewer("Write", scope_path), root=root, scope=False)
     assert _denies(_reviewer("Edit", scope_path, agent_type=CASE_SCOPED), root=root, scope=False)
 
@@ -374,3 +381,61 @@ def test_a_round_scoped_reviewer_still_needs_a_round_in_the_declared_scope(tmp_p
     assert not _denies(
         _reviewer("Write", str(root / CASE_OWNED), agent_type=CASE_SCOPED), root=root, scope=False
     )
+
+
+def test_a_declared_scope_belongs_to_the_session_that_declared_it(tmp_path: Path) -> None:
+    """A parallel session on another case must not grant, replace or clear this one's scope."""
+
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": "r1"}, session="other-session")
+    assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
+
+    _scope_file(root, {"case": "demo", "round": "r1"})
+    _scope_file(root, {"case": "other", "round": "r1"}, session="other-session")
+    assert not _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
+
+
+def test_a_missing_or_unsafe_session_id_finds_no_declared_scope(tmp_path: Path) -> None:
+    root = _guard_root(tmp_path)
+    _scope_file(root, {"case": "demo", "round": "r1"})
+    _scope_file(root, {"case": "demo", "round": "r1"}, session="None")
+    for session_id in (None, "", "../sess-1", "sess-1/../sess-1", "sess 1", "sess-1\n"):
+        payload = _reviewer("Write", str(root / OWNED))
+        if session_id is None:
+            del payload["session_id"]
+        else:
+            payload["session_id"] = session_id
+        assert _denies(payload, root=root, scope=False), session_id
+    # A JSON null must not turn into the literal session id "None".
+    payload = _reviewer("Write", str(root / OWNED))
+    payload["session_id"] = None
+    assert _denies(payload, root=root, scope=False)
+
+
+def test_a_missing_scope_names_the_session_in_the_denial(tmp_path: Path) -> None:
+    root = _guard_root(tmp_path)
+    raw = json.dumps(_reviewer("Write", str(root / OWNED)))
+    result = subprocess.run(
+        [sys.executable, str(GUARD)],
+        input=raw,
+        capture_output=True,
+        text=True,
+        env={"CLAUDE_PROJECT_DIR": str(root), "PATH": ""},
+        check=False,
+    )
+    assert "no review scope" in result.stdout and f"{SESSION}.json" in result.stdout
+
+
+def test_the_scope_command_and_the_guard_agree_on_the_file(tmp_path: Path, monkeypatch) -> None:
+    """Drift between the two would bring back a review denied only at its last write."""
+
+    from thesis_review_workflow.cli import set_review_scope
+
+    root = _guard_root(tmp_path)
+    (root / "cases" / "demo" / "rounds" / "r1").mkdir(parents=True)
+    monkeypatch.setattr(set_review_scope, "repo_root", lambda: root)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", SESSION)
+    assert set_review_scope.main(["demo", "r1"]) == 0
+    assert not _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)
+    assert set_review_scope.main(["--clear"]) == 0
+    assert _denies(_reviewer("Write", str(root / OWNED)), root=root, scope=False)

@@ -7,6 +7,13 @@ have them at launch had no way to grant a scope: the reviewer completed its whol
 review and only then found it could not save its findings. This command writes the
 declared-scope file the guard falls back to, which a parent CAN do mid-session.
 
+The scope belongs to one Claude Code session: it is written to
+`.claude/hooks/review_scopes/<session-id>.json`, and the guard looks up the file
+named by the hook payload's `session_id`, which a spawned subagent shares with its
+parent. The session id comes from `CLAUDE_CODE_SESSION_ID`, which Claude Code sets
+for commands it runs. A single shared file let a parallel session declare or clear
+a different case while a reviewer of this session was still working.
+
 It never widens the boundary. The file names exactly one case, the environment
 still takes precedence, and a reviewer cannot write the file itself because every
 role's owned writes live under `cases/` and this path does not.
@@ -16,13 +23,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
+import time
 from pathlib import Path
 
 from thesis_review_workflow.cases import repo_root
 from thesis_review_workflow.ids import validate_id
 
-SCOPE_REL = Path(".claude/hooks/review_scope.json")
+SCOPE_DIR_REL = Path(".claude/hooks/review_scopes")
+SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
+SESSION_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}")
+# A wave declares its scope right before spawning reviewers, so a file this old
+# belongs to a session that ended without `--clear`.
+STALE_AFTER_SECONDS = 7 * 24 * 3600
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,10 +52,35 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _session_id() -> str | None:
+    session_id = os.environ.get(SESSION_ENV, "").strip()
+    if not SESSION_ID_RE.fullmatch(session_id):
+        return None
+    return session_id
+
+
+def _prune_stale(scope_dir: Path, keep: Path) -> None:
+    if scope_dir.is_symlink():
+        return
+    cutoff = time.time() - STALE_AFTER_SECONDS
+    for stale in scope_dir.glob("*.json"):
+        if stale == keep:
+            continue
+        try:
+            if stale.stat().st_mtime < cutoff:
+                stale.unlink()
+        except OSError:
+            pass
+
+
 def _show(path: Path) -> int:
     if not path.is_file():
-        print("No declared review scope. Reviewer writes fail closed unless CLAUDE_REVIEW_CASE is exported.")
+        print(
+            f"No declared review scope for session {path.stem}. "
+            "Reviewer writes fail closed unless CLAUDE_REVIEW_CASE is exported."
+        )
         return 0
+    print(f"Session {path.stem}:")
     print(path.read_text(encoding="utf-8").strip())
     return 0
 
@@ -50,8 +90,12 @@ def _clear(path: Path, case_id: str | None) -> int:
         print("--clear takes no case id", file=sys.stderr)
         return 2
     if path.is_file():
-        path.unlink()
-        print(f"Cleared {SCOPE_REL.as_posix()}")
+        try:
+            path.unlink()
+        except OSError as exc:
+            print(f"Could not remove {path.name}: {exc}", file=sys.stderr)
+            return 1
+        print(f"Cleared {path.name} (this session's review scope)")
     else:
         print("No declared review scope to clear.")
     return 0
@@ -78,20 +122,32 @@ def _declare(root: Path, path: Path, case_id: str, round_id: str | None) -> int:
         return 1
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    _prune_stale(path.parent, path)
     path.write_text(
         json.dumps({"case": case_id, "round": round_id or ""}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     scope = f"cases/{case_id}" + (f"/rounds/{round_id}" if round_id else "")
     print(f"Declared review scope: {scope}")
-    print(f"Written to {SCOPE_REL.as_posix()}; clear it with `scripts/set-review-scope --clear` when the wave ends.")
+    print(
+        f"Written to {(SCOPE_DIR_REL / path.name).as_posix()} for this session only; "
+        "clear it with `scripts/set-review-scope --clear` when the wave ends."
+    )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = repo_root()
-    path = root / SCOPE_REL
+    session_id = _session_id()
+    if session_id is None:
+        print(
+            f"{SESSION_ENV} is not set to a session id. Run this from the Claude Code session that "
+            "spawns the reviewers, or export CLAUDE_REVIEW_CASE / CLAUDE_REVIEW_ROUND before starting it.",
+            file=sys.stderr,
+        )
+        return 2
+    path = root / SCOPE_DIR_REL / f"{session_id}.json"
 
     if args.show:
         return _show(path)

@@ -29,13 +29,20 @@ for a round-scoped role the round — so the write guard can confine a reviewer 
 it (the guard fails closed without a scope). Two ways to declare it, environment
 first: `CLAUDE_REVIEW_CASE` / `CLAUDE_REVIEW_ROUND` exported at launch, or
 `scripts/set-review-scope <case-id> [round-id]`, which writes the ignored
-`.claude/hooks/review_scope.json` the guard falls back to. The second exists
-because a running Claude Code session cannot change its own process environment:
-without it, a parent that launched without the variables could not grant a scope
-at all, and the reviewer discovered that only after finishing its review, when
-its findings write was denied. Clear it with `scripts/set-review-scope --clear`
-when the wave ends; a stale scope denies rather than misroutes, but it denies
-confusingly. `scripts/set-review-scope` is a POSIX helper like
+`.claude/hooks/review_scopes/<session-id>.json` the guard falls back to. The second
+exists because a running Claude Code session cannot change its own process
+environment: without it, a parent that launched without the variables could not
+grant a scope at all, and the reviewer discovered that only after finishing its
+review, when its findings write was denied. The file is per session: the command
+takes the id from `CLAUDE_CODE_SESSION_ID`, and the guard reads the file named by
+the hook payload's `session_id`, which a spawned reviewer shares with its parent.
+Parallel sessions on different cases therefore cannot replace or clear each
+other's scope, which one shared file allowed. Clear it with
+`scripts/set-review-scope --clear` when the wave ends, and declare it again
+before the next wave; declaring a scope also removes files older than a week
+left by sessions that ended without clearing.
+A stale scope denies rather than misroutes; the denial names the session whose
+scope file is missing. `scripts/set-review-scope` is a POSIX helper like
 `scripts/agent-review`; on native Windows, export the variables before starting
 the session instead. Not yet done: automatic
 orchestration wiring of the selection, a provider-aware / substituted-provider

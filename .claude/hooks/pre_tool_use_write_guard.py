@@ -35,6 +35,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -42,7 +43,8 @@ from pathlib import Path
 WRITE_TOOLS = {"Write", "Edit", "NotebookEdit"}
 READ_TOOLS = {"Read", "Grep", "Glob"}
 POLICY_REL = ".claude/hooks/reviewer_write_policy.json"
-SCOPE_REL = ".claude/hooks/review_scope.json"
+SCOPE_DIR_REL = ".claude/hooks/review_scopes"
+SESSION_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 SCOPES = {"round", "case"}
 
 
@@ -63,8 +65,8 @@ def repo_root() -> Path:
         return Path.cwd().resolve()
 
 
-def active_scope(root: Path) -> tuple[str, str]:
-    """The active `(case, round)`, from the environment or the declared scope file.
+def active_scope(root: Path, session_id: str) -> tuple[str, str]:
+    """The active `(case, round)`, from the environment or this session's scope file.
 
     A Claude Code session cannot change its own process environment, so a parent
     that did not have ``CLAUDE_REVIEW_CASE`` set at launch could not give a
@@ -72,19 +74,26 @@ def active_scope(root: Path) -> tuple[str, str]:
     discovered it could not save the findings. ``scripts/set-review-scope``
     writes the file this reads, which the parent CAN do mid-session.
 
+    The file is per session, ``review_scopes/<session_id>.json``, keyed by the
+    hook payload's ``session_id``, which a spawned subagent shares with its
+    parent. One shared file let a parallel session working on another case
+    replace or clear the scope of a reviewer that was still running.
+
     The environment still wins, so a session launched with the variables behaves
     exactly as before. Neither source widens anything: both name ONE case, and a
     reviewer cannot write the file, because every role's owned writes live under
-    ``cases/`` and this path does not. A malformed or absent file is no scope at
-    all, which denies.
+    ``cases/`` and this path does not. A malformed or absent file, or a missing
+    or malformed session id, is no scope at all, which denies.
     """
 
     case_scope = os.environ.get("CLAUDE_REVIEW_CASE", "").strip()
     round_scope = os.environ.get("CLAUDE_REVIEW_ROUND", "").strip()
     if case_scope:
         return case_scope, round_scope
+    if not SESSION_ID_RE.fullmatch(session_id):
+        return "", ""
     try:
-        raw = json.loads((root / SCOPE_REL).read_text(encoding="utf-8"))
+        raw = json.loads((root / SCOPE_DIR_REL / f"{session_id}.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return "", ""
     if not isinstance(raw, dict):
@@ -138,7 +147,7 @@ def target_path(tool_input: dict) -> str:
     return str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
 
 
-def owned_write(resolved: Path, root: Path, scope: str, allowed: list[str]) -> bool:
+def owned_write(resolved: Path, root: Path, scope: str, allowed: list[str], session_id: str) -> bool:
     """True when `resolved` is one of this role's owned writes, inside its active case.
 
     `resolved` has already been symlink-resolved by the caller, and this
@@ -156,7 +165,7 @@ def owned_write(resolved: Path, root: Path, scope: str, allowed: list[str]) -> b
     # active round too. The guard fails closed without them, and otherwise
     # confines the write to that exact case, so a reviewer cannot touch another
     # student's case.
-    case_scope, round_scope = active_scope(root)
+    case_scope, round_scope = active_scope(root, session_id)
     if not case_scope or not parts or parts[0] != "cases":
         return False
     if len(parts) < 2 or parts[1] != case_scope:
@@ -207,8 +216,16 @@ def decide(payload: dict, root: Path) -> dict | None:
             resolved = root / resolved
         resolved = resolved.resolve()  # collapses symlinks and .. to block escapes
         scope, allowed = policy[agent_type]
-        if owned_write(resolved, root, scope, allowed):
+        raw_session = payload.get("session_id")
+        session_id = raw_session if isinstance(raw_session, str) else ""
+        if owned_write(resolved, root, scope, allowed, session_id):
             return None
+        if not active_scope(root, session_id)[0]:
+            return _deny(
+                f"{agent_type} has no review scope: CLAUDE_REVIEW_CASE is unset and no "
+                f"{SCOPE_DIR_REL}/{session_id or '<missing session id>'}.json exists. The parent "
+                f"session runs `scripts/set-review-scope <case-id> [round-id]`. Refused write to: {target}"
+            )
         shape = "cases/<case-id>/rounds/<round-id>/" if scope == "round" else "cases/<case-id>/"
         return _deny(
             f"{agent_type} may write only its owned outputs {allowed} under {shape}. "
