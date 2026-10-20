@@ -35,7 +35,8 @@ for V1; expected thesis and paper inputs are text-based PDFs.
 Never write student PDFs, downloaded papers, extracted text, screenshots, or
 derived PDF evidence to tracked repository paths. Put all case-specific PDF
 inputs, literature PDFs, metadata cache, and working notes under the ignored
-`cases/<case-id>/` workspace.
+`cases/<case-id>/` workspace. Papers read in full also go to the ignored shared
+library `cases/_literature/` (`cases/README.md` `## Literature Library`).
 
 When student-facing feedback mentions page/layout evidence, it must be based on
 a concrete PDF check. If only plain text extraction was used, phrase findings as

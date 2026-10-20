@@ -48,7 +48,8 @@ must be able to name it.
 - For `cases/`, ingest these Markdown classes: `case.md`, `notes/`,
   `outputs/`, reviewer profiles, `work/*_draft.md`, `work/*_summary.md`,
   packet summaries, operation summaries, and other operator-authored review
-  evidence.
+  evidence. From the literature library, ingest only
+  `cases/_literature/*/notes.md`.
 - Case `inputs/` need stricter handling: direct Markdown files such as prior
   feedback or operator-provided review notes may be useful, and historical
   calibration snapshots may be useful. For GitHub intake, prefer curated
@@ -60,8 +61,9 @@ must be able to name it.
   raw GitHub diffs, patches, review comment dumps, check logs, checkout
   metadata, dependency/vendor trees, generated build folders, package caches,
   virtual environments, Unity `Library`, extracted thesis text under
-  `cases/**/extracted/**`, or third-party documentation copied as part of a
-  submitted codebase.
+  `cases/**/extracted/**`, third-party documentation copied as part of a
+  submitted codebase, or the papers' full texts and PDFs under
+  `cases/_literature/**` (`fulltext.txt`, `paper.pdf`).
 - Exclude very large mechanical inventories such as
   `work/submission_bundle_inventory.md`; they are useful as direct artifacts
   when needed, but they mostly add file-list noise to semantic search. Keep

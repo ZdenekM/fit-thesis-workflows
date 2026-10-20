@@ -36,7 +36,12 @@ rendered PDF. Mark `.bib` entries that do not appear in the submitted PDF as
 source-only, not as cited thesis literature. Also use assignment notes, reviewer
 profile preferences, and any user-provided source PDFs. Publicly accessible
 paper PDFs and metadata may be saved only inside the ignored round workspace,
-for example `work/literature/`.
+for example `work/literature/`. Check the shared literature library first
+(`cases/README.md` `## Literature Library`). When it already holds a source,
+copy its `paper.pdf` into `work/literature/` instead of downloading it again.
+Its notes are a starting point, but a `pdf_read` status means this round read
+the copy for the claims it checks. Sources this round fetched new are added to
+the library by the parent session, not by the reviewer role.
 
 ## Process
 
@@ -56,7 +61,7 @@ for example `work/literature/`.
    - potentially missing literature area.
 9. For supervisor mode, suggest better use of already cited work and, only when there is a clear gap, candidate new literature areas or sources. Keep suggestions actionable and phase-appropriate.
 10. For opponent mode, limit conclusions to relevance, defensibility, citation quality, and support for claims already made. Do not coach the student toward new literature except as a reportable missing-area risk.
-11. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path.
+11. Keep downloaded PDFs, metadata cache, and working notes inside `work/literature/` or another ignored case path; the shared library under `cases/_literature/` is the one cross-case exception.
 
 ## Evidence Rules
 
@@ -77,7 +82,7 @@ for example `work/literature/`.
   availability is not a selection criterion: a source selected as key or suspicious stays selected
   after a paywall stops the download, and the review says what it could not read and asks for it.
   Only record a permanent limitation once the operator has been asked and cannot supply it.
-- Keep operator-supplied publisher PDFs inside `work/literature/` as operator evidence, and pass on
+- Keep operator-supplied publisher PDFs inside `work/literature/` (and in the shared library) as operator evidence, and pass on
   the citation rather than the file. Students at the operator's institution generally hold the same
   access, so a DOI or a full reference is what a reader needs; redistributing the PDF is neither
   necessary nor what the licence covers.

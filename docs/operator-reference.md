@@ -167,7 +167,9 @@ Nejběžnější výstupy:
 - `outputs/code_consistency.md` - interní kontrola souladu textu a kódu,
 - `outputs/code_quality_review.md` - interní code-quality/design review,
 - `outputs/literature_citation_review.md` - interní kontrola literatury a
-  citací,
+  citací; přečtené články se ukládají do sdílené knihovny `cases/_literature/`
+  (viz `cases/README.md`), placené PDF můžete poslat v chatu nebo vložit do
+  adresáře zdroje jako `paper.pdf`,
 - `outputs/figure_media_review.md` - interní kontrola obrázků, tabulek,
   screenshotů, grafů a jejich změn mezi revizemi,
 - `outputs/typography_formal_review.md` - interní pozdní kontrola typografie a
