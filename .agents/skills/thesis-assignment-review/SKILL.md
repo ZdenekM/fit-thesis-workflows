@@ -114,6 +114,23 @@ case: shared material is checked across variants, not within one.
     Provenance of a value cannot be read off the finished bundle: report a
     suspicious value as unverified provenance for the operator to confirm, never
     as a passed check.
+11. **The brief as a text for the student.** Items 4 to 6 can all pass on a
+    brief its student finds hard to read. So read the projection once, as a
+    student who knows only the assignment, against
+    `docs/assignment-authoring.md` `## The Brief As A Text For The Student`.
+    List:
+    - every sentence that grades the student's experience or ideas without
+      informing;
+    - every fact stated in more than one place, with both locations;
+    - every abbreviation or term left unexplained at first use, including the
+      platform's and the project's own acronym names;
+    - every source shown as an identifier rather than a title;
+    - every passage the student does not need at the start, unless the
+      effective profile asks for that material up front.
+
+    The rules also cover any length budget in the effective profile. These are
+    findings like any other, and they block approval of the brief until
+    resolved.
 
 ## Outputs
 

@@ -51,7 +51,7 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
 18. If typography/formal review was used or the round is near-final/final, verify that findings are language-calibrated by thesis language, not feedback language, and that student-facing prose summarizes repeated patterns and repair workflow instead of listing every occurrence.
 19. If Theses.cz similarity-report wording is present, verify that it is backed by `outputs/theses_similarity_review.md`, that clean/no-concern or resolved reports remain silent, and that raw report URLs, hashes, source internals, and local paths are absent from student prose. Reject plagiarism/authorship wording unless a reviewed unresolved concern supports that narrow statement.
 20. Keep at most 8 priority rows, ideally 3-6.
-21. When the shape carries that section, preserve concrete positives and a motivating but direct tone.
+21. When the shape carries that section, preserve concrete positives and a motivating but direct tone. Remove praise that only grades without informing. Check that every abbreviation or term the student may not know is explained at first use (`thesis-supervisor-feedback` `## Priority And Wording Rules`).
 22. When the shape carries a checklist section, make it specific to this thesis and phase, not generic.
 23. Verify that priority and tone match the time remaining until the recommended finish and official deadline.
 24. Remove internal case IDs, exact round IDs, workspace paths, and artifact filenames from student-facing prose unless the student needs them to act and the label is human-readable.

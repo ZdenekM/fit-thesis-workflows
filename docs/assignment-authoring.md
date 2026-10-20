@@ -213,6 +213,50 @@ of a declared variant) is a finding of `scripts/check-assignment-draft`. Inside
 a delta it would also end the delta body, so the text after it would reach no
 projection.
 
+## The Brief As A Text For The Student
+
+The student reads a brief once, from start to end, to get going. Every rule
+below serves that reader. They are measured on a seven-page brief whose student
+asked for three things: no flattery, no repetition, and an explanation of the
+abbreviations they did not know.
+
+- **The student's experience and ideas are content; evaluating them is not.**
+  Build on what the student has seen and proposed, and say concretely where
+  each idea leads: to the core of the work, to a supporting feature, or out of
+  scope. Do not grade it. Sentences such as "a good start", "valuable for your
+  work", "interesting, but", or "your idea matches a real problem" carry no
+  information, and the student reads them as flattery. When evidence supports
+  an idea, state the evidence and leave the conclusion to the student.
+- **One home per fact.** Own `####` subsections easily overlap the fixed
+  sections. An idea triage restates the boundary that `What Is Out Of Scope`
+  owns. Lessons from earlier evidence restate how the evaluation point should
+  be read. A reading-list annotation restates a suggested direction. Choose one
+  home for each fact; elsewhere, name that section or leave the fact out.
+- **Every abbreviation and specialist term is explained on first use, or it is
+  left out.** The test is the student's expected background, not the author's.
+  Names of the platform and project the work builds on count too: spell out an
+  acronym name even when the student has used that platform, because using a
+  system does not mean knowing what its acronym stands for. In the measured
+  brief, the platform's own acronym was the one the student could not decode.
+  Questionnaire names, standards, and field acronyms come next. If the student
+  does not need a term at the start, leave it for the meeting where it matters.
+- **Sources follow the short-link form of student feedback** (see
+  `.agents/skills/thesis-supervisor-feedback/SKILL.md`
+  `## Priority And Wording Rules`). The title is the link label. An identifier
+  such as `doi: 10....` never appears as visible text, not even inside a link
+  label. Each source gets about one sentence on what the student will take
+  from it. A source the author knows only from its abstract is not recommended
+  reading.
+- **Carry what the start of the work needs**, plus the interpretation the
+  assignment cannot carry. By default, material for a later phase, such as the
+  design of the final study, waits for the consultation that reaches it. The
+  effective reviewer profile may ask for some of it up front, and then it
+  belongs in the brief.
+
+These rules are a reading made by the authoring agent and its reviewer, not a
+deterministic check. A lexical gate over free-running prose is what `AGENTS.md`
+forbids. A supervisor's length budget is layer 3 and lives in their profile.
+
 ## Where A Success Criterion Lands
 
 A criterion for what would make the finished work good has three possible

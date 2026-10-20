@@ -386,6 +386,8 @@ Priority:
 
 Keep the feedback concrete, kind, and usable. Include a human-readable review date near the top of the document. Do not write the thesis for the student; short illustrative rewrites are acceptable only to clarify a point.
 
+A positive names what works and why it matters for the thesis. A sentence that only grades, with nothing the student could act on or keep doing, reads as flattery; leave it out. Explain every abbreviation or specialist term the student may not know at its first use, unless the thesis itself already uses it. This includes questionnaire and standard names the feedback recommends.
+
 Avoid internal workflow identifiers in student-facing prose. Do not include case IDs, exact round IDs, workspace paths, or artifact filenames unless the student needs them to act. Prefer human wording such as "minulá kontrola" or "aktuální verze"; keep exact round IDs in operator artifacts such as `outputs/revision_diff.md`.
 
 Keep `Rozsah kontroly` / `Review Scope` student-relevant. Mention what kinds of materials and important limitations affect the feedback, but omit internal mechanics such as source-zip diffing, local build policy, extraction tooling, or operator artifact names unless the student must act on them.

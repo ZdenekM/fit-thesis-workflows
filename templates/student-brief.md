@@ -15,6 +15,11 @@ headings and delete the other. The structural wrappers `## Shared Brief`,
 `## Variant Delta` and `### <variant>` stay as they are in both languages,
 because the student never sees them.
 
+Write it for the student who reads it once to get going: no grading of their
+ideas, one home per fact, every abbreviation explained, and sources linked by
+title. See `docs/assignment-authoring.md`
+`## The Brief As A Text For The Student`.
+
 Where a factual value cannot be verified, write the unresolved marker in the
 value position instead of guessing; it blocks sending. See
 `docs/assignment-authoring.md` `## Unresolved Values`.

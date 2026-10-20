@@ -93,7 +93,9 @@ This is a parent-owned workflow: the main agent holds the operator dialogue that
 4. **One brief source, N projections.** Fill `notes/student_brief.md` from
    `templates/student-brief.md`, then project
    `outputs/student_brief_<variant>.md` as the shared body verbatim plus that
-   one variant's delta. Never author a second whole brief.
+   one variant's delta. Never author a second whole brief. Write it as a
+   text for the student, following `docs/assignment-authoring.md`
+   `## The Brief As A Text For The Student`.
 5. **Check the coupling.** Each brief restates its variant's point count and
    semestral obligation. If a point is added to an assignment, its brief
    changes with it.
