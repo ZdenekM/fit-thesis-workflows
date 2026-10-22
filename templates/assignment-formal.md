@@ -8,6 +8,16 @@ bilingual internally — there is no English title field inside a Czech document
 and no Czech title inside an English one. Set `Rendering:`, then **delete the
 rendering block you are not using**.
 
+`Rendering:` stands for the CZ/EN switch at the very end of the FIT IS form. It
+follows the thesis language: `cs` for a Czech thesis, `en` for an English one.
+There is no Slovak rendering; a Slovak thesis keeps a Czech or an English
+assignment.
+
+The points are a numbered list of tasks with no further explanation.
+Motivation, context and interpretation belong in the FIT IS field `Komentář k
+zadání (netiskne se)`, which this template does not carry, or in the student
+brief.
+
 Phrase every assignment point in the imperative second-person plural
 (`Navrhněte`, `Implementujte`, `Design`, `Implement`). A point may leave the
 choice of method, algorithm, dataset or application domain to the student; what

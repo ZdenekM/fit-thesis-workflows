@@ -376,7 +376,9 @@ operator.
 
 What the checker deliberately does NOT decide: assessability, whether an open
 point states a criterion the choice can be judged against, tone, topic quality,
-and anything derived from point count. Those belong to
+anything derived from point count, and the rules the head of department checks
+before approving (language, finished, short, firm; `profiles/default.md`
+`## Assignment Authoring Style`). Those belong to
 `.agents/skills/thesis-assignment-review/SKILL.md`.
 
 ## The Bundle Approval

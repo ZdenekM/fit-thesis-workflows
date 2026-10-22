@@ -62,8 +62,12 @@ case: shared material is checked across variants, not within one.
    plural, a survey or familiarization point first, a presentation deliverable
    last, the semestral-requirement field filled, real literature entries with
    verifiable identifiers, and a point count read as a loose bound that says
-   nothing about work type or scope adequacy. Do not treat this list as
-   satisfied because the points read well.
+   nothing about work type or scope adequacy. Then walk the rules the head of
+   department checks before approving: the assignment language follows the
+   thesis language and is never Slovak, nothing in any field is unfinished, the
+   points carry no explanation that belongs in `Komentář k zadání (netiskne
+   se)`, and no point is conditional or leaves its scope to a later agreement.
+   Do not treat this list as satisfied because the points read well.
    Also assess the bibliography against `docs/assignment-authoring.md`
    `## Literature Selection And Currency`: verify the role of retained older
    sources and whether the list covers relevant current approaches. Verified
@@ -94,7 +98,10 @@ case: shared material is checked across variants, not within one.
    match its own variant's assignment.
 7. **Form.** One language rendering per document, the FIT IS field set and
    order from `templates/assignment-formal.md`, the semestral-requirement field
-   filled.
+   filled. The rendering is `cs` or `en` and matches `Thesis language:` in
+   `case.md`, with `cs` or `en` for a Slovak thesis. When the thesis language is
+   `auto` or empty, list the language as a manual check: the operator confirms
+   the CZ/EN switch at the end of the FIT IS form.
 8. **Unresolved values.** Any unresolved marker in the value position is a
    publication blocker; name each one.
 9. **Adopted assignment.** When `Important constraints:` in `case.md` states

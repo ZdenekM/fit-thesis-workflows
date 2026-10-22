@@ -116,6 +116,35 @@ Institutional norm for an assignment:
   DP and must never be read as evidence of scope adequacy; escalation to DP
   happens inside the points.
 
+What the head of department checks before approving. The assignment is checked
+as filed in FIT IS; these rules come from that check (announced at ÚPGM for
+2026/27) and hold for any assignment, not for one supervisor's style:
+
+- **The assignment language follows the thesis language.** A thesis written in
+  Czech has a Czech assignment, one written in English an English assignment.
+  A student may write in Slovak, but the assignment is never in Slovak: a
+  Slovak thesis keeps a Czech (or English) assignment. The CZ/EN switch for the
+  assignment text sits at the very end of the FIT IS form, apart from the
+  thesis-language field, and must match the language the fields are written in.
+  `Rendering:` in `templates/assignment-formal.md` stands for that switch.
+- **Finished.** No `TODO`, no "probíráme", no trace of an open discussion in
+  any field, the literature included. A topic that genuinely cannot be
+  finished by the deadline, such as an industry or an Erasmus assignment,
+  carries `NOT FINALIZED` in its title instead, so the check can skip it.
+- **Short.** The points are a numbered list of tasks without further
+  explanation. Motivation, context and interpretation go into the FIT IS field
+  `Komentář k zadání (netiskne se)`, which is not printed, or into the student
+  brief.
+- **Firm.** No conditional or tentative point: "pokuste se", "můžete zkusit",
+  "případně", "podle možností", or a scope left to be agreed later ("po dohodě
+  s vedoucím", "v dohodnutém rozsahu"). An open point is not a conditional one:
+  "vyberte metodu" plus the criteria the choice is judged by is firm (see
+  Open solution space below).
+- These are reading rules for the author and the reviewer, not searches. Like
+  the vocabulary rule below, they are deliberately not a deterministic check:
+  each example phrase has innocent uses and other phrasings carry the same
+  defect.
+
 Open solution space:
 
 - A point may name the goal and leave the choice of method, algorithm, dataset,
