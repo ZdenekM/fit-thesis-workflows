@@ -176,6 +176,8 @@ Theses.cz outputs are internal/operator evidence unless the user explicitly
 asks to send them. Student-facing feedback should contain only selected,
 phase-appropriate action items.
 
+Text the operator pastes into a FIT IS field (assignment points, literature, semestral requirement, assignment comment, report fields) is never hard-wrapped: write each paragraph, point, or literature entry on one line. FIT IS keeps every pasted line break, so a wrapped draft prints with broken lines.
+
 Student-facing supervisor feedback must respect `Student feedback language` from `case.md`: default `cs` with Czech diacritics, or explicit `en`. Do not infer feedback language from the thesis language in intake notes.
 `Thesis language: cs/en/auto` is optional metadata for thesis-text checks and does not control feedback language.
 

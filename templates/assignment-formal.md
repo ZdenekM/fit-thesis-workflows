@@ -18,6 +18,11 @@ Motivation, context and interpretation belong in the FIT IS field `Komentář k
 zadání (netiskne se)`, which this template does not carry, or in the student
 brief.
 
+Write every field value, point and literature entry on one line, without hard
+wrapping: the operator pastes them into FIT IS, which keeps every line break.
+Copy the entries in the topic intake's `## Citable Artifacts` unwrapped too,
+since they are copied here byte-identically.
+
 Phrase every assignment point in the imperative second-person plural
 (`Navrhněte`, `Implementujte`, `Design`, `Implement`). A point may leave the
 choice of method, algorithm, dataset or application domain to the student; what
