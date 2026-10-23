@@ -119,6 +119,22 @@ def test_reviewer_may_not_use_shell_spawn_network_or_mcp_tools() -> None:
         assert _denies({"agent_type": CANARY, "agent_id": "abc", "tool_name": tool, "tool_input": {}}), tool
 
 
+def test_reviewer_may_hand_its_report_back_to_the_parent() -> None:
+    """Denying the handback looped the reviewer and left the parent with no report."""
+
+    for agent_type in (CANARY, CASE_SCOPED, "thesis-text-reviewer"):
+        payload = _reviewer("SubagentHandback", agent_type=agent_type)
+        payload["tool_input"] = {"message": "findings written to the owned output"}
+        assert not _denies(payload), agent_type
+
+
+def test_other_harness_tools_still_fail_closed_for_a_reviewer() -> None:
+    # Only the handback is admitted; anything else, including look-alike names,
+    # stays on the deny path until it is shown to write nothing.
+    for tool in ("TodoWrite", "ToolSearch", "Skill", "SubagentHandbackX", "subagenthandback"):
+        assert _denies(_reviewer(tool)), tool
+
+
 def test_write_guard_is_wired_as_catch_all() -> None:
     # The guard must be dispatched for every tool (so Agent/MCP writes cannot
     # bypass it); a narrow matcher would silently let them through.

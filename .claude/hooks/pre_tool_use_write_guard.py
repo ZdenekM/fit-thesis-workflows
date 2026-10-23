@@ -15,7 +15,10 @@ Behaviour:
 - Applies only when the subagent's ``agent_type`` matches a reviewer role in
   ``.claude/hooks/reviewer_write_policy.json`` (kept in sync with the profile
   registry by a contract test). Non-reviewer subagents are not constrained.
-- For a matched reviewer: allow Read/Grep/Glob; allow Write/Edit/NotebookEdit
+- For a matched reviewer: allow Read/Grep/Glob and the harness's
+  ``SubagentHandback``, which returns the report to the parent and writes no
+  file (denying it leaves the parent with "no report delivered"); allow
+  Write/Edit/NotebookEdit
   only when the resolved target is one of the role's owned writes inside the
   active case — under ``cases/<id>/rounds/<round>/`` for a round-scoped role, or
   under ``cases/<id>/`` for a case-scoped one, since a ``topic-proposal`` case
@@ -42,6 +45,9 @@ from pathlib import Path
 
 WRITE_TOOLS = {"Write", "Edit", "NotebookEdit"}
 READ_TOOLS = {"Read", "Grep", "Glob"}
+# Harness-internal tools that write no file and that a reviewer needs to finish
+# its run. Admit only tools whose whole effect stays inside the harness.
+HARNESS_TOOLS = {"SubagentHandback"}
 POLICY_REL = ".claude/hooks/reviewer_write_policy.json"
 SCOPE_DIR_REL = ".claude/hooks/review_scopes"
 SESSION_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}")
@@ -205,7 +211,7 @@ def decide(payload: dict, root: Path) -> dict | None:
         if (root / ".claude" / "agents" / f"{agent_type}.md").is_file():
             return _deny(f"{agent_type} adapter is not covered by the reviewer write policy; failing closed")
         return None  # a non-reviewer subagent (no adapter)
-    if tool in READ_TOOLS:
+    if tool in READ_TOOLS or tool in HARNESS_TOOLS:
         return None
     if tool in WRITE_TOOLS:
         target = target_path(payload.get("tool_input", {}))
