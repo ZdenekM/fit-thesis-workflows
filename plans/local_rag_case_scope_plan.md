@@ -178,8 +178,8 @@ Tasks:
 
 - List what the reconciliation has to remove once S1 is decided, by class
   rather than by case path, so the instruction stays case-neutral.
-- Say how the result is verified read-only afterwards, using `list_files`
-  against each excluded class.
+- Say how the result is verified read-only afterwards, using `list_documents`
+  with a `filter` on `uri` for each excluded class.
 - Note that purge and rebuild are operator actions on machine-level state, and
   that an agent that notices a violation reports the offending paths instead.
 - Decide whether a periodic read-only check is worth having, and if so where it
@@ -188,8 +188,8 @@ Tasks:
 
 Out of scope: performing the purge or rebuild.
 
-Verification: after the operator's reconciliation, `list_files` scoped to a case
-shows only classes the decided policy admits.
+Verification: after the operator's reconciliation, `list_documents` with a
+`filter` on `uri` for a case shows only classes the decided policy admits.
 
 ## Progress
 
@@ -227,6 +227,14 @@ on-demand sync that S2 exists to settle. S1 gained a fourth class to decide,
   privacy reason for a class that has none, and it offers no signal that scope
   questions are the operator's call even when the agent believes it is
   tightening rather than loosening the rule.
+
+- 2026-10-23 — The index now runs behind a different server with the same
+  `query_documents(query, limit, scope)` contract. `list_files` no longer exists;
+  S3's read-only verification uses `list_documents` with a `filter` on `uri`
+  instead. `sync_start` is gone too and the index refreshes itself within
+  minutes, which weakens the premise S2 was chartered on (a path-scoped,
+  agent-triggerable sync); S2 must be re-decided against that before it starts.
+  The Audit Base facts are kept as dated observations.
 
 ## Final Audit
 

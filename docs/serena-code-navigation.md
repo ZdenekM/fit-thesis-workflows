@@ -28,12 +28,13 @@ The tracked `.serena/project.yml` configures Python and Markdown and lists
 tests, and `.codex/hooks`. Use normal text tools for TOML, YAML, shell wrappers,
 and generated text.
 
-## Long Markdown goes to local RAG, not Serena
+## Long Markdown is not a Serena job
 
 Prose - plans, docs, skills, reviewer profiles, generated Markdown - is a
-retrieval problem, not a symbol problem. Use `local-rag` `query_documents` when
-you do not know which file or section answers the question, and `rg` plus a
-targeted read when you do. See `docs/local-rag-usage.md`.
+retrieval problem, not a symbol problem. If the optional local RAG index is
+available, use its `query_documents` when you do not know which file or section
+answers the question; otherwise, and whenever you do know, use `rg` plus a
+targeted read. See `docs/local-rag-usage.md`.
 
 Serena's Markdown support is outline navigation, not semantic retrieval, and it
 costs a separate `marksman` language server. Do not route long documents through

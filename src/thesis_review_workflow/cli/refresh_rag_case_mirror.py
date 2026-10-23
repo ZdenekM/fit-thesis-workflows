@@ -1,6 +1,6 @@
 """Refresh `cases/_rag/`, the allowlisted copy of case Markdown that local RAG indexes.
 
-The workstation's local-rag sync runs this before every sync; see
+A periodic job outside this repository runs it to keep the mirror current; see
 `docs/local-rag-usage.md`. It never ingests anything itself.
 """
 

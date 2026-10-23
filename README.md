@@ -265,9 +265,9 @@ launchery `dist\workflow-tools\bin\<tool>.cmd` nebo
   review oddělení a validační pravidla.
 - [PDF Detail Layer](docs/pdf-detail-layer.md) - volitelná detailní práce s PDF,
   obrázky a layoutem.
-- [Local RAG Usage](docs/local-rag-usage.md) - volitelná discovery vrstva pro
-  historickou orientaci v Markdown dokumentaci, plánech, skills a case
-  výstupech.
+- [Local RAG Usage](docs/local-rag-usage.md) - volitelný doplněk správce pro
+  sémantické dohledání v Markdown dokumentaci, plánech, skills a case výstupech;
+  pro běžnou práci s workflow není potřeba.
 - [Profiles](profiles/README.md) - reviewer profily a soukromé lokální
   preference.
 - [Maintainer Reference](docs/maintainer-reference.md) - údržba workflow

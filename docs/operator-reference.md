@@ -15,16 +15,20 @@ Požadavek na finální studentskou zpětnou vazbu, posudek, oponentské podklad
 
 ## Local RAG
 
-Volitelný `mcp-local-rag` index slouží jen jako discovery vrstva pro rychlou
-orientaci v Markdown dokumentaci, plánech, skills, profilech, case poznámkách a
-generated Markdown výstupech. Není to evidence source pro posudek ani náhrada
+Local RAG je volitelné prostředí správce, ne součást operátorského workflow.
+Pro práci s workflow ho nepotřebujete; bez něj agent hledá přes `rg` a přímé
+čtení souborů. Pokud je k dispozici sdílený lokální index přes MCP, slouží jen
+jako discovery vrstva pro rychlou orientaci v Markdown dokumentaci, plánech,
+skills, profilech, case poznámkách a generated Markdown výstupech. Hledá jen
+sémanticky; přesná ID, cesty a názvy hledejte přes `rg`. Není to evidence source pro posudek ani náhrada
 za workflow kontroly; agent musí po nalezení kandidátního místa otevřít
 autoritativní artefakt a citovat jeho cestu, sekci, stránku nebo řádek.
 Databáze, model cache a retrieved private chunks musí zůstat mimo tracked
 repozitář.
 
-Při indexaci `cases/` nepoužívejte raw directory ingest bez explicitního scope
-nebo exclude pravidel. Do RAG patří case metadata, `notes/`, `outputs/`, přímé
+Kdo lokální index provozuje, nesmí do něj dávat celý adresář `cases/`. Case
+data se indexují jen přes allowlistované zrcadlo `cases/_rag/`, které obnovuje
+`scripts/refresh-rag-case-mirror`. Do RAG patří case metadata, `notes/`, `outputs/`, přímé
 Markdown vstupy typu předchozí feedback, kurátorovaná GitHub intake shrnutí,
 reviewer profily a operator-authored work summaries. Do RAG nepatří připravené
 submitted-code workspaces, zejména `cases/**/work/code/**` a
@@ -34,9 +38,9 @@ nebo logy pod `inputs/github/**`, rozbalené odevzdané zdroje ve vnořených
 vendor/dependency/build/cache dokumentace. Podrobnosti jsou v
 `docs/local-rag-usage.md`.
 
-`BASE_DIRS` neberte jako bezpečný file-level allowlist. Pokud v lokálním MCP
-configu zůstává široký root typu `cases/`, jen zpřístupňuje cílené soubory; bulk
-ingest musí pořád používat kurátorovaný scope nebo explicitní bezpečné subrooty.
+`BASE_DIRS` (kořeny indexu) je konfigurace stroje, ne file-level allowlist;
+hranici pro case data tvoří allowlist zrcadla. Ingest, sync a mazání v indexu
+jsou věc operátora indexu, nikdy agenta.
 
 Typický přínos je triage při širokých historických dotazech: když by přesné
 vyhledání v Markdownu našlo desítky plánů, docs nebo skills, RAG má nejdřív

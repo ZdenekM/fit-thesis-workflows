@@ -1,13 +1,12 @@
 """Mirror the case Markdown that local RAG may index into `cases/_rag/`.
 
-The shared local-rag bridge has no exclude configuration: a sync walks every
-supported file (`.md`, `.txt`, `.pdf`, `.docx`) under each configured root. With
-the whole `cases/` directory as a root it indexed submitted code, LaTeX sources,
-raw GitHub intake, extracted thesis text and thesis PDFs, which
-`docs/local-rag-usage.md` keeps out of the index. Those chunks crowded the
-operator's own notes out of the results.
+An index root is taken whole: every supported file (`.md`, `.txt`, `.pdf`,
+`.docx`) under it gets indexed. With the whole `cases/` directory as a root the
+optional local index took submitted code, LaTeX sources, raw GitHub intake,
+extracted thesis text and thesis PDFs, which `docs/local-rag-usage.md` keeps out
+of the index. Those chunks crowded the operator's own notes out of the results.
 
-So the bridge indexes `cases/_rag/` instead, and this module keeps that
+So the index is rooted at `cases/_rag/` instead, and this module keeps that
 directory an exact copy of an allowlist of case Markdown: a file reaches the
 index only when a rule below names it, and a missing rule leaves a file out
 rather than letting it in. Mirror path `cases/_rag/<rel>` is the original
@@ -122,7 +121,7 @@ def refresh_mirror(cases_root: Path) -> MirrorResult:
         raise ValueError(f"{mirror} is a symlink; refusing to write through it")
     wanted = select_case_markdown(cases_root)
     # The mirror is a configured index root: it must exist even when empty, or the
-    # whole sync fails on a missing base directory.
+    # index refresh fails on a missing root directory.
     mirror.mkdir(exist_ok=True)
     copied = unchanged = removed = 0
     for rel in wanted:

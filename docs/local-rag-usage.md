@@ -1,45 +1,58 @@
 # Local RAG Usage
 
-`mcp-local-rag` is the discovery layer for Markdown-heavy repository knowledge.
-Use it to find candidate files and sections before spending context on broad
-reads, and whenever you do not yet know which file or section answers a
-question. It is also where long Markdown goes instead of Serena; Serena stays
-for code symbols.
+Local RAG is an **optional maintainer environment**, not part of the operator
+workflow. Operators - on Windows, or on any machine without the maintainer's
+local setup - do not have it, and nothing in the workflow may depend on it.
+Without it, use `rg` plus targeted reads; every rule below about what the index
+may hold still applies to whoever runs one.
 
-It runs as **one shared server for the whole workstation**, a `systemd --user`
-service on `http://127.0.0.1:8775/mcp`, holding one index and one embedding
-model for every repository. Clients attach over HTTP at no extra memory cost.
-Never add a stdio `local-rag` entry to a client config; that recreates the
-per-client cost this arrangement exists to remove. Setup and rationale are in
-`~/.claude/docs/mcp-bridges.md`.
+If a shared local index is available over MCP, it is the discovery layer for
+Markdown-heavy repository knowledge. Use it to find candidate files and sections
+before spending context on broad reads, and whenever you do not yet know which
+file or section answers a question. It is also where long Markdown goes instead
+of Serena; Serena stays for code symbols.
+
+The contract this document relies on:
+
+- `query_documents(query, limit, scope)` - semantic search. It returns up to
+  `limit` results, each a pointer with `filePath` and the matching text; `scope`
+  is an optional absolute path prefix that narrows results. Latency is around a
+  second.
+- Search is **semantic only**. It does not reliably find exact IDs, paths,
+  script names, or identifiers; use `rg` for those.
+- Read-only helpers: `status` (index health and ingest queue), `list_documents`
+  (what the index holds, narrowed with a `filter` on `uri`), and
+  `get_document_section` (one section of an indexed document).
+- There are no agent-facing ingest, sync, or delete operations, and agents must
+  not look for any.
 
 ## Intended Uses
 
 - Historical orientation across `docs/`, `plans/`, `.agents/skills/`,
   templates, reviewer profiles, `WORKFLOW_MEMORY.md`, `TODO.md`, and Markdown
   outputs under ignored case workspaces.
-- Cross-repository documentation search over explicitly approved curated roots,
-  for example selected docs, plans, skills, notes, and review artifacts in
-  `diplomky_v2`, `shaas-suite`, and `MozartUserInterface`.
+- Cross-repository documentation search, when the local index also covers
+  other explicitly approved curated roots.
 - Re-finding prior decisions, workflow rules, calibration notes, review output
   shapes, and repeated methodology discussions.
 
 ## Safe Ingest Scope
 
-**Agents do not ingest.** The index is machine-level state shared by every
-session, refreshed outside any agent's run by a `systemd --user` timer. Never
-call `ingest_file`, `ingest_data`, `sync_start`, or `delete_file`. If a query
+**Agents do not ingest.** The index is machine-level state that refreshes
+itself outside any agent's run, typically within a few minutes of a file
+change. Never ingest, sync, or delete index content, by any tool. If a query
 returns nothing for content you can see on disk, either the case mirror's
 allowlist does not name that file (intentionally unindexed, see below) or the
-index is stale for it: report which, and fall back to `rg`. Do not fix it by ingesting.
+index is stale for it - `status` shows a growing queue or failed jobs: report
+which, and fall back to `rg`. Do not fix it by ingesting.
 
 Case data reaches the index only through `cases/_rag/`, an allowlisted copy of
-case Markdown that `scripts/refresh-rag-case-mirror` rebuilds before every timer
-sync (`src/thesis_review_workflow/rag_case_mirror.py` holds the allowlist). The
-bridge's `BASE_DIRS` names `diplomky_v2/cases/_rag`, never `diplomky_v2/cases`:
-`mcp-local-rag` has no exclude setting, so a `cases/` root indexed thesis PDFs,
-extracted text, submitted code and sources, which buried the notes and outputs
-that make RAG useful for case work. A hit at `cases/_rag/<path>` is a pointer to
+case Markdown that a periodic job keeps current by running
+`scripts/refresh-rag-case-mirror` (`src/thesis_review_workflow/rag_case_mirror.py`
+holds the allowlist). The index's configured roots name `cases/_rag`, never
+`cases`: the mirror's allowlist, not an exclude list, is the boundary. A
+`cases/` root once indexed thesis PDFs, extracted text, submitted code and
+sources, which buried the notes and outputs that make RAG useful for case work. A hit at `cases/_rag/<path>` is a pointer to
 `cases/<path>`; open and cite the original, never the mirror copy. A file the
 allowlist does not name stays out of the index, so a new Markdown artifact kind
 that should be searchable needs a rule there.
@@ -52,9 +65,9 @@ must be able to name it.
 - Prefer curated Markdown ingest over raw directory ingest. Never configure
   `cases/` itself as a root: a raw `cases/` root also sees thesis PDFs,
   extracted text, prepared submitted-code roots and vendor/source
-  documentation, and the bridge has no exclude layer.
-- `BASE_DIRS` is bridge-level machine configuration, not a per-repo setting. It
-  is only a reachability boundary for MCP/CLI operations; it is not a file-level
+  documentation, and only the mirror's allowlist keeps them out.
+- `BASE_DIRS` (the index's configured roots) is machine-level configuration,
+  not a per-repo setting. It is only a reachability boundary; it is not a file-level
   allowlist and does not by itself exclude unsafe subpaths. For case data it
   names only the `cases/_rag/` mirror.
 - The mirror carries these classes: `case.md`, `notes/` (Markdown and text),
@@ -138,7 +151,9 @@ must be able to name it.
    narrative matches across many long Markdown docs, plans, or skills. Let RAG
    identify the most likely 1-2 source documents, then open those files
    directly.
-4. Read neighboring chunks only to decide whether the source is worth opening.
+4. Use the hit's text, or `get_document_section` for its section, only to
+   decide whether the source is worth opening. Raise `limit` when triaging a
+   broad question; a small `limit` can hide the second relevant document.
 5. Open the source artifact with normal tools and verify the exact claim.
 6. Synthesize from verified sources, not from retrieved snippets alone.
 
@@ -160,10 +175,11 @@ the locative `na katedře`, survived it, because `ř` is not `r`. A local RAG qu
 returned that exact sentence as its top hit. Embeddings do not care about the
 ending.
 
-The converse failure is worse, so never invert the order: the index is refreshed
-by a machine timer, so it answers from whatever it held at the last run. In the
-same case it kept serving the offending sentence for twenty minutes after the
-sentence was deleted. RAG can tell you where to look; it cannot tell you that
+The converse failure is worse, so never invert the order: the index refreshes
+asynchronously, so it answers from whatever it held at its last refresh. In the
+same case, under an earlier refresh schedule, it kept serving the offending
+sentence for twenty minutes after the sentence was deleted; a faster refresh
+shortens that window but never closes it. RAG can tell you where to look; it cannot tell you that
 you are done.
 
 Also note that `rg` honours `.gitignore`, so a sweep from a repository root
@@ -181,7 +197,7 @@ about a case. Sweep a case by explicit path, or use `grep`, which does not read
 - For thesis claims, negative findings, grading/report calibration, and
   student-facing feedback, RAG can help locate sources but cannot be the sole
   basis of the claim.
-- Refreshing the index after substantial Markdown changes happens on the
-  machine-level timer, not on demand. Recent edits may therefore not be
-  searchable yet; when that matters, use `rg` for the current state of a file
-  and say that the index may lag.
+- Refreshing the index after Markdown changes happens outside the agent's run,
+  not on demand. Recent edits may therefore not be searchable yet; when that
+  matters, use `rg` for the current state of a file and say that the index may
+  lag.
