@@ -23,6 +23,12 @@ These are supervisor hypotheses or preferences to check against the available ev
 
 -
 
+## Operator Clarifications
+
+Answers to the parent agent's one batch of questions, asked before reviewer agents run. Facts only the supervisor can know (what was agreed, the next consultation date, the wanted tone) are taken as given; claims about the thesis or code are verified like the notes above.
+
+-
+
 ## What To Check Explicitly
 
 -

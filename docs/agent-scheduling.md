@@ -124,15 +124,20 @@ Typical supervisor/opponent waves:
 
 1. Preparation by the main agent: readiness checks, round orientation, previous
    feedback, code workspace, GitHub intake preconditions.
-2. Evidence wave: text/assignment coverage plus code consistency when both are
+2. Operator clarification, in workflows built on operator-dictated input
+   (supervisor feedback after a consultation, the supervisor report): the main
+   agent makes a cheap draft, asks the operator one compact batch of questions
+   about what is unclear or missing, and records the answers before any agent
+   is spawned. The skill's operator clarification gate step owns the details.
+3. Evidence wave: text/assignment coverage plus code consistency when both are
    needed.
-3. Evidence wave: code quality plus quantitative claims, figure/media,
+4. Evidence wave: code quality plus quantitative claims, figure/media,
    literature, typography, or Theses.cz similarity-report review, depending on
    round triggers and available inputs.
-4. Calibration wave: evidence/claim calibration or grading calibration when the
+5. Calibration wave: evidence/claim calibration or grading calibration when the
    workflow needs it.
-5. Synthesis: integrate findings into the draft or final Markdown artifact.
-6. Independent review: use a different agent from the generator/finalizer for
+6. Synthesis: integrate findings into the draft or final Markdown artifact.
+7. Independent review: use a different agent from the generator/finalizer for
    the required review pass.
 
 Standalone evidence workflows can use the same pattern with fewer waves: one

@@ -80,7 +80,26 @@ supervisor does not know a dimension, the intake must say that explicitly.
 7. When code is present, use both `thesis-code-consistency` and
    `thesis-code-quality-review`, or record a typed limitation explaining why one
    could not be performed.
-8. Before spawning role agents, use the optimized deterministic boundary: `scripts/review-round-start --profile supervisor_report
+8. Operator clarification gate. Before the first costly step (spawning role
+   agents or the independent review), make a cheap parent-only
+   draft of what each report field will say, with no reviewer agents, and check
+   it against `notes/supervisor-report-operator-input.md` and anything the
+   supervisor dictated in chat. Then ask the operator one compact batch of
+   concrete questions about whatever is unclear, missing, or in tension with
+   the current evidence and would change the report: for example how
+   consultations actually went, whether agreed dates were kept, how the student
+   reacted to prior feedback, the last phase of the work, or a proposed grade
+   that the draft fields do not yet support. Do not ask about anything the
+   intake or case files already settle; when nothing is open, say so in one
+   line and continue. Wait for the answers and write them into the matching
+   fields of `notes/supervisor-report-operator-input.md`, which stays the
+   authoritative supervisor input (when `work/current_evidence_snapshot.json`
+   already exists, rerun `scripts/refresh-round-hashes <case-id> [round-id]`
+   after the edit). Only then continue. The questions help the supervisor
+   recall details or notice something forgotten, and a review run on an
+   incomplete picture has to be redone. They concern the case, not permission
+   to use agents, which step 2 already settles.
+9. Before spawning role agents, use the optimized deterministic boundary: `scripts/review-round-start --profile supervisor_report
    <case-id> [round-id]`, then `scripts/prepare-review-round --profile
    supervisor_report <case-id> [round-id]`. The second command delegates to
    supervisor-report packet preparation, refreshes current evidence and final
@@ -90,14 +109,14 @@ supervisor does not know a dimension, the intake must say that explicitly.
    When text/assignment or evidence-calibration packet roles are active, their
    findings are role-owned sidecars named by `work/review_role_plan.json`; do
    not create parent-authored filler files for those roles.
-9. Resolve every required materiality next action before trace/draft synthesis:
+10. Resolve every required materiality next action before trace/draft synthesis:
    use current structured/reviewed evidence, synthesis-covered evidence, or a
    typed limitation. Consume compact packet handoffs and `## Synthesis Handoff`
    sections first; open full artifacts only for material verification,
    contradiction checks, missing anchors, or reviewer challenges. This routing
    does not waive code roles, independent review, report confirmation, or
    manifest gates.
-10. When metrics, user studies, experiments, figures, literature, GitHub PRs,
+11. When metrics, user studies, experiments, figures, literature, GitHub PRs,
    imported Theses.cz similarity reports, or final typography are material to
    the report, use the same specialist workflows as supervisor feedback and
    opponent materials. Clean or resolved similarity-report findings should stay
@@ -108,20 +127,20 @@ supervisor does not know a dimension, the intake must say that explicitly.
    explanation from function inventories, prefer visual summaries for complex
    algorithms or workflows, and separate unit evidence for deterministic
    algorithmic components from integration evidence for runtime wiring.
-11. Write or update `work/supervisor_report_trace.json` with field-level
+12. Write or update `work/supervisor_report_trace.json` with field-level
    evidence refs, supervisor-input refs, optional feedback-history status,
    grade/points state, uncertainty, manual checks, and limitations.
-12. Generate or update `work/vedouci_posudek_draft.md`. Keep the official report
+13. Generate or update `work/vedouci_posudek_draft.md`. Keep the official report
     fields separate from `Komentar pro studenta`, which is visible only to the
     student in IS and is not part of the printed official report.
-13. Run an independent reviewer using `thesis-supervisor-report-review`. The
+14. Run an independent reviewer using `thesis-supervisor-report-review`. The
     reviewed draft goes to `outputs/vedouci_posudek_revidovany.md`.
-14. Refresh provenance with `scripts/init-review-manifest --run-checks <case-id>
+15. Refresh provenance with `scripts/init-review-manifest --run-checks <case-id>
     [round-id]`, then treat the reviewed Markdown as a draft for the human
     supervisor until
     `work/supervisor_report_confirmation.json` confirms grade, points, official
     text, and private student comment for IS entry.
-15. After confirmation, run `scripts/review-round-closeout --profile
+16. After confirmation, run `scripts/review-round-closeout --profile
     supervisor_report <case-id> [round-id]`. The shared closeout validates the
     role plan, manifest, coverage, approvals, unresolved
     `work/review_deltas/*.json`, and then delegates profile-specific report

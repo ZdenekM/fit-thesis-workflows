@@ -63,7 +63,31 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-13. Before spawning role-split agents, use the optimized deterministic
+13. Operator clarification gate. Before the first costly step (spawning role
+    agents, the independent review, or rendering), make a cheap parent-only
+    draft: the main points the feedback will make, held in the parent's own
+    context, with no reviewer agents. Check it and the private map against the
+    operator's dictated input for this round: the consultation outcome or
+    supervisor notes given in chat, `notes/round-notes.md`,
+    `notes/supervisor-intake.md`, and the reading pass when present. Then ask
+    the operator one compact batch of concrete questions about whatever is
+    unclear or missing and would change the feedback. Typical gaps: the agreed
+    next-consultation date, what was or was not discussed, whether the student
+    read previously recommended material, what the student actually did since
+    the last round, and the tone the supervisor wants. Do not ask about anything
+    the notes or case files already settle; when nothing is open, say so in one
+    line and continue. Wait for the answers, record them under `## Operator
+    Clarifications` in `notes/round-notes.md` (when
+    `work/current_evidence_snapshot.json` already exists, rerun
+    `scripts/refresh-round-hashes <case-id> [round-id]` after the edit), and
+    only then continue. The answers are supervisor input like the other notes:
+    facts only the supervisor can know, such as what was agreed or the wanted
+    tone, are taken as given, and claims about the thesis or code are verified
+    under `## Supervisor Notes Handling`. The questions help the supervisor
+    recall details or notice something forgotten, and a review run on an
+    incomplete picture has to be redone. The questions concern the case, not
+    permission to use agents, which step 2 already settles.
+14. Before spawning role-split agents, use the optimized deterministic
     boundary: `scripts/review-round-start --profile supervisor_feedback
     <case-id> [round-id]` to confirm current materials and write
     `work/review_run_trace.json`, then `scripts/prepare-review-round --profile
@@ -81,15 +105,15 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     (`work/supervisor_packets/text_assignment_findings.md` and
     `work/supervisor_packets/evidence_calibration_findings.md`); do not create
     parent-authored filler files for those roles.
-14. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
-15. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
-16. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
-17. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
-18. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
-19. If an imported Theses.cz similarity report is present, run `thesis-theses-similarity-review` before synthesis or record a typed limitation. Keep no-concern or resolved findings silent in student-facing feedback; surface only material unresolved concerns or concrete student actions.
-20. Prioritize issues by impact on current phase. Do not list every possible improvement.
-21. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
-22. After each role output is written, use `scripts/register-review-artifact`
+15. When quantitative, evaluation, experiment, metric, performance, or result claims matter to the current feedback, an authorized quantitative-claims reviewer agent or human must first write `work/quantitative_claims.json` with evidence anchors, units, scale/sample context, baseline/comparator status, practical magnitude, overclaim risk, reproducibility refs, and limitations. Then run `scripts/check-evaluation-claims <case-id> [round-id]` to validate that structured artifact before synthesis. Do not use deterministic text matching to decide whether such claims exist or what they mean. Text, code, and figure/media agents that discover material prose-only quantitative claims must route them to this skill rather than expanding deterministic raw-text scans.
+16. If thesis figures, tables, screenshots, result images, diagrams, or visual changes between rounds are material to the current feedback, run `thesis-figure-media-review`. Keep reusable evidence in `work/figure_media/visual_inventory.jsonl` and `outputs/figure_media_review.md`; in `outputs/feedback_student.md`, include only selected, phase-appropriate action items. Do not make visual-content claims from text extraction alone.
+17. If code is present, perform both `thesis-code-consistency` and `thesis-code-quality-review`. When code comes from GitHub repo/PR evidence, use `thesis-github-code-intake` first and scope downstream review to the imported checkout or PR contribution map. Keep detailed evidence in `outputs/code_consistency.md` and `outputs/code_quality_review.md`; in `outputs/feedback_student.md`, include only student-actionable summaries and important limitations.
+18. If literature relevance, citation support, or missing literature is material to the current round, run `thesis-literature-citation-review`. Keep detailed evidence in `outputs/literature_citation_review.md`; summarize only actionable, phase-appropriate literature/citation points in student-facing feedback.
+19. For `predfinalni verze`, `finalni kontrola`, final sprint, or explicit formal/typography requests, run `thesis-typography-formal-review`. Keep detailed evidence in `outputs/typography_formal_review.md`; in `outputs/feedback_student.md`, summarize repeated patterns and repair workflow, not a line-by-line error list.
+20. If an imported Theses.cz similarity report is present, run `thesis-theses-similarity-review` before synthesis or record a typed limitation. Keep no-concern or resolved findings silent in student-facing feedback; surface only material unresolved concerns or concrete student actions.
+21. Prioritize issues by impact on current phase. Do not list every possible improvement.
+22. In DEEP mode, perform a critical second pass before treating the output as final. When a first draft was produced by another agent or model, write it to `work/feedback_student_draft.md` and have a different reviewer agent run `thesis-supervisor-feedback-review` before `outputs/feedback_student.md` is treated as sendable.
+23. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is
     created. After the final output and checks exist, run
@@ -106,7 +130,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     profile-review reopening. Manifest refresh alone is insufficient. Finish
     optimized rounds with `scripts/review-round-closeout --profile
     supervisor_feedback <case-id> [round-id]`.
-23. After a successful closeout, when `quarto` is on PATH, render the approved
+24. After a successful closeout, when `quarto` is on PATH, render the approved
     feedback with `scripts/render-feedback <case-id> [round-id]` so the operator
     can attach the dated copy it prints as `For the student:`
     (`outputs/<date>_<surname>_<work type>_zpetna-vazba.pdf`, or `_feedback.pdf`
