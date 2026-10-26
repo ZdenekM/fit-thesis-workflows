@@ -220,11 +220,12 @@ předchozí feedback, rozlišit vyřešené, částečně vyřešené a stále p
 neopakovat staré připomínky mechanicky.
 
 Když agentovi nadiktujete výsledek konzultace nebo poznámky k posudku vedoucího,
-nejdřív si levně připraví hrubý návrh a položí vám jednu dávku konkrétních
+nejdřív si rychle připraví hrubý návrh a položí vám jednu dávku konkrétních
 otázek k tomu, co z poznámek a case neplyne: třeba termín další konzultace, co
 se probíralo a co ne, co student od minule skutečně udělal nebo jaký tón
 chcete. Na nic, co už v podkladech je, se neptá. Reviewer agenty, review a
-render spouští až po vašich odpovědích, které zapíše k podkladům roundu.
+render spouští až po vašich odpovědích, které zapíše k podkladům roundu; co
+nevíte, zůstane vedené jako neznámé.
 
 U code-backed prací se mají pro supervisor feedback, posudky vedoucího a
 oponentské podklady použít dvě oddělené kontroly: soulad textu s kódem a kvalita

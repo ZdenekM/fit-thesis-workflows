@@ -58,9 +58,10 @@ supervisor does not know a dimension, the intake must say that explicitly.
 1. Resolve the active case and round.
 2. Use role-split agents and an independent review pass for the requested report workflow; no separate agent-use confirmation is needed.
 3. Run `scripts/check-supervisor-report-ready <case-id> [round-id]`. If it
-   fails, stop before generating a trace, draft, or reviewed output and ask for
-   the missing assignment, deadline/profile context, or supervisor-report
-   intake fields.
+   fails, stop before generating a trace, draft, or reviewed output. Ask at
+   once for a missing assignment or deadline/profile context. Missing
+   supervisor-report intake fields join the single question batch of the
+   operator clarification gate instead of a separate round of questions.
 4. Read the effective reviewer profile. Profile style guides wording only; it
    cannot override supervisor input, current-case evidence, privacy, readiness
    gates, or unchecked-work limitations.
@@ -77,28 +78,37 @@ supervisor does not know a dimension, the intake must say that explicitly.
    evidence. It may support responsiveness when later artifacts show concrete
    response to prior feedback. If feedback is absent, stale, incomparable, or
    inconclusive, record that limitation and rely on supervisor input.
-7. When code is present, use both `thesis-code-consistency` and
-   `thesis-code-quality-review`, or record a typed limitation explaining why one
-   could not be performed.
-8. Operator clarification gate. Before the first costly step (spawning role
-   agents or the independent review), make a cheap parent-only
-   draft of what each report field will say, with no reviewer agents, and check
-   it against `notes/supervisor-report-operator-input.md` and anything the
-   supervisor dictated in chat. Then ask the operator one compact batch of
-   concrete questions about whatever is unclear, missing, or in tension with
-   the current evidence and would change the report: for example how
-   consultations actually went, whether agreed dates were kept, how the student
-   reacted to prior feedback, the last phase of the work, or a proposed grade
-   that the draft fields do not yet support. Do not ask about anything the
-   intake or case files already settle; when nothing is open, say so in one
-   line and continue. Wait for the answers and write them into the matching
-   fields of `notes/supervisor-report-operator-input.md`, which stays the
-   authoritative supervisor input (when `work/current_evidence_snapshot.json`
-   already exists, rerun `scripts/refresh-round-hashes <case-id> [round-id]`
-   after the edit). Only then continue. The questions help the supervisor
-   recall details or notice something forgotten, and a review run on an
-   incomplete picture has to be redone. They concern the case, not permission
-   to use agents, which step 2 already settles.
+7. When code is present, plan both `thesis-code-consistency` and
+   `thesis-code-quality-review` for the role waves after the operator
+   clarification gate, or record a typed limitation explaining why one could
+   not be performed.
+8. Operator clarification gate. Before spawning any role agent, make a cheap
+   parent-only sketch of what each report field will say, held in context and
+   not written to `work/vedouci_posudek_draft.md`, and check it against
+   `notes/supervisor-report-operator-input.md` and anything the supervisor
+   dictated in chat. Ask the operator one compact batch of concrete questions
+   about whatever is unclear, missing, or in tension with the current evidence
+   and would change the report, such as how consultations actually went,
+   whether agreed dates were kept, how the student reacted to prior feedback,
+   the last phase of the work, or a proposed grade the drafted fields do not
+   yet support, together with any intake fields the readiness check reported
+   missing. Do not ask about anything the intake or case files already
+   settle; a dimension marked explicitly unknown is settled. When nothing is
+   open, say so in one line and continue. The questions concern the case, not
+   permission to use agents, which this workflow already includes. Write the
+   answers into the matching fields of the operator input, which stays the
+   authoritative supervisor input, and anything that fits no field under
+   `## Human Notes`. Record a question left unanswered as unknown (the
+   section's `Co je explicitne nezname / nehodnotit:` field where it has one);
+   never guess it. Rerun `scripts/check-supervisor-report-ready <case-id>
+   [round-id]`; it must pass before any role agent is spawned. When
+   `work/common_briefing.json` or `work/current_evidence_snapshot.json`
+   already exists, rerun
+   `scripts/refresh-round-hashes <case-id> [round-id]` after the edit, and
+   regenerate `work/supervisor_report_trace.json` and the draft when they
+   exist, since they were built from the old input. Asking first helps the
+   supervisor recall forgotten details, and a review run on an incomplete
+   picture has to be redone.
 9. Before spawning role agents, use the optimized deterministic boundary: `scripts/review-round-start --profile supervisor_report
    <case-id> [round-id]`, then `scripts/prepare-review-round --profile
    supervisor_report <case-id> [round-id]`. The second command delegates to

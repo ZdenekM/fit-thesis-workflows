@@ -42,7 +42,7 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 6. Read `current-round.txt`, `case.md`, `notes/assignment.md`, `notes/supervisor-intake.md`, `notes/supervisor-reading-pass.md` when it exists, and `notes/round-notes.md`. Resolve and keep the configured student feedback language. A round without a reading pass is normal; `scripts/check-supervisor-ready` validates one that is present.
 7. Enumerate `inputs/`, `extracted/`, `notes/`, and earlier `outputs/feedback_student.md` artifacts. Treat the submitted PDF as the authoritative rendered thesis artifact. If a PDF has no extracted text and `pdftotext` is available, run `scripts/extract-pdf-text` into the round's `extracted/` directory. Use `pdf-reader-mcp` only as an optional targeted detail layer for page ranges, metadata, page counts, figures/tables, layout-sensitive checks, or ambiguous extraction; absence of that MCP is a limitation, not a blocker.
 8. State review limits before analysis: what was available, what was static-only, and what was not checked.
-9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, run `thesis-github-code-intake` first and keep the resulting `outputs/github_code_intake.md` as internal evidence. In an early round with no submitted archive, the round should declare the source with `scripts/review-round-start --profile supervisor_feedback --code-source github <case-id> [round-id]`, or on an already-started round with `scripts/prepare-review-round --code-source github <case-id> [round-id]`; that makes the intake a required next action instead of leaving the round silent about code. Note that a declaration blocks the wave gate and closeout until the intake exists or a typed `github_intake` limitation is accepted.
+9. If code is present only as an archive in `inputs/`, prepare an inspectable copy under `work/code/` before delegating to read-only reviewers. If the code is available through GitHub repo/PR URLs, `thesis-github-code-intake` runs first among the role agents, after the operator clarification gate, and its `outputs/github_code_intake.md` stays internal evidence; declaring the source and preparing `work/code/` are deterministic and happen here. In an early round with no submitted archive, the round should declare the source with `scripts/review-round-start --profile supervisor_feedback --code-source github <case-id> [round-id]`, or on an already-started round with `scripts/prepare-review-round --code-source github <case-id> [round-id]`; that makes the intake a required next action instead of leaving the round silent about code. Note that a declaration blocks the wave gate and closeout until the intake exists or a typed `github_intake` limitation is accepted.
 10. Inventory all current inputs and work artifacts, but start analysis from compact current evidence: `work/common_briefing.json`, `work/current_evidence_snapshot.json`, materiality decisions, role packets, reusable standalone evidence, `work/context/evidence_capsules.json`, and `work/context/claim_review_basis.json` when present. Open formal assignment notes, thesis PDF text/extracts, LaTeX sources, code, README, configs, experiment notes, screenshots, or human notes only for explicit triggers: changed fingerprints, missing anchors, contradiction, P0/P1 verification, reviewer challenge, unsupported synthesis wording, or role scope that cannot be resolved from current capsule refs. Use LaTeX/Overleaf source zips for text diffs, search, and precise evidence; do not build them by default unless the user explicitly asks or no rendered PDF is available.
 11. Read previous `outputs/feedback_student.md` files listed in `notes/previous-feedback-index.md` and any other earlier round feedback in the case.
 12. Build a short private map:
@@ -63,30 +63,28 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
    - student feedback language,
    - supervisor notes classified as verified, partially verified, not verifiable, out of phase, or rejected,
    - prior feedback that is addressed, partially addressed, still relevant, or obsolete.
-13. Operator clarification gate. Before the first costly step (spawning role
-    agents, the independent review, or rendering), make a cheap parent-only
-    draft: the main points the feedback will make, held in the parent's own
-    context, with no reviewer agents. Check it and the private map against the
-    operator's dictated input for this round: the consultation outcome or
-    supervisor notes given in chat, `notes/round-notes.md`,
-    `notes/supervisor-intake.md`, and the reading pass when present. Then ask
-    the operator one compact batch of concrete questions about whatever is
-    unclear or missing and would change the feedback. Typical gaps: the agreed
+13. Operator clarification gate. Before spawning any role agent, and so
+    before the independent review and rendering, make a cheap parent-only
+    draft of the main points the feedback will make. Check it and the private
+    map against the operator's dictated input for this round: the consultation
+    outcome or notes given in chat, `notes/round-notes.md`,
+    `notes/supervisor-intake.md`, and the reading pass when present. Ask the
+    operator one compact batch of concrete questions about whatever is unclear
+    or missing and would change the feedback, such as the agreed
     next-consultation date, what was or was not discussed, whether the student
     read previously recommended material, what the student actually did since
-    the last round, and the tone the supervisor wants. Do not ask about anything
-    the notes or case files already settle; when nothing is open, say so in one
-    line and continue. Wait for the answers, record them under `## Operator
-    Clarifications` in `notes/round-notes.md` (when
-    `work/current_evidence_snapshot.json` already exists, rerun
-    `scripts/refresh-round-hashes <case-id> [round-id]` after the edit), and
-    only then continue. The answers are supervisor input like the other notes:
-    facts only the supervisor can know, such as what was agreed or the wanted
-    tone, are taken as given, and claims about the thesis or code are verified
-    under `## Supervisor Notes Handling`. The questions help the supervisor
-    recall details or notice something forgotten, and a review run on an
-    incomplete picture has to be redone. The questions concern the case, not
-    permission to use agents, which step 2 already settles.
+    the last round, or the wanted tone. Do not ask about anything the notes or
+    case files already settle; when nothing is open, say so in one line and
+    continue. The questions concern the case, not permission to use agents,
+    which this workflow already includes. Record the answers under
+    `## Operator Clarifications` in `notes/round-notes.md`; an answer about a
+    reading-pass observation updates that observation's `Evidence:` and
+    `Routing:` instead (`### Reading Pass Routing`). Record a question the
+    operator leaves unanswered as unknown and continue; never guess a fact only
+    the supervisor can know. When `work/current_evidence_snapshot.json` already
+    exists, rerun `scripts/refresh-round-hashes <case-id> [round-id]` after the
+    edit. Asking first helps the supervisor recall forgotten details, and a
+    review run on an incomplete picture has to be redone.
 14. Before spawning role-split agents, use the optimized deterministic
     boundary: `scripts/review-round-start --profile supervisor_feedback
     <case-id> [round-id]` to confirm current materials and write
@@ -154,7 +152,7 @@ wording.
 
 ## Supervisor Notes Handling
 
-Treat notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, as hypotheses to evaluate, not as text to paste into student feedback.
+Treat notes from `notes/round-notes.md`, especially `Supervisor Notes to Verify`, as hypotheses to evaluate, not as text to paste into student feedback. Answers under `## Operator Clarifications` follow the same rule with one exception: facts only the supervisor can know, such as what was agreed at a consultation, the next consultation date, or the wanted tone, are taken as given.
 
 For each supervisor note:
 
