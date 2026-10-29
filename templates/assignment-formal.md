@@ -24,13 +24,16 @@ Copy the entries in the topic intake's `## Citable Artifacts` unwrapped too,
 since they are copied here byte-identically.
 
 Filing into FIT IS. The numbers in `### Assignment Points` and the `- ` markers
-in `### Literature` belong to this Markdown file, not to the IS fields. Paste
-the points without their numbers and format them with the editor's
-numbered-list button; paste the literature entries without the leading `- `
-and format them with its bullet-list button. Points pasted with their numbers
-print as plain text, not as a list, and the head of department returns such an
-assignment. Set the CZ/EN switch at the end of the form to `Rendering:` and
-fill the fields in that language. Fill the semestral field,
+in `### Literature` belong to this Markdown file, not to the IS fields. The IS
+fields are an HTML editor, as the operator who filed the 2026/27 assignments
+reported, and it did not turn pasted `- ` lines into bullets: the lists had to
+be made by hand. So paste the points and the literature entries as plain text,
+without their numbers and without the leading `- `, then select the points and
+apply the editor's numbered-list button, and select the entries and apply its
+bullet-list button. Points pasted with their numbers print as plain text, not
+as a list, and the head of department returns such an assignment. Set the
+CZ/EN switch at the end of the form to `Rendering:` and fill the fields in that
+language. Fill the semestral field,
 `Body požadované pro udělení zápočtu za první semestr`, printed as
 `Při obhajobě semestrální části projektu je požadováno:` or
 `Requirements for the semestral defence:`, and tick `Zobrazit studentům`.

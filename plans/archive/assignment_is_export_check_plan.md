@@ -175,6 +175,10 @@ checkbox, which the export does not show; private case data in tracked files.
   now documented as not modelled and pinned by
   `test_a_sub_list_is_read_by_its_columns_only`. Each fix has a regression
   test; one narrow re-check of this batch only.
+- 2026-10-29 (after archiving): the operator answered the open question. The
+  FIT IS field is an HTML editor and did not turn pasted `- ` lines into
+  bullets; the lists were made by hand with its list buttons.
+  `templates/assignment-formal.md` now states this as the operator's report.
 
 ## Final Audit
 
