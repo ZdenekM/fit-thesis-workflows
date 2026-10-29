@@ -155,6 +155,7 @@ Apply this semantic check when recommending literature, revising an assignment b
 - For time-sensitive topics, compare relevant recent research, reviews, and primary tool documentation before choosing sources. Assess the balance of the whole list; a collection of individually useful older works can still leave current approaches uncovered. Do not require replacement candidates for every foundational or methodological source, exhaustive acquisition, an age quota, or a fixed publication-year cutoff.
 - Verify bibliographic dates from authoritative records. When a review's currency matters, inspect its search cutoff or period covered where available; a recent publication year does not establish recent coverage. If the coverage could not be established, say so. Document tool versions or access dates when the recommendation depends on current software behavior.
 - Retain older foundational or methodological works when their specific contribution remains useful, and state that role. Treat older empirical findings as evidence about the studied sample, setting, and period; they do not by themselves establish present-day adoption, prevalence of problems, or technology limitations. Compare newer evidence when those present-day claims matter.
+- For an assignment's literature, the head of department's approval check at ÚPGM gives the calibration (`profiles/default.md` `## Assignment Authoring Style`): a theoretical book from 1998 keeps its place, twenty-year-old computer-vision or speech papers do not. That is the role-and-pace rule above, not an age cutoff: the book stays because its role is foundational theory, the papers go because their role would be the current methods of a field that has moved on.
 - Prefer relevance and evidence quality over novelty alone. Neither a familiar classic nor a newer article earns a place solely through its age. Explain material retention, replacement, or supplementation decisions and any remaining gap in current coverage.
 - When the topic builds on an existing platform, system, dataset, or model, ask the operator which publications describe it and the upstream components it reuses (for example a model or library taken from another project). The answer can also live in the platform's own files, such as a citation file or the references in its README, but those need not exist; do not conclude that there is no such publication because none was found there. Record what the operator said, or that the operator knows of none.
 - Search where the technique is used, not only where it is studied. A technique may still be used and published in application domains even when its originating research community has moved on, and those sources matter for the survey and the recommendations an assignment asks for. A negative finding about currency names the venues and domains searched; a claim scoped to one community is worded as such.
@@ -376,9 +377,10 @@ operator.
 
 What the checker deliberately does NOT decide: assessability, whether an open
 point states a criterion the choice can be judged against, tone, topic quality,
-anything derived from point count, and the rules the head of department checks
-before approving (language, finished, short, firm; `profiles/default.md`
-`## Assignment Authoring Style`). Those belong to
+anything derived from point count, and the reading rules the head of
+department checks before approving (language, finished, short, firm, complete
+and current literature, never the same assignment twice, a title without
+praise; `profiles/default.md` `## Assignment Authoring Style`). Those belong to
 `.agents/skills/thesis-assignment-review/SKILL.md`.
 
 ## The Bundle Approval

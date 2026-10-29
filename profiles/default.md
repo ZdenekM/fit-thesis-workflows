@@ -94,7 +94,8 @@ Avoid:
 
 The generic base for authoring topic assignments and student briefs, layer 2 of
 `docs/assignment-authoring.md`. Every item here is attested across several
-supervisors at this faculty, not derived from one. A supervisor's own wording,
+supervisors at this faculty or set by the head of department's approval check,
+not derived from one supervisor. A supervisor's own wording,
 literature-entry count, semester-requirement phrasing, preferred categories,
 BP/DP construction, and supervision conventions are layer 3 and belong in
 `profiles/local/<profile-id>.md`, never here.
@@ -118,7 +119,9 @@ Institutional norm for an assignment:
 
 What the head of department checks before approving. The assignment is checked
 as filed in FIT IS; these rules come from that check (announced at ÚPGM for
-2026/27) and hold for any assignment, not for one supervisor's style:
+2026/27 and extended after the October 2026 check, which returned two
+assignments and circulated recurring defects) and hold for any assignment, not
+for one supervisor's style:
 
 - **The assignment language follows the thesis language.** A thesis written in
   Czech has a Czech assignment, one written in English an English assignment.
@@ -140,10 +143,53 @@ as filed in FIT IS; these rules come from that check (announced at ÚPGM for
   s vedoucím", "v dohodnutém rozsahu"). An open point is not a conditional one:
   "vyberte metodu" plus the criteria the choice is judged by is firm (see
   Open solution space below).
-- These are reading rules for the author and the reviewer, not searches. Like
-  the vocabulary rule below, they are deliberately not a deterministic check:
-  each example phrase has innocent uses and other phrasings carry the same
-  defect.
+- **Complete literature.** Every entry names at least the authors, the title,
+  where it appeared (conference, journal or publisher) and the year, or gives an
+  arXiv link together with the authors and the title. A bare arXiv link is not
+  an entry. This is the minimum content of an entry; its format stays layer 3.
+- **Current literature.** Old literature is judged by its role and the pace of
+  its field, not by its age: a theoretical book from 1998 is fine,
+  twenty-year-old computer-vision or speech papers are not.
+  `docs/assignment-authoring.md` `## Literature Selection And Currency` owns
+  the rule.
+- **Never the same assignment twice.** Every BP and DP is an independent work,
+  so two students never get the same assignment. When students work in a team,
+  each assignment's points delimit that student's own part.
+- **A title without praise.** No evaluative adjective such as "pokročilý" or
+  "moderní" in the title; the title says what the work does. The head of
+  department marked this by hand on a returned assignment.
+- Language, finished, short, firm, complete and current literature, never
+  twice, and the title are reading rules for the author and the reviewer, not
+  searches. Like the vocabulary rule below, they are deliberately not a
+  deterministic check: each example phrase has innocent uses and other
+  phrasings carry the same defect.
+
+The rest of the check concerns the assignment as FIT IS stores and prints it,
+which the Markdown bundle cannot show:
+
+- **Filed as lists.** In FIT IS the points are a numbered list and the
+  literature a bullet list, both made with the editor's list formatting. Text
+  that merely starts with `1.` is not a list, and no item has an empty line
+  after its number, which a list imported from elsewhere tends to produce.
+- **One page.** The printed assignment fits on one page. When it does not,
+  shorten the points or the literature, and put the full version into
+  `Komentář k zadání (netiskne se)`.
+- **Filled in the switch language.** Switching the form from CZ to EN shows
+  empty English fields; what is printed is the version in the language the
+  switch is set to, so that version must be filled. The switch can still be
+  changed later.
+- **Visible to students.** `Zobrazit studentům` at the end of the form is
+  ticked. The printed assignment does not show it either, so it is a filing
+  checklist item.
+- **The semestral field in IS.** The form's
+  `Body požadované pro udělení zápočtu za první semestr`, printed as
+  `Při obhajobě semestrální části projektu je požadováno:`, carries the
+  semestral requirement the institutional norm above asks for. The one
+  exception the check accepts is a student who already passed the first
+  semester in the previous academic year. It applies when filing for that
+  student: a topic bundle, which has no student yet, always fills the field,
+  and an adopted bundle with an empty issued field takes the stop-and-ask path
+  of `docs/assignment-authoring.md` `## Adopting An Issued Assignment`.
 
 Open solution space:
 

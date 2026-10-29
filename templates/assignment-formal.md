@@ -23,6 +23,22 @@ wrapping: the operator pastes them into FIT IS, which keeps every line break.
 Copy the entries in the topic intake's `## Citable Artifacts` unwrapped too,
 since they are copied here byte-identically.
 
+Filing into FIT IS. The numbers in `### Assignment Points` and the `- ` markers
+in `### Literature` belong to this Markdown file, not to the IS fields. Paste
+the points without their numbers and format them with the editor's
+numbered-list button; paste the literature entries without the leading `- `
+and format them with its bullet-list button. Points pasted with their numbers
+print as plain text, not as a list, and the head of department returns such an
+assignment. Set the CZ/EN switch at the end of the form to `Rendering:` and
+fill the fields in that language. Fill the semestral field,
+`Body požadované pro udělení zápočtu za první semestr`, printed as
+`Při obhajobě semestrální části projektu je požadováno:` or
+`Requirements for the semestral defence:`, and tick `Zobrazit studentům`.
+Then export the assignment PDF from FIT IS and confirm it fits on one page; if
+it does not, shorten the points or the literature and put the full version
+into `Komentář k zadání (netiskne se)`. `profiles/default.md`
+`## Assignment Authoring Style` holds the rules behind these steps.
+
 Phrase every assignment point in the imperative second-person plural
 (`Navrhněte`, `Implementujte`, `Design`, `Implement`). A point may leave the
 choice of method, algorithm, dataset or application domain to the student; what

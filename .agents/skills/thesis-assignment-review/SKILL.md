@@ -67,9 +67,19 @@ case: shared material is checked across variants, not within one.
    thesis language and is never Slovak, nothing in any field is unfinished, the
    points carry no explanation that belongs in `Komentář k zadání (netiskne
    se)`, and no point is conditional or leaves its scope to a later agreement.
+   Walk the rest of that list too: the title carries no evaluative adjective
+   and says what the work does; every literature entry names authors, title,
+   venue or publisher and year, or gives an arXiv link with authors and title;
+   and the same assignment is never given twice (item 12). The filing rules
+   there (lists, one page, the switch language, `Zobrazit studentům`, the
+   semestral field in IS) concern the assignment as FIT IS stores it: from the
+   Markdown, flag only an assignment that plainly cannot fit one printed page,
+   and list the rest in your findings as manual checks for the operator at
+   filing.
    Do not treat this list as satisfied because the points read well.
    Also assess the bibliography against `docs/assignment-authoring.md`
-   `## Literature Selection And Currency`: verify the role of retained older
+   `## Literature Selection And Currency`, including the head of department's
+   calibration there: verify the role of retained older
    sources and whether the list covers relevant current approaches. Verified
    identifiers alone do not satisfy this semantic check. A negative finding
    about currency must name the communities and domains searched; flag one that
@@ -138,6 +148,22 @@ case: shared material is checked across variants, not within one.
     The rules also cover any length budget in the effective profile. These are
     findings like any other, and they block approval of the brief until
     resolved.
+12. **Never the same assignment twice.** Every BP and DP is independent work.
+    Compare this variant with the supervisor's other active assignments the
+    case store holds: the `outputs/assignment_formal_*.md` of other topic cases
+    (`Case kind: topic-proposal`) for the current or the coming academic year,
+    the `notes/assignment.md` of the round named in `current-round.txt` of each
+    thesis case whose `Supervisor / opponent role:` is supervisor, and any FIT
+    IS exports the operator supplied. The other variants of this topic are not
+    compared: they are alternatives for one student and share material by
+    design (item 4). The intake's `### Sibling Topics This One Excludes` is an
+    offering rule for topics offered together, not this check.
+    Flag two assignments a reader could not tell apart by title and points;
+    for team work, check that each assignment's points delimit the student's
+    own part. A duplicate in an editable field blocks; in an issued field the
+    operator cannot edit it is a limitation (item 9). Name what you compared,
+    state the comparison as limited to what the case store holds, and report a
+    case whose status you could not tell as a limitation.
 
 ## Outputs
 
