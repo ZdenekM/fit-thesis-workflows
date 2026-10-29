@@ -383,6 +383,10 @@ and current literature, never the same assignment twice, a title without
 praise; `profiles/default.md` `## Assignment Authoring Style`). Those belong to
 `.agents/skills/thesis-assignment-review/SKILL.md`.
 
+Nor does it decide how FIT IS stores the filed assignment. That half of the
+head of department's check is decided on the exported PDF by
+`scripts/check-assignment-export`; see `## Filing In FIT IS`.
+
 ## The Bundle Approval
 
 `scripts/check-assignment-bundle <case-id> <variant>` is the gate before
@@ -431,6 +435,59 @@ traceability, not authentication. And `checks_observed`, `limitations` and
 `timestamp` are audit metadata — they record what a reviewer said it did and
 establish nothing about whether a semantic review happened. That is why the
 operator reading stays part of the gate.
+
+## Filing In FIT IS
+
+The head of department approves the assignment as FIT IS prints it, and the
+bundle cannot show how IS stores it: points pasted as plain text `1. …` and the
+same points formatted as a numbered list read alike in Markdown and differently
+in the printed assignment. Filing an approved variant therefore ends with a
+check of the export.
+
+- File the approved variant as `templates/assignment-formal.md` describes:
+  points without their numbers, formatted as a numbered list; literature
+  formatted as a bullet list; the CZ/EN switch set to `Rendering:`; the
+  semestral field filled; `Zobrazit studentům` ticked.
+- Export the assignment PDF from FIT IS into the case's `inputs/`, for example
+  `inputs/is_export_<date>/`, and run
+  `scripts/check-assignment-export <pdf>... [--language cs|en] [--allow-empty-semestral]`.
+  It reads the `pdftotext -layout` text of each PDF and fails on more than one
+  page; a header that is not a FIT IS assignment header, or another rendering
+  than `--language`; an empty title; points that are not a numbered list (a
+  number at the label column, a number alone on its line with the text below
+  it, lines that do not hang under the point's text, numbering not consecutive
+  from 1); literature that is not a bullet list or whose lines do not hang
+  under the entry's text; an item that carries a typed marker of its own
+  inside the list (`1. 1. …`, `• - …`), which is what pasting the Markdown with
+  its markers and then applying the list button prints; and an empty semestral
+  field.
+- `--language` is optional so a batch of mixed exports can be checked at once;
+  without it the command says that the rendering was not compared with the
+  thesis language. `--allow-empty-semestral` is for a student who already
+  passed the first semester in the previous academic year. It applies to every
+  PDF of the run, so pass it with that student's export only; each empty field
+  it accepts is printed as a note.
+- The labels come from `assignment_draft.RENDERINGS`, the one source
+  `scripts/check-assignment-draft` and `templates/assignment-formal.md` share,
+  which carries the title label and the line that opens the footer for this
+  check. A field ends only at a label that comes after it in the form, so plain
+  text inside the semestral field that starts like another label stays
+  content.
+- It reads geometry and list markers, never wording. The title rule, complete
+  and current literature, and never twice stay with the reviewer.
+  `Zobrazit studentům` is not printed, so the command only reminds the
+  operator of it. List columns are compared with a tolerance of one, because
+  `pdftotext` rounds positions to character columns; the label column is
+  exact. Two limits follow from geometry: indented typed text that never wraps,
+  or wraps within a column of the item's text, cannot be told from a list; and
+  a sub-list inside a point is not modelled, so a nested item under the point's
+  text reads as part of the point and one indented deeper as a line that does
+  not hang under it.
+- It takes PDF paths rather than a case id: an export is checked wherever it
+  lies, including an assignment that never had a topic case.
+- A failure is fixed in FIT IS and the PDF exported again; there is no
+  override. When a fix changes the text, as a shortening for the one-page rule
+  does, the bundle changes with it and goes back through review.
 
 ## Promotion Into A Thesis Case
 

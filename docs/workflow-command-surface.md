@@ -25,7 +25,9 @@ run repeatedly while working on a case. Each tool must have:
 `check-assignment-draft` and `check-assignment-bundle` follow the same
 operator-tool contract. They are the only workflow commands that run against a
 case with no rounds, because a `Case kind: topic-proposal` case has none; they
-take a case id and a variant rather than a round id. `promote-assignment`
+take a case id and a variant rather than a round id. `check-assignment-export`
+follows the contract too but takes PDF paths instead of a case id: it checks an
+assignment PDF exported from FIT IS wherever the PDF lies. `promote-assignment`
 spans both shapes: a round-less topic case as its source and a thesis-review
 round as its target, so it takes an optional target round id.
 

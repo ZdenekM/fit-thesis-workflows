@@ -10,6 +10,7 @@ shell_sources(
         "check-assignment-bundle",
         "promote-assignment",
         "check-assignment-draft",
+        "check-assignment-export",
         "check-code-consistency",
         "check-code-quality-review",
         "check-code-reproducibility",
@@ -170,6 +171,7 @@ WORKFLOW_CLI_RUNTIME_DEPS = [
     "src/thesis_review_workflow/cli:check_assignment_bundle",
     "src/thesis_review_workflow/cli:promote_assignment",
     "src/thesis_review_workflow/cli:check_assignment_draft",
+    "src/thesis_review_workflow/cli:check_assignment_export",
     "src/thesis_review_workflow/cli:check_code_consistency",
     "src/thesis_review_workflow/cli:check_code_quality_review",
     "src/thesis_review_workflow/cli:check_code_reproducibility",
@@ -319,6 +321,16 @@ pex_binary(
     execution_mode="venv",
     layout="packed",
     output_path="workflow-tools/pex/check-assignment-draft",
+    tags=["workflow-tool"],
+)
+
+pex_binary(
+    name="check_assignment_export_tool",
+    entry_point="thesis_review_workflow.cli.check_assignment_export:console_main",
+    dependencies=WORKFLOW_CLI_RUNTIME_DEPS,
+    execution_mode="venv",
+    layout="packed",
+    output_path="workflow-tools/pex/check-assignment-export",
     tags=["workflow-tool"],
 )
 

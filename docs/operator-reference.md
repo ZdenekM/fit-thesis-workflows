@@ -289,6 +289,39 @@ bundlu; pole `Topic:` z `case.md` se netiskne.
 - Vysázení není odeslání: o předání studentovi a o `promote-assignment --issued`
   rozhodujete vy. Quarto a launchery na Windows platí stejně jako výše.
 
+## Kontrola Zadání Exportovaného Z IS
+
+```bash
+scripts/check-assignment-export <pdf>... [--language cs|en] [--allow-empty-semestral]
+```
+
+Vedoucí ústavu schvaluje zadání tak, jak ho IS vytiskne, a Markdown v topic
+case neukáže, jak je zadání v IS uložené. Po zápisu do IS proto zadání
+exportujte do PDF, uložte ho do `inputs/` case (například
+`inputs/is_export_<datum>/`) a pusťte tento příkaz. Postup zápisu je
+v `templates/assignment-formal.md`, pravidla v `docs/assignment-authoring.md`,
+sekce `## Filing In FIT IS`.
+
+- Selže, když má zadání víc než jednu stranu, když záhlaví není zadání z FIT IS
+  nebo je v jiném jazyce než `--language`, když chybí název, když body nejsou
+  číslovaný seznam (číslo na okraji u labelu, číslo samotné na řádku s textem
+  pod ním, řádky neodsazené pod text bodu, číslování neplynulé od 1), když
+  literatura není seznam s odrážkami, když položka nese ještě vlastní vepsanou
+  značku (`1. 1. …`, `• - …`, tedy vložený Markdown i s čísly a potom tlačítko
+  seznamu) a když chybí semestrální požadavek.
+- Bez `--language` příkaz napíše, že jazyk zadání s jazykem práce neporovnal.
+- `--allow-empty-semestral` použijte jen pro studenta, který první semestr
+  splnil už v minulém akademickém roce, a jen s jeho exportem: platí pro všechna
+  PDF v jednom spuštění. Každé takto přijaté prázdné pole příkaz vypíše jako
+  `NOTE`.
+- Formulace nečte: název bez hodnoticích přívlastků, úplnost a aktuálnost
+  literatury a to, že se stejné zadání nedává dvakrát, posuzuje review zadání.
+  Zaškrtnutí `Zobrazit studentům` v exportu vidět není; příkaz na něj jen
+  upozorní.
+- Chybu opravte v IS a zadání exportujte znovu. Na Windows použijte
+  `dist\workflow-tools\bin\check-assignment-export.cmd` nebo `.ps1` po
+  zabalení nástrojů (viz Diagnostika níže).
+
 ## Povinné Gate Před Generováním
 
 Před studentskou zpětnou vazbou od vedoucího agent spouští

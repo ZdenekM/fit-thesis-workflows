@@ -148,8 +148,10 @@ def test_official_title_reads_the_single_rendering_block(rendering: str, expecte
 
 
 def test_title_labels_are_the_fit_is_rendering_fields() -> None:
-    for key, label in brief_render.TITLE_LABEL.items():
-        assert label in RENDERINGS[key].metadata
+    """The masthead reads `Rendering.title_label`, which must be one of the form's own fields."""
+
+    for rendering in RENDERINGS.values():
+        assert rendering.title_label in rendering.metadata
 
 
 def test_cli_refuses_a_variant_without_approval(

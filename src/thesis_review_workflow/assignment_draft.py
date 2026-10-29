@@ -66,6 +66,10 @@ class Rendering:
     literature_label: str
     semestral_label: str
     footer: tuple[str, ...]
+    title_label: str
+    """The official-title field among `metadata`."""
+    guidelines: str
+    """The fixed line that opens the footer, ahead of its labels; it ends the semestral field."""
 
 
 RENDERINGS: dict[str, Rendering] = {
@@ -81,6 +85,8 @@ RENDERINGS: dict[str, Rendering] = {
         literature_label="Literatura:",
         semestral_label="Při obhajobě semestrální části projektu je požadováno:",
         footer=("Vedoucí práce:", "Vedoucí ústavu:", "Datum zadání:", "Termín pro odevzdání:", "Datum schválení:"),
+        title_label="Název:",
+        guidelines="Podrobné závazné pokyny pro vypracování práce viz",
     ),
     "en": Rendering(
         key="en",
@@ -93,6 +99,8 @@ RENDERINGS: dict[str, Rendering] = {
         literature_label="Literature:",
         semestral_label="Requirements for the semestral defence:",
         footer=("Supervisor:", "Head of Department:", "Beginning of work:", "Submission deadline:", "Approval date:"),
+        title_label="Title:",
+        guidelines="Detailed formal requirements can be found at",
     ),
 }
 

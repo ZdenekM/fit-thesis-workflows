@@ -165,7 +165,9 @@ for one supervisor's style:
   phrasings carry the same defect.
 
 The rest of the check concerns the assignment as FIT IS stores and prints it,
-which the Markdown bundle cannot show:
+which the Markdown bundle cannot show. `scripts/check-assignment-export` checks
+it on the exported PDF, except `Zobrazit studentům`, which is not printed
+(`docs/assignment-authoring.md` `## Filing In FIT IS`):
 
 - **Filed as lists.** In FIT IS the points are a numbered list and the
   literature a bullet list, both made with the editor's list formatting. Text

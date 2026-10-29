@@ -8,6 +8,7 @@ python_source(name="check_assignment_coverage", source="check_assignment_coverag
 python_source(name="check_assignment_bundle", source="check_assignment_bundle.py")
 python_source(name="promote_assignment", source="promote_assignment.py")
 python_source(name="check_assignment_draft", source="check_assignment_draft.py")
+python_source(name="check_assignment_export", source="check_assignment_export.py")
 python_source(name="check_code_consistency", source="check_code_consistency.py")
 python_source(name="check_code_quality_review", source="check_code_quality_review.py")
 python_source(name="check_code_reproducibility", source="check_code_reproducibility.py")

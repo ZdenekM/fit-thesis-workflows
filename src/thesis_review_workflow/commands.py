@@ -22,6 +22,7 @@ WORKFLOW_COMMAND_MODULES = {
     "check-assignment-coverage": "thesis_review_workflow.cli.check_assignment_coverage",
     "check-assignment-bundle": "thesis_review_workflow.cli.check_assignment_bundle",
     "check-assignment-draft": "thesis_review_workflow.cli.check_assignment_draft",
+    "check-assignment-export": "thesis_review_workflow.cli.check_assignment_export",
     "check-code-consistency": "thesis_review_workflow.cli.check_code_consistency",
     "check-code-quality-review": "thesis_review_workflow.cli.check_code_quality_review",
     "check-code-reproducibility": "thesis_review_workflow.cli.check_code_reproducibility",

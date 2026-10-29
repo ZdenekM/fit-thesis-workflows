@@ -75,7 +75,9 @@ case: shared material is checked across variants, not within one.
    semestral field in IS) concern the assignment as FIT IS stores it: from the
    Markdown, flag only an assignment that plainly cannot fit one printed page,
    and list the rest in your findings as manual checks for the operator at
-   filing.
+   filing, where `scripts/check-assignment-export` decides them on the IS
+   export except `Zobrazit studentům`, which the export does not show
+   (`docs/assignment-authoring.md` `## Filing In FIT IS`).
    Do not treat this list as satisfied because the points read well.
    Also assess the bibliography against `docs/assignment-authoring.md`
    `## Literature Selection And Currency`, including the head of department's

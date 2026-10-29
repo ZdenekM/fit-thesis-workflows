@@ -34,10 +34,13 @@ fill the fields in that language. Fill the semestral field,
 `Body požadované pro udělení zápočtu za první semestr`, printed as
 `Při obhajobě semestrální části projektu je požadováno:` or
 `Requirements for the semestral defence:`, and tick `Zobrazit studentům`.
-Then export the assignment PDF from FIT IS and confirm it fits on one page; if
-it does not, shorten the points or the literature and put the full version
-into `Komentář k zadání (netiskne se)`. `profiles/default.md`
-`## Assignment Authoring Style` holds the rules behind these steps.
+Then export the assignment PDF from FIT IS and run
+`scripts/check-assignment-export <pdf> --language <Rendering>` on it. It
+checks one page, the lists, the rendering and the semestral field; when the
+assignment runs over one page, shorten the points or the literature and put the
+full version into `Komentář k zadání (netiskne se)`. `profiles/default.md`
+`## Assignment Authoring Style` holds the rules behind these steps, and
+`docs/assignment-authoring.md` `## Filing In FIT IS` the check.
 
 Phrase every assignment point in the imperative second-person plural
 (`Navrhněte`, `Implementujte`, `Design`, `Implement`). A point may leave the

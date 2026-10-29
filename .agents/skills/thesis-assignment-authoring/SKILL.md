@@ -108,6 +108,14 @@ This is a parent-owned workflow: the main agent holds the operator dialogue that
    Apply its findings, then request approval again — material edits after an
    approval reopen draft state, and
    `scripts/check-assignment-bundle` enforces that through the recorded hashes.
+7. **Check the filed assignment.** Once the operator has filed an approved
+   variant in FIT IS (`templates/assignment-formal.md` says how), have them
+   export the assignment PDF into the case's `inputs/` and run
+   `scripts/check-assignment-export <pdf> --language <Rendering>` on it. A
+   failure is fixed in FIT IS and the PDF exported again; a fix that changes
+   text, such as shortening for the one-page rule, changes the bundle too and
+   goes back through step 6. `docs/assignment-authoring.md`
+   `## Filing In FIT IS` owns the check.
 
 ## Negative Claims From Discovery
 

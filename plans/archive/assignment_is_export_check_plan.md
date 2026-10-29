@@ -1,18 +1,15 @@
 # Assignment IS Export Check Plan
 
-Status: in_progress
+Status: done
 Created: 2026-10-29
 
 ## Start Here
 
-State: both slices are chartered below; Slice A (rules) is in progress, Slice B
-(the export checker) is next. The head of department's first round of rules
-landed in commit `3cf49aa`; this plan adds the second round.
+State: done. Slice A (rules) landed in `30d09e2`, Slice B (the export
+checker) in the commit that archived this plan. The head of department's first
+round of rules landed in commit `3cf49aa`; this plan added the second round.
 
-Next action: finish Slice A, run its verification, commit it with explicit
-paths, then start Slice B.
-
-Do not read `plans/archive/` for this plan; it has no archived history.
+Next action: none. Open operator questions are case matters, not plan work.
 
 ## Goal
 
@@ -64,7 +61,8 @@ checkbox, which the export does not show; private case data in tracked files.
 
 ### Slice A - Head-of-department rules for FIT IS filing
 
-- Status: in_progress
+- Status: done (landed in `30d09e2`; the cross-provider round covered it with
+  Slice B)
 - Proposed commit message: Record the head of department's second round of assignment rules
 - Why: the rules exist only in an e-mail; authors and reviewers read layer 2
   and the review skill.
@@ -86,7 +84,7 @@ checkbox, which the export does not show; private case data in tracked files.
 
 ### Slice B - check-assignment-export
 
-- Status: planned
+- Status: done
 - Proposed commit message: Check the assignment PDF exported from FIT IS before approval
 - Why: the defect the head of department returned is invisible in the Markdown
   bundle and visible in the export.
@@ -96,10 +94,12 @@ checkbox, which the export does not show; private case data in tracked files.
   `src/thesis_review_workflow/cli/check_assignment_export.py`,
   `src/thesis_review_workflow/cli/BUILD`, `src/thesis_review_workflow/commands.py`,
   `scripts/check-assignment-export`, `scripts/BUILD`,
-  `tests/test_assignment_export.py`, `docs/assignment-authoring.md`,
+  `tests/test_assignment_export.py`, `tests/test_brief_render.py`,
+  `profiles/default.md`, `docs/assignment-authoring.md`,
   `docs/workflow-command-surface.md`, `docs/operator-reference.md`,
   `templates/assignment-formal.md`, `.agents/skills/thesis-assignment-authoring/SKILL.md`,
-  `.agents/skills/thesis-assignment-review/SKILL.md`, `plans/assignment_is_export_check_plan.md`
+  `.agents/skills/thesis-assignment-review/SKILL.md`, this plan (moved to
+  `plans/archive/`)
 - Tasks: a pure parser over `pdftotext -layout` text checking page count,
   header and `--language`, a non-empty title, the points as a real numbered
   list (indented past the label, hanging indent, no number alone on a line,
@@ -109,9 +109,11 @@ checkbox, which the export does not show; private case data in tracked files.
   CLI runs `pdftotext` per PDF; wiring per the command contract; synthetic
   layout-text tests; docs naming the tool.
 - Out of scope: reading or judging wording; parsing the footer dates.
-- Verification: `pants test tests/test_assignment_export.py`,
+- Verification: `pants lint` and `pants check` on the changed Python files,
+  `pants test tests/test_assignment_export.py`,
   `pants test tests/test_workflow_python_contracts.py`,
-  `pants test tests/test_assignment_draft.py`, `pants run scripts:omen --
+  `pants test tests/test_assignment_draft.py`,
+  `pants test tests/test_brief_render.py`, `pants run scripts:omen --
   complexity --focus src/thesis_review_workflow/assignment_export.py`,
   `python3 tests/test_plan_contract.py`, `scripts/check-private`,
   `scripts/check-scripts`, `git diff --check`; a local run over the private
@@ -122,6 +124,13 @@ checkbox, which the export does not show; private case data in tracked files.
 - 2026-10-29: plan created; Slice A started. Slice A reviewed once (internal
   Claude round); fixes applied; Slice B implementation started in parallel in
   files Slice A does not touch.
+- 2026-10-29: Slice A committed (`30d09e2`). Slice B implemented: parser,
+  CLI, wiring, tests, docs. Targeted Pants tests green; Omen advisory: the new
+  module's worst function is 12 cyclomatic, repo ratchets pass. Local run over
+  the private exports: all 36 September exports are one page, 22 fail (5 with
+  no semestral field, 11 with a number alone on its line, 6 with literature
+  outside a list); the defective October re-export fails (two pages, points at
+  the margin); both corrected October exports and one English export pass.
 
 ## Decision Log
 
@@ -141,7 +150,63 @@ checkbox, which the export does not show; private case data in tracked files.
   deviation recorded rather than repaired: Slice B code started before the
   Slice A commit, in files outside Slice A's paths, and its charter was read in
   this round (one prose finding) rather than in a separate charter review.
+- 2026-10-29: Slice B shape. The command takes PDF paths, not a case id, so any
+  export is checkable wherever it lies; `--language` stays optional for mixed
+  batches and its absence is printed; there is no override, a failure is fixed
+  in FIT IS. The header and the footer's opening line join `RENDERINGS`, and
+  `brief_render.py::TITLE_LABEL` is removed in favour of `Rendering.title_label`.
+- 2026-10-29: Slice B review, one internal Claude round; nothing blocking.
+  Accepted, class (b): a marker typed into a list item (`1. 1.`, `• -`) passed,
+  now a finding; an empty semestral field accepted under the flag is printed
+  per file; only later labels end a field, so semestral text that starts like a
+  label stays content; the header match collapses whitespace and reads `’` as
+  `'`; text on a label's line is reported alone. Accepted, class (c): line
+  lengths, messages, missing tests (header column, CRLF, empty labelled field),
+  the review skill's `Zobrazit studentům` exception, doc placement. Rejected as
+  out of scope: console encoding of the packaged Windows launchers, which
+  predates this plan.
+- 2026-10-29: Cross-provider round (`scripts/agent-review --base d4521d8
+  --profile final-review`, over both slices): changes_required, three P2,
+  all accepted as class (b). Exact column comparison could fail a correct
+  export because `pdftotext` rounds positions; columns now compare with a
+  tolerance of one (`assignment_export.py::COLUMN_TOLERANCE`). A bare bullet
+  passed as a filled semestral field; a bare list marker is no value now
+  (`assignment_export.py::_content`). The docs claimed sub-lists fail; they are
+  now documented as not modelled and pinned by
+  `test_a_sub_list_is_read_by_its_columns_only`. Each fix has a regression
+  test; one narrow re-check of this batch only.
 
 ## Final Audit
 
-Pending.
+Passed for Slice B on the final tree: `pants lint` (black, flake8, isort) and
+`pants check` (mypy) on the changed source files; `pants test` for
+`tests/test_assignment_export.py`, `tests/test_workflow_python_contracts.py`,
+`tests/test_assignment_authoring.py`, `tests/test_assignment_draft.py`,
+`tests/test_brief_render.py`, `tests/test_assignment_bundle.py`,
+`tests/test_assignment_promotion.py` and `tests/test_plan_contract.py`;
+`python3 tests/test_plan_contract.py`, `scripts/check-private`,
+`scripts/check-scripts`, `git diff --check`. Omen advisory: worst function of
+the new module 13 cyclomatic, repo ratchets pass. Slice A passed its own
+verification before `30d09e2`.
+
+Not clean, and predating this plan: `pants check` on the test files reports
+missing `pytest` stubs in every test and an `arg-type` error in
+`tests/test_assignment_bundle.py`; source files are clean. Native Windows
+execution and packaged launchers were not run.
+
+Local run over the private exports described in `## Audit Base`, unchanged
+after every fix batch: 36 September exports, all one page, 22 fail (5 with no
+semestral field, 11 with a number alone on its line, 6 with literature outside
+a list); the defective October re-export fails (two pages, points at the
+margin, lines that do not hang); both corrected October exports and one English
+2025/26 export pass.
+
+Reviews: Slice A one internal round; Slice B one internal round; one
+cross-provider round over both slices; one narrow re-check of its fix batch,
+which found nothing blocking and four nits, fixed in place.
+
+Residual risks: the geometry limits stated in `docs/assignment-authoring.md`
+`## Filing In FIT IS`; one English export measured; whether the FIT IS editor
+turns pasted `- ` lines into bullets by itself is unconfirmed, so the template
+prescribes the list buttons either way. No TODO item is opened. The plan moved
+to `plans/archive/assignment_is_export_check_plan.md`.

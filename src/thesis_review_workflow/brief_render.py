@@ -51,9 +51,6 @@ LABELS: dict[str, dict[str, str]] = {
     "en": {"topic": "Topic", "date": "Date"},
 }
 
-TITLE_LABEL = {"cs": "Název:", "en": "Title:"}
-"""The official-title field of each FIT IS rendering in `assignment_draft.RENDERINGS`."""
-
 EN_MONTHS = (
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -121,7 +118,7 @@ def official_title(assignment: str) -> str:
     lines = assignment.splitlines()
     starts = [index for index, line in enumerate(lines) if line.strip() == rendering.heading]
     for line in lines[starts[0] + 1 :] if starts else []:
-        value = label_value(line, TITLE_LABEL[rendering.key])
+        value = label_value(line, rendering.title_label)
         if value is not None:
             return value
     return ""
