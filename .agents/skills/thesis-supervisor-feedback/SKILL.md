@@ -447,6 +447,19 @@ write `## Co se od minulé verze posunulo` / `## Progress Since Previous Feedbac
 `## Co z minulé zpětné vazby zůstává` / `## Remaining Items From Previous Feedback`
 whenever a previous round exists: an early round still compares against its
 predecessor and still must not repeat feedback the student already addressed.
+Neither section, nor `## Doporučený plán dalších úprav` / `## Recommended Next Revision
+Plan`, restates the priority table. Point to it in one sentence and add only what the
+table does not carry: a remaining item without its own row, the order of the work, and
+when to book the next consultation.
+
+Keep `## Odhad fáze práce a doporučené zaměření` / `## Estimated Work Phase and
+Recommended Focus` about the next step. Do not restate the official submission deadline
+or the generic semester-defense requirement while they are months away: the student has
+both in the assignment and their own schedule, and a goal that distant changes nothing
+they do next week. Name a date only when it changes the next step, such as a near
+milestone the step leads to or a pace risk the student needs to hear. The deadline
+context from `scripts/check-supervisor-ready` still calibrates tone and scope; it just
+does not become a sentence.
 
 Cap the priority list at five items, and at most two `P0`. An early draft with a
 twelve-item action list gets read as a verdict rather than as direction. Prefer the
@@ -456,9 +469,13 @@ Do not reintroduce a deferred role's findings as a feedback item. In the early p
 `review_materiality.py` defers typography, literature and figure/media review, so
 their findings are out of scope for this artifact even if an earlier round's evidence
 is still lying in the workspace. Code consistency and code quality are not deferred and
-stay in scope when code evidence exists. State the deferral in the review-scope section,
-which the early shape keeps and which `scripts/check-feedback-output` already requires to
-carry limitations — it is the only home the early shape leaves for it.
+stay in scope when code evidence exists. Mention a deferral in the review-scope section
+only when the round has material the student would expect it to cover, such as a text
+draft whose citations or figures were not checked. When the deferral follows from what
+does not exist yet (no thesis text, no figures, no code), leave it out: the student knows
+there is nothing to check, and the sentence only lengthens the section.
+`scripts/check-feedback-output` still requires the section to state the limitations that
+do apply, such as sources or tests that were not verified.
 
 `early` corresponds to the `velmi rana kostra` and `prvni pracovni verze` phases in
 `## Phase Calibration`; `rozpracovana verze` maps to `non_final`, and `predfinalni verze`

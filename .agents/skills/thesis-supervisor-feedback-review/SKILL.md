@@ -65,7 +65,12 @@ If both `work/feedback_student_draft.md` and `outputs/feedback_student.md` exist
     iteration sections appear when a previous round exists, the priority list is at most five
     items with at most two `P0`, and no finding from a role the early phase defers
     (typography, literature, figure/media) appears as a feedback item. Code-consistency and
-    code-quality findings are in scope in every phase when code evidence exists.
+    code-quality findings are in scope in every phase when code evidence exists. Also
+    remove early-shape filler the feedback skill's `## Early-Phase Output Shape` rules
+    out: a distant submission deadline or generic semester-defense requirement restated
+    in the phase section, a review-scope sentence that only says the not-yet-existing
+    text, figures or code were not checked, and iteration or plan sections that repeat
+    the priority table.
 30. Respect the supervisor's declared "do not reopen now" boundary unless ignoring it would risk assignment fulfillment, technical truth, submission, or defense.
 31. When text structure is in scope, check that chapter and section headings were considered: title length, match to following content, unnecessary repetition with parent or neighboring headings, and clear distinction between design, implementation, testing, results, and discussion. Keep such findings phase-calibrated; in final rounds they should normally be minor polish unless they obscure the thesis structure.
 32. For code-backed theses, check whether implementation-readability and test-layering feedback is phase-calibrated: high-level explanation, diagrams, and unit-vs-integration testing distinctions should improve opponent readability and technical truth without overwhelming P0 blockers in a final sprint.
