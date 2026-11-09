@@ -90,6 +90,15 @@ review, write or update `work/reviews/supervisor_report_review.json` through
 bind the reviewed output and `work/vedouci_posudek_draft.md` by hash and record
 reviewer role, checks, limitations, and timestamp.
 
+Under Claude the reviewer writes only `outputs/vedouci_posudek_revidovany.md`
+(parent-mediated protocol, `docs/agent-workflow.md`): it has no shell and the
+write guard refuses the approval record, so it returns the verdict, the
+blocking-findings count, the review basis, the checks it read or could not run,
+and the limitations in its final message. The parent runs
+`scripts/check-supervisor-report` and writes the record with
+`scripts/write-review-approval --profile supervisor-report --provider claude`
+from that handback. Under Codex the reviewer does both.
+
 Material edits after review reopen draft state. The supervisor still must
 confirm grade, points, official text, and private student comment in
 `work/supervisor_report_confirmation.json` before the report is ready for IS.

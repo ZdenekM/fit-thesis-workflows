@@ -47,6 +47,15 @@ scope from its policy entry rather than inferring it from an unset
 `CLAUDE_REVIEW_ROUND`, which would widen every round reviewer the first time a
 parent forgot to export it.
 
+Claude write scope: the "Owned outputs / allowed writes" column is the role's
+full ownership, which a Codex reviewer writes itself. A Claude reviewer writes
+only the narrower `claude_writes` subset that
+`.claude/hooks/reviewer_write_policy.json` mirrors. The `work/reviews/*.json`
+approval records in the final-reviewer and calibrator rows are hash-bound and
+need a shell, so under Claude the parent writes them from the reviewer's
+handback (`scripts/write-review-approval`, parent-mediated protocol in
+`docs/agent-workflow.md`).
+
 ## Routing Matrix
 
 The registry field `sandbox_mode` below records the access required to perform a role. It is not an enforced sandbox for Codex subagents: those inherit the parent's permissions and approval policy. Allowed writes remain role instructions and artifact-ownership contracts. Configure the parent to allow the required work without treating this table as technical write isolation.

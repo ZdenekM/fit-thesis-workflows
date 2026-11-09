@@ -114,7 +114,21 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 23. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is
-    created. After the final output and checks exist, run
+    created. For anything that must survive closeout, write the sidecar: one
+    `work/review_artifacts/<name>.json` per artifact with `schema_version:
+    review-artifact-registration-v1`, `artifact_path`, and the fields to keep
+    (`agent`, `feeds`, `input_refs`, `evidence_refs`, `handoff_refs`,
+    `check_refs`, `used_findings`, `limitations`, `notes`).
+    `init-review-manifest`, which `review-round-closeout` reruns, rebuilds
+    the `outputs/*.md` entries and re-applies these sidecars, so a
+    `used_findings` set only through the CLI comes back `not_recorded`. The
+    closeout also fails the synthesis role until `work/feedback_student_draft.md`
+    is registered. So write a sidecar for the draft and one for each
+    `covered_by_synthesis` evidence artifact. With a Claude reviewer, write
+    `work/reviews/supervisor_feedback_review.json` yourself from its handback
+    with `scripts/write-review-approval --profile supervisor-feedback
+    --provider claude`: the reviewer cannot (`thesis-supervisor-feedback-review`
+    step 28). After the final output and checks exist, run
     `scripts/init-review-manifest --run-checks <case-id> [round-id]`, record
     generator/reviewer roles and any unavailable evidence in
     `work/review_manifest.json`, then run

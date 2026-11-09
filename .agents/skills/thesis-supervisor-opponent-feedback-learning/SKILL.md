@@ -96,8 +96,9 @@ the operator for a clearer permission record.
    --require-analysis`.
 10. Have a different reviewer run an independent review
     before treating `outputs/external_opponent_feedback_analysis.md` as durable
-    operator evidence. Record the approval in
-    `work/reviews/external_opponent_feedback_review.json`, with
+    operator evidence. Record the approval (the parent does this from the
+    reviewer's handback when the reviewer runs under Claude, which cannot
+    write it) in `work/reviews/external_opponent_feedback_review.json`, with
     `reviewed_artifact_path: outputs/external_opponent_feedback_analysis.md`,
     a hash-bound basis such as `work/supervisor_learning_candidates.json`, and
     `checks_observed` including `check-external-opponent-feedback`.
