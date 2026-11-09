@@ -124,7 +124,10 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     review-artifact-registration-v1`, `artifact_path`, and the registration
     fields (`agent`, `feeds`, `input_refs`, `evidence_refs`, `handoff_refs`,
     `check_refs`, `used_findings`, `limitations`, `notes`); without `feeds` a
-    sidecar keeps the evidence internal-only. Every `init-review-manifest` run,
+    sidecar keeps the evidence internal-only, and because a sidecar is
+    re-registered on every rebuild, its summary is re-bound to whatever the
+    file contains at closeout, so update the sidecar whenever the evidence
+    changes. Every `init-review-manifest` run,
     including the ones `review-round-closeout` makes, re-applies each sidecar
     over the CLI registration of the same artifact, so a sidecar without
     `used_findings` erases the summary the CLI recorded: give a sidecar every

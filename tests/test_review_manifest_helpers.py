@@ -1344,6 +1344,8 @@ def _register_revision_diff_without_feeds(round_dir: Path) -> dict:
     )
     assert manifest["artifacts"][0]["review_scope"] == "internal_only"
     assert manifest["artifacts"][0]["independent_review"]["covered_by_artifact"] == ""
+    # The summary is bound to the content at registration, before any rebuild.
+    assert manifest["artifacts"][0]["independent_review"]["evidence_hash"] == manifest["artifacts"][0]["artifact_sha256"]
     return manifest
 
 
