@@ -27,6 +27,7 @@ from thesis_review_workflow.review_manifest import (
     merge_supporting_work_artifacts,
     output_defaults,
     register_artifact,
+    registration_defaults,
 )
 from thesis_review_workflow.work_artifacts import (
     collect_supporting_work_artifacts,
@@ -1304,6 +1305,49 @@ def test_init_manifest_repairs_stale_synthesis_scope_for_calibration_outputs(tmp
 
     assert by_path["outputs/reference_report_comparison.md"]["review_scope"] == "internal_only"
     assert by_path["outputs/reference_report_comparison.md"]["independent_review"]["status"] == "not_recorded"
+
+
+def test_init_manifest_keeps_used_findings_registered_without_feeds(tmp_path: Path) -> None:
+    # register-review-artifact --used-findings without --feeds records the evidence as
+    # internal_only; the rebuild then upgrades it to covered_by_synthesis and must keep
+    # the summary, or closeout fails with "covered_by_synthesis requires a concrete
+    # used_findings summary".
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    outputs = round_dir / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "feedback_student.md").write_text("# Feedback\n", encoding="utf-8")
+    (outputs / "revision_diff.md").write_text("# Revision diff\n", encoding="utf-8")
+    defaults = registration_defaults("outputs/revision_diff.md", feeds=[])
+    manifest = ensure_manifest({}, "case-a", "round-a")
+    register_artifact(
+        manifest,
+        round_dir,
+        "outputs/revision_diff.md",
+        role=str(defaults["role"]),
+        agent="diff-agent",
+        contribution="generation",
+        review_scope=defaults["review_scope"],
+        review_status=str(defaults["review_status"]),
+        reviewer_role="not_recorded",
+        reviewer_agent="not_recorded",
+        reviewed_at="",
+        limitation=[],
+        feeds=[],
+        input_refs=[],
+        evidence_refs=[],
+        check_refs=[],
+        used_findings="R1 and R2 used in the feedback.",
+        review_basis_path="",
+        notes="",
+    )
+    assert manifest["artifacts"][0]["independent_review"]["covered_by_artifact"] == ""
+
+    by_path = {item["path"]: item for item in output_artifacts(round_dir, manifest)}
+    review = by_path["outputs/revision_diff.md"]["independent_review"]
+
+    assert by_path["outputs/revision_diff.md"]["review_scope"] == "covered_by_synthesis"
+    assert review["covered_by_artifact"] == "outputs/feedback_student.md"
+    assert review["used_findings"] == "R1 and R2 used in the feedback."
 
 
 def test_init_manifest_marks_changed_helper_target_set_stale() -> None:

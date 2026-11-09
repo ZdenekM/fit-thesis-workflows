@@ -114,9 +114,11 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 23. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is
-    created. Register the synthesis draft `work/feedback_student_draft.md` and
-    each `covered_by_synthesis` evidence artifact with its `used_findings`.
-    The sidecar path is one `work/review_artifacts/<name>.json` per artifact
+    created. Register the synthesis draft `work/feedback_student_draft.md`
+    too: closeout fails the `synthesis` role while it is unregistered. Register
+    each evidence artifact the feedback uses with `--feeds
+    outputs/feedback_student.md` and its `--used-findings` summary; without
+    `--feeds` it is recorded as internal-only evidence. The sidecar path is one `work/review_artifacts/<name>.json` per artifact
     with `schema_version: review-artifact-registration-v1`, `artifact_path`,
     and the registration fields (`agent`, `feeds`, `input_refs`,
     `evidence_refs`, `handoff_refs`, `check_refs`, `used_findings`,

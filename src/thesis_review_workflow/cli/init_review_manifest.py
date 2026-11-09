@@ -361,7 +361,10 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
             and review.get("status") in {"not_recorded", "not_required"}
             and not review.get("covered_by_artifact")
         ):
-            review = default_review(effective_scope, covered_by, used_findings)
+            # Registered as internal evidence (no --feeds) and upgraded here: keep
+            # the used_findings summary the operator recorded at registration.
+            recorded = str(review.get("used_findings") or "").strip()
+            review = default_review(effective_scope, covered_by, recorded or used_findings)
         elif effective_scope == "covered_by_synthesis" and not review.get("covered_by_artifact"):
             review = {
                 **review,
