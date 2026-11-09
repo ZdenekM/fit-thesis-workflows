@@ -361,10 +361,16 @@ def output_artifacts(round_dir: Path, existing: dict[str, Any]) -> list[dict[str
             and review.get("status") in {"not_recorded", "not_required"}
             and not review.get("covered_by_artifact")
         ):
-            # Registered as internal evidence (no --feeds) and upgraded here: keep
-            # the used_findings summary the operator recorded at registration.
+            # Registered without a synthesis target and upgraded here: keep a recorded
+            # used_findings summary together with the hash it was written for, so the
+            # closeout check fails it if the evidence changed after registration.
             recorded = str(review.get("used_findings") or "").strip()
-            review = default_review(effective_scope, covered_by, recorded or used_findings)
+            upgraded = default_review(effective_scope, covered_by, recorded or used_findings)
+            if recorded:
+                upgraded["evidence_hash"] = str(
+                    review.get("evidence_hash") or previous.get("artifact_sha256") or ""
+                )
+            review = upgraded
         elif effective_scope == "covered_by_synthesis" and not review.get("covered_by_artifact"):
             review = {
                 **review,

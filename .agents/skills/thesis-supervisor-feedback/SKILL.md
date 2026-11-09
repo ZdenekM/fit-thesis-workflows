@@ -117,16 +117,19 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
     created. Register the synthesis draft `work/feedback_student_draft.md`
     too: closeout fails the `synthesis` role while it is unregistered. Register
     each evidence artifact the feedback uses with `--feeds
-    outputs/feedback_student.md` and its `--used-findings` summary; without
-    `--feeds` it is recorded as internal-only evidence. The sidecar path is one `work/review_artifacts/<name>.json` per artifact
-    with `schema_version: review-artifact-registration-v1`, `artifact_path`,
-    and the registration fields (`agent`, `feeds`, `input_refs`,
-    `evidence_refs`, `handoff_refs`, `check_refs`, `used_findings`,
-    `limitations`, `notes`). Every `init-review-manifest` run, including the
-    ones `review-round-closeout` makes, re-applies each sidecar over the CLI
-    registration of the same artifact, so a sidecar without `used_findings`
-    erases the summary the CLI recorded: give a sidecar every field you want
-    kept, or register that artifact through the CLI only. With a Claude reviewer, write
+    outputs/feedback_student.md` and its `--used-findings` summary once that
+    evidence is final: the summary is bound to the file's hash, and closeout
+    fails if the file changes afterwards. The sidecar path is one
+    `work/review_artifacts/<name>.json` per artifact with `schema_version:
+    review-artifact-registration-v1`, `artifact_path`, and the registration
+    fields (`agent`, `feeds`, `input_refs`, `evidence_refs`, `handoff_refs`,
+    `check_refs`, `used_findings`, `limitations`, `notes`); without `feeds` a
+    sidecar keeps the evidence internal-only. Every `init-review-manifest` run,
+    including the ones `review-round-closeout` makes, re-applies each sidecar
+    over the CLI registration of the same artifact, so a sidecar without
+    `used_findings` erases the summary the CLI recorded: give a sidecar every
+    field you want kept, or register that artifact through the CLI only. With
+    a Claude reviewer, write
     `work/reviews/supervisor_feedback_review.json` yourself from its handback
     with `scripts/write-review-approval --profile supervisor-feedback
     --provider claude`: the reviewer cannot (`thesis-supervisor-feedback-review`

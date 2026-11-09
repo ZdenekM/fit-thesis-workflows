@@ -5,7 +5,12 @@ from pathlib import Path
 from thesis_review_workflow.agent_coverage import COVERAGE_REL, build_coverage
 from thesis_review_workflow.claim_review_basis import CLAIM_REVIEW_BASIS_REL, CLAIM_REVIEW_BASIS_SCHEMA
 from thesis_review_workflow.cli import init_review_manifest, register_review_artifact
-from thesis_review_workflow.cli.check_review_manifest import check_helper_checks, check_manifest, check_source_hashes
+from thesis_review_workflow.cli.check_review_manifest import (
+    artifact_review_ok,
+    check_helper_checks,
+    check_manifest,
+    check_source_hashes,
+)
 from thesis_review_workflow.cli.check_review_manifest import required_checks as closeout_required_checks
 from thesis_review_workflow.cli.check_review_manifest import required_helper_targets
 from thesis_review_workflow.cli.init_review_manifest import (
@@ -1307,12 +1312,9 @@ def test_init_manifest_repairs_stale_synthesis_scope_for_calibration_outputs(tmp
     assert by_path["outputs/reference_report_comparison.md"]["independent_review"]["status"] == "not_recorded"
 
 
-def test_init_manifest_keeps_used_findings_registered_without_feeds(tmp_path: Path) -> None:
-    # register-review-artifact --used-findings without --feeds records the evidence as
-    # internal_only; the rebuild then upgrades it to covered_by_synthesis and must keep
-    # the summary, or closeout fails with "covered_by_synthesis requires a concrete
-    # used_findings summary".
-    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+def _register_revision_diff_without_feeds(round_dir: Path) -> dict:
+    """Mirror `register-review-artifact --used-findings ... outputs/revision_diff.md` with no --feeds."""
+
     outputs = round_dir / "outputs"
     outputs.mkdir(parents=True)
     (outputs / "feedback_student.md").write_text("# Feedback\n", encoding="utf-8")
@@ -1340,14 +1342,56 @@ def test_init_manifest_keeps_used_findings_registered_without_feeds(tmp_path: Pa
         review_basis_path="",
         notes="",
     )
+    assert manifest["artifacts"][0]["review_scope"] == "internal_only"
     assert manifest["artifacts"][0]["independent_review"]["covered_by_artifact"] == ""
+    return manifest
 
-    by_path = {item["path"]: item for item in output_artifacts(round_dir, manifest)}
-    review = by_path["outputs/revision_diff.md"]["independent_review"]
 
-    assert by_path["outputs/revision_diff.md"]["review_scope"] == "covered_by_synthesis"
+def _closeout_errors(round_dir: Path, artifacts: list[dict]) -> list[str]:
+    by_path = {item["path"]: item for item in artifacts}
+    errors: list[str] = []
+    artifact_review_ok(
+        by_path["outputs/revision_diff.md"],
+        {"artifacts": artifacts},
+        by_path,
+        round_dir,
+        "case-a",
+        "round-a",
+        True,
+        errors,
+        [],
+    )
+    return [error for error in errors if "covered_by_synthesis" in error]
+
+
+def test_init_manifest_keeps_used_findings_registered_without_feeds(tmp_path: Path) -> None:
+    # The rebuild upgrades internal_only evidence to covered_by_synthesis once a synthesis
+    # output exists. It used to replace the review record with the default and so reset
+    # used_findings to not_recorded, which failed closeout.
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = _register_revision_diff_without_feeds(round_dir)
+
+    artifacts = output_artifacts(round_dir, manifest)
+    entry = next(item for item in artifacts if item["path"] == "outputs/revision_diff.md")
+    review = entry["independent_review"]
+
+    assert entry["review_scope"] == "covered_by_synthesis"
     assert review["covered_by_artifact"] == "outputs/feedback_student.md"
     assert review["used_findings"] == "R1 and R2 used in the feedback."
+    assert review["evidence_hash"] == entry["artifact_sha256"]
+    assert _closeout_errors(round_dir, artifacts) == []
+
+
+def test_init_manifest_rejects_used_findings_written_for_older_evidence(tmp_path: Path) -> None:
+    # The kept summary stays bound to the content it was written for: evidence changed after
+    # registration must fail closeout instead of being certified with the new hash.
+    round_dir = tmp_path / "repo" / "cases" / "case-a" / "rounds" / "round-a"
+    manifest = _register_revision_diff_without_feeds(round_dir)
+    (round_dir / "outputs" / "revision_diff.md").write_text("# Revision diff, regenerated\n", encoding="utf-8")
+
+    errors = _closeout_errors(round_dir, output_artifacts(round_dir, manifest))
+
+    assert any("evidence_hash does not match current artifact_sha256" in error for error in errors)
 
 
 def test_init_manifest_marks_changed_helper_target_set_stale() -> None:

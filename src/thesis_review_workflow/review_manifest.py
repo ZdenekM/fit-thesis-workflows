@@ -639,7 +639,10 @@ def upsert_output_artifact(
         scope = review_scope or str(existing.get("review_scope") or default_scope)
     covered_by = feeds[0] if scope == "covered_by_synthesis" and feeds else ""
     reviewed_hash = current_hash if review_status in {"reviewed", "reviewed_with_notes"} else ""
-    evidence_hash = current_hash if scope == "covered_by_synthesis" else ""
+    # A used_findings summary describes this content, so bind it to this hash even
+    # while the artifact is internal-only: a later upgrade to covered_by_synthesis
+    # must not certify a summary written for an older version.
+    evidence_hash = current_hash if scope == "covered_by_synthesis" or used_findings.strip() else ""
     review_basis_sha256 = ""
     if review_basis_path:
         basis_path = validate_artifact_rel_path(review_basis_path, round_dir)
