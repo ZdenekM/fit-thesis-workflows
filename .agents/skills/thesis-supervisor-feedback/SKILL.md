@@ -114,17 +114,17 @@ If the user names a specific round, use it. Otherwise read `current-round.txt`; 
 23. After each role output is written, use `scripts/register-review-artifact`
     or its sidecar path so `work/review_manifest.json` records generator role,
     source hashes, checks, limitations, and synthesis use as the output is
-    created. For anything that must survive closeout, write the sidecar: one
-    `work/review_artifacts/<name>.json` per artifact with `schema_version:
-    review-artifact-registration-v1`, `artifact_path`, and the fields to keep
-    (`agent`, `feeds`, `input_refs`, `evidence_refs`, `handoff_refs`,
-    `check_refs`, `used_findings`, `limitations`, `notes`).
-    `init-review-manifest`, which `review-round-closeout` reruns, rebuilds
-    the `outputs/*.md` entries and re-applies these sidecars, so a
-    `used_findings` set only through the CLI comes back `not_recorded`. The
-    closeout also fails the synthesis role until `work/feedback_student_draft.md`
-    is registered. So write a sidecar for the draft and one for each
-    `covered_by_synthesis` evidence artifact. With a Claude reviewer, write
+    created. Register the synthesis draft `work/feedback_student_draft.md` and
+    each `covered_by_synthesis` evidence artifact with its `used_findings`.
+    The sidecar path is one `work/review_artifacts/<name>.json` per artifact
+    with `schema_version: review-artifact-registration-v1`, `artifact_path`,
+    and the registration fields (`agent`, `feeds`, `input_refs`,
+    `evidence_refs`, `handoff_refs`, `check_refs`, `used_findings`,
+    `limitations`, `notes`). Every `init-review-manifest` run, including the
+    ones `review-round-closeout` makes, re-applies each sidecar over the CLI
+    registration of the same artifact, so a sidecar without `used_findings`
+    erases the summary the CLI recorded: give a sidecar every field you want
+    kept, or register that artifact through the CLI only. With a Claude reviewer, write
     `work/reviews/supervisor_feedback_review.json` yourself from its handback
     with `scripts/write-review-approval --profile supervisor-feedback
     --provider claude`: the reviewer cannot (`thesis-supervisor-feedback-review`
