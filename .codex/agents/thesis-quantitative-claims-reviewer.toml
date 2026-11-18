@@ -1,5 +1,5 @@
 description = "Reviews quantitative, evaluation, metric, performance, scale, and result claims for unit, baseline, practical-context, reproducibility, and overclaim risk."
-model = "gpt-6-astra"
+model = "gpt-6.2-astra"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """

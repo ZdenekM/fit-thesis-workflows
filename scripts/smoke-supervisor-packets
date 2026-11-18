@@ -86,7 +86,7 @@ grep -Fq "Common briefing: \`work/common_briefing.json\`" "$packet_dir/text_assi
 grep -Fq "Official deadline: 2026-05-13" "$packet_dir/text_assignment.md"
 grep -Fq "round \`round-a\`: \`outputs/feedback_student.md\`" "$common_briefing"
 grep -Fq "inputs/submitted-src/" "$common_briefing"
-grep -Fq "Recommended model: \`gpt-6-astra\`" "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-6.2-astra\`" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
 grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 

@@ -141,7 +141,7 @@ Windows operators use the Codex path until the packaged native launcher lands
 
 **Model:** reviewer adapters set a strong model and high effort as their
 *default* (`model: opus`, `effort: xhigh`) rather than `inherit`, mirroring the
-Codex `gpt-6-astra`/`xhigh` pin. Note this is the frontmatter default only —
+Codex `gpt-6.2-astra`/`xhigh` pin. Note this is the frontmatter default only —
 environment (`CLAUDE_CODE_SUBAGENT_MODEL`) or per-invocation selection can
 override it, so B3 validates the *effective* launched model/effort before
 treating a Claude pass as a semantic review.

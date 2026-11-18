@@ -1,5 +1,5 @@
 description = "Imports and reviews read-only GitHub repository or PR evidence for thesis rounds."
-model = "gpt-6-astra"
+model = "gpt-6.2-astra"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """

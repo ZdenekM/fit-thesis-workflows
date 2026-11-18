@@ -129,7 +129,7 @@ grep -Fq "inputs/submitted-src/" "$common_briefing"
 grep -Fq "## Report Calibration Basis" "$packet_dir/text_structure_assignment.md"
 grep -Fq "Start from \`work/report_calibration_basis.json\` when present" "$packet_dir/text_structure_assignment.md"
 grep -Fq 'Do not run submitted code unless the operator explicitly authorized that run.' "$packet_dir/code_consistency.md"
-grep -Fq "Recommended model: \`gpt-6-astra\`" "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-6.2-astra\`" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
 grep -Fq "work/current_evidence_snapshot.json" "$packet_dir/current_evidence_snapshot.md"
 

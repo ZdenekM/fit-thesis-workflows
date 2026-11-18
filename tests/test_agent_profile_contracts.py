@@ -134,7 +134,7 @@ def test_configured_codex_agent_profiles_match_registry_contract() -> None:
         assert profile_path.is_file()
 
         profile_config = load_profile_config(config_file)
-        assert profile_config["model"] == review_packets.SEMANTIC_MODEL == "gpt-6-astra"
+        assert profile_config["model"] == review_packets.SEMANTIC_MODEL == "gpt-6.2-astra"
         assert profile_config["model_reasoning_effort"] == "xhigh"
         assert "approval_policy" not in profile_config
         assert "sandbox_mode" not in profile_config

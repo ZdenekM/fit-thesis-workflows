@@ -132,7 +132,7 @@ grep -Fq "Schema version: \`supervisor-report-packet-v1\`" "$packet_dir/trace.md
 grep -Fq "Common briefing: \`work/common_briefing.json\`" "$packet_dir/trace.md"
 grep -Fq "Expected output: \`work/supervisor_report_trace.json\`" "$packet_dir/trace.md"
 grep -Fq "Supervisor input is authoritative" "$packet_dir/trace.md"
-grep -Fq "Recommended model: \`gpt-6-astra\`" "$packet_dir/code_consistency.md"
+grep -Fq "Recommended model: \`gpt-6.2-astra\`" "$packet_dir/code_consistency.md"
 grep -Fq "scripts/check-code-consistency --require-synthesis-handoff" "$packet_dir/code_consistency.md"
 grep -Fq "## Omen Advisory Static Analysis" "$packet_dir/code_quality.md"
 grep -Fq "scripts/check-code-quality-review --require-synthesis-handoff" "$packet_dir/code_quality.md"

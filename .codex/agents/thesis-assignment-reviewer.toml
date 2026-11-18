@@ -1,5 +1,5 @@
 description = "Reviews one authored assignment variant together with its student brief before publication."
-model = "gpt-6-astra"
+model = "gpt-6.2-astra"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """

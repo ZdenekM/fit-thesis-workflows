@@ -1,5 +1,5 @@
 description = "Reviews cited literature for relevance, source availability, and claim support."
-model = "gpt-6-astra"
+model = "gpt-6.2-astra"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """

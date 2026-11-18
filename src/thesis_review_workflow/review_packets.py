@@ -50,7 +50,7 @@ from thesis_review_workflow.theses_similarity import (
     THESES_SIMILARITY_REVIEW_REL,
 )
 
-SEMANTIC_MODEL = "gpt-6-astra"
+SEMANTIC_MODEL = "gpt-6.2-astra"
 SEMANTIC_REASONING = "xhigh"
 MECHANICAL_MODEL = "gpt-6-luna"
 MECHANICAL_REASONING = "high"

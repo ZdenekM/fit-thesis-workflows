@@ -93,7 +93,7 @@ Quality-critical thesis-review roles should use the strongest available model
 and reasoning effort **of whichever provider runs the role**. This is the
 provider-neutral source that the repo-local skills point to:
 
-- Codex adapters (`.codex/agents/*.toml`): `gpt-6-astra` with
+- Codex adapters (`.codex/agents/*.toml`): `gpt-6.2-astra` with
   `model_reasoning_effort = "xhigh"`.
 - Claude adapters (`.claude/agents/*.md`): `model: opus` with `effort: xhigh`.
 
@@ -101,7 +101,7 @@ Both pins target the strongest available tier at high effort for every semantic
 role listed as `profile` in `docs/agent-profile-matrix.md`. Keep the two adapter
 surfaces at parity when the strongest available tier changes.
 
-The Codex pin was checked against the available account model catalogue and official OpenAI guidance on 2026-10-19. Keep it explicit: inheriting a model from a coding parent could silently change the semantic-review tier. Routine mechanical packet helpers use `gpt-6-luna` with `high` effort. The parent session's model is not set by this repository. Model defaults are also consumed by `review_packets.py`; update the profile contract and packet checks together when changing them.
+The Codex pin was checked against the available account model catalogue on 2026-11-18. Keep it explicit: inheriting a model from a coding parent could silently change the semantic-review tier. Routine mechanical packet helpers use `gpt-6-luna` with `high` effort. The parent session's model is not set by this repository. Model defaults are also consumed by `review_packets.py`; update the profile contract and packet checks together when changing them.
 
 Codex role agents inherit the parent's actual permissions, approval policy and MCP access. Their allowed-write lists are instructions and workflow ownership contracts, not separate operating-system sandboxes. Custom role files must not claim to narrow permissions through `sandbox_mode` or `approval_policy`; configure the parent appropriately and keep reviewer writes within the assigned outputs. See the [official subagent contract](https://learn.chatgpt.com/docs/agent-configuration/subagents).
 
