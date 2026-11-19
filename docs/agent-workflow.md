@@ -78,8 +78,9 @@ scripts/agent-review --base main --effort xhigh \
 ```
 
 `--output-schema` hands a JSON Schema to `codex exec --output-schema`, so the
-final message is a JSON object (the wrapper then requires a non-empty `verdict`
-field instead of the `Verdict:` line); use it when the findings feed a tool that
+final message is a JSON object (the wrapper then requires a `verdict` field,
+one of the schema's `enum` values when it lists them, instead of the `Verdict:`
+line); use it when the findings feed a tool that
 checks citations, such as a maintainer's review ledger. `--effort` sets the
 Codex reasoning effort for the run; without it the repo/user default applies.
 

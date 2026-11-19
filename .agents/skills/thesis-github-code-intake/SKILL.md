@@ -97,9 +97,9 @@ Typical user-provided inputs:
    imported, keep that reproducibility caveat visible.
 
    A private repository needs only `gh auth login` with an account that can
-   read it: when `gh auth status` succeeds, the import gives its `git` clones
-   and fetches gh's credentials for that run, without changing the git
-   configuration. Without confirmed gh access a private clone fails and is
+   read it: when `gh auth status --hostname github.com` succeeds, the import
+   gives its `git` clones and fetches gh's credentials for that run instead of
+   the operator's own git credentials, without changing the git configuration. Without confirmed gh access a private clone fails and is
    recorded as a limitation; it never waits for a password prompt.
 9. Treat `outputs/github_code_intake.md` as the frozen operator evidence. It
    records imported URLs, PR/repo metadata, evidence files, checkout workspace,

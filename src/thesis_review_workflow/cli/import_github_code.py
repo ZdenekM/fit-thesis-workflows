@@ -270,7 +270,12 @@ def run_github_git(ctx: ImportContext, args: list[str]) -> CommandResult:
 
 def clone_failure_hint(ctx: ImportContext) -> str:
     if ctx.git_credential_args:
-        return ""
+        # The helper replaces the operator's own git credentials for github.com, so a
+        # repository only those could read fails here; name the account that was used.
+        return (
+            " The clone used gh's github.com account; if the repository is private, check that this "
+            "account can read it (`gh auth status`, `gh auth switch`)."
+        )
     return " A private repository needs authenticated gh access (`gh auth login`)."
 
 
@@ -453,12 +458,14 @@ def summarize_toolchain(ctx: ImportContext) -> dict[str, str]:
         result = run(["gh", "--version"], allow_failure=True)
         first_line = result.stdout.splitlines()[0] if result.stdout.splitlines() else "available"
         toolchain["gh"] = first_line
-        auth = run(["gh", "auth", "status"], allow_failure=True)
+        # Scoped to github.com: an account on another host alone would make the git
+        # credential helper below answer with nothing for every clone.
+        auth = run(["gh", "auth", "status", "--hostname", "github.com"], allow_failure=True)
         toolchain["gh_auth"] = "authenticated" if auth.returncode == 0 else "unauthenticated_or_unavailable"
         if auth.returncode == 0:
             ctx.git_credential_args = list(GH_GIT_CREDENTIAL_ARGS)
         else:
-            ctx.limitations.append("`gh auth status` did not confirm authenticated access.")
+            ctx.limitations.append("`gh auth status --hostname github.com` did not confirm authenticated access.")
     else:
         toolchain["gh"] = "unavailable"
         toolchain["gh_auth"] = "not_checked"

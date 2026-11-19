@@ -245,6 +245,7 @@ def test_confirmed_gh_auth_gives_every_github_git_call_its_credentials(tmp_path:
     import_github_code.checkout_repo(ctx, "owner", "private-project", None, None)
 
     assert toolchain["gh_auth"] == "authenticated"
+    assert ["gh", "auth", "status", "--hostname", "github.com"] in [args for args, _ in calls]
     network = [(args, env) for args, env in calls if "clone" in args or "fetch" in args]
     assert len(network) == 2
     for args, env in network:
@@ -277,3 +278,36 @@ def test_unconfirmed_gh_auth_leaves_git_credentials_alone_and_says_why_a_clone_f
     clone = next(args for args in calls if "clone" in args)
     assert clone[:2] == ["git", "clone"]
     assert any("gh auth login" in limitation for limitation in ctx.limitations)
+
+
+def test_a_clone_failing_with_gh_credentials_names_the_account_to_check(tmp_path: Path, monkeypatch) -> None:
+    """The helper replaces the operator's git credentials, so a wrong gh account must be named."""
+    from thesis_review_workflow.cli import import_github_code
+
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+
+    def fake_run(args: list[str], **kwargs: object):
+        return import_github_code.CommandResult(args=args, returncode=1 if "clone" in args else 0, stdout="", stderr="")
+
+    monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
+    monkeypatch.setattr(import_github_code, "run", fake_run)
+    ctx = make_import_context(tmp_path, round_dir)
+    import_github_code.summarize_toolchain(ctx)
+
+    import_github_code.checkout_repo(ctx, "owner", "private-project", None, None)
+
+    assert any("gh auth switch" in limitation for limitation in ctx.limitations)
+
+
+def test_run_adds_the_given_environment_to_the_inherited_one(monkeypatch) -> None:
+    import sys
+
+    from thesis_review_workflow.cli import import_github_code
+
+    monkeypatch.setenv("INHERITED_MARKER", "kept")
+    script = "import os; print(os.environ['GIT_TERMINAL_PROMPT'], os.environ['INHERITED_MARKER'])"
+
+    result = import_github_code.run([sys.executable, "-c", script], env={"GIT_TERMINAL_PROMPT": "0"})
+
+    assert result.stdout.split() == ["0", "kept"]

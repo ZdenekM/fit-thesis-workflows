@@ -45,8 +45,8 @@ Options:
   --output-schema FILE
                     Ask for the final message as JSON conforming to the JSON
                     Schema in FILE (passed to codex exec --output-schema); the
-                    review then needs a non-empty "verdict" string instead of
-                    the Verdict line.
+                    review then needs a "verdict" field (one of the schema's
+                    enum values when it lists them) instead of the Verdict line.
   -h, --help        Show this help.
 
 Any remaining arguments are appended to the review prompt as extra focus.
@@ -125,9 +125,13 @@ case "$effort" in
     exit 2
     ;;
 esac
-if [ -n "$output_schema" ] && [ ! -f "$output_schema" ]; then
-  echo "agent-review: --output-schema file not found: $output_schema" >&2
-  exit 2
+if [ -n "$output_schema" ]; then
+  if [ ! -f "$output_schema" ]; then
+    echo "agent-review: --output-schema file not found: $output_schema" >&2
+    exit 2
+  fi
+  # codex runs with -C <repo root>; an absolute path cannot be resolved against the wrong directory.
+  output_schema="$(cd "$(dirname "$output_schema")" && pwd -P)/$(basename "$output_schema")"
 fi
 
 if ! command -v codex >/dev/null 2>&1; then
@@ -172,8 +176,8 @@ if [ -n "$output_schema" ]; then
 Return the review as one JSON object conforming to the output schema supplied
 with this run. For each finding give the file relative to the repository root,
 the cited line range, a concrete failure scenario and the smallest reasonable
-fix, and copy evidence_quote verbatim from one of the cited lines. Put the
-single most important thing to fix first.
+fix; where the schema asks for quoted evidence, copy it verbatim from one of the
+cited lines. Put the single most important thing to fix first.
 CONTRACT
 else
   read -r -d '' report_contract <<'CONTRACT' || true
@@ -240,11 +244,17 @@ fi
 # markdown decoration), so an empty message, "Verdict: inconclusive", or a stray
 # "tests pass" cannot satisfy the gate.
 if [ -n "$output_schema" ]; then
+  # The verdict must be one of the values the schema allows when it lists them, the
+  # structured counterpart of the pass/changes_required/needs_human line check below.
   if ! python3 -c 'import json, sys
 review = json.load(open(sys.argv[1], encoding="utf-8"))
+schema = json.load(open(sys.argv[2], encoding="utf-8"))
 verdict = review.get("verdict") if isinstance(review, dict) else None
-sys.exit(0 if isinstance(verdict, str) and verdict.strip() else 1)' "$result_file" 2>/dev/null; then
-    echo "agent-review: Codex returned no usable structured review (not a JSON object with a non-empty verdict); failing closed." >&2
+spec = schema.get("properties", {}).get("verdict", {}) if isinstance(schema, dict) else {}
+allowed = spec.get("enum") if isinstance(spec, dict) else None
+ok = isinstance(verdict, str) and verdict.strip() and (not isinstance(allowed, list) or verdict in allowed)
+sys.exit(0 if ok else 1)' "$result_file" "$output_schema" 2>/dev/null; then
+    echo "agent-review: Codex returned no usable structured review (not a JSON object with an allowed verdict); failing closed." >&2
     exit 4
   fi
 elif [ ! -s "$result_file" ] || ! grep -qiE 'verdict[^a-z]+(pass|changes_required|needs_human)\b' "$result_file"; then
