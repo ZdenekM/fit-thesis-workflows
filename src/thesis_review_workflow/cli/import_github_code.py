@@ -146,6 +146,7 @@ class ImportContext:
     changed_rows: list[tuple[str, str, str]] = field(default_factory=list)
     command_log: list[str] = field(default_factory=list)
     pending_writes: list[PendingWrite] = field(default_factory=list)
+    git_credential_args: list[str] = field(default_factory=list)
 
     def add_evidence(self, path: Path, purpose: str) -> None:
         self.evidence.append(EvidenceFile(path=path, purpose=purpose))
@@ -210,10 +211,17 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def run(args: list[str], *, cwd: Path | None = None, allow_failure: bool = False) -> CommandResult:
+def run(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    allow_failure: bool = False,
+    env: dict[str, str] | None = None,
+) -> CommandResult:
     completed = subprocess.run(
         args,
         cwd=str(cwd) if cwd else None,
+        env={**os.environ, **env} if env else None,
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -238,6 +246,32 @@ def run(args: list[str], *, cwd: Path | None = None, allow_failure: bool = False
 
 def command_available(name: str) -> bool:
     return shutil.which(name) is not None
+
+
+# `gh auth setup-git` writes the same pair into the user's git config: the empty value
+# clears helpers configured for github.com, the second makes git ask gh. Passing it per
+# command lets a private repository clone with the account `gh auth status` confirmed,
+# without changing the operator's git configuration.
+GH_GIT_CREDENTIAL_ARGS = (
+    "-c",
+    "credential.https://github.com.helper=",
+    "-c",
+    "credential.https://github.com.helper=!gh auth git-credential",
+)
+# A missing credential must fail the command and become a limitation, not wait for a
+# username on a terminal nobody is watching.
+NONINTERACTIVE_GIT_ENV = {"GIT_TERMINAL_PROMPT": "0"}
+
+
+def run_github_git(ctx: ImportContext, args: list[str]) -> CommandResult:
+    """Run a git command that talks to github.com, with gh's credentials when confirmed."""
+    return run(["git", *ctx.git_credential_args, *args], allow_failure=True, env=NONINTERACTIVE_GIT_ENV)
+
+
+def clone_failure_hint(ctx: ImportContext) -> str:
+    if ctx.git_credential_args:
+        return ""
+    return " A private repository needs authenticated gh access (`gh auth login`)."
 
 
 def ensure_clean_target(path: Path, *, refresh: bool, kind: str) -> None:
@@ -421,7 +455,9 @@ def summarize_toolchain(ctx: ImportContext) -> dict[str, str]:
         toolchain["gh"] = first_line
         auth = run(["gh", "auth", "status"], allow_failure=True)
         toolchain["gh_auth"] = "authenticated" if auth.returncode == 0 else "unauthenticated_or_unavailable"
-        if auth.returncode != 0:
+        if auth.returncode == 0:
+            ctx.git_credential_args = list(GH_GIT_CREDENTIAL_ARGS)
+        else:
             ctx.limitations.append("`gh auth status` did not confirm authenticated access.")
     else:
         toolchain["gh"] = "unavailable"
@@ -643,13 +679,11 @@ def checkout_pr(ctx: ImportContext, owner: str, repo_name: str, number: int, met
     ensure_clean_target(work_dir, refresh=ctx.refresh, kind="PR checkout directory")
     work_dir.parent.mkdir(parents=True, exist_ok=True)
     repo_url = f"https://github.com/{owner}/{repo_name}.git"
-    clone = run(["git", "clone", "--no-checkout", repo_url, str(work_dir)], allow_failure=True)
+    clone = run_github_git(ctx, ["clone", "--no-checkout", repo_url, str(work_dir)])
     if clone.returncode != 0:
-        ctx.limitations.append(f"Could not clone `{owner}/{repo_name}` for PR #{number}.")
+        ctx.limitations.append(f"Could not clone `{owner}/{repo_name}` for PR #{number}.{clone_failure_hint(ctx)}")
         return "checkout failed: clone"
-    head_fetch = run(
-        ["git", "-C", str(work_dir), "fetch", "origin", f"pull/{number}/head:pr-{number}-head"], allow_failure=True
-    )
+    head_fetch = run_github_git(ctx, ["-C", str(work_dir), "fetch", "origin", f"pull/{number}/head:pr-{number}-head"])
     if head_fetch.returncode != 0:
         ctx.limitations.append(f"Could not fetch `pull/{number}/head` for PR #{number}.")
         return "checkout failed: head fetch"
@@ -674,9 +708,8 @@ def checkout_pr(ctx: ImportContext, owner: str, repo_name: str, number: int, met
             ctx, intake_dir / f"{slug}.base-sha.txt", str(meta["baseRefOid"]) + "\n", "PR base SHA from metadata"
         )
 
-    merge_fetch = run(
-        ["git", "-C", str(work_dir), "fetch", "origin", f"refs/pull/{number}/merge:pr-{number}-merge"],
-        allow_failure=True,
+    merge_fetch = run_github_git(
+        ctx, ["-C", str(work_dir), "fetch", "origin", f"refs/pull/{number}/merge:pr-{number}-merge"]
     )
     if merge_fetch.returncode == 0:
         merge_sha = run(["git", "-C", str(work_dir), "rev-parse", f"pr-{number}-merge"], allow_failure=True)
@@ -767,11 +800,11 @@ def checkout_repo(
     work_dir = ctx.round_dir / "work" / "code" / slug
     ensure_clean_target(work_dir, refresh=ctx.refresh, kind="repository checkout directory")
     work_dir.parent.mkdir(parents=True, exist_ok=True)
-    clone = run(["git", "clone", f"https://github.com/{owner}/{repo_name}.git", str(work_dir)], allow_failure=True)
+    clone = run_github_git(ctx, ["clone", f"https://github.com/{owner}/{repo_name}.git", str(work_dir)])
     if clone.returncode != 0:
-        ctx.limitations.append(f"Could not clone repository `{owner}/{repo_name}`.")
+        ctx.limitations.append(f"Could not clone repository `{owner}/{repo_name}`.{clone_failure_hint(ctx)}")
         return "unavailable", "checkout failed: clone"
-    run(["git", "-C", str(work_dir), "fetch", "--all", "--tags"], allow_failure=True)
+    run_github_git(ctx, ["-C", str(work_dir), "fetch", "--all", "--tags"])
     requested = commit or ref
     if requested:
         checkout = run(["git", "-C", str(work_dir), "checkout", "--detach", requested], allow_failure=True)

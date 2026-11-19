@@ -185,8 +185,8 @@ def test_a_failed_requested_ref_leaves_no_unrecorded_checkout(tmp_path: Path, mo
     round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
     round_dir.mkdir(parents=True)
 
-    def fake_run(args: list[str], *, cwd: Path | None = None, allow_failure: bool = False):
-        if args[:2] == ["git", "clone"]:
+    def fake_run(args: list[str], **kwargs: object):
+        if "clone" in args:
             target = Path(args[-1])
             target.mkdir(parents=True)
             (target / "main.py").write_text("x = 1\n", encoding="utf-8")
@@ -195,7 +195,19 @@ def test_a_failed_requested_ref_leaves_no_unrecorded_checkout(tmp_path: Path, mo
 
     monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
     monkeypatch.setattr(import_github_code, "run", fake_run)
-    ctx = ImportContext(
+    ctx = make_import_context(tmp_path, round_dir)
+
+    status, note = import_github_code.checkout_repo(ctx, "owner", "project", "v-missing", None)
+
+    assert (status, note) == ("unavailable", "checkout failed: requested ref")
+    assert not (round_dir / "work" / "code" / "owner__project__standalone").exists()
+    assert not any((round_dir / "work" / "code").iterdir())
+    assert ctx.workspaces == []
+    assert any("v-missing" in limitation for limitation in ctx.limitations)
+
+
+def make_import_context(tmp_path: Path, round_dir: Path) -> ImportContext:
+    return ImportContext(
         root=tmp_path,
         case_id="case-a",
         round_dir=round_dir,
@@ -208,10 +220,60 @@ def test_a_failed_requested_ref_leaves_no_unrecorded_checkout(tmp_path: Path, mo
         expected_scope="demo",
     )
 
-    status, note = import_github_code.checkout_repo(ctx, "owner", "project", "v-missing", None)
 
-    assert (status, note) == ("unavailable", "checkout failed: requested ref")
-    assert not (round_dir / "work" / "code" / "owner__project__standalone").exists()
-    assert not any((round_dir / "work" / "code").iterdir())
-    assert ctx.workspaces == []
-    assert any("v-missing" in limitation for limitation in ctx.limitations)
+def test_confirmed_gh_auth_gives_every_github_git_call_its_credentials(tmp_path: Path, monkeypatch) -> None:
+    """A private repository cloned only after the operator passed a credential helper by hand."""
+    from thesis_review_workflow.cli import import_github_code
+
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    calls: list[tuple[list[str], object]] = []
+
+    def fake_run(args: list[str], **kwargs: object):
+        calls.append((args, kwargs.get("env")))
+        if "clone" in args:
+            target = Path(args[-1])
+            target.mkdir(parents=True)
+            (target / "main.py").write_text("x = 1\n", encoding="utf-8")
+        return import_github_code.CommandResult(args=args, returncode=0, stdout="gh version x\n", stderr="")
+
+    monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
+    monkeypatch.setattr(import_github_code, "run", fake_run)
+    ctx = make_import_context(tmp_path, round_dir)
+
+    toolchain = import_github_code.summarize_toolchain(ctx)
+    import_github_code.checkout_repo(ctx, "owner", "private-project", None, None)
+
+    assert toolchain["gh_auth"] == "authenticated"
+    network = [(args, env) for args, env in calls if "clone" in args or "fetch" in args]
+    assert len(network) == 2
+    for args, env in network:
+        assert args[:5] == ["git", *import_github_code.GH_GIT_CREDENTIAL_ARGS]
+        assert env == {"GIT_TERMINAL_PROMPT": "0"}
+
+
+def test_unconfirmed_gh_auth_leaves_git_credentials_alone_and_says_why_a_clone_failed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from thesis_review_workflow.cli import import_github_code
+
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object):
+        calls.append(args)
+        failed = args[:3] == ["gh", "auth", "status"] or "clone" in args
+        return import_github_code.CommandResult(args=args, returncode=1 if failed else 0, stdout="", stderr="")
+
+    monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
+    monkeypatch.setattr(import_github_code, "run", fake_run)
+    ctx = make_import_context(tmp_path, round_dir)
+
+    import_github_code.summarize_toolchain(ctx)
+    status, _ = import_github_code.checkout_repo(ctx, "owner", "private-project", None, None)
+
+    assert status == "unavailable"
+    clone = next(args for args in calls if "clone" in args)
+    assert clone[:2] == ["git", "clone"]
+    assert any("gh auth login" in limitation for limitation in ctx.limitations)

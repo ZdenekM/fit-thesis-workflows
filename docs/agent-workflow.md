@@ -73,7 +73,15 @@ nonzero-exit propagation (it exits non-zero rather than silently skipping if
 scripts/agent-review --staged                 # review staged changes
 scripts/agent-review --base main               # review this branch vs main
 scripts/agent-review --profile plan-critic plans/foo_plan.md   # extra focus text
+scripts/agent-review --base main --effort xhigh \
+  --output-schema <findings-schema.json> --output <ignored-path>.json   # structured findings
 ```
+
+`--output-schema` hands a JSON Schema to `codex exec --output-schema`, so the
+final message is a JSON object (the wrapper then requires a non-empty `verdict`
+field instead of the `Verdict:` line); use it when the findings feed a tool that
+checks citations, such as a maintainer's review ledger. `--effort` sets the
+Codex reasoning effort for the run; without it the repo/user default applies.
 
 Prefer this over ad-hoc `codex exec` so reviews share one target/sandbox/approval
 contract. A plugin or IDE integration should call this surface rather than

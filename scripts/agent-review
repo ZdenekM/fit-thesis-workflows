@@ -23,6 +23,8 @@ staged_only=0
 output_file=""
 timeout_secs=1800
 model=""
+effort=""
+output_schema=""
 
 usage() {
   cat <<'USAGE'
@@ -39,6 +41,12 @@ Options:
   --output FILE     Also write the reviewer's final message to FILE.
   --timeout SECS    Kill the review after SECS seconds (default: 1800).
   --model MODEL     Override the Codex model.
+  --effort LEVEL    Override the Codex reasoning effort (e.g. high, xhigh).
+  --output-schema FILE
+                    Ask for the final message as JSON conforming to the JSON
+                    Schema in FILE (passed to codex exec --output-schema); the
+                    review then needs a non-empty "verdict" string instead of
+                    the Verdict line.
   -h, --help        Show this help.
 
 Any remaining arguments are appended to the review prompt as extra focus.
@@ -50,25 +58,75 @@ USAGE
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --profile) profile="${2:?--profile needs a value}"; shift 2 ;;
-    --base) base_ref="${2:?--base needs a value}"; shift 2 ;;
-    --staged) staged_only=1; shift ;;
-    --output) output_file="${2:?--output needs a value}"; shift 2 ;;
-    --timeout) timeout_secs="${2:?--timeout needs a value}"; shift 2 ;;
-    --model) model="${2:?--model needs a value}"; shift 2 ;;
-    -h|--help) usage; exit 0 ;;
-    --) shift; break ;;
-    -*) echo "agent-review: unknown option: $1" >&2; usage >&2; exit 2 ;;
+    --profile)
+      profile="${2:?--profile needs a value}"
+      shift 2
+      ;;
+    --base)
+      base_ref="${2:?--base needs a value}"
+      shift 2
+      ;;
+    --staged)
+      staged_only=1
+      shift
+      ;;
+    --output)
+      output_file="${2:?--output needs a value}"
+      shift 2
+      ;;
+    --timeout)
+      timeout_secs="${2:?--timeout needs a value}"
+      shift 2
+      ;;
+    --model)
+      model="${2:?--model needs a value}"
+      shift 2
+      ;;
+    --effort)
+      effort="${2:?--effort needs a value}"
+      shift 2
+      ;;
+    --output-schema)
+      output_schema="${2:?--output-schema needs a value}"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "agent-review: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
     *) break ;;
   esac
 done
 extra_focus="$*"
 
 case "$timeout_secs" in
-  ''|*[!0-9]*) echo "agent-review: --timeout must be a positive integer (seconds)." >&2; exit 2 ;;
+  '' | *[!0-9]*)
+    echo "agent-review: --timeout must be a positive integer (seconds)." >&2
+    exit 2
+    ;;
 esac
 if [ "$timeout_secs" -le 0 ]; then
   echo "agent-review: --timeout must be greater than 0 (GNU timeout treats 0 as no limit)." >&2
+  exit 2
+fi
+
+case "$effort" in
+  *[!a-z]*)
+    echo "agent-review: --effort must be a lowercase level name." >&2
+    exit 2
+    ;;
+esac
+if [ -n "$output_schema" ] && [ ! -f "$output_schema" ]; then
+  echo "agent-review: --output-schema file not found: $output_schema" >&2
   exit 2
 fi
 
@@ -107,6 +165,18 @@ change; and missing or misleading verification. Exclude pure style preferences.
 
 ${extra_focus}
 
+PROMPT
+
+if [ -n "$output_schema" ]; then
+  read -r -d '' report_contract <<'CONTRACT' || true
+Return the review as one JSON object conforming to the output schema supplied
+with this run. For each finding give the file relative to the repository root,
+the cited line range, a concrete failure scenario and the smallest reasonable
+fix, and copy evidence_quote verbatim from one of the cited lines. Put the
+single most important thing to fix first.
+CONTRACT
+else
+  read -r -d '' report_contract <<'CONTRACT' || true
 For each finding provide: severity (P0-P3), confidence, file:line, a concrete
 failure scenario, repo evidence, and the smallest reasonable fix. State the
 single most important thing to fix, then end with a final line in exactly this
@@ -114,7 +184,11 @@ form (one of the three allowed values, nothing after it):
 Verdict: pass
 Verdict: changes_required
 Verdict: needs_human
-PROMPT
+CONTRACT
+fi
+prompt="${prompt}
+
+${report_contract}"
 
 # Always capture the reviewer's final message so we can fail CLOSED on an empty
 # or missing review: a zero exit status must not be mistaken for "review done".
@@ -143,6 +217,12 @@ fi
 if [ -n "$model" ]; then
   set -- "$@" -m "$model"
 fi
+if [ -n "$effort" ]; then
+  set -- "$@" -c "model_reasoning_effort=\"$effort\""
+fi
+if [ -n "$output_schema" ]; then
+  set -- "$@" --output-schema "$output_schema"
+fi
 set -- "$@" "$prompt"
 
 echo "agent-review: profile=$profile target=$target_desc timeout=${timeout_secs}s" >&2
@@ -159,7 +239,15 @@ fi
 # Require an explicit allowed verdict tied to the "verdict" label (tolerant of
 # markdown decoration), so an empty message, "Verdict: inconclusive", or a stray
 # "tests pass" cannot satisfy the gate.
-if [ ! -s "$result_file" ] || ! grep -qiE 'verdict[^a-z]+(pass|changes_required|needs_human)\b' "$result_file"; then
+if [ -n "$output_schema" ]; then
+  if ! python3 -c 'import json, sys
+review = json.load(open(sys.argv[1], encoding="utf-8"))
+verdict = review.get("verdict") if isinstance(review, dict) else None
+sys.exit(0 if isinstance(verdict, str) and verdict.strip() else 1)' "$result_file" 2>/dev/null; then
+    echo "agent-review: Codex returned no usable structured review (not a JSON object with a non-empty verdict); failing closed." >&2
+    exit 4
+  fi
+elif [ ! -s "$result_file" ] || ! grep -qiE 'verdict[^a-z]+(pass|changes_required|needs_human)\b' "$result_file"; then
   echo "agent-review: Codex returned no usable review (missing an explicit pass/changes_required/needs_human verdict); failing closed." >&2
   exit 4
 fi
