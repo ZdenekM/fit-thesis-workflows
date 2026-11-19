@@ -41,6 +41,12 @@ Avoid:
 - Use previous rounds as evidence, but do not repeat resolved feedback.
 - In late phases, prioritize blockers, technical truth, reproducibility,
   submission artifacts, and defense readiness.
+- Semestral defence (FIT): a BP student has no institutionally prescribed
+  submission; what is shown and in what form is up to the supervisor (and the
+  assignment's semestral field), so the supervisor's own expectations live in
+  the local profile layer. A DP student submits a text of roughly half the
+  final extent. Do not call missing thesis text a BP semestral risk unless the
+  supervisor asks for text; for a DP it is one.
 
 ## Supervisor Report Style
 
