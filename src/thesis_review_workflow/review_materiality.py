@@ -363,14 +363,18 @@ def evaluation_table_paths(round_dir: Path) -> list[str]:
     return paths
 
 
-def github_snapshot_records_code_checkout(round_dir: Path) -> bool:
-    """Whether `import-github-code`'s snapshot manifest fingerprints a checkout under `work/code`."""
-    manifest, _ = load_json_object(round_dir / GITHUB_SNAPSHOT_REL)
+def github_snapshot_records_code_checkout(round_dir: Path) -> tuple[bool, list[str]]:
+    """Whether `import-github-code`'s snapshot manifest fingerprints a checkout under `work/code`.
+
+    Returns the manifest's load errors too, so a corrupt manifest is reported as such rather
+    than as code that no producer recorded.
+    """
+    manifest, errors = load_json_object(round_dir / GITHUB_SNAPSHOT_REL)
     if manifest is None:
-        return False
+        return False, errors
     records = manifest.get("checkout_paths")
     if not isinstance(records, list):
-        return False
+        return False, []
     return any(
         isinstance(record, dict)
         and record.get("available") is True
@@ -378,7 +382,7 @@ def github_snapshot_records_code_checkout(round_dir: Path) -> bool:
         and record["path"].startswith("work/code/")
         and is_safe_round_relative_path(record["path"])
         for record in records
-    )
+    ), []
 
 
 def github_structured_refs(round_dir: Path) -> list[str]:
@@ -651,24 +655,29 @@ def build_materiality_decisions(
     # A checked-out repository is code evidence even before `prepare-code-workspace` runs,
     # with `code_workspace_holds_code` deciding whether there is anything there at all. Every
     # source ref must be a file whose hash records the evidence, so the refs are the
-    # producer's record of the workspace, never the directory itself: the prepare markers
-    # when they exist, and otherwise the snapshot manifest in which `import-github-code`
-    # fingerprints each checkout it made under `work/code`. Code that neither producer
-    # recorded has no hashable source, so the round is stopped with the command that
-    # records it rather than with a hash error that names no fix.
+    # producers' records of the workspace, never the directory itself: the prepare markers
+    # when they exist, plus the snapshot manifest in which `import-github-code` fingerprints
+    # each checkout it made under `work/code`. Both are kept when both exist, because markers
+    # from a preparation that ran before the import do not fingerprint the checkout, and a
+    # later re-import must still make the code decisions stale. Code that neither producer
+    # recorded has no hashable source, so the round is stopped with the command that records
+    # it rather than with a hash error that names no fix.
     code_refs: list[str] = []
     code_reason = "prepared code workspace evidence exists"
     if code_workspace_holds_code(round_dir):
         code_refs = first_existing(round_dir, CODE_WORKSPACE_PATHS)
-        if not code_refs and github_snapshot_records_code_checkout(round_dir):
-            code_refs = [GITHUB_SNAPSHOT_REL.as_posix()]
-            code_reason = "a GitHub checkout recorded by import-github-code exists under work/code"
-        if not code_refs:
+        snapshot_records_checkout, snapshot_errors = github_snapshot_records_code_checkout(round_dir)
+        errors.extend(snapshot_errors)
+        if snapshot_records_checkout:
+            if not code_refs:
+                code_reason = "a GitHub checkout recorded by import-github-code exists under work/code"
+            code_refs.append(GITHUB_SNAPSHOT_REL.as_posix())
+        if not code_refs and not snapshot_errors:
             errors.append(
                 "work/code holds code that no producer recorded: neither the prepare-code-workspace "
                 f"markers nor a {GITHUB_SNAPSHOT_REL.as_posix()} checkout record exist; run "
-                "scripts/prepare-code-workspace <case-id> [round-id] (or re-run "
-                "scripts/import-github-code) so the code evidence has a hashable source"
+                "scripts/prepare-code-workspace <case-id> [round-id] so the code evidence has a "
+                "hashable source"
             )
     if code_refs:
         for role in ("code_consistency", "code_quality"):

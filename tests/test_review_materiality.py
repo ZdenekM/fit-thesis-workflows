@@ -1988,7 +1988,8 @@ def test_a_checked_out_repository_is_code_evidence_without_a_prepare_marker(tmp_
     assert stored["source_sha256"] == {"work/github-intake/snapshot-manifest.json": sha256_file(snapshot)}
 
 
-def test_prepare_markers_win_over_the_github_snapshot_as_code_refs(tmp_path: Path) -> None:
+def test_code_refs_keep_the_github_snapshot_next_to_earlier_prepare_markers(tmp_path: Path) -> None:
+    """Markers from a preparation that ran before the import do not fingerprint the checkout."""
     round_dir = make_round(tmp_path)
     write_github_checkout(round_dir)
     write_code_workspace(round_dir, sources={}, code_file=False)
@@ -2002,7 +2003,11 @@ def test_prepare_markers_win_over_the_github_snapshot_as_code_refs(tmp_path: Pat
 
     assert errors == []
     code = next(decision for decision in decisions if decision.role == "code_consistency")
-    assert code.source_refs == ("work/code/.prepare-code-workspace-manifest.json", "work/code_workspace.md")
+    assert code.source_refs == (
+        "work/code/.prepare-code-workspace-manifest.json",
+        "work/code_workspace.md",
+        "work/github-intake/snapshot-manifest.json",
+    )
 
 
 def test_code_no_producer_recorded_stops_with_the_command_that_records_it(tmp_path: Path) -> None:
@@ -2026,6 +2031,23 @@ def test_code_no_producer_recorded_stops_with_the_command_that_records_it(tmp_pa
 
         assert len(errors) == 1, recorded_elsewhere
         assert "scripts/prepare-code-workspace" in errors[0]
+
+
+def test_a_corrupt_github_snapshot_is_reported_as_corrupt(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_github_checkout(round_dir)
+    (round_dir / "work" / "github-intake" / "snapshot-manifest.json").write_text("{", encoding="utf-8")
+
+    _, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert len(errors) == 1
+    assert "snapshot-manifest.json" in errors[0]
+    assert "no producer recorded" not in errors[0]
 
 
 def test_github_intake_inventories_are_not_evaluation_tables(tmp_path: Path) -> None:

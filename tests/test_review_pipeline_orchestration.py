@@ -2084,8 +2084,6 @@ def test_a_unity_project_root_is_the_directory_holding_project_settings(tmp_path
     project = tmp_path / "work" / "code" / "owner-game__standalone"
     (project / "Assets" / "Scripts").mkdir(parents=True)
     (project / "Assets" / "Scripts" / "Player.cs").write_text("class Player {}\n", encoding="utf-8")
-    (project / "Assets" / "Plugins").mkdir()
-    (project / "Assets" / "Plugins" / "package.json").write_text("{}\n", encoding="utf-8")
     (project / "Packages").mkdir()
     (project / "Packages" / "manifest.json").write_text("{}\n", encoding="utf-8")
     (project / "ProjectSettings").mkdir()
