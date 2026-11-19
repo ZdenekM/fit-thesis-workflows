@@ -314,8 +314,13 @@ def test_run_adds_the_given_environment_to_the_inherited_one(monkeypatch) -> Non
     assert result.stdout.split() == ["0", "kept"]
 
 
-def test_remove_tree_removes_read_only_git_objects(tmp_path: Path) -> None:
-    """Git writes pack files read-only; on Windows a plain rmtree aborts the import on them."""
+def test_remove_tree_removes_read_only_git_objects(tmp_path: Path, monkeypatch) -> None:
+    """Git writes pack files read-only; on Windows a plain rmtree aborts the import on them.
+
+    POSIX deletes a read-only file from a writable directory, so the Windows rule is
+    simulated: unlinking a file without its write bit fails until the bit is restored.
+    """
+    import os
     import stat
 
     from thesis_review_workflow.cli import import_github_code
@@ -324,7 +329,20 @@ def test_remove_tree_removes_read_only_git_objects(tmp_path: Path) -> None:
     pack.parent.mkdir(parents=True)
     pack.write_bytes(b"x")
     pack.chmod(stat.S_IREAD)
+    real_unlink = os.unlink
+    refused: list[str] = []
+
+    def windows_like_unlink(path, *args, **kwargs):
+        dir_fd = kwargs.get("dir_fd")
+        mode = os.stat(path, dir_fd=dir_fd).st_mode if dir_fd is not None else os.stat(path).st_mode
+        if not mode & stat.S_IWRITE:
+            refused.append(str(path))
+            raise PermissionError(13, "Access is denied", str(path))
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "unlink", windows_like_unlink)
 
     import_github_code.remove_tree(tmp_path / "clone")
 
+    assert refused
     assert not (tmp_path / "clone").exists()
