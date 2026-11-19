@@ -176,3 +176,42 @@ def test_github_snapshot_manifest_hashes_changed_files_checks_and_checkout(tmp_p
     assert manifest["checks_summary_sha256"]
     assert checkout_paths[0]["path"] == "work/code/owner__project__pr-123"
     assert checkout_paths[0]["sha256"]
+
+
+def test_a_failed_requested_ref_leaves_no_unrecorded_checkout(tmp_path: Path, monkeypatch) -> None:
+    """The clone holds the default branch; leaving it would make the wrong revision reviewable."""
+    from thesis_review_workflow.cli import import_github_code
+
+    round_dir = tmp_path / "cases" / "case-a" / "rounds" / "round-a"
+    round_dir.mkdir(parents=True)
+
+    def fake_run(args: list[str], *, cwd: Path | None = None, allow_failure: bool = False):
+        if args[:2] == ["git", "clone"]:
+            target = Path(args[-1])
+            target.mkdir(parents=True)
+            (target / "main.py").write_text("x = 1\n", encoding="utf-8")
+        returncode = 1 if "checkout" in args else 0
+        return import_github_code.CommandResult(args=args, returncode=returncode, stdout="", stderr="")
+
+    monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
+    monkeypatch.setattr(import_github_code, "run", fake_run)
+    ctx = ImportContext(
+        root=tmp_path,
+        case_id="case-a",
+        round_dir=round_dir,
+        round_rel=Path("cases/case-a/rounds/round-a"),
+        timestamp="2026-05-13T12:00:00Z",
+        refresh=False,
+        no_checkout=False,
+        student_login="student",
+        discovery_author=None,
+        expected_scope="demo",
+    )
+
+    status, note = import_github_code.checkout_repo(ctx, "owner", "project", "v-missing", None)
+
+    assert (status, note) == ("unavailable", "checkout failed: requested ref")
+    assert not (round_dir / "work" / "code" / "owner__project__standalone").exists()
+    assert not any((round_dir / "work" / "code").iterdir())
+    assert ctx.workspaces == []
+    assert any("v-missing" in limitation for limitation in ctx.limitations)

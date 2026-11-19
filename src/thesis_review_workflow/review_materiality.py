@@ -378,9 +378,13 @@ def github_snapshot_records_code_checkout(round_dir: Path) -> tuple[bool, list[s
     return any(
         isinstance(record, dict)
         and record.get("available") is True
+        and isinstance(record.get("sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None
         and isinstance(record.get("path"), str)
         and record["path"].startswith("work/code/")
         and is_safe_round_relative_path(record["path"])
+        # A record vouches only for a checkout still on disk, not for whatever replaced it.
+        and (round_dir / record["path"]).is_dir()
         for record in records
     ), []
 

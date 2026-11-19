@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 from thesis_review_workflow.cli import check_review_materiality
@@ -2031,6 +2032,25 @@ def test_code_no_producer_recorded_stops_with_the_command_that_records_it(tmp_pa
 
         assert len(errors) == 1, recorded_elsewhere
         assert "scripts/prepare-code-workspace" in errors[0]
+
+
+def test_a_snapshot_record_does_not_vouch_for_code_that_replaced_its_checkout(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    checkout = write_github_checkout(round_dir)
+    shutil.rmtree(checkout)
+    other = round_dir / "work" / "code" / "unpacked"
+    other.mkdir()
+    (other / "main.py").write_text("x = 1\n", encoding="utf-8")
+
+    _, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert len(errors) == 1
+    assert "no producer recorded" in errors[0]
 
 
 def test_a_corrupt_github_snapshot_is_reported_as_corrupt(tmp_path: Path) -> None:

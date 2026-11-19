@@ -776,6 +776,9 @@ def checkout_repo(
     if requested:
         checkout = run(["git", "-C", str(work_dir), "checkout", "--detach", requested], allow_failure=True)
         if checkout.returncode != 0:
+            # The clone holds the default branch, not the requested revision. Leaving it would
+            # make unrecorded code look reviewable to materiality and prepare-code-workspace.
+            shutil.rmtree(work_dir)
             ctx.limitations.append(f"Could not checkout requested ref `{requested}` in `{owner}/{repo_name}`.")
             return "unavailable", "checkout failed: requested ref"
     sha = run(["git", "-C", str(work_dir), "rev-parse", "HEAD"], allow_failure=True).stdout.strip()

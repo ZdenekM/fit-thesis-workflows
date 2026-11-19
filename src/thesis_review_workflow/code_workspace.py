@@ -783,7 +783,10 @@ def safe_copy_input_dir(source: Path, target: Path) -> tuple[int, list[str]]:
 
 
 def suggest_commands(inventory: DirectoryInventory) -> list[str]:
-    manifests = {Path(item).name for item in inventory.dependencies}
+    # Commands run from the root, so only manifests at the root decide them; a nested one
+    # (an embedded Unity package's `package.json`, a vendored frontend) would point a root
+    # command at a directory that cannot run it.
+    manifests = {item for item in inventory.dependencies if "/" not in item}
     languages = inventory.languages
     commands: list[str] = []
     if "python" in languages:
