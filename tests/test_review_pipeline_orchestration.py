@@ -2102,6 +2102,19 @@ def test_a_unity_project_root_is_the_directory_holding_project_settings(tmp_path
     assert not any(command.startswith("npm") for command in suggest_commands(roots[0]))
 
 
+def test_a_unity_project_without_scripts_still_has_its_root(tmp_path: Path) -> None:
+    """The marker is explicit, so a shader- or graph-only project keeps its root."""
+    project = tmp_path / "work" / "code" / "owner-shaders__standalone"
+    (project / "Assets").mkdir(parents=True)
+    (project / "Assets" / "Water.shadergraph").write_text("{}\n", encoding="utf-8")
+    (project / "Packages").mkdir()
+    (project / "Packages" / "manifest.json").write_text("{}\n", encoding="utf-8")
+    (project / "ProjectSettings").mkdir()
+    (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: x\n", encoding="utf-8")
+
+    assert [inventory.path for inventory in likely_project_roots(tmp_path / "work" / "code")] == [project]
+
+
 def test_smoke_commands_come_from_root_level_manifests_only(tmp_path: Path) -> None:
     (tmp_path / "frontend").mkdir()
     (tmp_path / "frontend" / "package.json").write_text("{}\n", encoding="utf-8")

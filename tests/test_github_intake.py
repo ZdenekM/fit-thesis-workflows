@@ -242,15 +242,16 @@ def test_confirmed_gh_auth_gives_every_github_git_call_its_credentials(tmp_path:
     ctx = make_import_context(tmp_path, round_dir)
 
     toolchain = import_github_code.summarize_toolchain(ctx)
-    import_github_code.checkout_repo(ctx, "owner", "private-project", None, None)
+    import_github_code.checkout_repo(ctx, "owner", "private-project", "v1", None)
 
     assert toolchain["gh_auth"] == "authenticated"
-    assert ["gh", "auth", "status", "--hostname", "github.com"] in [args for args, _ in calls]
-    network = [(args, env) for args, env in calls if "clone" in args or "fetch" in args]
-    assert len(network) == 2
+    assert ["gh", "api", "--hostname", "github.com", "user", "--jq", ".login"] in [args for args, _ in calls]
+    # A checkout counts as network: a Git LFS smudge downloads objects during it.
+    network = [(args, env) for args, env in calls if {"clone", "fetch", "checkout"} & set(args)]
+    assert len(network) == 3
     for args, env in network:
-        assert args[:5] == ["git", *import_github_code.GH_GIT_CREDENTIAL_ARGS]
-        assert env == {"GIT_TERMINAL_PROMPT": "0"}
+        assert args[:7] == ["git", "-c", "core.askPass=", *import_github_code.GH_GIT_CREDENTIAL_ARGS]
+        assert env == {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "GCM_INTERACTIVE": "never"}
 
 
 def test_unconfirmed_gh_auth_leaves_git_credentials_alone_and_says_why_a_clone_failed(
@@ -264,7 +265,7 @@ def test_unconfirmed_gh_auth_leaves_git_credentials_alone_and_says_why_a_clone_f
 
     def fake_run(args: list[str], **kwargs: object):
         calls.append(args)
-        failed = args[:3] == ["gh", "auth", "status"] or "clone" in args
+        failed = args[:2] == ["gh", "api"] or "clone" in args
         return import_github_code.CommandResult(args=args, returncode=1 if failed else 0, stdout="", stderr="")
 
     monkeypatch.setattr(import_github_code, "command_available", lambda name: True)
@@ -276,7 +277,7 @@ def test_unconfirmed_gh_auth_leaves_git_credentials_alone_and_says_why_a_clone_f
 
     assert status == "unavailable"
     clone = next(args for args in calls if "clone" in args)
-    assert clone[:2] == ["git", "clone"]
+    assert clone[:4] == ["git", "-c", "core.askPass=", "clone"]
     assert any("gh auth login" in limitation for limitation in ctx.limitations)
 
 
@@ -311,3 +312,19 @@ def test_run_adds_the_given_environment_to_the_inherited_one(monkeypatch) -> Non
     result = import_github_code.run([sys.executable, "-c", script], env={"GIT_TERMINAL_PROMPT": "0"})
 
     assert result.stdout.split() == ["0", "kept"]
+
+
+def test_remove_tree_removes_read_only_git_objects(tmp_path: Path) -> None:
+    """Git writes pack files read-only; on Windows a plain rmtree aborts the import on them."""
+    import stat
+
+    from thesis_review_workflow.cli import import_github_code
+
+    pack = tmp_path / "clone" / ".git" / "objects" / "pack" / "pack-x.pack"
+    pack.parent.mkdir(parents=True)
+    pack.write_bytes(b"x")
+    pack.chmod(stat.S_IREAD)
+
+    import_github_code.remove_tree(tmp_path / "clone")
+
+    assert not (tmp_path / "clone").exists()

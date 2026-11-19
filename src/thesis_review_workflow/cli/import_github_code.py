@@ -13,6 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from stat import S_IWRITE
 from typing import Any, NoReturn
 
 from thesis_review_workflow.github_intake import (
@@ -258,14 +259,37 @@ GH_GIT_CREDENTIAL_ARGS = (
     "-c",
     "credential.https://github.com.helper=!gh auth git-credential",
 )
-# A missing credential must fail the command and become a limitation, not wait for a
-# username on a terminal nobody is watching.
-NONINTERACTIVE_GIT_ENV = {"GIT_TERMINAL_PROMPT": "0"}
+# A missing credential must fail the command and become a limitation, not wait for an
+# answer nobody gives: no terminal prompt, no askpass program (an empty value stops git
+# from trying one, and `core.askPass=` below covers a platform that drops empty variables),
+# and no interactive Git Credential Manager dialog. Stored credentials still work.
+NONINTERACTIVE_GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "GCM_INTERACTIVE": "never"}
+NONINTERACTIVE_GIT_ARGS = ("-c", "core.askPass=")
 
 
 def run_github_git(ctx: ImportContext, args: list[str]) -> CommandResult:
-    """Run a git command that talks to github.com, with gh's credentials when confirmed."""
-    return run(["git", *ctx.git_credential_args, *args], allow_failure=True, env=NONINTERACTIVE_GIT_ENV)
+    """Run a git command that may talk to github.com, with gh's credentials when confirmed.
+
+    Checkouts count too: a Git LFS smudge downloads objects during checkout.
+    """
+    return run(
+        ["git", *NONINTERACTIVE_GIT_ARGS, *ctx.git_credential_args, *args],
+        allow_failure=True,
+        env=NONINTERACTIVE_GIT_ENV,
+    )
+
+
+def remove_tree(path: Path) -> None:
+    """Remove a checkout, including git's read-only object files on Windows."""
+
+    def clear_read_only_and_retry(function: Any, failed_path: str, *_: object) -> None:
+        os.chmod(failed_path, S_IWRITE)
+        function(failed_path)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=clear_read_only_and_retry)
+    else:
+        shutil.rmtree(path, onerror=clear_read_only_and_retry)
 
 
 def clone_failure_hint(ctx: ImportContext) -> str:
@@ -287,7 +311,7 @@ def ensure_clean_target(path: Path, *, refresh: bool, kind: str) -> None:
             f"{kind} already exists: {path}. Re-run with --refresh to replace this " "case-local GitHub snapshot."
         )
     if path.is_dir():
-        shutil.rmtree(path)
+        remove_tree(path)
     else:
         path.unlink()
 
@@ -458,14 +482,15 @@ def summarize_toolchain(ctx: ImportContext) -> dict[str, str]:
         result = run(["gh", "--version"], allow_failure=True)
         first_line = result.stdout.splitlines()[0] if result.stdout.splitlines() else "available"
         toolchain["gh"] = first_line
-        # Scoped to github.com: an account on another host alone would make the git
-        # credential helper below answer with nothing for every clone.
-        auth = run(["gh", "auth", "status", "--hostname", "github.com"], allow_failure=True)
+        # Ask github.com as the active account, which is the one `gh auth git-credential`
+        # answers with. `gh auth status` is not that question: it also succeeds for an
+        # account on another host only, and fails when an inactive account has expired.
+        auth = run(["gh", "api", "--hostname", "github.com", "user", "--jq", ".login"], allow_failure=True)
         toolchain["gh_auth"] = "authenticated" if auth.returncode == 0 else "unauthenticated_or_unavailable"
         if auth.returncode == 0:
             ctx.git_credential_args = list(GH_GIT_CREDENTIAL_ARGS)
         else:
-            ctx.limitations.append("`gh auth status --hostname github.com` did not confirm authenticated access.")
+            ctx.limitations.append("gh could not confirm authenticated github.com access (`gh api user`).")
     else:
         toolchain["gh"] = "unavailable"
         toolchain["gh_auth"] = "not_checked"
@@ -694,7 +719,7 @@ def checkout_pr(ctx: ImportContext, owner: str, repo_name: str, number: int, met
     if head_fetch.returncode != 0:
         ctx.limitations.append(f"Could not fetch `pull/{number}/head` for PR #{number}.")
         return "checkout failed: head fetch"
-    checkout = run(["git", "-C", str(work_dir), "checkout", "--detach", f"pr-{number}-head"], allow_failure=True)
+    checkout = run_github_git(ctx, ["-C", str(work_dir), "checkout", "--detach", f"pr-{number}-head"])
     if checkout.returncode != 0:
         ctx.limitations.append(f"Could not checkout PR #{number} head.")
         return "checkout failed: head checkout"
@@ -814,11 +839,11 @@ def checkout_repo(
     run_github_git(ctx, ["-C", str(work_dir), "fetch", "--all", "--tags"])
     requested = commit or ref
     if requested:
-        checkout = run(["git", "-C", str(work_dir), "checkout", "--detach", requested], allow_failure=True)
+        checkout = run_github_git(ctx, ["-C", str(work_dir), "checkout", "--detach", requested])
         if checkout.returncode != 0:
             # The clone holds the default branch, not the requested revision. Leaving it would
             # make unrecorded code look reviewable to materiality and prepare-code-workspace.
-            shutil.rmtree(work_dir)
+            remove_tree(work_dir)
             ctx.limitations.append(f"Could not checkout requested ref `{requested}` in `{owner}/{repo_name}`.")
             return "unavailable", "checkout failed: requested ref"
     sha = run(["git", "-C", str(work_dir), "rev-parse", "HEAD"], allow_failure=True).stdout.strip()

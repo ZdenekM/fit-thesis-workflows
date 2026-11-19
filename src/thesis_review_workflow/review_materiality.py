@@ -270,7 +270,7 @@ def load_json_object(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None, []
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return None, [f"{path.name}: cannot read JSON materiality input: {exc}"]
     if not isinstance(loaded, dict):
         return None, [f"{path.name}: JSON materiality input must be an object"]
@@ -375,18 +375,21 @@ def github_snapshot_records_code_checkout(round_dir: Path) -> tuple[bool, list[s
     records = manifest.get("checkout_paths")
     if not isinstance(records, list):
         return False, []
-    return any(
-        isinstance(record, dict)
-        and record.get("available") is True
-        and isinstance(record.get("sha256"), str)
-        and re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None
-        and isinstance(record.get("path"), str)
-        and record["path"].startswith("work/code/")
-        and is_safe_round_relative_path(record["path"])
-        # A record vouches only for a checkout still on disk, not for whatever replaced it.
-        and (round_dir / record["path"]).is_dir()
-        for record in records
-    ), []
+    return (
+        any(
+            isinstance(record, dict)
+            and record.get("available") is True
+            and isinstance(record.get("sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is not None
+            and isinstance(record.get("path"), str)
+            and record["path"].startswith("work/code/")
+            and is_safe_round_relative_path(record["path"])
+            # A record vouches only for a checkout still on disk, not for whatever replaced it.
+            and (round_dir / record["path"]).is_dir()
+            for record in records
+        ),
+        [],
+    )
 
 
 def github_structured_refs(round_dir: Path) -> list[str]:

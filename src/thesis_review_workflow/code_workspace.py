@@ -699,7 +699,9 @@ def likely_project_roots(workspace: Path) -> list[DirectoryInventory]:
         if any(selected.path == path or selected.path in path.parents for selected in inventories):
             continue
         inventory = inventory_directory(path)
-        if inventory.code_like:
+        # An explicit project-root marker keeps the root even when none of its files is
+        # recognised as code, such as a Unity project built from shaders and visual graphs.
+        if inventory.code_like or any((path / marker).is_file() for marker in PROJECT_ROOT_MARKER_FILES):
             inventories.append(inventory)
     return inventories
 

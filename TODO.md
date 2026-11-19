@@ -52,6 +52,12 @@
      never-closed case.
 - [ ] Keep `config/supervisor-deadlines.tsv` current for each academic year before the thesis season starts.
    - Treat this as recurring prerequisite maintenance for supervisor readiness, not optional workflow automation.
+- [ ] Make code-review reports stale when their code evidence changes.
+   - The stored-hash staleness check in `review_materiality.py` visits only `NEXT_ACTION_ROLES`, which excludes `code_consistency` and `code_quality`, so a re-import of the GitHub checkout at a new commit (a changed `work/github-intake/snapshot-manifest.json`) or a re-preparation of `work/code` does not by itself require fresh code reviews.
+   - Record the code evidence hash each code report was written against and require a fresh review when it differs; test a refresh from commit A to B with both reports from A still present.
+- [ ] Tie each code root under `work/code` to the producer that recorded it.
+   - Code refs are currently any existing `prepare-code-workspace` marker plus the GitHub snapshot manifest, so markers from an empty preparation, or a recorded checkout, can vouch for a tree copied in by hand next to them.
+   - Match every code-bearing root to a prepare-manifest target or a recorded checkout, and name the unmatched ones with the command that records them.
 
 ## P1 - Evidence Coverage
 

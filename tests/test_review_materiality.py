@@ -2070,6 +2070,22 @@ def test_a_corrupt_github_snapshot_is_reported_as_corrupt(tmp_path: Path) -> Non
     assert "no producer recorded" not in errors[0]
 
 
+def test_a_snapshot_that_is_not_utf8_is_reported_rather_than_raised(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_github_checkout(round_dir)
+    (round_dir / "work" / "github-intake" / "snapshot-manifest.json").write_bytes(b"\xff\xfe{")
+
+    _, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert len(errors) == 1
+    assert "snapshot-manifest.json" in errors[0]
+
+
 def test_github_intake_inventories_are_not_evaluation_tables(tmp_path: Path) -> None:
     """`changed-files.tsv` is an import inventory; any `.tsv` used to summon the quantitative role."""
     round_dir = make_round(tmp_path)

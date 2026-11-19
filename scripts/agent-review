@@ -244,17 +244,31 @@ fi
 # markdown decoration), so an empty message, "Verdict: inconclusive", or a stray
 # "tests pass" cannot satisfy the gate.
 if [ -n "$output_schema" ]; then
-  # The verdict must be one of the values the schema allows when it lists them, the
-  # structured counterpart of the pass/changes_required/needs_human line check below.
+  # The structured counterpart of the pass/changes_required/needs_human line check below:
+  # every top-level key the schema requires is present, and the verdict is one of the
+  # values the schema lists for it (following a local "#/..." $ref). This is not full
+  # JSON Schema validation, which would need a library this maintainer tool avoids.
+  # shellcheck disable=SC2016 # the single-quoted text is Python, its $ref is a JSON key
   if ! python3 -c 'import json, sys
 review = json.load(open(sys.argv[1], encoding="utf-8"))
 schema = json.load(open(sys.argv[2], encoding="utf-8"))
-verdict = review.get("verdict") if isinstance(review, dict) else None
-spec = schema.get("properties", {}).get("verdict", {}) if isinstance(schema, dict) else {}
+if not isinstance(review, dict) or not isinstance(schema, dict):
+    sys.exit(1)
+if any(key not in review for key in schema.get("required", [])):
+    sys.exit(1)
+spec = schema.get("properties", {}).get("verdict", {})
+for _ in range(10):
+    ref = spec.get("$ref") if isinstance(spec, dict) else None
+    if not (isinstance(ref, str) and ref.startswith("#/")):
+        break
+    spec = schema
+    for part in ref[2:].split("/"):
+        spec = spec.get(part, {}) if isinstance(spec, dict) else {}
 allowed = spec.get("enum") if isinstance(spec, dict) else None
+verdict = review.get("verdict")
 ok = isinstance(verdict, str) and verdict.strip() and (not isinstance(allowed, list) or verdict in allowed)
 sys.exit(0 if ok else 1)' "$result_file" "$output_schema" 2>/dev/null; then
-    echo "agent-review: Codex returned no usable structured review (not a JSON object with an allowed verdict); failing closed." >&2
+    echo "agent-review: Codex returned no usable structured review (a required field is missing or the verdict is not allowed); failing closed." >&2
     exit 4
   fi
 elif [ ! -s "$result_file" ] || ! grep -qiE 'verdict[^a-z]+(pass|changes_required|needs_human)\b' "$result_file"; then
