@@ -7,7 +7,7 @@ from pathlib import Path
 
 from thesis_review_workflow import review_approvals, review_materiality, review_profiles, review_wave_gate
 from thesis_review_workflow.cli import prepare_review_round, review_round_closeout, review_round_start
-from thesis_review_workflow.code_workspace import code_workspace_holds_code
+from thesis_review_workflow.code_workspace import code_workspace_holds_code, likely_project_roots
 from thesis_review_workflow.commands import Step
 from thesis_review_workflow.review_materiality import declared_review_phase_from_trace
 from thesis_review_workflow.review_pipeline_orchestration import (
@@ -2077,6 +2077,23 @@ def test_an_empty_code_workspace_preparation_leaves_the_code_bearing_contract_un
     (workspace / "project" / "main.py").write_text("x = 1\n", encoding="utf-8")
 
     assert code_workspace_holds_code(round_dir)
+
+
+def test_a_unity_project_root_is_the_directory_holding_project_settings(tmp_path: Path) -> None:
+    """Choosing `Assets/` hid `Packages/manifest.json` and the editor version from the reviewers."""
+    project = tmp_path / "work" / "code" / "owner-game__standalone"
+    (project / "Assets" / "Scripts").mkdir(parents=True)
+    (project / "Assets" / "Scripts" / "Player.cs").write_text("class Player {}\n", encoding="utf-8")
+    (project / "Assets" / "Plugins").mkdir()
+    (project / "Assets" / "Plugins" / "package.json").write_text("{}\n", encoding="utf-8")
+    (project / "Packages").mkdir()
+    (project / "Packages" / "manifest.json").write_text("{}\n", encoding="utf-8")
+    (project / "ProjectSettings").mkdir()
+    (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: x\n", encoding="utf-8")
+
+    roots = likely_project_roots(tmp_path / "work" / "code")
+
+    assert [inventory.path for inventory in roots] == [project]
 
 
 def test_a_declaration_can_be_retracted_and_a_github_url_implies_it(tmp_path: Path) -> None:

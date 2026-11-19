@@ -99,6 +99,7 @@ CODE_WORKSPACE_PATHS = (
 )
 GITHUB_EVIDENCE_MARKER_PATHS = ("outputs/github_code_intake.md",)
 GITHUB_EVIDENCE_ROOTS = (Path("inputs/github"), Path("work/github-intake"))
+GITHUB_SNAPSHOT_REL = Path("work/github-intake/snapshot-manifest.json")
 EVALUATION_TABLE_SUFFIXES = {".csv", ".tsv", ".xlsx", ".ods", ".parquet"}
 MEDIA_INVENTORY_REL = Path("work/media_presence_inventory.jsonl")
 VISUAL_INVENTORY_REL = Path("work/figure_media/visual_inventory.jsonl")
@@ -343,15 +344,41 @@ def evidence_requirement_categories(requirements: dict[str, Any] | None) -> dict
 
 
 def evaluation_table_paths(round_dir: Path) -> list[str]:
+    """Tabular files that may hold evaluation results.
+
+    The GitHub intake roots are excluded: `import-github-code` writes its own inventories
+    there (such as `changed-files.tsv`), which describe the import and never hold results.
+    """
     roots = (round_dir / "inputs", round_dir / "work", round_dir / "outputs")
+    intake_roots = tuple(round_dir / root_rel for root_rel in GITHUB_EVIDENCE_ROOTS)
     paths: list[str] = []
     for root in roots:
         if not root.is_dir():
             continue
         for path in sorted(root.rglob("*")):
+            if any(path.is_relative_to(intake_root) for intake_root in intake_roots):
+                continue
             if path.is_file() and path.suffix.lower() in EVALUATION_TABLE_SUFFIXES:
                 paths.append(path.relative_to(round_dir).as_posix())
     return paths
+
+
+def github_snapshot_records_code_checkout(round_dir: Path) -> bool:
+    """Whether `import-github-code`'s snapshot manifest fingerprints a checkout under `work/code`."""
+    manifest, _ = load_json_object(round_dir / GITHUB_SNAPSHOT_REL)
+    if manifest is None:
+        return False
+    records = manifest.get("checkout_paths")
+    if not isinstance(records, list):
+        return False
+    return any(
+        isinstance(record, dict)
+        and record.get("available") is True
+        and isinstance(record.get("path"), str)
+        and record["path"].startswith("work/code/")
+        and is_safe_round_relative_path(record["path"])
+        for record in records
+    )
 
 
 def github_structured_refs(round_dir: Path) -> list[str]:
@@ -621,15 +648,28 @@ def build_materiality_decisions(
             source_refs=[f"operator-request:{role}"],
         )
 
-    # A checked-out repository is code evidence even before `prepare-code-workspace` runs:
-    # `import-github-code` writes no marker, and requiring one made the documented early path
-    # dead-end in `prepare-review-round` with a blocked code-bearing contract and no next
-    # action naming the fix. So the refs are the markers when they exist and the workspace
-    # itself otherwise, with `code_workspace_holds_code` deciding whether there is anything
-    # there at all.
+    # A checked-out repository is code evidence even before `prepare-code-workspace` runs,
+    # with `code_workspace_holds_code` deciding whether there is anything there at all. Every
+    # source ref must be a file whose hash records the evidence, so the refs are the
+    # producer's record of the workspace, never the directory itself: the prepare markers
+    # when they exist, and otherwise the snapshot manifest in which `import-github-code`
+    # fingerprints each checkout it made under `work/code`. Code that neither producer
+    # recorded has no hashable source, so the round is stopped with the command that
+    # records it rather than with a hash error that names no fix.
     code_refs: list[str] = []
+    code_reason = "prepared code workspace evidence exists"
     if code_workspace_holds_code(round_dir):
-        code_refs = first_existing(round_dir, CODE_WORKSPACE_PATHS) or ["work/code"]
+        code_refs = first_existing(round_dir, CODE_WORKSPACE_PATHS)
+        if not code_refs and github_snapshot_records_code_checkout(round_dir):
+            code_refs = [GITHUB_SNAPSHOT_REL.as_posix()]
+            code_reason = "a GitHub checkout recorded by import-github-code exists under work/code"
+        if not code_refs:
+            errors.append(
+                "work/code holds code that no producer recorded: neither the prepare-code-workspace "
+                f"markers nor a {GITHUB_SNAPSHOT_REL.as_posix()} checkout record exist; run "
+                "scripts/prepare-code-workspace <case-id> [round-id] (or re-run "
+                "scripts/import-github-code) so the code evidence has a hashable source"
+            )
     if code_refs:
         for role in ("code_consistency", "code_quality"):
             merge_material(
@@ -637,7 +677,7 @@ def build_materiality_decisions(
                 workflow_profile,
                 role,
                 scope="mandatory_code_bearing_rule",
-                reason="prepared code workspace evidence exists",
+                reason=code_reason,
                 source_refs=code_refs,
             )
 

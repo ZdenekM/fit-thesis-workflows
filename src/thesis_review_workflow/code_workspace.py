@@ -665,12 +665,22 @@ def inventory_directory(path: Path) -> DirectoryInventory:
     return inventory
 
 
+# Files whose presence below a directory marks that directory as a project root even when
+# it holds no dependency manifest of its own. A Unity project keeps its sources under
+# `Assets/`, its package manifest under `Packages/` and its editor version under
+# `ProjectSettings/`, so without this marker the root chosen was `Assets/`, which hides the
+# other two from the reviewers.
+PROJECT_ROOT_MARKER_FILES = (Path("ProjectSettings") / "ProjectVersion.txt",)
+
+
 def likely_project_roots(workspace: Path) -> list[DirectoryInventory]:
     candidates: dict[Path, int] = {}
     for root, dirnames, filenames in os.walk(workspace):
         dirnames[:] = [name for name in dirnames if name not in SAFE_SKIP_DIRS]
         path = Path(root)
         score = 0
+        if any((path / marker).is_file() for marker in PROJECT_ROOT_MARKER_FILES):
+            score += 8
         if any(name in DEPENDENCY_NAMES for name in filenames):
             score += 4
         if any(name.lower().startswith("readme") for name in filenames):

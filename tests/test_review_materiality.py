@@ -70,6 +70,37 @@ def write_code_workspace(round_dir: Path, *, sources: dict[str, object], code_fi
         (workspace / "project" / "main.py").write_text("x = 1\n", encoding="utf-8")
 
 
+def write_github_checkout(round_dir: Path, filename: str = "main.py", *, recorded: bool = True) -> Path:
+    """The shape `import-github-code` leaves: a checkout plus its snapshot fingerprint record."""
+    checkout = round_dir / "work" / "code" / "owner-repo__standalone"
+    checkout.mkdir(parents=True, exist_ok=True)
+    (checkout / filename).write_text("x = 1\n", encoding="utf-8")
+    write_json(
+        round_dir / "work" / "github-intake" / "snapshot-manifest.json",
+        {
+            "schema_version": "github-snapshot-manifest-v1",
+            "repositories": [],
+            "pull_requests": [],
+            "checkout_paths": (
+                [
+                    {
+                        "path": "work/code/owner-repo__standalone",
+                        "available": True,
+                        "kind": "git_index",
+                        "sha256": "0" * 64,
+                    }
+                ]
+                if recorded
+                else []
+            ),
+        },
+    )
+    (round_dir / "work" / "github-intake" / "changed-files.tsv").write_text(
+        "source\tpath\tcategory\n", encoding="utf-8"
+    )
+    return checkout
+
+
 def quantitative_claims_payload() -> dict[str, object]:
     return {
         "schema_version": "quantitative-claims-v1",
@@ -1916,13 +1947,16 @@ def test_code_checked_out_without_a_prepare_manifest_still_counts(tmp_path: Path
 
 
 def test_a_checked_out_repository_is_code_evidence_without_a_prepare_marker(tmp_path: Path) -> None:
-    """import-github-code writes no marker; requiring one dead-ended the documented path."""
-    round_dir = make_round(tmp_path)
-    checkout = round_dir / "work" / "code" / "owner-repo__standalone"
-    checkout.mkdir(parents=True)
-    (checkout / "main.py").write_text("x = 1\n", encoding="utf-8")
+    """import-github-code writes no prepare marker; requiring one dead-ended the documented path.
 
-    decisions, errors, _ = build_materiality_decisions(
+    The ref used to be the `work/code` directory, which `source_sha256` cannot hash, so the
+    written decision failed its own validation before `prepare-code-workspace` had run.
+    The import's snapshot manifest is the file that fingerprints the checkout.
+    """
+    round_dir = make_round(tmp_path)
+    write_github_checkout(round_dir)
+
+    decisions, errors, phase = build_materiality_decisions(
         round_dir,
         case_id="case-a",
         round_id="round-a",
@@ -1933,7 +1967,79 @@ def test_a_checked_out_repository_is_code_evidence_without_a_prepare_marker(tmp_
     code = {decision.role: decision for decision in decisions if decision.role.startswith("code_")}
     assert code["code_consistency"].material
     assert code["code_quality"].material
-    assert code["code_consistency"].source_refs == ("work/code",)
+    assert code["code_consistency"].source_refs == ("work/github-intake/snapshot-manifest.json",)
+
+    write_materiality_decisions(
+        round_dir,
+        decisions,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+        phase=phase,
+        generated_at="2026-05-11T00:00:00Z",
+    )
+    index, index_errors = load_review_materiality_index(
+        round_dir, case_id="case-a", round_id="round-a", workflow_profile="supervisor_feedback"
+    )
+    assert index is not None
+    assert index_errors == []
+    snapshot = round_dir / "work" / "github-intake" / "snapshot-manifest.json"
+    stored = next(item for item in index["decisions"] if item["role"] == "code_consistency")
+    assert stored["source_sha256"] == {"work/github-intake/snapshot-manifest.json": sha256_file(snapshot)}
+
+
+def test_prepare_markers_win_over_the_github_snapshot_as_code_refs(tmp_path: Path) -> None:
+    round_dir = make_round(tmp_path)
+    write_github_checkout(round_dir)
+    write_code_workspace(round_dir, sources={}, code_file=False)
+
+    decisions, errors, _ = build_materiality_decisions(
+        round_dir,
+        case_id="case-a",
+        round_id="round-a",
+        workflow_profile="supervisor_feedback",
+    )
+
+    assert errors == []
+    code = next(decision for decision in decisions if decision.role == "code_consistency")
+    assert code.source_refs == ("work/code/.prepare-code-workspace-manifest.json", "work/code_workspace.md")
+
+
+def test_code_no_producer_recorded_stops_with_the_command_that_records_it(tmp_path: Path) -> None:
+    """A directory has no hash; the round must name the fix instead of failing validation later."""
+    for recorded_elsewhere in (False, True):
+        round_dir = make_round(tmp_path / str(recorded_elsewhere))
+        if recorded_elsewhere:
+            # A snapshot manifest that records no checkout under work/code does not vouch for it.
+            write_github_checkout(round_dir, recorded=False)
+        else:
+            checkout = round_dir / "work" / "code" / "copied"
+            checkout.mkdir(parents=True)
+            (checkout / "main.py").write_text("x = 1\n", encoding="utf-8")
+
+        _, errors, _ = build_materiality_decisions(
+            round_dir,
+            case_id="case-a",
+            round_id="round-a",
+            workflow_profile="supervisor_feedback",
+        )
+
+        assert len(errors) == 1, recorded_elsewhere
+        assert "scripts/prepare-code-workspace" in errors[0]
+
+
+def test_github_intake_inventories_are_not_evaluation_tables(tmp_path: Path) -> None:
+    """`changed-files.tsv` is an import inventory; any `.tsv` used to summon the quantitative role."""
+    round_dir = make_round(tmp_path)
+    write_github_checkout(round_dir)
+    (round_dir / "inputs" / "github" / "prs").mkdir(parents=True)
+    (round_dir / "inputs" / "github" / "prs" / "files.csv").write_text("path\n", encoding="utf-8")
+
+    assert "quantitative_claims" not in material_roles(round_dir)
+
+    (round_dir / "work" / "results.tsv").write_text("run\taccuracy\n", encoding="utf-8")
+
+    assert "quantitative_claims" in material_roles(round_dir)
 
 
 def test_code_evidence_detection_is_language_blind(tmp_path: Path) -> None:
@@ -1944,9 +2050,7 @@ def test_code_evidence_detection_is_language_blind(tmp_path: Path) -> None:
     """
     for index, filename in enumerate(("top.vhd", "main.dart", "run.sh", "app.svelte", "solver.py")):
         round_dir = make_round(tmp_path / str(index))
-        checkout = round_dir / "work" / "code" / "checkout"
-        checkout.mkdir(parents=True)
-        (checkout / filename).write_text("x\n", encoding="utf-8")
+        write_github_checkout(round_dir, filename)
 
         assert {"code_consistency", "code_quality"} <= material_roles(round_dir), filename
 
